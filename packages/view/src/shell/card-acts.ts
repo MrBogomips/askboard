@@ -146,6 +146,16 @@ export type QuestionPhase = LifecycleQuestionStatus["state"] | undefined;
 export const revisionFor = (question: ViewQuestion, work: QuestionWork | undefined): number =>
   Math.min(work?.rev ?? question.rev, question.rev);
 
+/**
+ * Whether an answer of this work names an earlier revision than the question's current one, as
+ * after "Keep mine". The board computes derived values on the current revision only, so such an
+ * answer carries none (keep-mine-shown-revision, design decision 7; NFR-10, AD-10).
+ */
+export const namesEarlierRevision = (
+  question: ViewQuestion,
+  work: QuestionWork | undefined,
+): boolean => revisionFor(question, work) < question.rev;
+
 // The acts that carry the question's content, which a held undo of a sent postpone or decline
 // stays beneath (AD-20).
 const OVER_UNDO: ReadonlySet<HeldAct["act"]> = new Set(["answer", "decline", "note"]);
@@ -253,11 +263,10 @@ export const answer = (question: ViewQuestion, context: AnswerContext): AnswerOu
   // decision 3; form-widget, design decision 5; NFR-10).
   if (blockedBy(question, context)) return undefined;
   const work = board.work(question.id);
-  const content = withDerived(
-    answerContentOf(question, draft.record(), work, results?.record()),
-    derived.reported,
-    itemIdsOf(question),
-  );
+  const held = answerContentOf(question, draft.record(), work, results?.record());
+  const content = namesEarlierRevision(question, work)
+    ? held
+    : withDerived(held, derived.reported, itemIdsOf(question));
   const answers =
     content.choice !== undefined ||
     content.values !== undefined ||

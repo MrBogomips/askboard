@@ -10,6 +10,8 @@
 // Run one engine by hand: ASKBOARD_E2E_ENGINES=webkit ASKBOARD_E2E_TARGET=session-process bun test ./packages/view/test/browser/keep-mine-reload-session.browser.ts
 
 import { describe, expect, test } from "bun:test";
+import { release as releaseGantt } from "./fixtures/gantt-documents.ts";
+import { ganttOf } from "./fixtures/gantt-view.ts";
 import { kanbanAsk, kanbanItem } from "./fixtures/kanban-documents.ts";
 import { planAsk } from "./fixtures/widget-asks.ts";
 import { checkedEvents } from "./harness/approval-board.ts";
@@ -128,6 +130,35 @@ const tryToMove = async (board: Board): Promise<void> => {
 const kanbanValues = (run: Run): readonly unknown[] =>
   sentDrafts(run).map((record) => record.questions.plan?.values?.board);
 
+// The Tree's rename of `ux`, made on revision 1 and mirrored to the board page, and the agent's
+// change of the plan: the tasks of `schedule`, which move its finish and critical path.
+const NEW_NAME = "UX design, reviewed";
+const renameUx = async (run: Run, board: Board): Promise<void> => {
+  const [{ props }] = planAsk.items;
+  const tree = treeGridOf(board);
+  await tabIntoTree(board, props.text);
+  await pressIn(board, "ArrowDown");
+  await pressIn(board, "ArrowRight");
+  await board.page.keyboard.press("F2");
+  await tree.editor.waitFor({ timeout: STEP_TIMEOUT_MS });
+  await board.page.keyboard.type(NEW_NAME);
+  await pressIn(board, "Enter");
+  await eventually(
+    () => sentDrafts(run).some((record) => JSON.stringify(record).includes(NEW_NAME)),
+    "the rename mirrored to the board page",
+  );
+};
+const agentChangesSchedule = (run: Parameters<typeof agentChange>[0]) => {
+  const [, plan] = planAsk.items[0].props.items;
+  return run.session.update([
+    {
+      action: "change",
+      itemId: "schedule",
+      props: { tasks: { ...plan.props.tasks, prototype: { dependencies: [] } } },
+    },
+  ]);
+};
+
 for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
   describe(`${engine}: an edit widget after a reload, on the session process`, () => {
     const { start } = useEngine(engine);
@@ -202,32 +233,14 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
-      "a Tree edited on revision 1 and shown after the reload: read-only with the line, its edit kept, and the answer at revision 1 carries the edit and nothing of the agent's change",
+      "a Tree edited on revision 1 and shown after the reload: read-only with the line, its edit kept, and the answer at revision 1 carries that edit and no derived value",
       async () => {
         const [{ props }] = planAsk.items;
-        const [, plan] = props.items;
         const run = await start(lifecycleScenario(planAsk, dist));
         const board = await openBoard(run, ["plan"]);
         const tree = treeGridOf(board);
-        const NEW_NAME = "UX design, reviewed";
-        await tabIntoTree(board, props.text);
-        await pressIn(board, "ArrowDown");
-        await pressIn(board, "ArrowRight");
-        await board.page.keyboard.press("F2");
-        await tree.editor.waitFor({ timeout: STEP_TIMEOUT_MS });
-        await board.page.keyboard.type(NEW_NAME);
-        await pressIn(board, "Enter");
-        await eventually(
-          () => sentDrafts(run).some((record) => JSON.stringify(record).includes(NEW_NAME)),
-          "the rename mirrored to the board page",
-        );
-        await run.session.update([
-          {
-            action: "change",
-            itemId: "schedule",
-            props: { tasks: { ...plan.props.tasks, prototype: { dependencies: [] } } },
-          },
-        ]);
+        await renameUx(run, board);
+        await agentChangesSchedule(run);
         await notice(board).waitFor({ timeout: STEP_TIMEOUT_MS });
         await reloaded(board, run);
         await notice(board).waitFor({ timeout: STEP_TIMEOUT_MS });
@@ -258,6 +271,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(events[1]?.changes).toEqual([
           { op: "set", target: "wbs.ux.label", value: NEW_NAME },
         ]);
+        // The board computes derived values on the current revision only (design decision 7).
+        expect(Object.hasOwn(events[1] ?? {}, "derived")).toBe(false);
         expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,
@@ -293,6 +308,74 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const answer = events.find((event) => event.type === "answer");
         expect(answer).toMatchObject({ rev: 1 });
         expect(answer?.changes).toEqual([{ op: "set", target: "board.a.column", value: "doing" }]);
+        expectNoCspProblem(run);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a Gantt the agent added after the reload: Keep mine, and the TextField's answer at revision 1 is taken, carrying no derived value",
+      async () => {
+        const run = await start(lifecycleScenario(plainAsk(), dist));
+        const board = await openBoard(run, ["plan"]);
+        await board.view.getByLabel("Who", { exact: true }).fill("Ada");
+        await eventually(
+          () => sentDrafts(run).some((record) => draftHolds([record], "plan", "who", "Ada")),
+          "the field mirrored to the board page",
+        );
+        await run.session.update([
+          {
+            action: "change",
+            itemId: "plan",
+            props: {
+              ...kanbanAsk.items[0].props,
+              items: [who, kanbanItem(), { ...releaseGantt, id: "sched" }],
+            },
+          },
+        ]);
+        await notice(board).waitFor({ timeout: STEP_TIMEOUT_MS });
+        await reloaded(board, run);
+        await notice(board).waitFor({ timeout: STEP_TIMEOUT_MS });
+        // The added Gantt is on the page and reports its derived values for the current revision.
+        await ganttOf(board, "sched").grid.waitFor({ timeout: STEP_TIMEOUT_MS });
+        await button(board, "Keep mine").click();
+        await notice(board).waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
+        await eventually(() => answerOf(board, "plan").isEnabled(), "Answer to be enabled");
+        await answerOf(board, "plan").click({ timeout: STEP_TIMEOUT_MS });
+        await actsDone(run, 2);
+        const events = checkedEvents(await run.session.collectJson());
+        expect(events.map((event) => `${event.type}:${event.rev}`)).toEqual([
+          "edit-choice:2",
+          "answer:1",
+        ]);
+        expect(events[1]?.results).toEqual({ who: "Ada" });
+        expect(Object.hasOwn(events[1] ?? {}, "derived")).toBe(false);
+        expectNoCspProblem(run);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "without a reload, Keep mine on the Tree's rename sends it at revision 1 with no derived value of the agent's schedule",
+      async () => {
+        const run = await start(lifecycleScenario(planAsk, dist));
+        const board = await openBoard(run, ["plan"]);
+        await renameUx(run, board);
+        await agentChangesSchedule(run);
+        await notice(board).waitFor({ timeout: STEP_TIMEOUT_MS });
+        await button(board, "Keep mine").click();
+        await notice(board).waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
+        await answerOf(board, "plan").click({ timeout: STEP_TIMEOUT_MS });
+        await actsDone(run, 2);
+        const events = checkedEvents(await run.session.collectJson());
+        expect(events.map((event) => `${event.type}:${event.rev}`)).toEqual([
+          "edit-choice:2",
+          "answer:1",
+        ]);
+        expect(events[1]?.changes).toEqual([
+          { op: "set", target: "wbs.ux.label", value: NEW_NAME },
+        ]);
+        expect(Object.hasOwn(events[1] ?? {}, "derived")).toBe(false);
         expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,
