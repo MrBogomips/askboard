@@ -1099,6 +1099,18 @@ describe("the Markdown renderer's chunk (document-review, design decision 6; vie
     expect(built.policy).toContain(cspHashSource(chunkNamed("markdown").script.sha256));
   });
 
+  test("a board holding only plain Texts (format plain, and none) inlines the markdown chunk once: the text chunk needs it (task 4.4)", async () => {
+    const plainText = { type: "text", id: "plain", props: { text: "x", format: "plain" } };
+    const bareText = { type: "text", id: "bare", props: { text: "y" } };
+    const board = withItems([plainText, bareText]);
+    const order = names(board);
+    expect(order.filter((name) => name === "markdown")).toHaveLength(1);
+    expect(order.indexOf("markdown")).toBeLessThan(order.indexOf("text"));
+    const built = await assembled(board);
+    expect(occurrences(built.srcdoc, await text(chunkNamed("markdown").script.path))).toBe(1);
+    expect(built.chunks).toContain("markdown");
+  });
+
   test("a board holding a Markdown preview inlines the markdown chunk once, through the text chunk", async () => {
     const board = withPreview("markdown");
     const order = names(board);
