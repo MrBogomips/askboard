@@ -9,6 +9,7 @@ import {
   widgetResultFits,
 } from "@askboard/contract";
 import { DOCUMENT_REVIEW_TYPES, withWidgetTypes } from "@askboard/contract/fixtures";
+import { el, fragment } from "../../test/fake-dom.ts";
 import {
   anchorPassage,
   cardOf,
@@ -20,6 +21,7 @@ import {
   resultOf,
   withCard,
 } from "./model.ts";
+import { readingOfProps } from "./reading.ts";
 
 // The model (document-review, design decisions 4, 8 and 9): the annotations as the user makes
 // them, the refusals of a passage as codes the strings word, the places memoized so that typing
@@ -285,6 +287,33 @@ describe("the places, memoized by the text and the selectors", () => {
     expect(places(`${TEXT} 0`, make(0))).toEqual(first);
   });
 
+  test("a reading object is placed once per list of selectors, 32 items over 4 passes", () => {
+    let calls = 0;
+    const places = createPlaces((text, annotations) => {
+      calls += 1;
+      return placeAnnotations(text, annotations);
+    });
+    const items = Array.from({ length: 32 }, (_, index) => ({
+      reading: { text: TEXT },
+      held: [comment(`u-${index + 1}`, "plan", "a")],
+    }));
+    for (let pass = 0; pass < 4; pass += 1) {
+      for (const { reading, held } of items) places(reading, held);
+    }
+    expect(calls).toBe(32);
+    const [first] = items as [(typeof items)[number]];
+    places(first.reading, [
+      { ...(first.held[0] as DocumentReviewAnnotation), body: { text: "b" } },
+    ]);
+    expect(calls).toBe(32);
+    places(first.reading, [comment("u-1", "drafts", "a")]);
+    expect(calls).toBe(33);
+    for (const { reading, held } of items.slice(1)) places(reading, held);
+    expect(calls).toBe(33);
+    places({ text: TEXT }, first.held);
+    expect(calls).toBe(34);
+  });
+
   test("an unreadable annotation list is detached, never a throw", () => {
     const cyclic: Record<string, unknown> = { id: "u-1" };
     cyclic.target = cyclic;
@@ -294,7 +323,7 @@ describe("the places, memoized by the text and the selectors", () => {
 
 describe("check: detached annotations", () => {
   const props = { markdown: TEXT };
-  const textOf = (markdown: string) => markdown;
+  const textOf = (given: object) => ({ text: (given as { markdown: string }).markdown });
 
   test("gives nothing while every annotation is placed, and with no result", () => {
     expect(check({ annotations: [comment("u-1", "plan", "a")] }, props, textOf)).toBeUndefined();
@@ -332,9 +361,9 @@ describe("check: detached annotations", () => {
 
   test("reads the text through the function it is given, so it and the component agree", () => {
     const read: string[] = [];
-    check({ annotations: [comment("u-1", "plan", "a")] }, props, (markdown) => {
-      read.push(markdown);
-      return markdown;
+    check({ annotations: [comment("u-1", "plan", "a")] }, props, (given) => {
+      read.push((given as { markdown: string }).markdown);
+      return { text: TEXT };
     });
     expect(read).toEqual([TEXT]);
   });
@@ -345,6 +374,49 @@ describe("check: detached annotations", () => {
     }
     expect(check({ annotations: [comment("u-1", "plan", "a")] }, null, textOf)).toBeUndefined();
     expect(check({ annotations: [comment("u-1", "plan", "a")] }, {}, textOf)).toBeUndefined();
+  });
+});
+
+describe("check shares one reading and one placement per props object", () => {
+  test("32 items checked over 4 passes render and place each once; the component's path joins", () => {
+    const rendered: string[] = [];
+    const render = (source: string) => {
+      rendered.push(source);
+      return fragment(el("p", {}, source)) as unknown as DocumentFragment;
+    };
+    const win = {} as never;
+    let placed = 0;
+    const places = createPlaces((text, annotations) => {
+      placed += 1;
+      return placeAnnotations(text, annotations);
+    });
+    const readingFor = (props: object) => readingOfProps(props, win, render);
+    const items = Array.from({ length: 32 }, (_, index) => ({
+      props: { markdown: `${TEXT} ${index}` },
+      result: { annotations: [comment("u-1", "plan", `n${index}`)] },
+    }));
+    for (let pass = 0; pass < 4; pass += 1) {
+      for (const { props, result } of items) {
+        expect(check(result, props, readingFor, places)).toBeUndefined();
+      }
+    }
+    expect(rendered).toHaveLength(32);
+    expect(placed).toBe(32);
+    // The component's path: the same props object and the held annotations.
+    const [first] = items as [(typeof items)[number]];
+    places(readingFor(first.props), first.result.annotations);
+    expect(rendered).toHaveLength(32);
+    expect(placed).toBe(32);
+    // A body change places nothing again.
+    const typed = [{ ...first.result.annotations[0], body: { text: "more" } }];
+    expect(check({ annotations: typed }, first.props, readingFor, places)).toBeUndefined();
+    expect(placed).toBe(32);
+    // An update that replaces the document renders and places once more.
+    const replaced = { markdown: first.props.markdown };
+    check(first.result, replaced, readingFor, places);
+    check(first.result, replaced, readingFor, places);
+    expect(rendered).toHaveLength(33);
+    expect(placed).toBe(33);
   });
 });
 
@@ -359,7 +431,9 @@ describe("a prototype name is text like any other", () => {
     expect(held[0]?.body.text).toBe("__proto__");
     expect(Object.getPrototypeOf(held[0]?.body)).toBe(Object.prototype);
     expect(
-      check({ annotations: held }, { markdown: text }, (markdown) => markdown),
+      check({ annotations: held }, { markdown: text }, (given) => ({
+        text: (given as { markdown: string }).markdown,
+      })),
     ).toBeUndefined();
     expect(placesOf(text, held)[0]).toMatchObject({ status: "placed", start, end });
     expect(resultOf(held)).toEqual({ annotations: held });

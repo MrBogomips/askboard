@@ -6,6 +6,7 @@ import {
   layoutOf,
   type ReadingNode,
   readingOf,
+  readingOfProps,
   readingTextOf,
   selectedOffsets,
 } from "./reading.ts";
@@ -79,6 +80,52 @@ describe("readingOf is cached by source", () => {
     const second = readingOf("same", win, () => fragment(el("p", {}, "B")) as never);
     expect(first.text).toBe("A");
     expect(second.text).toBe("B");
+  });
+});
+
+describe("the reading is kept per item, by its props object", () => {
+  const win = {} as never;
+  const counting = () => {
+    const rendered: string[] = [];
+    const render = (source: string) => {
+      rendered.push(source);
+      return fragment(el("p", {}, `<${source}>`)) as unknown as DocumentFragment;
+    };
+    return { rendered, render };
+  };
+
+  test("32 items read over 4 passes are each rendered once", () => {
+    const { rendered, render } = counting();
+    const items = Array.from({ length: 32 }, (_, index) => ({ markdown: `doc ${index}` }));
+    for (let pass = 0; pass < 4; pass += 1) {
+      for (const props of items) readingOfProps(props, win, render);
+    }
+    expect(rendered).toHaveLength(32);
+    expect(readingOfProps(items[5] as object, win, render).text).toBe("<doc 5>");
+    expect(rendered).toHaveLength(32);
+  });
+
+  test("a new props object with the same markdown (a replaced document) renders once more", () => {
+    const { rendered, render } = counting();
+    const first = { markdown: "same" };
+    const one = readingOfProps(first, win, render);
+    expect(readingOfProps(first, win, render)).toBe(one);
+    const second = { markdown: "same" };
+    expect(readingOfProps(second, win, render)).not.toBe(one);
+    expect(readingOfProps(second, win, render).text).toBe("<same>");
+    expect(rendered).toHaveLength(2);
+  });
+
+  test("a renderer or window other than the cached one reads again", () => {
+    const props = { markdown: "m" };
+    const one = readingOfProps(props, win, () => fragment(el("p", {}, "A")) as never);
+    const two = readingOfProps(props, win, () => fragment(el("p", {}, "B")) as never);
+    expect([one.text, two.text]).toEqual(["A", "B"]);
+  });
+
+  test("props that hold no markdown read as the empty text, never a throw", () => {
+    expect(readingOfProps({}, win, () => undefined).text).toBe("");
+    expect(readingOfProps(null as never, win, () => undefined).text).toBe("");
   });
 });
 

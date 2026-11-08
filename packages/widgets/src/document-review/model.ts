@@ -184,15 +184,19 @@ export const resultOf = (
   annotations: readonly DocumentReviewAnnotation[],
 ): DocumentReviewResult | undefined => (annotations.length === 0 ? undefined : { annotations });
 
-type Place = (text: string, annotations: readonly unknown[]) => readonly AnnotationPlace[];
+/** What the places are made in: a text, or a reading, which stands for its text (kept per object). */
+export type PlaceSource = string | { readonly text: string };
+
+type Place = (source: PlaceSource, annotations: readonly unknown[]) => readonly AnnotationPlace[];
 
 const MEMO_SIZE = 16;
 
-// The memo's key: the text and each annotation's ID and selector, never its body, so that typing
-// in a card does not change it. A list that cannot be written as JSON has no key and no memo.
-const keyOf = (text: string, annotations: readonly unknown[]): string | undefined => {
+// The memo's key: each annotation's ID and selector, never its body, so that typing in a card does
+// not change it, after `prefix` (a text, or nothing for a reading, which is the memo's own key). A
+// list that cannot be written as JSON has no key and no memo.
+const keyOf = (prefix: string, annotations: readonly unknown[]): string | undefined => {
   try {
-    return `${text}\u0000${JSON.stringify(
+    return `${prefix}\u0000${JSON.stringify(
       annotations.map((each) => {
         const record =
           typeof each === "object" && each !== null ? (each as Record<string, unknown>) : {};
@@ -211,15 +215,36 @@ const keyOf = (text: string, annotations: readonly unknown[]): string | undefine
 };
 
 /**
- * A memoized `placeAnnotations` (review verdict 3), given the function it memoizes: the places of
- * a text and a list of annotations are made once while the text and every annotation's ID and
- * selector stay, whatever the bodies say, so that typing in a card places nothing again. A bounded
- * memo, the least recently used entry going first.
+ * A memoized `placeAnnotations` (review verdict 3), given the function it memoizes: the places are
+ * made once while the text and every annotation's ID and selector stay, whatever the bodies say, so
+ * that typing in a card places nothing again. Given a reading object, the last selectors' key and
+ * its places are kept in a `WeakMap` keyed by that object, with no capacity to outgrow and gone with
+ * the reading (review X-1 and U-1 of 5.6); given a bare text, a bounded memo keeps the entries,
+ * the least recently used going first.
  */
-export const createPlaces = (place: Place = placeAnnotations): Place => {
+export const createPlaces = (
+  place: (
+    text: string,
+    annotations: readonly unknown[],
+  ) => readonly AnnotationPlace[] = placeAnnotations,
+): Place => {
   const memo = new Map<string, readonly AnnotationPlace[]>();
-  return (text, annotations) => {
-    const key = keyOf(text, annotations);
+  const perReading = new WeakMap<
+    object,
+    { readonly key: string; readonly places: readonly AnnotationPlace[] }
+  >();
+  return (source, annotations) => {
+    const text = typeof source === "string" ? source : source.text;
+    if (typeof source !== "string") {
+      const key = keyOf("", annotations);
+      if (key === undefined) return place(text, annotations);
+      const known = perReading.get(source);
+      if (known !== undefined && known.key === key) return known.places;
+      const made = place(text, annotations);
+      perReading.set(source, { key, places: made });
+      return made;
+    }
+    const key = keyOf(source, annotations);
     if (key === undefined) return place(text, annotations);
     const known = memo.get(key);
     if (known !== undefined) {
@@ -242,14 +267,16 @@ export type DetachedFailure = { readonly code: "detached"; readonly count: numbe
 
 /**
  * The Document review's field check (decision 8): `{code: "detached", count}` while a held
- * annotation has no place in the reading text `textOf(props.markdown)` (a quote the text lacks,
- * holds twice, or one that overlaps an earlier annotation's), none while every one is placed, with
- * no result, or for a value that is not a review's result or props, which `fits` drops.
+ * annotation has no place in the reading `readingFor(props)` (the item's own, kept per props
+ * object, and placed through the memo the component shares: a quote the text lacks, holds twice,
+ * or one that overlaps an earlier annotation's), none while every one is placed, with no result,
+ * or for a value that is not a review's result or props, which `fits` drops.
  */
 export const check = (
   result: unknown,
   props: unknown,
-  textOf: (markdown: string) => string,
+  readingFor: (props: object) => { readonly text: string },
+  places: Place = placesOf,
 ): DetachedFailure | undefined => {
   if (typeof result !== "object" || result === null) return undefined;
   const annotations = (result as { annotations?: unknown }).annotations;
@@ -258,7 +285,7 @@ export const check = (
       ? (props as { markdown?: unknown }).markdown
       : undefined;
   if (!Array.isArray(annotations) || typeof markdown !== "string") return undefined;
-  const count = placesOf(textOf(markdown), annotations).filter(
+  const count = places(readingFor(props as object), annotations).filter(
     (place) => place.status === "detached",
   ).length;
   return count === 0 ? undefined : { code: "detached", count };

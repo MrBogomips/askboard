@@ -97,8 +97,9 @@ const CACHE_SIZE = 8;
 const cache = new Map<string, { readonly render: Render; readonly reading: Reading }>();
 
 /**
- * The reading of a Markdown source through the shared renderer, cached by source: the component
- * and the chunk's `check` ask for the same text and never render twice. A source the renderer
+ * The reading of a Markdown source through the shared renderer, cached by source in a small
+ * least-recently-used cache, for a caller that has a source and no props object (the item path is
+ * `readingOfProps`). A source the renderer
  * refuses, over its bounds or on a window that cannot sanitize, is shown as plain text, so its
  * reading text is the source. `render` is the renderer, given for a test.
  */
@@ -113,6 +114,37 @@ export const readingOf = (markdown: string, win: Win, render: Render = renderMar
   cache.delete(markdown);
   cache.set(markdown, { render, reading });
   if (cache.size > CACHE_SIZE) cache.delete(cache.keys().next().value as string);
+  return reading;
+};
+
+const kept = new WeakMap<
+  object,
+  { readonly win: Win; readonly render: Render; readonly reading: Reading }
+>();
+
+/**
+ * The reading of an item, kept per item (review X-1 and U-1 of 5.6, design decision 7): in a
+ * `WeakMap` keyed by the item's props object, which the shell passes unchanged while the document
+ * stays, so a board of any number of Document reviews renders each source once, with no capacity
+ * to outgrow, the component and the chunk's `check` sharing the one reading. A props object that
+ * replaces another, even with the same `markdown`, renders once more, and the old one's reading
+ * goes with it. Props that hold no `markdown` read as the empty text.
+ */
+export const readingOfProps = (
+  props: object,
+  win: Win,
+  render: Render = renderMarkdown,
+): Reading => {
+  const known = typeof props === "object" && props !== null ? kept.get(props) : undefined;
+  if (known !== undefined && known.win === win && known.render === render) return known.reading;
+  const markdown = (props as { markdown?: unknown } | null)?.markdown;
+  const source = typeof markdown === "string" ? markdown : "";
+  const fragment = render(source, win);
+  const reading: Reading = {
+    text: fragment === undefined ? source : readingTextOf(fragment as unknown as ReadingNode),
+    fragment,
+  };
+  if (typeof props === "object" && props !== null) kept.set(props, { win, render, reading });
   return reading;
 };
 
