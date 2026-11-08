@@ -4,6 +4,11 @@ All notable changes to AskBoard are recorded here, newest first, in the layout o
 
 ## Unreleased
 
+### Fixed
+
+- The Tree asks before a work package with estimates, or one a Gantt plan names as a task, becomes a group: a drop into it, an indent under it and "Add child" on it each show a question in the toolbar row first, naming the package and what leaves the totals and the plan, with "Cancel" and "Continue"; nothing changes until "Continue" (Issue #71).
+- `ask` and `update` warn when a Gantt plan names an ID that is no work package of its Tree, as a plan entry or as a predecessor, once per ID and addressed to the plan; the plan stays as the agent sent it (Issue #74).
+
 ## 0.1.0 - 2026-11-07
 
 First release. AskBoard installs as a Claude Code plugin from a GitHub marketplace, at user or project scope, on macOS and Linux (Windows through WSL); it runs on Node 24.22.1 or later.

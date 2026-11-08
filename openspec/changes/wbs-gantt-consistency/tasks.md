@@ -140,12 +140,13 @@ Inside a group, tasks run in their order.
 
 ## 3. Records and the pull request
 
-- [ ] 3.1 Update the documents (design decision 6). Tests: none (documents). Make these edits:
+- [x] 3.1 Update the documents (design decision 6). Tests: none (documents). Make these edits:
   - EXPERIENCE, Molecules, WBS with PERT: the question's sentence, and `updated:` set to the apply date;
   - CHANGELOG, Unreleased, Fixed: one line citing Issue #71 and one citing Issue #74;
   - CLAUDE.md: Status, and an "In code since `wbs-gantt-consistency`" paragraph naming `grouping.ts`, `group-question.tsx`, `GanttPlanItem.strays` and the plan's stray warning, with no set moved.
 
   Verify: each new text stands once (`grep -c -F`); `openspec validate --all --strict --no-interactive` passes.
+  - Note (Refs #71, #74): EXPERIENCE, Molecules, WBS with PERT, gains the question's sentence after the drag sentence (`updated:` was already 2026-11-08, the apply date); CHANGELOG gains `### Fixed` under Unreleased with one line each for #71 and #74; CLAUDE.md's Status (line 13) gains this change's sentence just before "What the PO left to live runs", and an "In code since `wbs-gantt-consistency`" paragraph follows the last such paragraph, naming `grouping.ts`, `group-question.tsx`, `GanttPlanItem.strays` and the plan's stray warning, with no set moved. The chunk sizes are added to that paragraph at 3.2, once the merge has settled them. Each new text stands once (`grep -c -F`).
 - [ ] 3.2 Rebase onto `origin/main` (askboard-contract-versioning, Rebase procedure). Resolve the strings, `chunk-sizes.json`, CHANGELOG and CLAUDE.md conflicts by keeping both sides (Merge points), and re-check every borrowed name. If `keyboard-shortcuts-help` has merged, add the question's Escape and the asking keys to its inventory. Tests: the full suite. Verify:
   - `git grep` finds each borrowed name on the rebased head;
   - `git diff origin/main...HEAD -- packages/contract/src` moves no `*_VERSION` constant;
