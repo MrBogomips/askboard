@@ -27,6 +27,7 @@ import {
 } from "./classes.ts";
 import { ariaChecked, isInputColumn, shownCell } from "./model/columns.ts";
 import { cellResult } from "./model/derived.ts";
+import { rowPropsEqual } from "./row-equal.ts";
 
 /** The cell of a row being edited: its editor, which takes the cell's place. */
 export type RowEditing = {
@@ -109,7 +110,9 @@ export type NodeRowProps = {
   readonly lineText: (line: RowLine) => ReactNode;
 };
 
-export const NodeRow = memo(function NodeRow({
+export const NodeRow = memo(NodeRowView, rowPropsEqual);
+
+function NodeRowView({
   itemId,
   row,
   columns,
@@ -194,4 +197,4 @@ export const NodeRow = memo(function NodeRow({
       ))}
     </>
   );
-});
+}
