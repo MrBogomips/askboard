@@ -139,7 +139,7 @@ export class BoardModel {
   // question that holds it; kept on add, revise and delete (layouts, design decision 5).
   readonly #held: Map<string, string>;
   // What each pair of revisions of a question shares, by question and the two revisions.
-  readonly #unchanged: Map<string, readonly string[] | undefined>;
+  readonly #unchanged: Map<string, readonly string[]>;
   #recordedEver: boolean;
 
   private constructor(
@@ -150,7 +150,7 @@ export class BoardModel {
       areas: Map<string, AreaRecord>;
       deleted: Set<string>;
       held: Map<string, string>;
-      unchanged: Map<string, readonly string[] | undefined>;
+      unchanged: Map<string, readonly string[]>;
       recordedEver: boolean;
     },
   ) {
@@ -462,17 +462,18 @@ export class BoardModel {
   /**
    * The IDs, the question's own and its items' at any depth, whose props at the revision `rev` equal
    * those of the current one (reopen-start-from-answer, design decision 1). The current revision
-   * shares everything with itself. `undefined` when `rev` is not kept or cannot be compared. Each
-   * pair of revisions is compared once: the props of a revision never change.
+   * shares everything with itself. `[]` when `rev` is not kept or cannot be compared, never none:
+   * absence reads as "all unchanged" on a current answer (NFR-10). Each pair of revisions is
+   * compared once: the props of a revision never change.
    */
-  unchangedSince(question: QuestionRecord, rev: number): readonly string[] | undefined {
+  unchangedSince(question: QuestionRecord, rev: number): readonly string[] {
     const now = this.propsOf(question);
     if (rev === question.rev) return itemIdsOfQuestion(question.id, now);
     const then = question.revs.get(rev);
-    if (then === undefined) return undefined;
+    if (then === undefined) return [];
     const key = `${question.id}\u0000${rev}\u0000${question.rev}`;
     if (!this.#unchanged.has(key)) this.#unchanged.set(key, unchangedItems(question.id, then, now));
-    return this.#unchanged.get(key);
+    return this.#unchanged.get(key) ?? [];
   }
 
   // An area's value holds its questions' revisions and props: it changes with them.

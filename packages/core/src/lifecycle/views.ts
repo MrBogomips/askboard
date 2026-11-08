@@ -127,7 +127,7 @@ const answerView = (
     delivered,
     ...(values === undefined ? {} : { values }),
     ...(results === undefined ? {} : { results }),
-    ...(unchanged === undefined || unchanged.length === 0 ? {} : { unchanged: [...unchanged] }),
+    ...(unchanged === undefined ? {} : { unchanged: [...unchanged] }),
   };
 };
 
@@ -167,8 +167,13 @@ export const questionView = (
   model?: BoardModel,
 ): LifecycleQuestionView => {
   const answer = fullAnswer(question, status.answer);
-  const unchangedAt = (rev: number | undefined) =>
-    rev === undefined ? undefined : model?.unchangedSince(question, rev);
+  // Only an answer on an earlier revision names what is unchanged since it: on the current one
+  // everything is, and the field would say nothing. Where the comparison cannot be made the list is
+  // empty, never absent, which a board would read as "all unchanged" (NFR-10).
+  const unchangedAt = (rev: number | undefined): readonly string[] | undefined => {
+    if (rev === question.rev) return undefined;
+    return rev === undefined ? [] : (model?.unchangedSince(question, rev) ?? []);
+  };
   const current =
     answer === undefined || status.answer === undefined
       ? undefined

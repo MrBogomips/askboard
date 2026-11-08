@@ -46,14 +46,15 @@ const fingerprints = (props: QuestionProps): Map<string, string> => {
 
 /**
  * The IDs unchanged between two revisions of one question: its own when the props are equal whole,
- * and each item's whose type and props are equal in both (compared canonically). `undefined` when
- * the props cannot be compared, which a reader takes as nothing unchanged (NFR-10).
+ * and each item's whose type and props are equal in both (compared canonically). `[]` when the
+ * props cannot be compared: absence reads as "all unchanged" on a current answer, so a comparison
+ * that fails must say nothing is (NFR-10).
  */
 export const unchangedItems = (
   questionId: string,
   before: QuestionProps,
   after: QuestionProps,
-): string[] | undefined => {
+): string[] => {
   comparisons += 1;
   try {
     const was = fingerprints(before);
@@ -64,6 +65,6 @@ export const unchangedItems = (
     return [...own, ...items];
   } catch {
     // Props are JSON, which `canonicalize` takes; a value it refuses is not compared.
-    return undefined;
+    return [];
   }
 };

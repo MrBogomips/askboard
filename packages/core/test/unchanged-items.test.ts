@@ -6,7 +6,8 @@ import {
   TIMELINE_FIXTURE_ITEM,
 } from "@askboard/contract/fixtures";
 import type { QuestionRecord } from "../src/lifecycle/model.ts";
-import { unchangedComparisons } from "../src/lifecycle/unchanged.ts";
+import { unchangedComparisons, unchangedItems } from "../src/lifecycle/unchanged.ts";
+import { questionView } from "../src/lifecycle/views.ts";
 import { boardOf, command, created, FLAT_ID, flatAsk, logOf, WHEN } from "./lifecycle-fakes.ts";
 import { type Item, modelOf } from "./probe-fakes.ts";
 
@@ -116,14 +117,37 @@ describe("a reopened question's previous answer", () => {
     });
   });
 
-  test("a recorded answer reopened and then changed lists nothing, and the field is left out", async () => {
+  test("a recorded answer reopened and then changed names an empty list, not none", async () => {
     const { core } = await created(flatAsk());
     await update(core, FLAT_ID, { action: "answer", itemId: "q1", answer: { choice: ["main"] } });
     await update(core, FLAT_ID, { action: "reopen", itemId: "q1" });
     await update(core, FLAT_ID, { action: "change", itemId: "q1", props: { text: "Reworded" } });
     const { previous } = boardOf(core, FLAT_ID).questions[0] ?? {};
-    expect(previous).toMatchObject({ recorded: true });
-    expect(previous).not.toHaveProperty("unchanged");
+    expect(previous).toMatchObject({ recorded: true, unchanged: [] });
+  });
+
+  test("a reopen that changes the text and every item in the same update names an empty list", async () => {
+    const { core } = await created(planAsk());
+    answerTimeline(core);
+    await update(
+      core,
+      ASK_ID,
+      { action: "reopen", itemId: "plan" },
+      { action: "change", itemId: "plan", props: { text: "Plan the year" } },
+      { action: "change", itemId: "side", props: { title: "Elsewhere" } },
+      {
+        action: "change",
+        itemId: "roadmap",
+        props: {
+          lanes: [
+            { id: "web", label: "Frontend" },
+            { id: "mobile", label: "Mobile" },
+          ],
+        },
+      },
+    );
+    expect(planOf(core).state).toBe("open");
+    expect(planOf(core).previous?.unchanged).toEqual([]);
   });
 
   test("the recorded answer's revision stays kept after the user's later decision prunes older ones", async () => {
@@ -144,10 +168,19 @@ describe("a reopened question's previous answer", () => {
 });
 
 describe("an answer's own unchanged items", () => {
-  test("an answered question's current answer lists every item", async () => {
+  test("a logged answer naming the current revision holds no unchanged field", async () => {
     const { core } = await created(planAsk());
     answerTimeline(core);
-    expect(planOf(core).answer?.unchanged).toEqual(["plan", "side", "roadmap"]);
+    expect(planOf(core)).toMatchObject({ state: "answered" });
+    expect(planOf(core).answer).not.toHaveProperty("unchanged");
+    expect(JSON.stringify(planOf(core))).not.toContain("unchanged");
+  });
+
+  test("a recorded answer naming the current revision holds no unchanged field", async () => {
+    const { core } = await created(flatAsk());
+    await update(core, FLAT_ID, { action: "answer", itemId: "q1", answer: { choice: ["main"] } });
+    expect(boardOf(core, FLAT_ID).questions[0]?.answer).toMatchObject({ recorded: true });
+    expect(JSON.stringify(boardOf(core, FLAT_ID))).not.toContain("unchanged");
   });
 
   test("an answer kept on an earlier revision lists only the items equal in both revisions", async () => {
@@ -248,10 +281,41 @@ describe("the comparison is made once", () => {
     expect(unchangedComparisons() - before).toBe(first);
   });
 
-  test("a revision the model does not keep gives nothing, so the field is left out", () => {
+  test("a revision the model does not keep gives an empty list, never none", () => {
     const model = modelOf([copy(group) as Item]);
     const question = model.questions()[0] as QuestionRecord;
-    expect(model.unchangedSince(question, 99)).toBeUndefined();
+    expect(model.unchangedSince(question, 99)).toEqual([]);
     expect(model.unchangedSince(question, 1)).toEqual([question.id, "side", "roadmap"]);
+  });
+
+  test("a previous answer on a revision the model does not keep names an empty list", () => {
+    const model = modelOf([copy(group) as Item]);
+    const question = model.questions()[0] as QuestionRecord;
+    question.previous = { choice: ["x"], who: "Giulia", when: WHEN } as never;
+    question.previousRev = 99;
+    const view = questionView(
+      { question, entries: [], status: { state: "open" } },
+      0,
+      new Map(),
+      model,
+    );
+    expect(view.previous?.unchanged).toEqual([]);
+  });
+
+  test("a previous answer with no model to compare through names an empty list", () => {
+    const model = modelOf([copy(group) as Item]);
+    const question = model.questions()[0] as QuestionRecord;
+    question.previous = { choice: ["x"], who: "Giulia", when: WHEN } as never;
+    question.previousRev = 1;
+    question.rev = 2;
+    const view = questionView({ question, entries: [], status: { state: "open" } }, 0);
+    expect(view.previous?.unchanged).toEqual([]);
+  });
+
+  test("props that canonicalize refuses are not compared: an empty list", () => {
+    const props = (n: number) =>
+      ({ text: "Q", items: [{ type: "timeline", id: "a", props: { n } }] }) as never;
+    expect(unchangedItems("q", props(1), props(1))).toEqual(["q", "a"]);
+    expect(unchangedItems("q", props(Number.NaN), props(Number.NaN))).toEqual([]);
   });
 });
