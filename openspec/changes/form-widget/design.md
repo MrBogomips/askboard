@@ -92,6 +92,8 @@ As in atoms decision 10: `PICK_FIELD_WIDGET` joins `WIDGET_TYPES` only in task 3
 
 The input format (the new props, the PickField's props), the board document and the tool envelopes (their compositions) move in task 1.2, the first change to a registered type's props; the output format (the PickField's result) in task 3.3, its registration. Each takes the next minor after the base's while building and is bound at the rebase (task 5.2) at `main`'s minor plus one, after `atoms` and `layouts` have merged. The board protocol, the Snapshot data, the view manifest and the rest keep `main`'s. Comments, schema descriptions and test titles say "since form-widget".
 
+Bound on 2026-11-08, rebased onto origin/main 919e6503 (`layouts` merged as #60, `atoms` as #57): input format 1.11 (main 1.10), output format 1.10 (main 1.9), tool envelopes 1.11 (main 1.10), board document 1.10 (main 1.9); the board protocol 1.7, the Snapshot data 1.1, the view manifest 1.1 and the rest are `main`'s. `layouts`' and the earlier changes' version tests already hold their sets as at-least checks; only `form-sets.test.ts` pins these numbers exactly.
+
 ### 10. The end-to-end proof
 
 | Scenario | Where |
@@ -109,6 +111,8 @@ Borrowed from `origin/main` 1a7482e2 (task 0.2 records each with its file and li
 Borrowed from `atoms`, not on `main` (PR #57; read on this base at 442850f8, the PR's head b1568f02 being the same work rebased onto 1a7482e2): `TEXT_FIELD_WIDGET`, `NUMBER_FIELD_WIDGET`, `MONEY_FIELD_WIDGET`, `DATE_FIELD_WIDGET`, `TOGGLE_WIDGET` and their `checks.ts` functions and `KEYS`, `ATOM_TYPES`, `codePointCount`, `ATOM_LABEL_MAX_CHARS`, `ATOM_DESCRIPTION_MAX_CHARS`, `TEXT_FIELD_MAX_CHARS`, `catalog/fields/` (`Field`, `classes.ts`, `entry-field.tsx`), the five field chunks, `ItemProps.entry`, `shell/entries.ts` (`entryIdsOf`, `entryBlock`, `holdsEntry`, `answerHint`, `labelOf`), `cardState`'s `entry`, `submit.ts`' entry checks (`selectRecommended`, `submitPress`, `confirmedPress`, `submitStateOf`), the `question.entryHint` and `toggle.clear` strings, `tools/build/skills/atoms-skill.test.ts`.
 
 Borrowed from `layouts`, not on `main` (this branch's base 886739d3): `nestedItemsOf`, `LAYOUT_MAX_DEPTH` (contract `nested-items.ts`), `WidgetContent.sent` at every depth, `valueItemsOf` and `nestedItemById` (view `nested-items.ts`), `BoardContent.entries`, `withEntries`, `GROUP_WIDGET`, `TABS_WIDGET`, `LAYOUT_WIDGETS`, the `{{layoutNote}}` slot (`tools/build/skills/generate.ts`), `layouts.browser.ts` and `tabs.browser.ts` (patterns), `tools/nested-items.test.ts` (any new direct read of `items` goes in its tables).
+
+Re-checked on 2026-11-08 on the rebased head with `git grep` against origin/main 919e6503 (task 5.2): the names borrowed from `atoms` and from `layouts` above are now on `main`, and every other name above is still there. Rebased onto 71305d9f, where `skill-index` (#61) moved the per-type lines of `SKILL.md` into the generated `references/items.md` and made `SKILL.md` link each type: the PickField's line is in the catalogue and its link in `SKILL.md` (the form sentence stays in `SKILL.md`; `generate.ts` imports `itemIndex` from `catalogue.ts` and keeps `formNote` and `layoutNote`).
 
 Tasks 0.2 and 5.2 re-check each; a difference stops the work for `/opsx:update`.
 
