@@ -434,4 +434,33 @@ export const IT_IT = {
   "annotations.edit": "Modifica",
   "annotations.delete": "Elimina",
   "annotations.close": "Chiudi",
+  // The Document review (document-review, task 6.1), to review.
+  "documentReview.tools": "Strumenti della revisione del documento",
+  "documentReview.comment": "Commenta",
+  "documentReview.suggest": "Suggerisci modifica",
+  "documentReview.document": "Documento",
+  "documentReview.counterNone": "Nessun commento",
+  "documentReview.counter": "Le tue modifiche: {changes}",
+  "documentReview.counterComments": { one: "{count} commento", other: "{count} commenti" },
+  "documentReview.counterEdits": {
+    one: "{count} modifica suggerita",
+    other: "{count} modifiche suggerite",
+  },
+  "documentReview.pinComment": "Commento {number}",
+  "documentReview.pinEdit": "Modifica suggerita {number}",
+  "documentReview.detachedHeading": "Commenti staccati",
+  "documentReview.detachedNote":
+    "Il documento è cambiato e questi non vi corrispondono più. Eliminali prima di rispondere.",
+  "documentReview.detachedNoteShown": "Il documento è cambiato e questi non vi corrispondono più.",
+  "documentReview.refuseNone": "Seleziona prima un passaggio del documento.",
+  "documentReview.refuseSeveral": "Seleziona un solo passaggio.",
+  "documentReview.refuseBlank": "Seleziona del testo, non solo spazi.",
+  "documentReview.refuseTooLong": "Seleziona al massimo 2.000 caratteri.",
+  "documentReview.refuseOverlaps": "Questo passaggio si sovrappone al commento {number}.",
+  "documentReview.refuseRepeated":
+    "Questo passaggio si ripete nel documento. Selezionane uno più lungo.",
+  "documentReview.refuseBlock":
+    "Questo blocco supera i 2.000 caratteri. Selezionane una parte con il puntatore.",
+  "documentReview.refuseLimit":
+    "Questo documento contiene già 100 commenti e modifiche suggerite, il massimo. Eliminane uno prima.",
 } as const satisfies StringTable;

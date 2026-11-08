@@ -395,6 +395,30 @@ export const STRING_KEYS = [
   "annotations.edit",
   "annotations.delete",
   "annotations.close",
+  // The Document review (document-review, task 6.1; ux-update-draft.md block 1; the Italian texts to
+  // review): the toolbar, the counter, the pins' names, the detached list and the refusals. The
+  // hint of a detached annotation and the name of its notice are registered with the chunk.
+  "documentReview.tools",
+  "documentReview.comment",
+  "documentReview.suggest",
+  "documentReview.document",
+  "documentReview.counterNone",
+  "documentReview.counter",
+  "documentReview.counterComments",
+  "documentReview.counterEdits",
+  "documentReview.pinComment",
+  "documentReview.pinEdit",
+  "documentReview.detachedHeading",
+  "documentReview.detachedNote",
+  "documentReview.detachedNoteShown",
+  "documentReview.refuseNone",
+  "documentReview.refuseSeveral",
+  "documentReview.refuseBlank",
+  "documentReview.refuseTooLong",
+  "documentReview.refuseOverlaps",
+  "documentReview.refuseRepeated",
+  "documentReview.refuseBlock",
+  "documentReview.refuseLimit",
 ] as const;
 
 export type StringKey = (typeof STRING_KEYS)[number];

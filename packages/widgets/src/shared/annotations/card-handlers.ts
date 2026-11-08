@@ -52,3 +52,14 @@ export const closeFocus =
     event.preventDefault();
     target()?.focus();
   };
+
+/**
+ * An interaction outside the card closes it, except one on a target the caller says belongs to
+ * the widget's own controls (a toolbar's tool, which opens the next card itself): that one is
+ * prevented from dismissing the card.
+ */
+export const outsideInteraction =
+  (keep: ((target: EventTarget | null) => boolean) | undefined) =>
+  (event: { readonly target: EventTarget | null; preventDefault(): void }): void => {
+    if (keep?.(event.target) === true) event.preventDefault();
+  };

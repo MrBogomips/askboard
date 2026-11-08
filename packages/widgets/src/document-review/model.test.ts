@@ -12,6 +12,8 @@ import { DOCUMENT_REVIEW_TYPES, withWidgetTypes } from "@askboard/contract/fixtu
 import { el, fragment } from "../../test/fake-dom.ts";
 import {
   anchorPassage,
+  cardHolds,
+  cardMatches,
   cardOf,
   check,
   createPlaces,
@@ -543,5 +545,44 @@ describe("the 101st annotation", () => {
     expect(changed).toHaveLength(100);
     expect(changed[6]?.body.text).toBe("edited");
     expect(withCard(full.slice(0, 99), fresh)).toHaveLength(100);
+  });
+});
+
+describe("whether a card holds an annotation", () => {
+  const quote = quoteOf("remembers");
+
+  test("a comment holds one from its first non-blank character, and an empty or blank one none", () => {
+    expect(cardHolds({ id: "u-1", quote, kind: "comment", text: "" })).toBe(false);
+    expect(cardHolds({ id: "u-1", quote, kind: "comment", text: " \n" })).toBe(false);
+    expect(cardHolds({ id: "u-1", quote, kind: "comment", text: "x" })).toBe(true);
+  });
+
+  test("a suggestion holds one while its replacement differs from the passage, else only with a note", () => {
+    const base = { id: "u-1", quote, kind: "suggestion" as const };
+    expect(cardHolds({ ...base, text: "", replacement: quote.exact })).toBe(false);
+    expect(cardHolds({ ...base, text: "", replacement: "" })).toBe(true);
+    expect(cardHolds({ ...base, text: "why", replacement: quote.exact })).toBe(true);
+  });
+});
+
+describe("whether a card still stands for what the item holds", () => {
+  const quote = quoteOf("remembers");
+  const card = { id: "u-1", quote, kind: "comment" as const, text: "Say how long." };
+
+  test("a card holding what is held matches, and an empty card matches an item that holds none", () => {
+    const held = withCard([], card);
+    expect(cardMatches(card, held)).toBe(true);
+    expect(cardMatches({ ...card, text: "" }, [])).toBe(true);
+  });
+
+  test("a card holding text the item lacks, or an item holding what the card lacks, or other text, does not", () => {
+    expect(cardMatches(card, [])).toBe(false);
+    expect(cardMatches({ ...card, text: "" }, withCard([], card))).toBe(false);
+    expect(cardMatches({ ...card, text: "other" }, withCard([], card))).toBe(false);
+  });
+
+  test("another annotation's ID is no match for the card's", () => {
+    expect(cardMatches(card, withCard([], { ...card, id: "u-2" }))).toBe(false);
+    expect(cardMatches({ ...card, text: "" }, withCard([], { ...card, id: "u-2" }))).toBe(true);
   });
 });

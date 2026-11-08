@@ -69,6 +69,14 @@ export class FakeNode {
     return child;
   }
 
+  /** `child` in place of `old`, which leaves the tree; `child` leaves its own parent. */
+  replaceChild(child: FakeNode, old: FakeNode): FakeNode {
+    this.insertBefore(child, old);
+    old.parentNode?.childNodes.splice(old.parentNode.childNodes.indexOf(old), 1);
+    old.parentNode = null;
+    return old;
+  }
+
   /** The text node's tail from `offset`, a new node after it; this node keeps the head. */
   splitText(offset: number): FakeNode {
     const tail = new FakeNode(3, "#text", this.data.slice(offset));

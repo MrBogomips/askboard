@@ -142,6 +142,25 @@ const annotationOf = (card: Card): DocumentReviewAnnotation | undefined => {
   };
 };
 
+/** Whether the card holds an annotation now: what its text and replacement make of it (decision 9). */
+export const cardHolds = (card: Card): boolean => annotationOf(card) !== undefined;
+
+/**
+ * Whether the card still stands for what the item holds: the annotation it holds is the held one
+ * with its ID, or it holds none and none is held. A result changed behind the card's back (a
+ * revision that dropped it) fails this, and the card is closed, so that text the draft lacks
+ * never shows in an open card.
+ */
+export const cardMatches = (
+  card: Card,
+  annotations: readonly DocumentReviewAnnotation[],
+): boolean => {
+  const held = annotations.find((each) => each.id === card.id);
+  const wanted = annotationOf(card);
+  if (wanted === undefined || held === undefined) return wanted === held;
+  return JSON.stringify(wanted) === JSON.stringify(held);
+};
+
 /**
  * The annotations once the card's text is written: its annotation changed in place, appended when
  * it is new, or removed when the card holds nothing (the user's order stands).

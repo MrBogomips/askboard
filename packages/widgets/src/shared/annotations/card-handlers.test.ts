@@ -5,6 +5,7 @@ import {
   fieldInput,
   focusAfterEdit,
   openFocus,
+  outsideInteraction,
   recordNode,
 } from "./card-handlers.ts";
 
@@ -93,5 +94,36 @@ describe("the popover's focus", () => {
     expect(calls).toEqual(["pin"]);
     expect(() => closeFocus(() => null)(event().event)).not.toThrow();
     expect(() => closeFocus(() => undefined)(event().event)).not.toThrow();
+  });
+});
+
+describe("outsideInteraction", () => {
+  const event = (target: EventTarget | null) => {
+    const state = { prevented: false };
+    return {
+      state,
+      event: {
+        target,
+        preventDefault: () => {
+          state.prevented = true;
+        },
+      },
+    };
+  };
+
+  test("prevents the dismissal when the caller keeps the card open for the target", () => {
+    const tool = {} as EventTarget;
+    const { state, event: made } = event(tool);
+    outsideInteraction((target) => target === tool)(made);
+    expect(state.prevented).toBe(true);
+  });
+
+  test("leaves the dismissal alone for any other target, and with no predicate", () => {
+    const other = event({} as EventTarget);
+    outsideInteraction((target) => target === null)(other.event);
+    expect(other.state.prevented).toBe(false);
+    const none = event({} as EventTarget);
+    outsideInteraction(undefined)(none.event);
+    expect(none.state.prevented).toBe(false);
   });
 });

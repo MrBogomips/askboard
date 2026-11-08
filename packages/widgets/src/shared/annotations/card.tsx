@@ -18,6 +18,7 @@ import {
   fieldInput,
   focusAfterEdit,
   openFocus,
+  outsideInteraction,
   recordNode,
 } from "./card-handlers.ts";
 import {
@@ -181,6 +182,11 @@ export type CardProps = CardBodyProps & {
   readonly onOpenChange: (open: boolean) => void;
   /** Where focus returns when the card closes: the pin, or the document when the pin is gone. */
   readonly returnFocus: () => HTMLElement | null | undefined;
+  /**
+   * Whether an interaction on `target` outside the card leaves it open, such as the press of a
+   * toolbar's tool that opens the next card itself; every other interaction outside closes it.
+   */
+  readonly keepOpenOn?: (target: EventTarget | null) => boolean;
 };
 
 /**
@@ -188,7 +194,15 @@ export type CardProps = CardBodyProps & {
  * Opening puts focus in the first field, or on the card while reading; closing, by Escape, "Done"
  * or the close control, returns it to `returnFocus()`.
  */
-export const Card = ({ anchor, open, onOpenChange, returnFocus, onClose, ...body }: CardProps) => {
+export const Card = ({
+  anchor,
+  open,
+  onOpenChange,
+  returnFocus,
+  keepOpenOn,
+  onClose,
+  ...body
+}: CardProps) => {
   const content = useRef<HTMLDivElement | null>(null);
   return (
     <Popover.Root open={open} onOpenChange={onOpenChange}>
@@ -204,6 +218,7 @@ export const Card = ({ anchor, open, onOpenChange, returnFocus, onClose, ...body
           className={CARD}
           onOpenAutoFocus={openFocus(content)}
           onCloseAutoFocus={closeFocus(returnFocus)}
+          onInteractOutside={outsideInteraction(keepOpenOn)}
         >
           <CardBody {...body} onClose={onClose} />
         </Popover.Content>

@@ -415,4 +415,32 @@ export const EN_US = {
   "annotations.edit": "Edit",
   "annotations.delete": "Delete",
   "annotations.close": "Close",
+  // The Document review (document-review, task 6.1), to review.
+  "documentReview.tools": "Document review tools",
+  "documentReview.comment": "Comment",
+  "documentReview.suggest": "Suggest edit",
+  "documentReview.document": "Document",
+  "documentReview.counterNone": "No comments yet",
+  "documentReview.counter": "Your changes: {changes}",
+  "documentReview.counterComments": { one: "{count} comment", other: "{count} comments" },
+  "documentReview.counterEdits": {
+    one: "{count} suggested edit",
+    other: "{count} suggested edits",
+  },
+  "documentReview.pinComment": "Comment {number}",
+  "documentReview.pinEdit": "Suggested edit {number}",
+  "documentReview.detachedHeading": "Detached comments",
+  "documentReview.detachedNote":
+    "The document changed, and these no longer match it. Delete them before you answer.",
+  "documentReview.detachedNoteShown": "The document changed, and these no longer match it.",
+  "documentReview.refuseNone": "Select a passage of the document first.",
+  "documentReview.refuseSeveral": "Select one passage.",
+  "documentReview.refuseBlank": "Select some text, not only spaces.",
+  "documentReview.refuseTooLong": "Select at most 2,000 characters.",
+  "documentReview.refuseOverlaps": "This passage overlaps comment {number}.",
+  "documentReview.refuseRepeated": "This passage repeats in the document. Select a longer one.",
+  "documentReview.refuseBlock":
+    "This block is longer than 2,000 characters. Select part of it with the pointer.",
+  "documentReview.refuseLimit":
+    "This document holds 100 comments and suggested edits, the most it takes. Delete one first.",
 } as const satisfies StringTable;

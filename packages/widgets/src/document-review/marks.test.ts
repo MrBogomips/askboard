@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { type DocumentReviewAnnotation, placeAnnotations } from "@askboard/contract";
 import { el, type FakeNode, fakeDocument, fragment, show } from "../../test/fake-dom.ts";
-import { applyMarks, markSpecs, samePlan, setReplacements } from "./marks.ts";
+import { applyMarks, markSpecs, reuseSlots, samePlan, setReplacements } from "./marks.ts";
 import { layoutOf, type ReadingNode, readingTextOf } from "./reading.ts";
 
 // The marks (document-review, design decision 7): the plan of the placed annotations and its
@@ -217,5 +217,46 @@ describe("surrogate pairs", () => {
     applyMarks(root, specsOf(text, [note("u-1", "\uD83Db"), note("u-2", "😀")]), fakeDocument());
     expect(readingTextOf(root)).toBe(text);
     expect(splitsPair(root)).toBe(false);
+  });
+});
+
+describe("keeping the pins' slots across a new plan (design decision 7)", () => {
+  const text = "The bold run goes on.\nSecond paragraph here.";
+  const marked = (annotations: readonly DocumentReviewAnnotation[]) => {
+    const root = documentOf();
+    return { root, made: applyMarks(root, specsOf(text, annotations), fakeDocument()) };
+  };
+
+  test("a slot of an annotation both plans hold is moved into the new clone, so what is drawn into it stays", () => {
+    const before = marked([note("u-1", "bold")]);
+    const after = marked([note("u-1", "bold"), note("u-2", "Second")]);
+    const old = before.made.pins.get("u-1") as FakeNode;
+    const fresh = after.made.pins.get("u-1") as FakeNode;
+    const kept = reuseSlots(after.made, before.made);
+    expect(kept.pins.get("u-1")).toBe(old);
+    expect(kept.pins.get("u-2")).toBe(after.made.pins.get("u-2"));
+    expect(after.root.contains(old)).toBe(true);
+    expect(after.root.contains(fresh)).toBe(false);
+    expect(before.root.contains(old)).toBe(false);
+    // The slot stands where the new plan puts it: in the new clone's holder, after the passage.
+    expect(old.parentNode?.hasAttribute("data-review-ui")).toBe(true);
+    expect([...kept.pins.keys()]).toEqual(["u-1", "u-2"]);
+    expect(kept.replacements).toBe(after.made.replacements);
+  });
+
+  test("a slot of an annotation the new plan lacks is left behind, and with no earlier plan the new one is returned as it is", () => {
+    const before = marked([note("u-1", "bold"), note("u-2", "Second")]);
+    const after = marked([note("u-2", "Second")]);
+    const kept = reuseSlots(after.made, before.made);
+    expect([...kept.pins.keys()]).toEqual(["u-2"]);
+    expect(kept.pins.get("u-2")).toBe(before.made.pins.get("u-2"));
+    expect(reuseSlots(after.made, undefined)).toBe(after.made);
+  });
+
+  test("never writes a style attribute or innerHTML, and the reading text is unchanged", () => {
+    const before = marked([note("u-1", "bold")]);
+    const after = marked([note("u-1", "bold"), note("u-2", "Second")]);
+    reuseSlots(after.made, before.made);
+    expect(readingTextOf(after.root)).toBe(text);
   });
 });

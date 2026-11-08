@@ -204,6 +204,31 @@ const orderOf = (
     }),
   );
 
+type Replacer = { replaceChild(node: never, old: never): unknown };
+
+/**
+ * `next`, a plan applied to a fresh clone, with each pin slot an earlier application of the plan
+ * also had put back in the clone's place for it, by annotation ID: the slot moves into the new
+ * holder, so what React drew into it (the pin, and the card anchored to it) stays mounted, and an
+ * open card keeps its text and focus while a new plan is applied around it. A slot with no
+ * counterpart in `previous` stays the new one; with no `previous`, `next` is returned as it is.
+ */
+export const reuseSlots = (next: Marked, previous: Marked | undefined): Marked => {
+  if (previous === undefined) return next;
+  const pins = new Map<string, MarkElement>();
+  for (const [id, fresh] of next.pins) {
+    const old = previous.pins.get(id);
+    const parent = fresh.parentNode as unknown as Replacer | null;
+    if (old === undefined || parent === null || old === fresh) {
+      pins.set(id, fresh);
+      continue;
+    }
+    parent.replaceChild(old as never, fresh as never);
+    pins.set(id, old);
+  }
+  return { pins, replacements: next.replacements };
+};
+
 /**
  * Writes each suggested edit's replacement into its text node, where it differs: typing in a card
  * changes the text and nothing else, so no mark is applied again.
