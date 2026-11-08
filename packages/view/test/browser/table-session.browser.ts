@@ -3,15 +3,24 @@
 // entries block "Answer", An agent's change to a Table): the Table of roles asked, a rate lowered,
 // a row added and filled and one deleted, answered and read through `collect` with its changes and
 // derived values and through `fetch`; a cell entry blocking "Answer" across a reload; the agent's
-// `update` with "Keep mine" (the answer names revision 1) and with "Reload"; a Table nested in a Group answered; a misspelt column formula warned once in the `ask` result
-// and shown once over the grid. Each real `collect` and `fetch` result passes its schema.
+// `update` with "Keep mine" (the answer names revision 1) and with "Reload"; a Table nested in a
+// Group answered; a caption, a header and a text cell of 200 characters wrapped at 1,280 pixels
+// (task 7.3); a misspelt column formula warned once in the `ask` result and shown once over the
+// grid. Each real `collect` and `fetch` result passes its schema.
 //
 // Run one engine by hand: ASKBOARD_E2E_ENGINES=webkit ASKBOARD_E2E_TARGET=session-process bun test ./packages/view/test/browser/table-session.browser.ts
 
 import { describe, expect, test } from "bun:test";
 import type { TableProps } from "@askboard/contract";
 import { atomAsk } from "./fixtures/atom-documents.ts";
-import { ROLES, rolesWith, tableAsk, tableItem, withFormula } from "./fixtures/table-documents.ts";
+import {
+  longWord,
+  ROLES,
+  rolesWith,
+  tableAsk,
+  tableItem,
+  withFormula,
+} from "./fixtures/table-documents.ts";
 import { checkedEvents, checkedFetchItem } from "./harness/approval-board.ts";
 import {
   eventually,
@@ -228,6 +237,42 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         ]);
         const item = checkedFetchItem(await run.session.fetch("costs"));
         expect(item).toMatchObject({ type: "table", id: "costs", questionId: "plan" });
+        expectNoCspProblem(run);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a caption, a header and a text cell of 200 characters wrap inside the frame at 1,280 pixels with no horizontal scroll",
+      async () => {
+        const word = longWord(200);
+        const props = {
+          label: word,
+          columns: [
+            { field: "role", label: word, type: "text" },
+            { field: "days", label: "Days", type: "number" },
+          ],
+          rows: [{ id: "a", role: word, days: 1 }],
+        } as unknown as TableProps;
+        const ask = tableAsk(props, { askId: "table-words-w5d3" });
+        const run = await start(lifecycleScenario(ask, dist));
+        const board = await openBoard(run, ["plan"]);
+        await board.page.setViewportSize({ width: 1280, height: 800 });
+        const table = tableGridOf(board);
+        await table.grid.waitFor({ timeout: STEP_TIMEOUT_MS });
+        await eventually(async () => {
+          const fits = await table.frame.evaluate((frame) => {
+            const box = frame.getBoundingClientRect();
+            const wide = [...frame.querySelectorAll("caption, th, td")].filter(
+              (element) => element.getBoundingClientRect().right > box.right + 1,
+            );
+            const page = frame.ownerDocument.documentElement;
+            return { wide: wide.length, scrolls: page.scrollWidth > page.clientWidth };
+          });
+          return fits.wide === 0 && !fits.scrolls;
+        }, "the 200-character words to wrap inside the frame");
+        expect(await table.frame.locator("caption").textContent()).toContain(word);
+        expect(await cellText(table, "a", "role")).toBe(word);
         expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,
