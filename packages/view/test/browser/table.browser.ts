@@ -147,7 +147,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await cellText(table, "pm", "rate")).toBe("$ 1.040,00");
         expect(await totalText(table, "days")).toBe("90");
         expect(await totalText(table, "amount")).toBe("$ 70.560,00");
-        expect(await cellText(table, "pm", "billable")).toBe("Attivo");
+        expect(await cellText(table, "pm", "billable")).toBe("Sì");
         expect(await cellText(table, "dev", "billable")).toBe("Non impostato");
         expect(await cellOf(table, "dev", "billable").getAttribute("aria-checked")).toBe("mixed");
         expect(await cellOf(table, "pm", "billable").getAttribute("aria-checked")).toBe("true");
@@ -166,7 +166,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await readyIn(run);
         const { board } = run;
         const table = tableGridOf(board);
-        const editor = await openEditor(board, table, "pm", "rate", RATE_PM);
+        const editor = await openEditor(board, table, "pm", "rate", "Rate, riga 1");
         expect(await editor.inputValue()).toBe("1.040,00");
         await editor.fill("960,00");
         await eventually(
@@ -292,6 +292,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         );
         expect(await board.answer.isEnabled()).toBe(true);
         await typeInCell(board, table, "dev", "role", "Role, row 2", "x".repeat(501));
+        // Enter keeps the editor open on an entry; leaving keeps the entry in the cell.
+        await cellOf(table, "pm", "role").click();
         await eventually(
           async () => (await table.frame.locator("[data-entry]").count()) === 1,
           "the text entry",
@@ -534,17 +536,24 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       TEST_TIMEOUT_MS,
     );
 
-    // The agent revises the question: a document at revision 2 and the board state naming it.
-    const revise = (document: ViewDocument, props: unknown): ViewUpdate => {
+    // The agent revises the question: the document at `rev` and the board state naming it.
+    const revise = (document: ViewDocument, props: unknown, rev = 2): ViewUpdate => {
       const revised = {
         ...document,
-        items: [{ ...plan, rev: 2, props: { ...plan.props, items: [tableItem(props as never)] } }],
+        items: [{ ...plan, rev, props: { ...plan.props, items: [tableItem(props as never)] } }],
       } as unknown as ViewDocument;
       return { type: "state", state: openStateOf(revised), document: revised };
     };
+    // The stand-in host does not answer the view's choices, so the notice stays: a choice is read
+    // from the acts the view sent (the session process settles the notice, task 7.1).
+    const choices = (run: { messages: readonly unknown[] }, edit: string): number =>
+      (run.messages as { type: string; acts?: { type: string; edit?: string }[] }[])
+        .filter((message) => message.type === "act")
+        .flatMap((message) => message.acts ?? [])
+        .filter((act) => act.type === "edit-choice" && act.edit === edit).length;
 
     test(
-      "after the agent changes only rows, Keep mine keeps the user's edit; after it drops a column, Keep mine drops the draft with its cell entries and the Table shows the agent's revision; Reload drops both",
+      "after the agent changes only rows, Keep mine keeps the user's edit and its entry; after it drops a column, Keep mine still keeps them on the revision the work was made on",
       async () => {
         const document = tableDocument();
         const run = await host(dist, document);
@@ -563,25 +572,57 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const notice = board.view.locator('[data-askboard-notice="agent-change"]');
         await notice.waitFor({ timeout: STEP_TIMEOUT_MS });
         await notice.getByRole("button", { name: "Keep mine" }).click();
-        await eventually(async () => (await notice.count()) === 0, "the notice to settle");
+        await eventually(() => choices(run, "ignore") === 1, "the choice to keep");
         expect(await cellText(table, "pm", "rate")).toBe("$960.00");
         expect(await cellText(table, "dev", "days")).toBe("oops");
-        // The agent drops the rate column: the draft and its entries go.
+        expect(draftCellEntries(run)?.["dev.days"]).toBe("oops");
+        // The agent drops the rate column: with no reload the card still shows the revision the
+        // work was made on, so Keep mine keeps the draft and its entries there. The draft drops
+        // only where the card shows the new revision (after a reload: unit tests of `keepMine`,
+        // and the session process, task 7.1).
         const lessRate = rolesWith({
           columns: ROLES.columns.filter(
             (column) => column.field !== "rate" && column.field !== "amount",
           ),
         });
-        await run.update(revise(document, lessRate));
-        await notice.waitFor({ timeout: STEP_TIMEOUT_MS });
+        await run.update(revise(document, lessRate, 3));
         await notice.getByRole("button", { name: "Keep mine" }).click();
-        await eventually(
-          async () => (await table.frame.locator("[data-entry]").count()) === 0,
-          "the entries to go",
+        await eventually(() => choices(run, "ignore") === 2, "the second choice to keep");
+        expect(await table.grid.locator("thead th").count()).toBe(4);
+        expect(await cellText(table, "dev", "days")).toBe("oops");
+        expect(draftCellEntries(run)?.["dev.days"]).toBe("oops");
+        expect(await counterText(table)).toBe("Your changes: 1");
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "Reload, losing my work drops the draft and its cell entries and the Table shows the agent's rows",
+      async () => {
+        const document = tableDocument();
+        const run = await host(dist, document);
+        await readyIn(run);
+        const { board } = run;
+        const table = tableGridOf(board);
+        await typeInCell(board, table, "pm", "rate", RATE_PM, "960.00");
+        await typeInCell(board, table, "dev", "days", DAYS_DEV, "oops");
+        await cellOf(table, "pm", "role").click();
+        await eventually(() => draftCellEntries(run)?.["dev.days"] === "oops", "the entry");
+        const rows = ROLES.rows.map((row) =>
+          row.id === "dev" ? { ...row, role: "Engineer" } : row,
         );
-        expect(await table.grid.locator("thead th").count()).toBe(2);
+        await run.update(revise(document, rolesWith({ rows })));
+        const notice = board.view.locator('[data-askboard-notice="agent-change"]');
+        await notice.waitFor({ timeout: STEP_TIMEOUT_MS });
+        await notice.getByRole("button", { name: "Reload, losing my work" }).click();
+        await eventually(() => choices(run, "reload") === 1, "the choice to reload");
+        await eventually(
+          async () => (await cellText(table, "dev", "role")) === "Engineer",
+          "the agent's role",
+        );
+        expect(await cellText(table, "pm", "rate")).toBe("$1,040.00");
+        expect(await table.frame.locator("[data-entry]").count()).toBe(0);
         expect(await counterText(table)).toBe("No changes");
-        expect(await board.answer.isDisabled()).toBe(true);
       },
       TEST_TIMEOUT_MS,
     );
