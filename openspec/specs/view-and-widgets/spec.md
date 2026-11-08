@@ -482,7 +482,7 @@ Every Gantt edit SHALL go into the draft record and SHALL send nothing. A Gantt 
 - **THEN** the Gantt holds no draft value and "Answer" is disabled again
 
 ### Requirement: Answering a question with a Gantt
-"Answer" SHALL send one answer message carrying each changed widget's full edited value and the declared derived values of every Gantt in the question as they stand, changed or not; an untouched Gantt sends no value, only its derived values. The question SHALL then be read-only (AD-10, AD-20, FR-12).
+"Answer" SHALL send one answer message carrying each changed widget's full edited value and, when it names the question's current revision, the declared derived values of every Gantt in the question as they stand, changed or not; an untouched Gantt sends no value, only its derived values. The question SHALL then be read-only (AD-10, AD-20, FR-12).
 
 #### Scenario: The UJ-2 edits by keyboard
 - **WHEN** the user makes the approved answer's edits with the keyboard, in the Tree and in the plan, and presses "Answer"
@@ -933,7 +933,7 @@ Deleting a package on which tasks of a linked plan depend, in a Tree with `pert`
 - **THEN** neither the Tree nor the plan holds a draft value, and "Answer" is disabled
 
 ### Requirement: Answering a work breakdown question
-"Answer" SHALL send one answer message carrying the full edited value of each changed item and the derived values of the Tree with `pert` and of the plan as they stand (AD-20, FR-12, F7).
+"Answer" SHALL send one answer message carrying the full edited value of each changed item and, when it names the question's current revision, the derived values of the Tree with `pert` and of the plan as they stand (AD-20, FR-12, F7).
 
 #### Scenario: The UJ-2 edits by keyboard
 - **WHEN** the user makes the approved answer's `wbs` edits by keyboard on the expanded UJ-2 question and presses "Answer"
@@ -1254,7 +1254,7 @@ An opened Snapshot SHALL show its strings and values in the ask's language and l
 - **THEN** its strings are Italian and its values use it-IT formats, and picking Dark writes no file and no browser storage
 
 ### Requirement: Derived values of every computing item in an answer
-An answer SHALL carry the declared derived values of every computing item in its question, a widget item whose widget declares answer-derived fields, changed or not, as they stood when the user answered, so that the agent never recomputes them. Derived values SHALL never be an answer's only content: they go beside a choice, "Other…" text or a widget value, and an answer with nothing else SHALL be refused (FR-12, AD-10).
+An answer that names its question's current revision SHALL carry the declared derived values of every computing item in its question, a widget item whose widget declares answer-derived fields, changed or not, as they stood when the user answered, so that the agent never recomputes them. Derived values SHALL never be an answer's only content: they go beside a choice, "Other…" text or a widget value, and an answer with nothing else SHALL be refused (FR-12, AD-10).
 
 #### Scenario: Only the WBS edited
 - **WHEN** the user re-estimates one work package in the UJ-2 question's WBS, leaves the plan untouched and presses "Answer"
@@ -2772,3 +2772,130 @@ A Snapshot SHALL show layouts as the board does, read-only, with Tabs still swit
 #### Scenario: A Snapshot of an answered arranged question
 - **WHEN** a Snapshot of the answered question is opened from `file://`
 - **THEN** each field shows its answered value read-only, the Tabs switch, and no CSP problem is reported
+
+### Requirement: A field check blocks Answer
+While any field of a question, at any depth, fails its field check or holds an entry, the question's "Answer" and "Accept recommended" SHALL be disabled, "Select recommended" SHALL not mark it ready, a held answer SHALL lose its ready mark, and Submit SHALL send nothing for it and move to it. Once every field passes, each works again (NFR-10, AD-10, AD-20).
+
+#### Scenario: A pattern not met
+- **WHEN** the user types `ab-1234` in a TextField whose pattern is `^[A-Z]{2}-\d{4}$`
+- **THEN** "Answer" is disabled, and typing `AB-1234` enables it
+
+#### Scenario: Submit with a held answer
+- **WHEN** in submitted delivery the user marks a question's answer ready, then empties its required DateField and presses Submit
+- **THEN** the answer is no longer ready, Submit sends nothing for that question, and the board moves to it
+
+### Requirement: Answer names the field to fix
+While "Answer" is disabled by a field, its description SHALL name the first such field in document order, by its label shown as text: "Correct {label} first." for an entry or a value that fails a check, "Complete {label} first." for an empty required field (EXPERIENCE, Voice and Tone).
+
+#### Scenario: An empty required field
+- **WHEN** a question's only blocking field is the empty required TextField "Ticket"
+- **THEN** "Answer" is described "Complete Ticket first."
+
+### Requirement: Required fields
+A required field's label SHALL end with "(required)", "(obbligatorio)" in it-IT, and its control SHALL be marked required for assistive technology. An empty required field SHALL show no field error (AD-10; DESIGN, Input atoms).
+
+#### Scenario: A required DateField
+- **WHEN** a board shows a DateField `{label: "Start", required: true}` with nothing typed
+- **THEN** its label reads "Start (required)", its input is marked required, and no field error shows
+
+### Requirement: A TextField's checks as the user types
+A TextField whose text fails its `minLength` or `pattern` SHALL show the field error under it as the user types, SHALL keep the text as its value in the draft, restored after a reload, and SHALL clear the error once the text passes or is emptied. Enter in any field SHALL send nothing (FR-11; EXPERIENCE, Form).
+
+#### Scenario: Restored after a reload
+- **WHEN** the user reloads the board with `ab-1234` typed in that TextField
+- **THEN** the field shows `ab-1234` with its field error, and "Answer" stays disabled
+
+#### Scenario: Enter
+- **WHEN** the user presses Enter in a single-line TextField of a question
+- **THEN** nothing is sent and the draft keeps the text
+
+### Requirement: The PickField
+A single PickField SHALL show its options as radios with Radix's documented radio keyboard and a "Clear" while one is picked; a multiple PickField SHALL show checkboxes. Nothing SHALL be picked until the user picks (AD-10). A multiple pick outside `minItems` or `maxItems` SHALL show its field error. The value SHALL go to the draft only (FR-11, FR-13).
+
+#### Scenario: A single pick by keyboard
+- **WHEN** the user moves into a single PickField with Tab, presses the down arrow, then activates "Clear"
+- **THEN** nothing is picked on Tab, the draft holds the ID of the option the arrow moved to, then no result
+
+#### Scenario: Too few picks
+- **WHEN** the user picks one option of a multiple PickField whose `minItems` is 2
+- **THEN** its field error reads "Pick at least 2." and "Answer" is disabled
+
+### Requirement: The PickField's filter
+Above a PickField of more than 10 options, a filter field SHALL show only the options whose label holds its text, ignoring case. An option the filter hides SHALL stay picked. The filter's text SHALL not be part of the draft or the answer (DESIGN, Form).
+
+#### Scenario: A hidden pick
+- **WHEN** the user picks "Italy" in a PickField of 30 countries, then types `fra` in its filter
+- **THEN** only the options holding "fra" show, and the draft still holds Italy's ID
+
+### Requirement: A tab holding a field that fails a check
+A tab whose panel holds, at any depth, a field whose value fails its field check SHALL carry the field-error mark, as for an entry; an empty required field SHALL add no mark (EXPERIENCE, Primitives, Layouts).
+
+#### Scenario: A pattern not met in a hidden tab
+- **WHEN** the user types `ab-1234` in the patterned TextField of the second tab and selects the first tab
+- **THEN** the second tab carries the mark and reads "needs a correction"
+
+### Requirement: Forms read-only and in Snapshots
+On an answered or locked question and in a Snapshot, a Form's fields SHALL show their values read-only, a PickField its options with the picks checked and disabled and no filter or "Clear", and no field error or required mark that asks for input (AD-15).
+
+#### Scenario: A Snapshot of a Form
+- **WHEN** a Snapshot of an answered Form is opened from `file://`
+- **THEN** each field shows its value read-only and the page reports no CSP violation
+
+### Requirement: Forms end to end
+A Form, a question of every field type in Groups and Tabs, SHALL be answered on the session process with one answer whose `results` hold each field's value by item ID; editing every field, reloading and coming back SHALL show the same values and the same draft (AD-9, AD-20).
+
+#### Scenario: The remount check
+- **WHEN** the user fills every field of the Form, reloads the board, and compares
+- **THEN** each field shows the same value and state, the draft record is the same, and the answer then sent holds those values
+
+### Requirement: Form strings
+The required mark, the field errors of `minLength`, `pattern`, `minItems` and `maxItems`, the "Complete {label} first." description, the PickField's "Clear", filter label and empty-filter text SHALL be shown in en-US and it-IT, with the texts of EXPERIENCE's Voice and Tone (FR-34).
+
+#### Scenario: An Italian Form
+- **WHEN** an it-IT board shows a Form with a required field, a pattern not met and a filtered PickField
+- **THEN** every string the Form shows is Italian
+
+### Requirement: Edit widgets on a revision the board cannot show
+While a card shows a revision other than the one its answer names, as after a reload or a takeover when the work was made on a revision the page never saw, every item whose type edits the agent's content SHALL be read-only, at every depth of its layouts, with a line under it saying why. The board SHALL take no edit of such an item, so that an answer never counts the agent's change as the user's (NFR-10, AD-10, AD-20).
+
+#### Scenario: An agent's change is not counted as the user's after a reload
+- **WHEN** a question holds a Kanban and a TextField, the user types in the TextField, the agent's `update` changes a card's text, the tab reloads and the user chooses "Keep mine"
+- **THEN** the Kanban shows the agent's revision read-only with the line, and "Answer" sends the TextField's result and no value for the Kanban, naming the earlier revision, so its logged `changes` hold nothing for the Kanban
+
+#### Scenario: No edit while the notice still shows after a reload
+- **WHEN** the tab reloads while the notice shows on such a question, and the user tries to move a card by drag or by "Move to…"
+- **THEN** the card does not move, the draft takes no value for the Kanban, and "Keep mine" drops no edit made after the reload
+
+#### Scenario: An edit widget inside a layout
+- **WHEN** the same happens with the Kanban inside a Group
+- **THEN** the Kanban is read-only with the line, and the Group's other items behave as their own types say
+
+### Requirement: What stays usable beside a read-only edit widget
+A value an edit widget held from before the reload SHALL stay and be sent as the item shows it. The question's other items, its options, the open prompt and the notice's choices SHALL work as before. Once no work remains on the earlier revision, or the page shows the revision the work was made on, the item SHALL be editable again and the line SHALL go (FR-6, AD-20).
+
+#### Scenario: Reload makes it editable
+- **WHEN** the user chooses "Reload, losing my work" on that question
+- **THEN** the line goes, the Kanban takes edits on the agent's revision, and the answer names that revision
+
+#### Scenario: A value from before the reload is sent as shown
+- **WHEN** the user edited a Tree on revision 1, the agent changes the question, the tab reloads, the user chooses "Keep mine" and presses "Answer"
+- **THEN** the Tree shows the user's edited value read-only, and the answer sends that value naming revision 1, with no derived value
+
+#### Scenario: Without a reload nothing changes
+- **WHEN** the agent changes the question while the page that saw revision 1 is open, and the user chooses "Keep mine"
+- **THEN** the card shows revision 1, every widget takes edits, and no line shows
+
+### Requirement: No derived values in an answer naming an earlier revision
+An answer that names an earlier revision than its question's current one, the work the user kept over the agent's change (FR-6), SHALL carry no derived values, with or without a reload: the board computes them on the current revision only, so values sent with it would count the agent's change as the user's. Its other content SHALL be sent as before, by "Answer" and by Submit alike (FR-12, NFR-10, AD-10, AD-13).
+
+#### Scenario: A computing item the agent added, after a reload
+- **WHEN** a question holds a TextField and a Kanban, the user types in the TextField, the agent's `update` adds a Gantt to the question, the tab reloads, and the user chooses "Keep mine" and presses "Answer"
+- **THEN** the answer is logged naming the earlier revision, with the TextField's result and no derived value
+
+#### Scenario: The kept revision without a reload
+- **WHEN** the user renamed a work package in the UJ-2 question's Tree on revision 1, the agent changes the plan's tasks, and the user chooses "Keep mine" on the page that saw revision 1 and presses "Answer"
+- **THEN** the answer names revision 1 with the rename in its `changes` and no derived value
+
+#### Scenario: A held answer on the kept revision
+- **WHEN** in submitted delivery a held answer names an earlier revision than its question's current one, its computing items report derived values, and the user presses Submit
+- **THEN** its act carries no derived value, and a held answer on its question's current revision carries them as before
