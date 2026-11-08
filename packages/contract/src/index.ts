@@ -1041,6 +1041,7 @@ export { ANNOTATION_REPLACEMENT_MAX_CHARS } from "./lifecycle-limits.ts";
 
 export { isEscapedCodePoint } from "./push/notice-text.ts";
 export {
+  type AnnotationPlace,
   DOCUMENT_REVIEW_ANNOTATIONS_MAX,
   DOCUMENT_REVIEW_MAX_CHARS,
   DOCUMENT_REVIEW_SCHEMA_IDS,
@@ -1054,4 +1055,15 @@ export {
   documentReviewPropsProblems,
   documentReviewResultProblems,
   documentReviewResultShape,
+  type PlaceRefusal,
+  placeAnnotations,
+  placeQuote,
+  QUOTE_CONTEXT_CHARS,
+  QUOTE_CONTEXT_MAX_CHARS,
+  QUOTE_CONTEXT_STEPS,
+  QUOTE_EXACT_MAX_CHARS,
+  type QuotePlace,
+  type QuoteRefusal,
+  type QuoteResult,
+  quotePassage,
 } from "./widgets/document-review/index.ts";
