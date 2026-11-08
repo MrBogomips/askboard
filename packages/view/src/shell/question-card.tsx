@@ -167,8 +167,11 @@ const useCard = ({ question, state, lock, context }: CardProps) => {
   // The revision the card works on: the one the work was made on, while it is earlier.
   const shown = workingQuestion(question, work, revisions);
   const heldAct = work?.held?.act;
-  // A field blocks: an entry, a value that fails its check, an empty required field.
-  const blocked = holdsBlock(shown, heldEntries, heldResults);
+  // The items that take no edit while the card shows a revision its answer does not name.
+  const readOnlyItems = readOnlyItemsOf(question, shown, work);
+  // A field blocks: an entry, a value that fails its check, an empty required field; an item the
+  // card makes read-only is no field (document-review, design decision 15).
+  const blocked = holdsBlock(shown, heldEntries, heldResults, undefined, readOnlyItems);
   const card = cardState({
     status,
     draft: answerContentOf(shown, values, work, heldResults),
@@ -199,12 +202,11 @@ const useCard = ({ question, state, lock, context }: CardProps) => {
     status,
     pending,
     shown,
-    // The items that take no edit while the card shows a revision its answer does not name.
-    readOnlyItems: readOnlyItemsOf(question, shown, work),
+    readOnlyItems,
     card,
     blocked,
     actions,
-    answerHint: answerHint(shown, heldEntries, heldResults, language),
+    answerHint: answerHint(shown, heldEntries, heldResults, language, undefined, readOnlyItems),
     followUp,
     choosing,
     placement,
@@ -376,7 +378,7 @@ export const QuestionCard = (props: CardProps) => {
   const { header, text: questionText } = shown.props;
   const mark = markOf(question.id, state, context.board.get().questions);
   // An answer or decline names the revision the work was made on; the other acts the current one.
-  const acting: AnswerContext = { ...context, delivery };
+  const acting: AnswerContext = { ...context, delivery, readOnlyOf: () => readOnlyItems };
   const focusHeading = focusHeadingOf(question.id);
   // "Answer" and Decline on a verdict the agent has received wait for the user's confirmation, in
   // a modal dialog (design decision 6): confirming acts as the button does, Cancel changes nothing.

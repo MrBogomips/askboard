@@ -175,6 +175,16 @@ export type ComponentFacts = {
    * board does); a type that registers none never blocks.
    */
   readonly check?: (result: unknown, props: unknown) => FieldCheckFailure | undefined;
+  /**
+   * The item's result points into the agent's content of the revision it was made on (document-
+   * review, design decision 15): a passage quoted from a document's text, a place on an image. On a
+   * revision the board cannot show, after a reload or a takeover under kept work, such a result
+   * would be made on one revision's content and sent naming another's, so the item is read-only
+   * then, as an item that registers `shape` is (`readOnlyItemsOf`), and its field check is not
+   * run, since the content it places against is not the content the answer names. A type whose
+   * result means the same on any revision (a Scale's value, a TextField's text) registers none.
+   */
+  readonly revisionBound?: true;
 };
 
 /** The two strings a required reason uses: the open prompt's label and its field error. */

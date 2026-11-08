@@ -175,16 +175,22 @@ const WITH_ENTRIES = new WeakMap<BoardContent, Map<string, BoardContent>>();
  * whose held result fails their field check on a value (`kind: "check"`; an empty required field
  * adds none). The same board while none does, else one frozen board per board and set of IDs. The
  * Tabs read it for the mark of a tab that holds a field to correct. `results` and `factsOf` default
- * to none and to the registered facts.
+ * to none and to the registered facts; an item in `readOnly`, the card's read-only set, is marked
+ * for no failing check (document-review, design decision 15).
  */
 export const withEntries = (
   board: BoardContent,
   entries: DraftRecord,
   results?: DraftRecord,
   factsOf?: CheckFactsOf,
+  readOnly?: ReadonlySet<string>,
 ): BoardContent => {
   const held = [...entries].filter(([, text]) => text !== undefined).map(([id]) => id);
-  const failing = results === undefined ? NO_IDS : failingIds(board, results, factsOf);
+  // An item the card makes read-only is marked for no failing check (document-review, decision 15).
+  const failing =
+    results === undefined
+      ? NO_IDS
+      : failingIds(board, results, factsOf).filter((id) => readOnly?.has(id) !== true);
   const ids = [...new Set([...held, ...failing])];
   if (ids.length === 0) return board;
   const bySet = WITH_ENTRIES.get(board) ?? new Map<string, BoardContent>();

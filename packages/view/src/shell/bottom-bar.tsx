@@ -17,6 +17,7 @@ import { useRef, useState } from "react";
 import { useLanguage, useStrings } from "../catalog/port.ts";
 import type { ViewDocument, ViewQuestion } from "../view-document.ts";
 import type { ViewAct } from "../view-protocol.ts";
+import type { ReadOnlyOf } from "./agent-change.ts";
 import type { BoardDraft, Delivery } from "./board-draft.ts";
 import { type Senders, sendActs } from "./card-acts.ts";
 import type { DerivedStore } from "./derived-store.ts";
@@ -62,6 +63,8 @@ export type BottomBarProps = {
     readonly derived: DerivedStore;
   };
   readonly onSelectRecommended: () => void;
+  /** The items of a question the card makes read-only; Submit's field block skips them. */
+  readonly readOnlyOf?: ReadOnlyOf;
   /** Submit found a held answer lacking the reason it requires: go to its prompt with the error. */
   readonly onNeedsReason: (questionId: string) => void;
   readonly onJump: (questionId: string) => void;
@@ -71,8 +74,18 @@ export type BottomBarProps = {
 };
 
 export const BottomBar = (props: BottomBarProps) => {
-  const { single, document, state, delivery, warning, submit, recommendations, locked, context } =
-    props;
+  const {
+    single,
+    document,
+    state,
+    delivery,
+    warning,
+    submit,
+    recommendations,
+    locked,
+    context,
+    readOnlyOf,
+  } = props;
   const [confirming, setConfirming] = useState(false);
   // Submit asks once more when it would replace a verdict the agent has received (design decision 6).
   const [replacing, setReplacing] = useState<
@@ -102,7 +115,12 @@ export const BottomBar = (props: BottomBarProps) => {
       context.draft.record(),
       new Date(),
       context.derived.reported,
-      { results: context.results?.record(), entries: context.entries?.record(), state },
+      {
+        results: context.results?.record(),
+        entries: context.entries?.record(),
+        state,
+        ...(readOnlyOf === undefined ? {} : { readOnlyOf }),
+      },
     );
   // Submit's one command: every held act, in the order the user produced them (AD-20), after a
   // last check that every held answer has the reason its held result requires: one that lacks it

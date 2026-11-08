@@ -11,7 +11,9 @@
 // (atoms, design decision 3). An item in `readOnlyItems`, which the card cannot show the revision of
 // its work for, writes no value through `onValueChange` and none through `onValuesChange`, which
 // refuses the whole update naming it: the console names the item, nothing is failed and no step
-// runs (keep-mine-shown-revision, design decision 3). Also the value and the result an item shows.
+// runs (keep-mine-shown-revision, design decision 3), and no result through `onResultChange`,
+// clearing included (document-review, design decision 15). Also the value and the result an item
+// shows.
 // Plain functions, tested without a DOM.
 
 import { JSON_MAX_DEPTH, resultHoldsNothing } from "@askboard/contract";
@@ -84,6 +86,13 @@ export const itemCallbacks = ({
     draft.set(itemId, value);
   },
   onResultChange: (result) => {
+    // An item the card makes read-only writes no result, a clearing included: the result points
+    // into the content of the revision the answer names, which the page cannot show (document-
+    // review, design decision 15). The console names the item and holds none of the result.
+    if (readOnlyItems?.has(itemId) === true) {
+      refuseWrite(itemId, [itemId]);
+      return;
+    }
     if (results === undefined) return;
     // `undefined` is the component's report of no result (the port's "`undefined` for none"): it
     // clears the item's result after the step before a change and is no error.

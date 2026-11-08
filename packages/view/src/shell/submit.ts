@@ -16,6 +16,7 @@ import {
 import { t } from "../strings/index.ts";
 import { questionsOf, type ViewDocument, type ViewQuestion } from "../view-document.ts";
 import type { ViewAct, ViewLock } from "../view-protocol.ts";
+import type { ReadOnlyOf } from "./agent-change.ts";
 import {
   answerContentOf,
   type BoardDraft,
@@ -154,6 +155,8 @@ export type SubmitInputs = {
   readonly results?: ReadonlyMap<string, unknown> | undefined;
   /** The facts of each widget type, whose `check` decides (the registered ones when none). */
   readonly facts?: FactsOf | undefined;
+  /** The items of a question the card makes read-only; the field block skips them (decision 15). */
+  readonly readOnlyOf?: ReadOnlyOf | undefined;
 };
 
 export type SubmitState = {
@@ -178,6 +181,7 @@ export const heldWithBlock = (
   entries: ReadonlyMap<string, unknown> | undefined,
   results: ReadonlyMap<string, unknown> | undefined,
   facts?: FactsOf,
+  readOnlyOf?: ReadOnlyOf,
 ): ViewQuestion | undefined =>
   entries === undefined && results === undefined
     ? undefined
@@ -186,7 +190,13 @@ export const heldWithBlock = (
           (each) =>
             each.question.id === question.id &&
             each.work.held.act === "answer" &&
-            holdsBlock(question, entries ?? new Map(), results ?? new Map(), facts),
+            holdsBlock(
+              question,
+              entries ?? new Map(),
+              results ?? new Map(),
+              facts,
+              readOnlyOf?.(question),
+            ),
         ),
       );
 
@@ -204,8 +214,14 @@ export const submitStateOf = (inputs: SubmitInputs): SubmitState => {
     inputs.lock !== undefined ||
     blocked.length > 0 ||
     ids.some(inputs.sending) ||
-    heldWithBlock(inputs.document, held, inputs.entries, inputs.results, inputs.facts) !==
-      undefined;
+    heldWithBlock(
+      inputs.document,
+      held,
+      inputs.entries,
+      inputs.results,
+      inputs.facts,
+      inputs.readOnlyOf,
+    ) !== undefined;
   return { held: held.length, blocked, disabled };
 };
 
@@ -240,12 +256,14 @@ export const selectRecommended = (
     entries,
     board,
     facts,
+    readOnlyOf,
   }: {
     readonly draft: DraftStore;
     readonly results?: DraftStore | undefined;
     readonly entries?: DraftStore | undefined;
     readonly board: BoardDraft;
     readonly facts?: AnswerContext["facts"];
+    readonly readOnlyOf?: ReadOnlyOf | undefined;
   },
   skip: (questionId: string) => boolean,
 ): number => {
@@ -267,7 +285,7 @@ export const selectRecommended = (
       facts,
       delivery: board.get().delivery,
     });
-    const blocked = blockedBy(question, { results, entries, facts });
+    const blocked = blockedBy(question, { results, entries, facts, readOnlyOf });
     if (board.get().delivery === "submitted" && !lacksReason && !blocked) {
       const order = nextHeldOrder(board);
       board.edit(question.id, question.rev, (current) => ({
@@ -340,13 +358,15 @@ export const submitPress = (
     readonly facts?: FactsOf | undefined;
     /** The entries the fields hold, by item ID. */
     readonly entries?: ReadonlyMap<string, unknown> | undefined;
+    /** The items of a question the card makes read-only; the field block skips them (decision 15). */
+    readonly readOnlyOf?: ReadOnlyOf | undefined;
   },
 ): SubmitPress => {
-  const { results, facts, state, entries } = options;
+  const { results, facts, state, entries, readOnlyOf } = options;
   const held = heldWorkOf(document, board);
   const missing = heldMissingReason(document, held, values, results, facts);
   if (missing !== undefined) return { kind: "needs-reason", questionId: missing.id };
-  const blocked = heldWithBlock(document, held, entries, results, facts);
+  const blocked = heldWithBlock(document, held, entries, results, facts, readOnlyOf);
   if (blocked !== undefined) return { kind: "field-block", questionId: blocked.id };
   const acts = submitActsOf(held, values, at, reported, results);
   const questions = state === undefined ? [] : questionsToConfirm(document, held, state, facts);

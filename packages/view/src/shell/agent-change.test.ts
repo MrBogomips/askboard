@@ -131,6 +131,65 @@ describe("the items an edit widget makes read-only on a revision the board canno
   });
 });
 
+// A result that points into the agent's content (document-review, design decision 15): a type
+// that registers `revisionBound` and no `shape` is read-only on a revision the board cannot show
+// too, since its result means nothing on another revision's text.
+const boundFacts: Readonly<Record<string, ComponentFacts>> = {
+  ...stubFacts,
+  pointing: { fits: () => true, revisionBound: true },
+  both: { shape: SHAPE, revisionBound: true },
+  unbound: { fits: () => true, valueFits: () => true },
+};
+const boundFactsOf = (type: string): ComponentFacts | undefined => boundFacts[type];
+const pointing = (rev: number): ViewQuestion =>
+  withItems(at(rev), [
+    { type: "pointing", id: "review", props: {} },
+    { type: "unbound", id: "free", props: {} },
+    { type: "editing", id: "tree", props: {} },
+    { type: "bare", id: "plain", props: {} },
+    {
+      type: "group",
+      id: "box",
+      props: {
+        title: "Box",
+        items: [
+          { type: "pointing", id: "inner-review", props: {} },
+          { type: "both", id: "inner-both", props: {} },
+          { type: "unbound", id: "inner-free", props: {} },
+        ],
+      },
+    },
+  ]);
+
+describe("the items a result that points into the agent's content makes read-only (document-review, decision 15)", () => {
+  test("a type registering revisionBound and no shape is read-only at the top level and nested, beside the edit widgets, when the work names an earlier revision than the card shows", () => {
+    const question = pointing(2);
+    const read = readOnlyItemsOf(question, question, { rev: 1 }, boundFactsOf);
+    expect([...read].sort()).toEqual(["inner-both", "inner-review", "review", "tree"]);
+  });
+
+  test("none while the card shows the work's revision, with no work, or with a work naming a later revision", () => {
+    const current = pointing(2);
+    const earlier = pointing(1);
+    expect(readOnlyItemsOf(current, earlier, { rev: 1 }, boundFactsOf).size).toBe(0);
+    expect(readOnlyItemsOf(current, current, undefined, boundFactsOf).size).toBe(0);
+    expect(readOnlyItemsOf(current, current, { rev: 2 }, boundFactsOf).size).toBe(0);
+    expect(readOnlyItemsOf(current, current, { rev: 3 }, boundFactsOf).size).toBe(0);
+  });
+
+  test("a type with neither fact is never read-only, and keep-mine's cases are unchanged", () => {
+    const question = pointing(2);
+    const read = readOnlyItemsOf(question, question, { rev: 1 }, boundFactsOf);
+    expect(read.has("free")).toBe(false);
+    expect(read.has("inner-free")).toBe(false);
+    expect(read.has("plain")).toBe(false);
+    const mixedQuestion = mixed(2);
+    expect(
+      [...readOnlyItemsOf(mixedQuestion, mixedQuestion, { rev: 1 }, boundFactsOf)].sort(),
+    ).toEqual(["inner", "top"]);
+  });
+});
+
 describe("Show the agent's change: the new revision with its differences marked", () => {
   test("its text fields and options, marked against the revision the work was made on", () => {
     const before = at(1).props;

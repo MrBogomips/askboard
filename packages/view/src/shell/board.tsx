@@ -27,7 +27,7 @@ import {
   type ViewQuestion,
 } from "../view-document.ts";
 import type { ViewLock } from "../view-protocol.ts";
-import { changePending, type KeptChoices } from "./agent-change.ts";
+import { changePending, type KeptChoices, readOnlyOfBoard } from "./agent-change.ts";
 import type { AttentionSnapshot } from "./attention.ts";
 import type { BoardDraftState } from "./board-draft.ts";
 import { BoardHeader, type HeaderCounts } from "./board-header.tsx";
@@ -390,6 +390,8 @@ export const Board = ({
     );
   }
   const delivery = single ? "immediate" : draft.delivery;
+  // The items each card makes read-only on a revision it cannot show: no field block counts them.
+  const readOnlyOf = readOnlyOfBoard(context.board, context.revisions);
   const submit = submitStateOf({
     document,
     board: draft,
@@ -400,6 +402,7 @@ export const Board = ({
     sending: (id) => context.acts.of(id, CARD_ACTS) !== undefined,
     entries: context.entries?.record(),
     results: context.results?.record(),
+    readOnlyOf,
   });
   return (
     <div
@@ -426,10 +429,11 @@ export const Board = ({
           warning={postponedWarningOf(document, state, draft.questions, language)}
           submit={submit}
           recommendations={hasRecommendation(document)}
+          readOnlyOf={readOnlyOf}
           locked={lock !== undefined}
           context={context}
           onSelectRecommended={() =>
-            selectRecommended(document, state, context, (id) => {
+            selectRecommended(document, state, { ...context, readOnlyOf }, (id) => {
               const question = questions.find((each) => each.id === id);
               return (
                 question === undefined || !takesSelection(context, question, draft, kept, lock)

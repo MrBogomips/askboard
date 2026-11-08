@@ -31,6 +31,7 @@ import {
   type ViewAct,
   type ViewMessage,
 } from "../view-protocol.ts";
+import type { ReadOnlyOf } from "./agent-change.ts";
 import type { AnswerActs } from "./answer-acts.ts";
 import {
   answerContentOf,
@@ -102,6 +103,12 @@ export type AnswerContext = Senders & {
   readonly delivery: Delivery;
   /** The facts of each widget type: whether an item's result requires a reason, and its field check. */
   readonly facts?: FactsOf;
+  /**
+   * The items of a question the card makes read-only on a revision the board cannot show
+   * (`readOnlyItemsOf`); the field block skips them (document-review, design decision 15). None:
+   * no item is read-only.
+   */
+  readonly readOnlyOf?: ReadOnlyOf;
 };
 
 /** What "Answer" gave: nothing to report, or that the answer lacks the reason it requires. */
@@ -236,18 +243,19 @@ export const answerNeedsReason = (
 
 /**
  * Whether a field of the question blocks "Answer", by the entries and the results the user holds
- * and the facts of each type (`fieldBlock`): the one check the press, "Accept recommended" and the
- * card's state make.
+ * and the facts of each type (`fieldBlock`), apart from the items the card makes read-only: the one
+ * check the press, "Accept recommended" and the card's state make.
  */
 export const blockedBy = (
   question: ViewQuestion,
-  context: Pick<AnswerContext, "results" | "entries" | "facts">,
+  context: Pick<AnswerContext, "results" | "entries" | "facts" | "readOnlyOf">,
 ): boolean =>
   holdsBlock(
     question,
     context.entries?.record() ?? new Map(),
     context.results?.record() ?? new Map(),
     context.facts,
+    context.readOnlyOf?.(question),
   );
 
 /**

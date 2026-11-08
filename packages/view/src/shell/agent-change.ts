@@ -106,9 +106,11 @@ export const workingQuestion = (
  * `shown`, a revision other than the one its answer names (`revisionFor`), as after a reload when
  * the page never saw the revision the work was made on (FR-6, AD-10, AD-20): the items whose type
  * edits the agent's content, which is to say registers the element `shape` its answer's `changes`
- * are computed from. An edit made on the shown props would be diffed by `ask-core` against the
- * kept revision's, and carry the agent's change as the user's. None while the card shows the
- * revision its answer names; the other types keep working.
+ * are computed from, and the items whose result points into the agent's content of the revision it
+ * was made on (`ComponentFacts.revisionBound`, document-review, design decision 15). An edit made
+ * on the shown props would be diffed by `ask-core` against the kept revision's, and carry the
+ * agent's change as the user's; a result placed on the shown content would be sent naming another
+ * revision. None while the card shows the revision its answer names; the other types keep working.
  */
 export const readOnlyItemsOf = (
   question: ViewQuestion,
@@ -119,10 +121,32 @@ export const readOnlyItemsOf = (
   if (shown.rev === revisionFor(question, work)) return new Set();
   return new Set(
     valueItemsOf(shown.props.items)
-      .filter((item) => factsOf(item.type)?.shape !== undefined)
+      .filter((item) => {
+        const facts = factsOf(item.type);
+        return facts?.shape !== undefined || facts?.revisionBound === true;
+      })
       .map((item) => item.id),
   );
 };
+
+/** The read-only items of a question, by ID: `readOnlyItemsOf` for the card that shows it. */
+export type ReadOnlyOf = (question: ViewQuestion) => ReadonlySet<string>;
+
+/**
+ * `readOnlyItemsOf` for each question of a board, by the work the board holds for it and the
+ * revisions the view has seen: what the readers that run beyond one card (Submit, "Select
+ * recommended") ask, and the card computes for itself (document-review, design decision 15).
+ */
+export const readOnlyOfBoard =
+  (
+    board: { work(questionId: string): QuestionWork | undefined },
+    revisions: Revisions,
+    factsOf: FactsOf = componentFacts,
+  ): ReadOnlyOf =>
+  (question) => {
+    const work = board.work(question.id);
+    return readOnlyItemsOf(question, workingQuestion(question, work, revisions), work, factsOf);
+  };
 
 /** A text field of the new revision, with the earlier text when it changed. */
 export type FieldChange = {

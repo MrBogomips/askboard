@@ -20,6 +20,7 @@ import { ARRANGED_ITEM, plainChoiceBoardDocument } from "@askboard/contract/fixt
 import type { ComponentFacts } from "../catalog/port.ts";
 import type { ViewDocument, ViewQuestion, WidgetItem } from "../view-document.ts";
 import type { ViewMessage } from "../view-protocol.ts";
+import { readOnlyItemsOf } from "./agent-change.ts";
 import { createAnswerActs } from "./answer-acts.ts";
 import { createBoardContent, withEntries } from "./board-content.ts";
 import { connectDrafts, createBoardDraft, draftRecordOf, resultFits } from "./board-draft.ts";
@@ -604,5 +605,144 @@ describe("a keystroke in a form of 200 patterned fields runs one pattern (review
     expect(patternRunCount() - before).toBe(1);
     readers(filled(["f150", "f150-x"]));
     expect(patternRunCount() - before).toBe(2);
+  });
+});
+
+// An item the card makes read-only on a revision the board cannot show (document-review, design
+// decision 15): its annotations were placed on the revision the answer names, so a check against
+// the shown content says nothing about them, and the user, who cannot change them, would be left
+// with a hint to. A probe type registering `check` and `revisionBound` whose check always fails
+// stands for the Document review; the set is the card's, derived from the facts.
+describe("a read-only item's field check blocks nothing (document-review, design decision 15)", () => {
+  const FAILING = { code: "pattern" } as const;
+  const BOUND: Readonly<Record<string, ComponentFacts>> = {
+    ...FACTS,
+    "text-field": { ...FACTS["text-field"], check: () => FAILING, revisionBound: true },
+  };
+  const boundOf = (type: string): ComponentFacts | undefined => BOUND[type];
+  const question = questionOf(arranged({ required: true }), 2);
+  // The work was made on revision 1 and the card shows revision 2: the card's read-only set.
+  const readOnly = readOnlyItemsOf(question, question, { rev: 1 }, boundOf);
+  const readOnlyOf = () => readOnly;
+  const failing = held(["plan-owner", "anything"]);
+
+  test("the set holds the probe's item, and the other fields stay out of it", () => {
+    expect([...readOnly]).toEqual(["plan-owner"]);
+  });
+
+  test("not read-only, the failing check blocks, hints and marks as before", () => {
+    expect(fieldBlock(question, NONE, failing, boundOf)).toMatchObject({
+      itemId: "plan-owner",
+      kind: "check",
+    });
+    expect(fieldBlock(question, NONE, failing, boundOf, new Set(["plan-notify"]))?.itemId).toBe(
+      "plan-owner",
+    );
+    expect(answerHint(question, NONE, failing, "en-US", boundOf)).toBe("Correct Owner first.");
+  });
+
+  test("read-only, it blocks nothing and gives no hint, while another field still does", () => {
+    expect(fieldBlock(question, NONE, failing, boundOf, readOnly)).toBeUndefined();
+    expect(holdsBlock(question, NONE, failing, boundOf, readOnly)).toBe(false);
+    expect(answerHint(question, NONE, failing, "en-US", boundOf, readOnly)).toBeUndefined();
+    const other = questionOf(arranged({ required: true }, { required: true }), 2);
+    expect(fieldBlock(other, NONE, failing, boundOf, readOnly)).toEqual({
+      itemId: "plan-notify",
+      label: "Notify the team",
+      kind: "required",
+    });
+  });
+
+  test("a hidden tab keeps no mark for it, and marks one that is not read-only", () => {
+    const board = createBoardContent(() => ({
+      document: documentOf(question),
+      state: { ask: "waiting", questions: [] } as never,
+    }))(new Map());
+    expect([...(withEntries(board, new Map(), failing, boundOf).entries ?? [])]).toEqual([
+      "plan-owner",
+    ]);
+    expect(withEntries(board, new Map(), failing, boundOf, readOnly)).toBe(board);
+    // The same board and results give the marked board again for the unset read-only set.
+    expect(withEntries(board, new Map(), failing, boundOf, new Set())).toBe(
+      withEntries(board, new Map(), failing, boundOf),
+    );
+  });
+
+  test("Answer and Accept recommended send what the user held, naming no block", () => {
+    const stores = setUp(question);
+    const context = { ...stores.context, facts: boundOf };
+    stores.values.set("plan", ["Yes"]);
+    stores.results.set("plan-owner", "anything");
+    expect(answer(question, context)).toBeUndefined();
+    expect(stores.sent).toEqual([]);
+    answer(question, { ...context, readOnlyOf });
+    expect(stores.sent).toHaveLength(1);
+    expect(stores.sent[0]).toMatchObject({ type: "answer", results: { "plan-owner": "anything" } });
+    const accepted = setUp(question);
+    accepted.results.set("plan-owner", "anything");
+    expect(acceptRecommended(question, { ...accepted.context, facts: boundOf })).toBeUndefined();
+    acceptRecommended(question, { ...accepted.context, facts: boundOf, readOnlyOf });
+    expect(accepted.sent).toHaveLength(1);
+  });
+
+  test("Select recommended marks the question ready for Submit", () => {
+    const select = (withSet: boolean) => {
+      const stores = setUp(question, "submitted");
+      stores.results.set("plan-owner", "anything");
+      selectRecommended(
+        documentOf(question),
+        openState(question),
+        { ...stores.context, facts: boundOf, ...(withSet ? { readOnlyOf } : {}) },
+        () => false,
+      );
+      return stores.board.work("plan")?.held;
+    };
+    expect(select(false)).toBeUndefined();
+    expect(select(true)).toMatchObject({ act: "answer", byRecommended: true });
+  });
+
+  test("Submit stays enabled and sends a held answer whose read-only check fails", () => {
+    const stores = setUp(question, "submitted");
+    stores.results.set("plan-owner", "anything");
+    stores.values.set("plan", ["Yes"]);
+    stores.board.edit("plan", 2, (work) => ({ ...work, held: { act: "answer", order: 0 } }));
+    const inputs = {
+      document: documentOf(question),
+      board: stores.board.get(),
+      delivery: "submitted" as const,
+      connection: undefined,
+      lock: undefined,
+      pending: () => false,
+      sending: () => false,
+      entries: stores.entries.record(),
+      results: stores.results.record(),
+      facts: boundOf,
+    };
+    expect(submitStateOf(inputs).disabled).toBe(true);
+    expect(submitStateOf({ ...inputs, readOnlyOf }).disabled).toBe(false);
+    const held = heldWorkOf(documentOf(question), stores.board.get());
+    expect(
+      heldWithBlock(documentOf(question), held, NONE, stores.results.record(), boundOf),
+    ).toBeDefined();
+    expect(
+      heldWithBlock(documentOf(question), held, NONE, stores.results.record(), boundOf, readOnlyOf),
+    ).toBeUndefined();
+    const press = (readOnly?: typeof readOnlyOf) =>
+      submitPress(
+        documentOf(question),
+        stores.board.get(),
+        stores.values.record(),
+        new Date(),
+        () => undefined,
+        {
+          results: stores.results.record(),
+          entries: stores.entries.record(),
+          state: openState(question),
+          facts: boundOf,
+          ...(readOnly === undefined ? {} : { readOnlyOf: readOnly }),
+        },
+      );
+    expect(press().kind).toBe("field-block");
+    expect(press(readOnlyOf).kind).toBe("send");
   });
 });
