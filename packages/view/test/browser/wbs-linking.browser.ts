@@ -13,6 +13,7 @@
 import { describe, expect, test } from "bun:test";
 import { elementChanges, GANTT_PLAN_SHAPE } from "@askboard/contract";
 import { uj2ExpandedBoardDocument } from "@askboard/contract/fixtures";
+import type { Locator } from "playwright";
 import type { ViewDocument } from "../../src/view-document.ts";
 import { ganttOf, rowTexts } from "./fixtures/gantt-view.ts";
 import {
@@ -404,11 +405,14 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       TEST_TIMEOUT_MS,
     );
 
-    /** Whether the focus is inside the treegrid or its toolbar, never on the page body. */
-    const focusInTree = async (run: WidgetHostRun) =>
-      (await run.board.viewFrame()).evaluate(
-        () => document.activeElement !== null && document.activeElement !== document.body,
-      );
+    /** Whether the focus is inside a part of the Tree: false when the part is not drawn. */
+    const focusWithin = async (part: Locator) =>
+      (await part.count()) === 1 &&
+      (await part.evaluate((element) => element.contains(element.ownerDocument.activeElement)));
+
+    /** Whether the focus is inside the treegrid or its toolbar, never on the page body or the card. */
+    const focusInTree = async (tree: TreeGrid) =>
+      (await focusWithin(tree.grid)) || (await focusWithin(tree.toolbar));
 
     test(
       "the agent giving the portal a child while the question is open closes it with nothing applied, and the focus stays in the Tree",
@@ -421,13 +425,13 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await shownIds(tree)).toContain("gateway");
         expect((await placeOf(tree, "billing"))[0]).toBe("2");
         expect(draftValues(run)).toEqual({});
-        expect(await focusInTree(run)).toBe(true);
+        expect(await focusInTree(tree)).toBe(true);
       },
       TEST_TIMEOUT_MS,
     );
 
     test(
-      "the agent moving the portal under billing, then Continue, changes nothing, closes the question and keeps the focus in the Tree",
+      "the agent moving the portal under billing, then Continue, changes nothing, closes the question and leaves the focus on the grid",
       async () => {
         const { run, tree } = await opened();
         await dropBillingIntoPortal(run, tree);
@@ -442,7 +446,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await question.waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
         expect(await allPlaces(tree)).toEqual(before);
         expect(draftValues(run)).toEqual({});
-        expect(await focusInTree(run)).toBe(true);
+        // A confirmed drop that no longer applies leaves the focus on the grid, as decision 3 says.
+        expect(await focusWithin(tree.grid)).toBe(true);
       },
       TEST_TIMEOUT_MS,
     );
