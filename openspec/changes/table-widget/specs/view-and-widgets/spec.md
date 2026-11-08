@@ -23,7 +23,7 @@ A cell SHALL show its value in the ask's locale: a number with its unit and mone
 - **THEN** it shows unset, apart from off
 
 ### Requirement: Editing a cell
-Enter, F2 or a double-click SHALL open an editor on the current input cell; the text SHALL be read by the input atom's parser in the ask's locale, its parsed value echoed while the editor is open; Enter or leaving SHALL commit a value into the draft, an empty text emptying the cell; Escape SHALL restore the cell. Space SHALL switch a toggle cell, unset to on, then off and on (AD-9, AD-10).
+Enter, F2 or a double-click SHALL open an editor on the current input cell other than an on/off cell; the text SHALL be read by the input atom's parser in the ask's locale, its parsed value echoed while the editor is open; Enter or leaving SHALL commit a value into the draft, an empty text emptying the cell; Escape SHALL restore the cell (AD-9, AD-10).
 
 #### Scenario: A rate typed in Italian
 - **WHEN** on an it-IT ask the user opens `pm`'s rate, types "960,00" and presses Enter
@@ -36,6 +36,13 @@ Enter, F2 or a double-click SHALL open an editor on the current input cell; the 
 #### Scenario: A formula cell
 - **WHEN** the user presses Enter on `pm`'s amount
 - **THEN** no editor opens
+
+### Requirement: On/off cells
+An on/off cell SHALL have no editor and hold no cell entry: Space, Enter, F2 or a click SHALL switch it, not set or off to on and on to off, and Delete or Backspace SHALL return it to not set (AD-9, AD-10).
+
+#### Scenario: An on/off cell
+- **WHEN** a Table has a toggle column `billable`, and on `pm`'s cell, not set, the user presses Enter, then clicks the cell, then presses Delete
+- **THEN** no editor opens, the cell reads "On", then "Off", then "Not set", the draft's `pm` row ends with no `billable`, and no cell entry is held
 
 ### Requirement: Cell entries block "Answer"
 Text a cell cannot read, or whose value breaks its column's bounds, SHALL stay in the cell with its field error as a cell entry: Enter keeps the editor open on it, leaving keeps it in the cell. While any cell holds one, the question's "Answer", "Send and switch" and Submit SHALL be disabled, described "Correct {label} first."; correcting or clearing it releases them (AD-10, AD-20, NFR-10).
@@ -92,6 +99,20 @@ A column formula's problem SHALL show once, over the grid, naming the column and
 - **WHEN** a column `perDay` is `[@amount] / [@days]` and `dev`'s days is 0
 - **THEN** a field error under `dev`'s row names "Per day" and the division by zero, and `pm`'s value shows
 
+### Requirement: A refused column's error shows once
+The cells and totals of columns that read a refused column SHALL read "—" with no row or total error whose origin is that column; an error of their own SHALL still show under its row or the Total row (AD-13, FR-14).
+
+#### Scenario: A column reading a refused column
+- **WHEN** `amount` reads `[@rte]` and a column `perDay` is `[@amount] / [@days]`, with no day at 0
+- **THEN** one field error over the grid names "Amount", every amount and per-day cell reads "—", and no error shows under any row or the Total row
+
+### Requirement: Money past the bound on the board
+A money value a formula gives past 15 integer digits SHALL show as "—" with an error of the kind `value`, under its row or the Total row, and SHALL not disable "Answer" (AD-10, AD-13).
+
+#### Scenario: Money past the bound
+- **WHEN** a money formula cell would hold 1e30 (a rate of "999999999999999.99" times 1000000000000000 days)
+- **THEN** the cell reads "—" with a field error under its row naming the column, the column's total reads "—" with its error under the Total row, and "Answer" stays enabled
+
 ### Requirement: Changes shown apart
 A changed cell SHALL take the change highlight, an added row too; a formula cell or total whose value differs from the board as sent SHALL take the derived mark and is not counted. The toolbar's counter SHALL read "No changes", else "Your changes: N", N counting changed cells, added rows and deleted rows (FR-11, EXPERIENCE Change highlight).
 
@@ -107,11 +128,15 @@ A changed cell SHALL take the change highlight, an added row too; a formula cell
 - **THEN** the answer message holds the edited rows and the derived values `costs.days`, `costs.amount` and `costs.pm.amount`, and the Table turns read-only
 
 ### Requirement: The Table at the keyboard
-In the grid, the arrow keys SHALL move the current cell, Home and End to its row's first and last cell; the current cell SHALL be marked and focused visibly. The toolbar SHALL be its own Tab stop. Every edit, row added or deleted SHALL be reachable from the keyboard (NFR-12).
+In the grid, the arrow keys SHALL move the current cell, Home and End to its row's first and last cell; on an on/off cell Space, Enter or F2 SHALL switch it and Delete or Backspace return it to not set; the current cell SHALL be marked and focused visibly. The toolbar SHALL be its own Tab stop. Every edit, row added or deleted SHALL be reachable from the keyboard (NFR-12).
 
 #### Scenario: Editing without a pointer
 - **WHEN** the user tabs into the grid, current on `pm`'s role, presses Down, Right twice and Enter, types "16" and presses Enter
 - **THEN** the editor opened on `dev`'s rate, and the draft holds `dev`'s rate "16.00"
+
+#### Scenario: An on/off cell without a pointer
+- **WHEN** on a Table with a toggle column `billable` the user moves to `dev`'s cell, not set, presses F2, then Space, then Backspace
+- **THEN** the cell reads "On", then "Off", then "Not set", and no editor opened
 
 ### Requirement: A Table read-only and in Snapshots
 An answered, locked or Snapshot Table SHALL show its rows, totals and formula cells with their marks, open no editor, switch no toggle and show no toolbar actions, and SHALL stay readable from the keyboard (AD-9, AD-15).
@@ -135,11 +160,11 @@ The caption, every header and every text cell SHALL wrap a word of 200 character
 - **THEN** each wraps inside the frame, and the board has no horizontal scroll
 
 ### Requirement: Table strings
-Every string the Table shows SHALL come from the view's tables in en-US and it-IT: the toolbar, the counter, the computed mark, the cell and row names, the field errors, the refusals and the hint (FR-34).
+Every string the Table shows SHALL come from the view's tables in en-US and it-IT: the toolbar, the counter, the computed mark, the cell and row names, the field errors (a text cell over its limit by the Table's own string, never another widget's), the refusals and the hint (FR-34).
 
 #### Scenario: An Italian board
-- **WHEN** an it-IT ask shows a Table and the user adds a row
-- **THEN** the toolbar reads "Aggiungi riga" and "Elimina riga", and no English string of the Table shows in its text, accessible names or titles
+- **WHEN** an it-IT ask shows a Table, the user adds a row and types 501 characters in its role
+- **THEN** the toolbar reads "Aggiungi riga" and "Elimina riga", the cell's error reads "Una cella di testo contiene al massimo 500 caratteri.", and no English string of the Table shows in its text, accessible names or titles
 
 ### Requirement: A Table at its bounds on the board
 A Table at its bounds SHALL become visible, and take a cell edit and a row added, within the gates of design decision 13 in WebKit, cold (NFR-12, AD-13).

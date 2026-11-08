@@ -98,6 +98,13 @@ A Table SHALL declare as derived each total, `item.field`, and each formula colu
 - **WHEN** the user lowers `pm`'s rate to "960.00" in the Table of roles and answers
 - **THEN** the derived values are `costs.days` 90, `costs.amount` "69120.00" and `costs.pm.amount` "17280.00", and no value of `dev`
 
+### Requirement: Money derived values within the amount bound
+A money value a Table's formula gives, a formula cell or a total, whose rounded value has more than 15 integer digits SHALL be no value: an answer's derived values SHALL leave it out, as one in error, and no derived value SHALL be written with an exponent (AD-7, AD-10, NFR-10).
+
+#### Scenario: Money past the bound
+- **WHEN** a Table's money column `rate` holds "999999999999999.99", a number column `days` holds 1000000000000000, and its money formula column `amount` is `[@rate] * [@days]` with `total: "sum"`
+- **THEN** the answer's derived values hold neither the row's `amount` nor the `amount` total, and no derived value of the answer is written with an exponent
+
 ### Requirement: Cell entries in the draft record
 A question of the draft record MAY hold `cellEntries`: by item ID, by cell (`row.field`), the text the cell holds that gives no value, 1 to 200 characters, at most 2,000 per item. Its item keys SHALL name items of the question; cell entries are unsent work and SHALL never be part of an answer (AD-20).
 
