@@ -45,8 +45,38 @@ const folder = (prefix = "askboard-smoke-"): string => {
   folders.push(made);
   return made;
 };
-afterEach(() => {
-  for (const path of folders.splice(0)) rmSync(path, { recursive: true, force: true });
+// The processes whose command line names `path`: a smoke run must leave none behind.
+const processesUnder = (path: string): number[] =>
+  Bun.spawnSync(["pgrep", "-f", path])
+    .stdout.toString()
+    .split("\n")
+    .filter((line) => line.trim() !== "")
+    .map(Number);
+
+// Waits up to two seconds for `path`'s processes to end; kills and names those still running.
+const leftOver = async (path: string): Promise<number[]> => {
+  const deadline = Date.now() + 2000;
+  let running = processesUnder(path);
+  while (running.length > 0 && Date.now() < deadline) {
+    await Bun.sleep(50);
+    running = processesUnder(path);
+  }
+  for (const pid of running) {
+    try {
+      process.kill(pid, "SIGKILL");
+    } catch {
+      // Already gone.
+    }
+  }
+  return running;
+};
+
+afterEach(async () => {
+  const made = folders.splice(0);
+  const running = (await Promise.all(made.map(leftOver))).flat();
+  for (const path of made) rmSync(path, { recursive: true, force: true });
+  // A test that leaves a process running fails, so a leak cannot pile up across runs of the check.
+  expect(running).toEqual([]);
 });
 
 // A stand-in bundle: the MCP handshake and `tools/list` as the environment says, `hook` reading its
@@ -227,6 +257,26 @@ describe("smoke on a fake tree", () => {
     });
     expect(failed(steps)[0]?.name).toBe("initialize");
     expect(failed(steps)[0]?.detail).toContain("no answer");
+  });
+
+  nodeTest("a failed initialize ends the server it started: no process is left", async () => {
+    const tree = fakeTree();
+    await smoke(tree, {
+      tools: TOOLS,
+      timeoutMs: 800,
+      env: standIn({ STANDIN_SILENT: "1", STANDIN_STAY: "1" }),
+    });
+    expect(await leftOver(tree)).toEqual([]);
+  });
+
+  nodeTest("a server with another name is ended too: no process is left", async () => {
+    const tree = fakeTree();
+    const steps = await smoke(tree, {
+      tools: TOOLS,
+      env: standIn({ STANDIN_NAME: "other", STANDIN_STAY: "1" }),
+    });
+    expect(failed(steps)[0]?.name).toBe("initialize");
+    expect(await leftOver(tree)).toEqual([]);
   });
 
   nodeTest(
