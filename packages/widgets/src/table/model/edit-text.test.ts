@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { TableColumn } from "@askboard/contract";
 import { editText } from "./columns.ts";
-import { cellEcho, readCell } from "./read.ts";
+import { readCell } from "./read.ts";
 
 const DAYS: TableColumn = { field: "days", label: "Days", type: "number", min: 0 };
 const RATE: TableColumn = { field: "rate", label: "Rate", type: "money", currency: "USD" };
@@ -24,10 +24,9 @@ describe("the text an editor starts with", () => {
       [RATE, "960.00", "it-IT"],
       [DUE, "2026-10-27", "it-IT"],
     ] as const) {
-      expect(readCell(editText(column, value, locale), column, locale, locale)).toEqual({
-        kind: "value",
-        value,
-      });
+      const reading = readCell(editText(column, value, locale), column, locale, locale);
+      expect(reading.kind).toBe("value");
+      expect(reading.kind === "value" && reading.value).toBe(value);
     }
   });
 
@@ -44,19 +43,22 @@ describe("the text an editor starts with", () => {
 });
 
 describe("the echo of the typed text", () => {
+  const echoOf = (typed: string, column: TableColumn, locale: "en-US" | "it-IT") => {
+    const reading = readCell(typed, column, locale, locale);
+    return reading.kind === "empty" ? undefined : "echo" in reading ? reading.echo : undefined;
+  };
+
   test("names the value read, in the ask's locale", () => {
-    expect(cellEcho(readCell("960,00", RATE, "it-IT", "it-IT"), RATE, "it-IT")).toBe(
-      "= 960,00 USD",
-    );
-    expect(cellEcho(readCell("12,5", DAYS, "it-IT", "it-IT"), DAYS, "it-IT")).toBe("= 12,5");
-    expect(cellEcho(readCell("27/10/2026", DUE, "it-IT", "it-IT"), DUE, "it-IT")).toContain("2026");
+    expect(echoOf("960,00", RATE, "it-IT")).toBe("= 960,00 USD");
+    expect(echoOf("12,5", DAYS, "it-IT")).toBe("= 12,5");
+    expect(echoOf("27/10/2026", DUE, "it-IT")).toContain("2026");
   });
 
-  test("is the entry's own when a bound is broken, and none for a text, an empty text or a refusal", () => {
-    expect(cellEcho(readCell("-1", DAYS, "en-US", "en-US"), DAYS, "en-US")).toBe("= -1");
-    expect(cellEcho(readCell("Dev", ROLE, "en-US", "en-US"), ROLE, "en-US")).toBeUndefined();
-    expect(cellEcho(readCell("", DAYS, "en-US", "en-US"), DAYS, "en-US")).toBeUndefined();
-    expect(cellEcho(readCell("1.234,5", DAYS, "en-US", "en-US"), DAYS, "en-US")).toBeUndefined();
-    expect(cellEcho({ kind: "value", value: true }, BILLABLE, "en-US")).toBeUndefined();
+  test("is the entry's own when a bound is broken, and none for a text, an empty text, a refusal or a toggle", () => {
+    expect(echoOf("-1", DAYS, "en-US")).toBe("= -1");
+    expect(echoOf("Dev", ROLE, "en-US")).toBeUndefined();
+    expect(echoOf("", DAYS, "en-US")).toBeUndefined();
+    expect(echoOf("1.234,5", DAYS, "en-US")).toBeUndefined();
+    expect(echoOf("on", BILLABLE, "en-US")).toBeUndefined();
   });
 });

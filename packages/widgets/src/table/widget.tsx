@@ -45,7 +45,7 @@ import {
   tableKey,
 } from "./model/focus.ts";
 import { cellKey, changeCounter, marksOf } from "./model/marks.ts";
-import { cellEcho, readCell } from "./model/read.ts";
+import { readCell } from "./model/read.ts";
 import type { RowLine } from "./row.tsx";
 import { TableToolbar } from "./toolbar.tsx";
 
@@ -398,7 +398,10 @@ export const TableWidget = ({
         label={text("table.cellName", { column: column.label, row: position })}
         error={editing.error}
         errorId={errorId}
-        echoOf={(typed) => cellEcho(readCell(typed, column, locale, language), column, locale)}
+        echoOf={(typed) => {
+          const reading = readCell(typed, column, locale, language);
+          return reading.kind === "empty" ? undefined : reading.echo;
+        }}
         onCommit={commit}
         onCancel={() => close(true)}
         onEdit={() => {

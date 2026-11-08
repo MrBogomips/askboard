@@ -398,6 +398,7 @@ export const STRING_KEYS = [
   "table.notSet",
   "table.cellName",
   "table.maxRows",
+  "table.entry.textTooLong",
   "table.noValue",
   "table.problem.syntax",
   "table.problem.overLimit",

@@ -439,6 +439,7 @@ export const IT_IT = {
   "table.notSet": "Non impostato",
   "table.cellName": "{column}, riga {row}",
   "table.maxRows": "Una tabella contiene al massimo {max} righe.",
+  "table.entry.textTooLong": "Una cella di testo contiene al massimo {max} caratteri.",
   "table.noValue": "—",
   "table.problem.syntax": "{column}: la formula non si legge.",
   "table.problem.overLimit":

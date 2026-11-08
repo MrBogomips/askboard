@@ -419,6 +419,7 @@ export const EN_US = {
   "table.notSet": "Not set",
   "table.cellName": "{column}, row {row}",
   "table.maxRows": "A table holds at most {max} rows.",
+  "table.entry.textTooLong": "A text cell holds at most {max} characters.",
   "table.noValue": "—",
   "table.problem.syntax": "{column}: the formula cannot be read.",
   "table.problem.overLimit":

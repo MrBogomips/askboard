@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
+  amountEcho,
+  dateEcho,
   ENTRY_MAX_CHARS,
   TABLE_TEXT_MAX_CHARS,
   type TableColumn,
@@ -46,14 +48,27 @@ const read = (text: string, column: TableColumn, locale: "en-US" | "it-IT" = "en
 
 describe("a cell's text read in the ask's locale", () => {
   test("a number, money and a date give a value, and an empty text empties the cell", () => {
-    expect(read("72", DAYS)).toEqual({ kind: "value", value: 72 });
+    expect(read("72", DAYS)).toEqual({ kind: "value", value: 72, echo: "= 72" });
     expect(read("1.234,5", { ...DAYS, max: undefined }, "it-IT")).toEqual({
       kind: "value",
       value: 1234.5,
+      echo: "= 1234,5",
     });
-    expect(read("960,00", RATE, "it-IT")).toEqual({ kind: "value", value: "960.00" });
-    expect(read("12/11/2026", DATE, "it-IT")).toEqual({ kind: "value", value: "2026-11-12" });
-    expect(read("10/27/2026", DATE)).toEqual({ kind: "value", value: "2026-10-27" });
+    expect(read("960,00", RATE, "it-IT")).toEqual({
+      kind: "value",
+      value: "960.00",
+      echo: "= 960,00 USD",
+    });
+    expect(read("12/11/2026", DATE, "it-IT")).toEqual({
+      kind: "value",
+      value: "2026-11-12",
+      echo: dateEcho("2026-11-12", "it-IT"),
+    });
+    expect(read("10/27/2026", DATE)).toEqual({
+      kind: "value",
+      value: "2026-10-27",
+      echo: dateEcho("2026-10-27", "en-US"),
+    });
     for (const column of [ROLE, DAYS, RATE, DATE, TOGGLE]) {
       expect(read("  ", column).kind).toBe(column.type === "text" ? "value" : "empty");
       expect(read("", column)).toEqual({ kind: "empty" });
@@ -104,7 +119,11 @@ describe("a cell's text read in the ask's locale", () => {
 
   test("a currency's minor units are held: a half yen is an entry", () => {
     const yen: TableColumn = { field: "fee", label: "Fee", type: "money", currency: "JPY" };
-    expect(read("1200", yen)).toEqual({ kind: "value", value: "1200" });
+    expect(read("1200", yen)).toEqual({
+      kind: "value",
+      value: "1200",
+      echo: amountEcho("1200", "JPY", "en-US"),
+    });
     expect(read("1200.5", yen).kind).toBe("entry");
   });
 
@@ -115,7 +134,15 @@ describe("a cell's text read in the ask's locale", () => {
     expect(over.kind).toBe("entry");
     if (over.kind === "entry") {
       expect(Array.from(over.text)).toHaveLength(ENTRY_MAX_CHARS);
-      expect(over.error).toBe(`A text field holds at most ${TABLE_TEXT_MAX_CHARS} characters.`);
+      expect(over.error).toBe(`A text cell holds at most ${TABLE_TEXT_MAX_CHARS} characters.`);
+    }
+    const italian = read("𝒳".repeat(TABLE_TEXT_MAX_CHARS + 1), ROLE, "it-IT");
+    expect(italian.kind === "entry" && italian.error).toBe(
+      `Una cella di testo contiene al massimo ${TABLE_TEXT_MAX_CHARS} caratteri.`,
+    );
+    for (const reading of [over, italian]) {
+      expect(reading.kind === "entry" && reading.error).not.toContain("text field");
+      expect(reading.kind === "entry" && reading.error).not.toContain("campo");
     }
   });
 
@@ -124,13 +151,32 @@ describe("a cell's text read in the ask's locale", () => {
     expect(read("123456", CAPPED)).toMatchObject({
       kind: "entry",
       text: "123456",
-      error: "A text field holds at most 5 characters.",
+      error: "A text cell holds at most 5 characters.",
     });
   });
 
   test("an entry of a number is cut at 200 code points before it is read", () => {
     const entry = read("9".repeat(300), DAYS);
     expect(entry.kind === "entry" && Array.from(entry.text).length).toBe(ENTRY_MAX_CHARS);
+  });
+
+  test("a number, money and a date read with their echo in the ask's locale; a text has none", () => {
+    expect(read("960,00", RATE, "it-IT")).toEqual({
+      kind: "value",
+      value: "960.00",
+      echo: "= 960,00 USD",
+    });
+    expect(read("12,5", { ...DAYS, max: undefined }, "it-IT")).toMatchObject({ echo: "= 12,5" });
+    expect(read("27/10/2026", DATE, "it-IT")).toMatchObject({
+      echo: dateEcho("2026-10-27", "it-IT"),
+    });
+    expect("echo" in read("Dev", ROLE)).toBe(false);
+  });
+
+  test("a date entry carries its echo", () => {
+    const entry = read("12/31/2027", DATE);
+    expect(entry.kind).toBe("entry");
+    expect(entry.kind === "entry" && entry.echo).toBe(dateEcho("2027-12-31", "en-US"));
   });
 
   test("a toggle takes no text: no reading of one is an entry", () => {

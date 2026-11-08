@@ -23,6 +23,7 @@ const KEYS: readonly StringKey[] = [
   "table.notSet",
   "table.cellName",
   "table.maxRows",
+  "table.entry.textTooLong",
   "table.noValue",
   "table.problem.syntax",
   "table.problem.overLimit",
@@ -66,6 +67,9 @@ describe("the Table's strings", () => {
     expect(t("en-US", "table.notSet")).toBe("Not set");
     expect(t("en-US", "table.cellName", { column: "Rate", row: 2 })).toBe("Rate, row 2");
     expect(t("en-US", "table.maxRows", { max: 200 })).toBe("A table holds at most 200 rows.");
+    expect(t("en-US", "table.entry.textTooLong", { max: 500 })).toBe(
+      "A text cell holds at most 500 characters.",
+    );
     expect(t("en-US", "table.noValue")).toBe("—");
     expect(t("en-US", "change.widgetTable")).toBe("Table");
   });
@@ -84,6 +88,9 @@ describe("the Table's strings", () => {
     expect(t("it-IT", "table.cellName", { column: "Tariffa", row: 2 })).toBe("Tariffa, riga 2");
     expect(t("it-IT", "table.maxRows", { max: 200 })).toBe(
       "Una tabella contiene al massimo 200 righe.",
+    );
+    expect(t("it-IT", "table.entry.textTooLong", { max: 500 })).toBe(
+      "Una cella di testo contiene al massimo 500 caratteri.",
     );
     expect(t("it-IT", "table.noValue")).toBe("—");
     expect(t("it-IT", "change.widgetTable")).toBe("Tabella");

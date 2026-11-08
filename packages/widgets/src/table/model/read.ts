@@ -34,7 +34,12 @@ import { cutCodePoints } from "./text.ts";
 
 export type CellReading =
   | { readonly kind: "empty" }
-  | { readonly kind: "value"; readonly value: TableCellValue }
+  | {
+      readonly kind: "value";
+      readonly value: TableCellValue;
+      /** The value as the ask's locale echoes it, "= 960,00 USD"; none for a text. */
+      readonly echo?: string;
+    }
   | {
       readonly kind: "entry";
       /** The text kept as the cell's entry: at most `ENTRY_MAX_CHARS` code points. */
@@ -86,14 +91,11 @@ const readNumber = (
   const parsed = parseNumber(text, locale, language);
   if (parsed.kind === "empty") return { kind: "empty" };
   if (parsed.kind === "refused") return entry(text, parsed.reason);
+  const echo = numberEcho(parsed.value, locale);
   if (tableCellProblems(parsed.value, column).length === 0) {
-    return { kind: "value", value: parsed.value };
+    return { kind: "value", value: parsed.value, echo };
   }
-  return entry(
-    text,
-    numberError(parsed.value, column, locale, language),
-    numberEcho(parsed.value, locale),
-  );
+  return entry(text, numberError(parsed.value, column, locale, language), echo);
 };
 
 const readMoney = (
@@ -107,8 +109,8 @@ const readMoney = (
   if (parsed.kind === "empty") return { kind: "empty" };
   if (parsed.kind === "refused") return entry(text, parsed.reason);
   const { amount } = parsed;
-  if (tableCellProblems(amount, column).length === 0) return { kind: "value", value: amount };
   const echo = amountEcho(amount, currency, locale);
+  if (tableCellProblems(amount, column).length === 0) return { kind: "value", value: amount, echo };
   const bound = moneyFieldBound(amount, { label: column.label, ...propsOf(column) });
   if (bound === "max") {
     return entry(
@@ -136,7 +138,8 @@ const readDate = (
   if (parsed.kind === "empty") return { kind: "empty" };
   if (parsed.kind === "refused") return entry(text, parsed.reason);
   const { date } = parsed;
-  if (tableCellProblems(date, column).length === 0) return { kind: "value", value: date };
+  const echo = dateEcho(date, locale);
+  if (tableCellProblems(date, column).length === 0) return { kind: "value", value: date, echo };
   // A day before the range is before `min`, or, with none, before the Gantt's first day.
   const bound = dateFieldBound(date, { label: column.label, ...propsOf(column) });
   const before = bound === "min" || (bound === undefined && date < GANTT_FIRST_DATE);
@@ -147,14 +150,14 @@ const readDate = (
     : say(language, "field.onOrBefore", {
         date: formatDate(String(column.max ?? GANTT_LAST_DATE), locale),
       });
-  return entry(text, error, dateEcho(date, locale));
+  return entry(text, error, echo);
 };
 
 const readText = (text: string, column: TableColumn, language: Locale): CellReading => {
   if (text === "") return { kind: "empty" };
   if (tableCellProblems(text, column).length === 0) return { kind: "value", value: text };
   const max = Math.min(column.maxLength ?? TABLE_TEXT_MAX_CHARS, TABLE_TEXT_MAX_CHARS);
-  return entry(text, say(language, "tree.entry.textTooLong", { max }));
+  return entry(text, say(language, "table.entry.textTooLong", { max }));
 };
 
 /**
@@ -180,31 +183,5 @@ export const readCell = (
       return readDate(cutCodePoints(typed, ENTRY_MAX_CHARS), column, locale, language);
     case "toggle":
       return { kind: "empty" };
-  }
-};
-
-/**
- * The echo of what the typed text reads as, while the editor is open ("= 960,00 USD"): the value's
- * own echo, or the one an entry carries; none for a text, a toggle or a text no value is read from.
- */
-export const cellEcho = (
-  reading: CellReading,
-  column: TableColumn,
-  locale: Locale,
-): string | undefined => {
-  if (reading.kind === "entry") return reading.echo;
-  if (reading.kind !== "value") return undefined;
-  const { value } = reading;
-  switch (column.type) {
-    case "number":
-      return typeof value === "number" ? numberEcho(value, locale) : undefined;
-    case "money":
-      return typeof value === "string" && column.currency !== undefined
-        ? amountEcho(value, column.currency, locale)
-        : undefined;
-    case "date":
-      return typeof value === "string" ? dateEcho(value, locale) : undefined;
-    default:
-      return undefined;
   }
 };
