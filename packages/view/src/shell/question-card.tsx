@@ -37,7 +37,6 @@ import {
   answerContentOf,
   type BoardDraft,
   type Delivery,
-  hasAnswerWork,
   itemIdsOf,
   type QuestionWork,
 } from "./board-draft.ts";
@@ -75,6 +74,7 @@ import {
 } from "./question-state.ts";
 import { type ReasonRequests, reasonAskedAfter, reasonOf } from "./reason.ts";
 import { type RenderContext, RenderItem } from "./renderer.tsx";
+import { questionRevising } from "./revising.ts";
 import {
   asksFirst,
   type Confirmation,
@@ -188,7 +188,13 @@ const useCard = ({ question, state, lock, context }: CardProps) => {
   // A field blocks: an entry, a value that fails its check, an empty required field.
   const blocked = holdsBlock(shown, heldEntries, heldResults);
   // The work holds an edit: on an answered question, a revision under way.
-  const revising = hasAnswerWork(shown, values, work, heldResults, heldEntries);
+  const revising = questionRevising(question, {
+    work,
+    revisions,
+    values,
+    results: heldResults,
+    entries: heldEntries,
+  });
   const card = cardState({
     status,
     draft: answerContentOf(shown, values, work, heldResults),
@@ -447,7 +453,13 @@ export const QuestionCard = (props: CardProps) => {
     const held = context.results?.record();
     const typed = entriesWithCells(context.entries?.record(), context.cellEntries?.record());
     if (
-      hasAnswerWork(shown, context.draft.record(), context.board.work(question.id), held, typed)
+      questionRevising(question, {
+        work: context.board.work(question.id),
+        revisions: context.revisions,
+        values: context.draft.record(),
+        results: held,
+        entries: typed,
+      })
     ) {
       return;
     }

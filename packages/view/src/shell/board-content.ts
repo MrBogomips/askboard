@@ -19,12 +19,12 @@ import {
   componentFacts,
 } from "../catalog/port.ts";
 import { nestedWidgetItemsOf, valueItemsOf } from "../nested-items.ts";
-import { questionsOf, type ViewDocument, type ViewQuestion } from "../view-document.ts";
+import { questionsOf, type ViewDocument } from "../view-document.ts";
 import type { AnswerContent } from "../view-protocol.ts";
 import { resultFits } from "./board-draft.ts";
 import type { DraftRecord } from "./draft-store.ts";
 import { type CheckFactsOf, itemCheckFailure } from "./field-block.ts";
-import { statusOf, unchangedOf } from "./question-state.ts";
+import { statusIndexOf, unchangedOf } from "./question-state.ts";
 
 /** What the board is made from: the shell's latest board document and the board state. */
 export type BoardSource = {
@@ -80,8 +80,9 @@ const NO_ANSWERS: Answered = new Map();
 // Each widget item's value in its question's latest answer, read as an own property of the
 // answer's values, for the items the question holds, and for no question with a revision under way.
 const answeredOf = ({ document, state }: BoardSource, revising: ReadonlySet<string>): Answered => {
+  const statuses = statusIndexOf(state);
   const entries = questionsOf(document).flatMap((question) => {
-    const status = statusOf(state, question.id);
+    const status = statuses.get(question.id);
     if (status === undefined || (status.state !== "answered" && status.state !== "declined")) {
       return [];
     }
@@ -110,8 +111,9 @@ export const answeredResultsOf = (
   { document, state }: BoardSource,
   factsOf: (type: string) => ComponentFacts | undefined = componentFacts,
 ): Answered => {
+  const statuses = statusIndexOf(state);
   const entries = questionsOf(document).flatMap((question) => {
-    const status = statusOf(state, question.id);
+    const status = statuses.get(question.id);
     if (status === undefined || (status.state !== "answered" && status.state !== "declined")) {
       return [];
     }
@@ -231,36 +233,17 @@ const shownOf = (draft: DraftRecord, answered: Answered): ReadonlyMap<string, un
   return unedited.length === 0 ? draft : new Map([...draft, ...unedited]);
 };
 
-// The answered or declined questions whose revision is under way, by ID.
-const revisingIn = (
-  { document, state }: BoardSource,
-  revisingOf: (question: ViewQuestion) => boolean,
-): ReadonlySet<string> =>
-  new Set(
-    questionsOf(document)
-      .filter((question) => {
-        const status = statusOf(state, question.id);
-        return (
-          status !== undefined &&
-          (status.state === "answered" || status.state === "declined") &&
-          revisingOf(question)
-        );
-      })
-      .map(({ id }) => id),
-  );
-
-const sameSet = (a: ReadonlySet<string>, b: ReadonlySet<string>): boolean =>
-  a.size === b.size && [...a].every((id) => b.has(id));
+const NO_REVISING: ReadonlySet<string> = new Set();
 
 /**
  * The board for a draft record, over the items of the document the shell holds now and the
  * answers of its board state: one frozen object per items list, answers and record. A question
- * `revisingOf` finds under revision shows its draft alone, whatever its answer holds; the default
- * finds none.
+ * in the set `revisingOf` gives (the revising snapshot, which returns the same set while its
+ * content is the same) shows its draft alone, whatever its answer holds; the default is none.
  */
 export const createBoardContent = (
   sourceOf: () => BoardSource,
-  revisingOf: (question: ViewQuestion) => boolean = () => false,
+  revisingOf: () => ReadonlySet<string> = () => NO_REVISING,
 ): ((draft: DraftRecord) => BoardContent) => {
   const boards = new WeakMap<
     readonly BoardWidgetItem[],
@@ -276,11 +259,11 @@ export const createBoardContent = (
       }
     | undefined;
   const answersOf = (source: BoardSource): Answered => {
-    const revising = revisingIn(source, revisingOf);
+    const revising = revisingOf();
     if (
       last?.source.document === source.document &&
       last.source.state === source.state &&
-      sameSet(last.revising, revising)
+      last.revising === revising
     ) {
       return last.answered;
     }

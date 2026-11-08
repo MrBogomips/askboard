@@ -17,7 +17,8 @@ import { createDraftStore } from "./draft-store.ts";
 import { itemCallbacks, itemValueOf } from "./item-callbacks.ts";
 import { createReadyTracker } from "./ready-tracker.ts";
 import { type RenderContext, RenderItem } from "./renderer.tsx";
-import { createRevising } from "./revising.ts";
+import { createRevisingSnapshot, questionRevising } from "./revising.ts";
+import { createStore } from "./store.ts";
 
 // A widget value the user returns to the agent's version during a revision (reopen-start-from-
 // answer, design decision 2; view-and-widgets: "An edit returned to the agent's version during a
@@ -60,7 +61,31 @@ const state = {
 } as unknown as LifecycleBoardState;
 const accepting = () => ({ fits: () => true });
 
-const setUp = () => {
+// A question of one edit widget and one TextField, no note: the revision is held by the seeded
+// result alone once the widget's edit is returned (re-review 2.15 X-2).
+const slimQuestion = {
+  ...database,
+  props: { text: "Details?", items: [edited("wbs"), name] },
+} as unknown as ViewQuestion;
+const slimAnswer = { ...loggedAnswer, values: { wbs: ANSWERED_VALUES.wbs as { label: string } } };
+const slimScenario = {
+  question: slimQuestion,
+  document: { ...plainChoiceBoardDocument, items: [slimQuestion] } as unknown as ViewDocument,
+  answer: slimAnswer,
+  ids: ["wbs", name.id],
+};
+const fullScenario = {
+  question,
+  document,
+  answer: loggedAnswer,
+  ids: [...EDITABLE, name.id, days.id],
+};
+
+const setUp = ({ question, document, answer, ids } = fullScenario) => {
+  const answered = {
+    ask: "waiting",
+    questions: [{ itemId: question.id, rev: question.rev, state: "answered", answer }],
+  } as unknown as LifecycleBoardState;
   const sent: ViewMessage[] = [];
   const channel: ViewChannel = {
     send: async (message) => {
@@ -87,12 +112,28 @@ const setUp = () => {
   revisions.record(document);
   const entries = createDraftStore();
   const cellEntries = createDraftStore();
-  // The shell's own predicate, over the stores.
-  const revising = createRevising({ draft, board, revisions, results, entries, cellEntries });
-  const boardOf = createBoardContent(() => ({ document, state }), revising);
+  // The shell's own snapshot of the questions under revision, over the stores.
+  const view = createStore({ document, state: answered });
+  const revising = createRevisingSnapshot({
+    view,
+    draft,
+    board,
+    revisions,
+    results,
+    entries,
+    cellEntries,
+  });
+  const boardOf = createBoardContent(() => view.get(), revising.get);
   // The card's own step before an edit: the first one starts the revision from the answer.
   const revise = () => {
-    if (!revising(question)) startRevision(question, loggedAnswer, context);
+    const input = {
+      work: board.work(question.id),
+      revisions,
+      values: draft.record(),
+      results: results.record(),
+      entries: entries.record(),
+    };
+    if (!questionRevising(question, input)) startRevision(question, answer, context);
   };
   const callbacksOf = (itemId: string) =>
     itemCallbacks({
@@ -100,7 +141,7 @@ const setUp = () => {
       results,
       itemId,
       questionId: question.id,
-      itemIds: [question.id, ...EDITABLE, name.id, days.id],
+      itemIds: [question.id, ...ids],
       onBeforeChange: revise,
       onError: (error) => {
         throw error;
@@ -112,6 +153,23 @@ const setUp = () => {
 };
 
 describe("a value the user returns to the agent's version during a revision", () => {
+  test("a held result alone keeps the revision: one edit widget and one TextField, no note", () => {
+    const { sent, context, callbacksOf, shownOf } = setUp(slimScenario);
+    expect(shownOf("wbs")).toEqual(ANSWERED_VALUES.wbs);
+    // The first edit starts the revision, which seeds the widget's value and the result "abc".
+    callbacksOf("wbs").onValueChange({ label: "wbs moved" });
+    callbacksOf("wbs").onValueChange(undefined);
+    // The draft holds no value now: only the seeded result keeps the revision under way.
+    expect(shownOf("wbs")).toBeUndefined();
+    answer(slimQuestion, context);
+    const [message] = sent as readonly {
+      values?: Record<string, unknown>;
+      results?: Record<string, unknown>;
+    }[];
+    expect(message?.results).toEqual({ name: "abc" });
+    expect(Object.hasOwn(message?.values ?? {}, "wbs")).toBe(false);
+  });
+
   for (const returned of EDITABLE) {
     test(`the ${returned} item shows the agent's props, and Answer sends no value for it`, () => {
       const { sent, context, callbacksOf, shownOf } = setUp();

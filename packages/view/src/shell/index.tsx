@@ -70,7 +70,7 @@ import { startPushExtras } from "./push-extras.ts";
 import { createReadyTracker, questionItemsOf } from "./ready-tracker.ts";
 import type { ReasonRequest } from "./reason.ts";
 import { prefillReopened } from "./reopen-prefill.ts";
-import { createRevising } from "./revising.ts";
+import { createRevisingSnapshot } from "./revising.ts";
 import { createSizeNotices, settle } from "./size-notices.ts";
 import { createSnapshotControl } from "./snapshot-control.ts";
 import { createStore, type Store } from "./store.ts";
@@ -340,6 +340,15 @@ const boot = (): void => {
   entries.subscribe(mirror);
   cellEntries.subscribe(mirror);
   board.subscribe(mirror);
+  const revising = createRevisingSnapshot({
+    view,
+    draft,
+    board,
+    revisions,
+    results,
+    entries,
+    cellEntries,
+  });
   const context = {
     draft,
     results,
@@ -359,10 +368,10 @@ const boot = (): void => {
     removed,
     // The board components read follows the latest document, which an agent update replaces, and
     // the answers of the latest board state (molecules, design decision 11).
-    boardContent: createBoardContent(
-      () => view.get(),
-      createRevising({ draft, board, revisions, results, entries, cellEntries }),
-    ),
+    // Which questions are under revision is one snapshot, which every item follows (design
+    // decision 2): the board's content reads it, and an item renders again when it changes.
+    boardContent: createBoardContent(() => view.get(), revising.get),
+    revisingSnapshot: revising,
     answeredResult: createAnsweredResults(() => view.get()),
     derived: createDerivedStore(),
     opened,

@@ -36,6 +36,7 @@ import { createDraftStore, type DraftRecord, type DraftStore } from "./draft-sto
 import { isEntryType } from "./entries.ts";
 import { itemCallbacks, itemResultOf, itemValueOf } from "./item-callbacks.ts";
 import type { ReadyTracker } from "./ready-tracker.ts";
+import type { RevisingSnapshot } from "./revising.ts";
 
 export type RenderContext = {
   readonly draft: DraftStore;
@@ -51,6 +52,11 @@ export type RenderContext = {
   readonly cellEntries?: DraftStore;
   /** The result an item's question's latest answer holds for it (`createAnsweredResults`). */
   readonly answeredResult?: (itemId: string) => unknown;
+  /**
+   * The questions under revision (`createRevisingSnapshot`), which `boardContent` reads: an item
+   * follows it, so one question's revision ending reaches the items of the others.
+   */
+  readonly revisingSnapshot?: RevisingSnapshot;
 };
 
 // What an item follows while the board has no results store: nothing is ever put into it.
@@ -58,6 +64,8 @@ const NO_RESULTS = createDraftStore();
 const NO_ENTRIES = createDraftStore();
 const NO_READ_ONLY: ReadonlySet<string> = new Set();
 const NO_CELLS = createDraftStore();
+const NO_QUESTIONS: ReadonlySet<string> = new Set();
+const NO_REVISING: RevisingSnapshot = { get: () => NO_QUESTIONS, subscribe: () => () => {} };
 
 const messageOf = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
@@ -200,6 +208,9 @@ export const RenderItem = ({
     cellEntries = NO_CELLS,
     answeredResult,
   } = context;
+  // The set of questions under revision: a change of it, by work alone, redraws every item.
+  const snapshot = context.revisingSnapshot ?? NO_REVISING;
+  useSyncExternalStore(snapshot.subscribe, snapshot.get, snapshot.get);
   // The whole record, since the board holds it: the item's value is what the board shows for it.
   const record = useSyncExternalStore(draft.subscribe, draft.record, draft.record);
   const heldResults = useSyncExternalStore(results.subscribe, results.record, results.record);
