@@ -8,6 +8,7 @@ import {
   changesLabel,
   createRevisions,
   readOnlyItemsOf,
+  readOnlyOfBoard,
   revisionDiff,
   workingQuestion,
 } from "./agent-change.ts";
@@ -187,6 +188,50 @@ describe("the items a result that points into the agent's content makes read-onl
     expect(
       [...readOnlyItemsOf(mixedQuestion, mixedQuestion, { rev: 1 }, boundFactsOf)].sort(),
     ).toEqual(["inner", "top"]);
+  });
+});
+
+describe("readOnlyOfBoard: the read-only items of each question, from the board's work and the revisions seen", () => {
+  const revisionsSeen = (...seen: number[]) => ({
+    record: () => undefined,
+    question: (_id: string, rev: number) => (seen.includes(rev) ? pointing(rev) : undefined),
+  });
+  const boardWith = (work: { rev: number } | undefined) => ({ work: () => work });
+
+  test("holds the items when the work names revision 1, the document holds 2 and the revisions have not seen 1", () => {
+    const read = readOnlyOfBoard(
+      boardWith({ rev: 1 }),
+      revisionsSeen(2),
+      boundFactsOf,
+    )(pointing(2));
+    expect([...read].sort()).toEqual(["inner-both", "inner-review", "review", "tree"]);
+  });
+
+  test("is empty when the revisions have seen revision 1, whose text the card then shows", () => {
+    const read = readOnlyOfBoard(
+      boardWith({ rev: 1 }),
+      revisionsSeen(1, 2),
+      boundFactsOf,
+    )(pointing(2));
+    expect(read.size).toBe(0);
+  });
+
+  test("is empty with no work", () => {
+    expect(
+      readOnlyOfBoard(boardWith(undefined), revisionsSeen(2), boundFactsOf)(pointing(2)).size,
+    ).toBe(0);
+  });
+
+  test("asks the board for the work of the question it is given", () => {
+    const asked: string[] = [];
+    const board = {
+      work: (id: string) => {
+        asked.push(id);
+        return { rev: 1 };
+      },
+    };
+    readOnlyOfBoard(board, revisionsSeen(2), boundFactsOf)(pointing(2));
+    expect(asked).toEqual([pointing(2).id]);
   });
 });
 
