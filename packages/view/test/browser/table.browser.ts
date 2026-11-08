@@ -416,6 +416,79 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       },
       TEST_TIMEOUT_MS,
     );
+
+    // The requirements "A refused column's error shows once" and "Money past the bound on the board"
+    // (review S-4 of review-table-g6), through `row.tsx` and `total-row.tsx`.
+    test(
+      "a column reading a refused column shows one error over the grid, every cell of both columns reads a dash and no row or Total row error shows",
+      async () => {
+        const columns = [
+          ...ROLES.columns.map((column) =>
+            column.field === "amount" ? { ...column, formula: "[@rte]" } : column,
+          ),
+          {
+            field: "perDay",
+            label: "Per day",
+            type: "number",
+            formula: "[@amount] / [@days]",
+            total: "sum",
+          },
+        ];
+        const run = await host(dist, tableDocument(rolesWith({ columns } as never)));
+        await readyIn(run);
+        const table = tableGridOf(run.board);
+        const problems = table.frame.locator("[data-table-problems] p");
+        expect(await problems.count()).toBe(1);
+        expect(await problems.textContent()).toContain("Amount");
+        for (const row of ["pm", "dev"]) {
+          expect(await cellText(table, row, "amount")).toBe("\u2014");
+          expect(await cellText(table, row, "perDay")).toBe("\u2014");
+        }
+        expect(await totalText(table, "amount")).toBe("\u2014");
+        expect(await totalText(table, "perDay")).toBe("\u2014");
+        expect(await table.frame.locator("[data-row-error]").count()).toBe(0);
+        expect(await table.frame.locator("[data-total-row] ~ tr").count()).toBe(0);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "money past the bound reads a dash with an error under its row and under the Total row, and Answer stays enabled",
+      async () => {
+        const props = {
+          label: "Probe",
+          columns: [
+            { field: "role", label: "Role", type: "text" },
+            { field: "rate", label: "Rate", type: "money", currency: "USD" },
+            { field: "days", label: "Days", type: "number" },
+            {
+              field: "amount",
+              label: "Amount",
+              type: "money",
+              currency: "USD",
+              formula: "[@rate] * [@days]",
+              total: "sum",
+            },
+          ],
+          rows: [{ id: "r", role: "a", rate: "999999999999999.99", days: 1000000000000000 }],
+        } as never;
+        const run = await host(dist, tableDocument(props));
+        await readyIn(run);
+        const { board } = run;
+        const table = tableGridOf(board);
+        expect(await cellText(table, "r", "amount")).toBe("\u2014");
+        expect(await totalText(table, "amount")).toBe("\u2014");
+        expect(await table.frame.locator("[data-row-error]").count()).toBe(1);
+        expect(await table.frame.locator("[data-row-error]").textContent()).toContain("Amount");
+        const totalErrors = table.frame.locator("[data-total-row] ~ tr");
+        expect(await totalErrors.count()).toBe(1);
+        expect(await totalErrors.textContent()).toContain("Amount");
+        await typeInCell(board, table, "r", "role", "Role, row 1", "b");
+        await eventually(() => draftCell(run, "r", "role") === "b", "the draft");
+        expect(await board.answer.isEnabled()).toBe(true);
+      },
+      TEST_TIMEOUT_MS,
+    );
   });
 
   describe(`${engine}: the Table's rows, read-only state, agent changes and long words`, () => {
