@@ -267,7 +267,7 @@ describe("the presentation a Snapshot records", () => {
     expect(written[0]?.snapshot).toMatchObject({ presentation: { theme: "light" } });
   });
 
-  test("settings that cannot be read: the Snapshot is written with no presentation, and the failure is reported once", async () => {
+  test("the configuration cannot give the settings: the Snapshot is written with no presentation, and the failure is reported once", async () => {
     const fakes = fakeConfig({ user: { version: v, theme: "dark" } });
     let broken = false;
     const failure = new Error("the settings cannot be read");
@@ -285,6 +285,21 @@ describe("the presentation a Snapshot records", () => {
     expect(written).toHaveLength(1);
     expect(written[0]?.snapshot).toEqual({ takenAt: expect.any(String), takenBy: "agent" });
     expect(reported).toEqual([failure]);
+    valid(written[0]);
+  });
+
+  test("a user file that cannot be read contributes no key: the record holds the project file's keys and the defaults, nothing refused", async () => {
+    const fakes = fakeConfig({ project: { version: v, density: "comfortable" } });
+    const config = {
+      ...fakes.config,
+      userFile: async () => ({ kind: "unreadable" as const, code: "EACCES" }),
+    };
+    const { core, written, reported } = await lifecycleWith(fakeWriter(), { config });
+    expect(await core.snapshot(LIFECYCLE_ID, AGENT)).toMatchObject({ outcome: "saved" });
+    expect(written[0]?.snapshot).toMatchObject({
+      presentation: { theme: "system", density: "comfortable" },
+    });
+    expect(reported).toEqual([]);
     valid(written[0]);
   });
 
