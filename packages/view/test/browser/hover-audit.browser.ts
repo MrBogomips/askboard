@@ -14,6 +14,7 @@ import type { ViewDocument } from "../../src/view-document.ts";
 import type { ViewUpdate } from "../../src/view-protocol.ts";
 import { approvalDocument } from "./fixtures/approval-documents.ts";
 import { atomDocument } from "./fixtures/atom-documents.ts";
+import { reviewDocument } from "./fixtures/document-review-documents.ts";
 import { chooseWeek, planGantt } from "./fixtures/gantt-plan.ts";
 import { ganttOf } from "./fixtures/gantt-view.ts";
 import { kanbanDocument } from "./fixtures/kanban-documents.ts";
@@ -26,6 +27,7 @@ import { eventually, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
 import { tokenColor } from "./harness/design-colors.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import { cardOf } from "./harness/kanban-drag.ts";
+import { card, commentOn, marks, pin, restoreAnnotations, tool } from "./harness/review-steps.ts";
 import { tabIntoGroup } from "./harness/tab-stops.ts";
 import { entryOf, shapeOf } from "./harness/timeline-drag.ts";
 import { handleOf } from "./harness/tree-drag.ts";
@@ -631,6 +633,61 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           await expectInert(run, row);
           await expectInert(run, checkbox);
           expect(await view.getByLabel("Filter the options").count()).toBe(0);
+          expect(run.browser.errors).toEqual([]);
+        },
+        TEST_TIMEOUT_MS,
+      );
+    }
+  });
+}
+
+for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
+  describe(`${engine}: the hover and focus audit of the Document review`, () => {
+    const { host } = useWidgetHost(engine);
+
+    for (const scheme of ["light", "dark"] as const) {
+      test(
+        `in the ${scheme} scheme, the toolbar's tools respond and take the ring from the keyboard, a pin points, the card's Edit and Delete point with an underline, and a locked board has no toolbar and no card action`,
+        async () => {
+          const document = reviewDocument();
+          const run = await host(dist, document, { colorScheme: scheme });
+          await readyIn(run);
+          const { view, page } = run.board;
+          await restoreAnnotations(run, document, [commentOn("u-1", "remembers", "How long?")]);
+          await eventually(async () => (await marks(view).count()) === 1, "the mark");
+          await page.mouse.move(0, 0);
+          await expectResponds(tool(view, "Comment"), scheme);
+          await page.mouse.move(0, 0);
+          await expectResponds(tool(view, "Suggest edit"), scheme);
+          await page.mouse.move(0, 0);
+          await tool(view, "Comment").focus();
+          await page.keyboard.press("ArrowRight");
+          await expectRing(tool(view, "Suggest edit"));
+          expect((await hovered(pin(view, "Comment 1"))).cursor).toBe("pointer");
+          await page.mouse.move(0, 0);
+          await pin(view, "Comment 1").click();
+          await card(view).waitFor();
+          for (const name of ["Edit", "Delete"]) {
+            await page.mouse.move(0, 0);
+            const action = card(view).getByRole("button", { name, exact: true });
+            await action.hover();
+            expect(
+              await action.evaluate((el) => {
+                const style = getComputedStyle(el);
+                return [style.cursor, style.textDecorationLine];
+              }),
+            ).toEqual(["pointer", "underline"]);
+          }
+          await card(view).getByRole("button", { name: "Close" }).click();
+          await lock(run, document);
+          await eventually(
+            async () => (await view.getByRole("toolbar").count()) === 0,
+            "no toolbar",
+          );
+          await pin(view, "Comment 1").click();
+          await card(view).waitFor();
+          expect(await card(view).getByRole("button", { name: "Edit" }).count()).toBe(0);
+          expect(await card(view).getByRole("button", { name: "Delete" }).count()).toBe(0);
           expect(run.browser.errors).toEqual([]);
         },
         TEST_TIMEOUT_MS,

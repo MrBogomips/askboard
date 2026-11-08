@@ -10,6 +10,8 @@
 // Run one engine by hand: ASKBOARD_E2E_ENGINES=webkit bun test ./packages/view/test/browser/document-review.browser.ts
 
 import { describe, expect, test } from "bun:test";
+import type { ViewDocument } from "../../src/view-document.ts";
+import type { ViewUpdate } from "../../src/view-protocol.ts";
 import { HUNDRED_WORDS, NOTES, reviewDocument } from "./fixtures/document-review-documents.ts";
 import { eventually, QUIET_MS, STEP_TIMEOUT_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
 import { enginesFrom } from "./harness/engines.ts";
@@ -28,9 +30,9 @@ import {
   selectAcross,
   tool,
 } from "./harness/review-steps.ts";
-import { readyIn } from "./harness/tree-steps.ts";
-import { readViewBuild } from "./harness/view-build.ts";
-import { useWidgetHost } from "./harness/widget-host-test.ts";
+import { readyIn, tabUntil } from "./harness/tree-steps.ts";
+import { openStateOf, readViewBuild } from "./harness/view-build.ts";
+import { useWidgetHost, type WidgetHostRun } from "./harness/widget-host-test.ts";
 
 const dist = await readViewBuild();
 
@@ -537,6 +539,324 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           "Your changes: 1 comment, 1 suggested edit",
         );
         expect(await run.board.answer.isEnabled()).toBe(true);
+      },
+      TEST_TIMEOUT_MS,
+    );
+  });
+
+  describe(`${engine}: a Document review at the keyboard`, () => {
+    const { host } = useWidgetHost(engine);
+
+    // The document has no link: a link inside a block is a Tab stop of its own.
+    const PARAGRAPHS =
+      "# Title\n\nFirst alpha beta.\n\nSecond gamma.\n\nThird delta.\n\n- A list item";
+
+    const inDocument = (run: WidgetHostRun) =>
+      run.board.view
+        .locator(DOCUMENT)
+        .evaluate((el) => el.contains(el.ownerDocument.activeElement));
+    const focusedText = (run: WidgetHostRun) =>
+      run.board.view
+        .locator(`${DOCUMENT} :focus`)
+        .first()
+        .evaluate((el) => el.textContent);
+    const tabToDocument = (run: WidgetHostRun) =>
+      tabUntil(run.board, () => inDocument(run), "the document");
+
+    test(
+      "Tab reaches the document and then the toolbar; Down twice and Comment from the toolbar open the card for the third block, and typing writes the comment",
+      async () => {
+        const run = await host(dist, reviewDocument(PARAGRAPHS));
+        await readyIn(run);
+        const { page, view } = run.board;
+        await tabToDocument(run);
+        expect(await focusedText(run)).toBe("Title");
+        await page.keyboard.press("ArrowDown");
+        await page.keyboard.press("ArrowDown");
+        expect(await focusedText(run)).toBe("Second gamma.");
+        await page.keyboard.press("Tab");
+        expect(await inDocument(run)).toBe(false);
+        expect(
+          await tool(view, "Comment").evaluate((el) => el === el.ownerDocument.activeElement),
+        ).toBe(true);
+        await page.keyboard.press("Enter");
+        await card(view).waitFor({ timeout: STEP_TIMEOUT_MS });
+        await eventually(
+          () =>
+            card(view)
+              .getByLabel("Your comment")
+              .evaluate((el) => el === el.ownerDocument.activeElement),
+          "focus in the comment field",
+        );
+        await page.keyboard.type("Why?");
+        await eventually(
+          () => annotationsHeld(run.drafts)[0]?.body.text === "Why?",
+          "the whole comment in the draft",
+        );
+        expect(annotationsHeld(run.drafts)[0]?.target.selector.exact).toBe("Second gamma.");
+        expect(annotationsHeld(run.drafts)[0]?.body).toEqual({ text: "Why?" });
+        expect(run.browser.cspProblems()).toEqual([]);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "the document is one Tab stop: Down, Up, End and Home move the current block with the focus ring on it, and the toolbar is another stop with its own arrow keys",
+      async () => {
+        const run = await host(dist, reviewDocument(PARAGRAPHS));
+        await readyIn(run);
+        const { page, view } = run.board;
+        await tabToDocument(run);
+        await page.keyboard.press("End");
+        expect(await focusedText(run)).toBe("A list item");
+        await page.keyboard.press("ArrowDown");
+        expect(await focusedText(run)).toBe("A list item");
+        await page.keyboard.press("ArrowUp");
+        expect(await focusedText(run)).toBe("Third delta.");
+        await page.keyboard.press("Home");
+        expect(await focusedText(run)).toBe("Title");
+        const ring = await view
+          .locator(`${DOCUMENT} :focus`)
+          .first()
+          .evaluate((el) => {
+            const style = getComputedStyle(el);
+            return [style.outlineStyle, style.outlineWidth];
+          });
+        expect(ring).toEqual(["solid", "2px"]);
+        // One Tab stop: Tab leaves the document, the toolbar's first tool takes it, and the arrows
+        // move between the two tools.
+        await page.keyboard.press("Tab");
+        expect(await inDocument(run)).toBe(false);
+        const focusedTool = () =>
+          view
+            .locator('[role="toolbar"] :focus')
+            .evaluate((el) => el.textContent)
+            .catch(() => null);
+        expect(await focusedTool()).toBe("Comment");
+        await page.keyboard.press("ArrowRight");
+        expect(await focusedTool()).toBe("Suggest edit");
+        await page.keyboard.press("Tab");
+        expect(await focusedTool()).toBeNull();
+        // Back in the document, the last current block is where Tab lands.
+        await page.keyboard.press("Shift+Tab");
+        await page.keyboard.press("Shift+Tab");
+        expect(await inDocument(run)).toBe(true);
+        expect(await focusedText(run)).toBe("Title");
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "Left and Right move between the current block's pins, Enter opens the current pin's card, and Escape returns the focus to the pin",
+      async () => {
+        const document = reviewDocument(PARAGRAPHS);
+        const run = await host(dist, document);
+        await readyIn(run);
+        await restoreAnnotations(run, document, [
+          commentOn("u-1", "alpha", "One."),
+          commentOn("u-2", "beta", "Two."),
+        ]);
+        const { page, view } = run.board;
+        await eventually(async () => (await marks(view).count()) === 2, "two marks");
+        const focusedName = () =>
+          view
+            .locator(`${DOCUMENT} :focus`)
+            .first()
+            .evaluate((el) => el.getAttribute("aria-label") ?? el.tagName);
+        await tabToDocument(run);
+        await page.keyboard.press("ArrowDown");
+        expect(await focusedText(run)).toContain("First alpha");
+        await page.keyboard.press("ArrowRight");
+        expect(await focusedName()).toBe("Comment 1");
+        await page.keyboard.press("ArrowRight");
+        expect(await focusedName()).toBe("Comment 2");
+        await page.keyboard.press("ArrowRight");
+        expect(await focusedName()).toBe("Comment 2");
+        await page.keyboard.press("ArrowLeft");
+        expect(await focusedName()).toBe("Comment 1");
+        await page.keyboard.press("Enter");
+        await card(view).waitFor({ timeout: STEP_TIMEOUT_MS });
+        expect(await card(view).textContent()).toContain("One.");
+        await page.keyboard.press("Escape");
+        await card(view).waitFor({ state: "hidden", timeout: STEP_TIMEOUT_MS });
+        await eventually(
+          async () => (await focusedName()) === "Comment 1",
+          "focus back on the pin",
+        );
+        await page.keyboard.press("ArrowLeft");
+        expect(await focusedText(run)).toContain("First alpha");
+        await page.keyboard.press("ArrowLeft");
+        expect(await focusedText(run)).toContain("First alpha");
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a card closed empty leaves no pin, so the focus goes back to the document",
+      async () => {
+        const run = await host(dist, reviewDocument(PARAGRAPHS));
+        await readyIn(run);
+        const { page, view } = run.board;
+        await openCardOn(view, "gamma", "Comment");
+        await page.keyboard.press("Escape");
+        await card(view).waitFor({ state: "hidden", timeout: STEP_TIMEOUT_MS });
+        await eventually(() => inDocument(run), "the focus in the document");
+        expect(await marks(view).count()).toBe(0);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a block longer than 2,000 characters with nothing selected is refused, and the message asks for part of it with the pointer",
+      async () => {
+        const run = await host(dist, reviewDocument(`Short.\n\n${"word ".repeat(500)}`));
+        await readyIn(run);
+        const { page, view } = run.board;
+        await tabToDocument(run);
+        await page.keyboard.press("ArrowDown");
+        await page.keyboard.press("Tab");
+        await page.keyboard.press("Enter");
+        await eventually(
+          async () =>
+            (await messageOf(view).textContent()) ===
+            "This block is longer than 2,000 characters. Select part of it with the pointer.",
+          "the block message",
+        );
+        expect(await card(view).count()).toBe(0);
+        expect(run.drafts).toEqual([]);
+      },
+      TEST_TIMEOUT_MS,
+    );
+  });
+
+  describe(`${engine}: a Document review read-only and its links`, () => {
+    const { host } = useWidgetHost(engine);
+
+    const annotations = [
+      commentOn("u-1", "remembers", "How long?"),
+      commentOn("u-2", "nowhere in it", "Gone."),
+    ];
+    const answered = (document: ViewDocument): ViewUpdate => ({
+      type: "state",
+      state: {
+        ask: "answered",
+        questions: [
+          {
+            itemId: "plan",
+            rev: 1,
+            state: "answered",
+            answer: {
+              results: { review: { annotations } },
+              when: "2026-11-08T10:00:00Z",
+              receipt: "sent",
+            },
+          },
+        ],
+      },
+      document,
+    });
+
+    test(
+      "while the ask is open an answered review shows its logged annotations and stays editable; once the ask closes the marks and pins stay, a pin opens its card with no Edit or Delete, there is no toolbar, and an annotation with no place is listed without actions",
+      async () => {
+        const document = reviewDocument();
+        const run = await host(dist, document);
+        await readyIn(run);
+        await run.update(answered(document));
+        const { view } = run.board;
+        await eventually(async () => (await marks(view).count()) === 1, "the mark");
+        // The shell leaves an answered question open to a revision: the toolbar stays.
+        expect(await view.getByRole("toolbar").count()).toBe(1);
+        await run.update({ ...answered(document), lock: "closed" });
+        await eventually(async () => (await view.getByRole("toolbar").count()) === 0, "no toolbar");
+        expect(await view.locator("[data-review-counter]").count()).toBe(0);
+        await pin(view, "Comment 1").click();
+        await card(view).waitFor({ timeout: STEP_TIMEOUT_MS });
+        expect(await card(view).textContent()).toContain("How long?");
+        expect(await card(view).getByRole("button", { name: "Edit" }).count()).toBe(0);
+        expect(await card(view).getByRole("button", { name: "Delete" }).count()).toBe(0);
+        expect(await card(view).locator("textarea").count()).toBe(0);
+        await card(view).getByRole("button", { name: "Close" }).click();
+        const list = view.getByRole("region", { name: "Detached comments" });
+        expect(await list.textContent()).toContain("nowhere in it");
+        expect(await list.textContent()).toContain("Gone.");
+        expect(await list.getByRole("button").count()).toBe(0);
+        expect(await list.textContent()).not.toContain("Delete");
+        expect(run.browser.cspProblems()).toEqual([]);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "on a locked board a held annotation stays shown read-only with no toolbar",
+      async () => {
+        const document = reviewDocument();
+        const run = await host(dist, document);
+        await readyIn(run);
+        await restoreAnnotations(run, document, [commentOn("u-1", "remembers", "How long?")]);
+        const { view } = run.board;
+        await eventually(async () => (await marks(view).count()) === 1, "the mark");
+        expect(await view.getByRole("toolbar").count()).toBe(1);
+        await run.update({ type: "state", state: openStateOf(document), lock: "closed" });
+        await eventually(async () => (await view.getByRole("toolbar").count()) === 0, "no toolbar");
+        await pin(view, "Comment 1").click();
+        await card(view).waitFor({ timeout: STEP_TIMEOUT_MS });
+        expect(await card(view).getByRole("button", { name: "Edit" }).count()).toBe(0);
+        expect(await card(view).getByRole("button", { name: "Delete" }).count()).toBe(0);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a click on a link sends the open-link message naming the item and the view stays; an auxclick sends nothing; Enter on the focused link is a click",
+      async () => {
+        const run = await host(dist, reviewDocument());
+        await readyIn(run);
+        const { view, page } = run.board;
+        const frame = await run.board.viewFrame();
+        const before = frame.url();
+        const link = view.getByRole("link", { name: "docs" });
+        await link.click();
+        await eventually(
+          () => run.messages.some((message) => message.type === "open-link"),
+          "the open-link message",
+          STEP_TIMEOUT_MS,
+        );
+        expect(run.messages.filter((message) => message.type === "open-link")).toEqual([
+          { type: "open-link", itemId: "review", url: "https://example.com/docs" },
+        ]);
+        expect(frame.url()).toBe(before);
+        await link.click({ button: "middle" });
+        await Bun.sleep(QUIET_MS);
+        expect(run.messages.filter((message) => message.type === "open-link")).toHaveLength(1);
+        await link.focus();
+        await page.keyboard.press("Enter");
+        await eventually(
+          () => run.messages.filter((message) => message.type === "open-link").length === 2,
+          "the second open-link message",
+          STEP_TIMEOUT_MS,
+        );
+        expect(await view.locator("[data-review-document]").getByRole("link").count()).toBe(1);
+        expect(run.browser.cspProblems()).toEqual([]);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a link inside a commented passage still opens through the board page",
+      async () => {
+        const document = reviewDocument();
+        const run = await host(dist, document);
+        await readyIn(run);
+        await restoreAnnotations(run, document, [commentOn("u-1", "docs", "A link.")]);
+        const { view } = run.board;
+        await eventually(async () => (await marks(view).count()) === 1, "the mark");
+        await view.getByRole("link", { name: "docs" }).click();
+        await eventually(
+          () => run.messages.some((message) => message.type === "open-link"),
+          "the open-link message",
+          STEP_TIMEOUT_MS,
+        );
       },
       TEST_TIMEOUT_MS,
     );

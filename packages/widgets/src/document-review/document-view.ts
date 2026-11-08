@@ -1,7 +1,7 @@
 // The Document review's document in the DOM (document-review, design decisions 5, 7, 9 and 10): the
 // sanitized fragment the shared renderer made, cloned, marked with the placed annotations and
 // mounted through the shared `mountMarkdown`, so that a link is opened as a Text's is; the blocks
-// the keyboard stands on (task 6.2 adds the keys); and the selection the toolbar acts on. The marks are applied again only
+// the keyboard stands on; and the selection the toolbar acts on. The marks are applied again only
 // when the places or kinds change (`samePlan`), and the pins' slots move into the new clone, so
 // typing in a card never touches the document and a pin's card stays mounted when a plan is
 // applied around it. Agent and user text reach the DOM only as text nodes; nothing here writes a
@@ -10,6 +10,7 @@
 import { markExternal, mountMarkdown, PLAIN } from "@askboard/view/markdown";
 import { type RefObject, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { BLOCK } from "./classes.ts";
+import { blockAfterKey, pinAfterKey } from "./keys.ts";
 import {
   applyMarks,
   type MarkDocument,
@@ -86,6 +87,14 @@ const decorate = (blocks: readonly ReadingBlock[], current: number): void => {
   });
 };
 
+const pinsOf = (block: ReadingBlock | undefined): HTMLElement[] =>
+  block === undefined
+    ? []
+    : Array.from(elementOf(block).querySelectorAll<HTMLElement>(`[${PIN_ATTRIBUTE}]`));
+
+const blockHolding = (blocks: readonly ReadingBlock[], node: Node): number =>
+  blocks.findIndex((block) => elementOf(block).contains(node));
+
 export const useReviewDocument = ({
   reading,
   specs,
@@ -155,6 +164,55 @@ export const useReviewDocument = ({
     },
     [],
   );
+
+  // The current block takes the focus ring and the Tab stop; the keys move it and the pins' focus.
+  useEffect(() => {
+    const target = container.current;
+    if (target === null) return undefined;
+    const setCurrent = (next: number): void => {
+      const blocks = live.current?.applied.blocks ?? [];
+      const previous = blocks[currentBlock.current];
+      if (previous !== undefined) elementOf(previous).setAttribute("tabindex", "-1");
+      currentBlock.current = next;
+      const block = blocks[next];
+      if (block !== undefined) elementOf(block).setAttribute("tabindex", "0");
+    };
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+      const blocks = live.current?.applied.blocks ?? [];
+      const here = blockHolding(blocks, event.target as Node);
+      const at = here < 0 ? currentBlock.current : here;
+      const block = blockAfterKey(blocks.length, at, event.key);
+      if (block !== undefined) {
+        event.preventDefault();
+        setCurrent(block);
+        const next = blocks[block];
+        if (next !== undefined) elementOf(next).focus();
+        return;
+      }
+      const pins = pinsOf(blocks[at]);
+      const from = pins.indexOf(event.target as HTMLElement);
+      const move = pinAfterKey(pins.length, from < 0 ? "block" : from, event.key);
+      if (move === undefined) return;
+      event.preventDefault();
+      setCurrent(at);
+      const stop = blocks[at];
+      const next =
+        move === "block" ? (stop === undefined ? undefined : elementOf(stop)) : pins[move];
+      next?.focus();
+    };
+    const onFocusIn = (event: FocusEvent): void => {
+      const blocks = live.current?.applied.blocks ?? [];
+      const here = blockHolding(blocks, event.target as Node);
+      if (here >= 0 && here !== currentBlock.current) setCurrent(here);
+    };
+    target.addEventListener("keydown", onKeyDown);
+    target.addEventListener("focusin", onFocusIn);
+    return () => {
+      target.removeEventListener("keydown", onKeyDown);
+      target.removeEventListener("focusin", onFocusIn);
+    };
+  }, []);
 
   // The selection the user made inside the document, as offsets of the reading text: the toolbar's
   // buttons keep it, since their mousedown default is prevented. One outside the document is none.
