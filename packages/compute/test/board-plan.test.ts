@@ -51,6 +51,21 @@ const estimated = (nodes: readonly Node[]): Json[] =>
 /** The plan `schedule` with the portal requested at 21 days, as the contract's fixture holds it. */
 const SCHEDULE_REQUESTED: Item = { ...SCHEDULE, props: ganttPlanRequestedValue as unknown as Json };
 
+/** The warnings' addresses that the plan `schedule` gives for the IDs it names. */
+const strayWarnings = (source: ReturnType<typeof boardGraphSource>): string[] =>
+  buildGraph(source).warnings.map(({ address }) => address);
+
+const withoutKey = (map: Json, key: string): Json =>
+  Object.fromEntries(Object.entries(map).filter(([id]) => id !== key));
+
+/** The nodes without the node `id`, at any depth. */
+const withoutNode = (nodes: readonly Node[], id: string): Node[] =>
+  nodes
+    .filter((node) => node.id !== id)
+    .map((node) =>
+      node.children === undefined ? node : { ...node, children: withoutNode(node.children, id) },
+    );
+
 const LEAVES = ["ux", "architecture", "prototype", "portal", "u-1", "billing", "reporting"];
 
 describe("the board's graph source, on a Gantt plan", () => {
@@ -136,7 +151,7 @@ describe("the board's graph source, on a Gantt plan", () => {
     expect(values.read("schedule.finishDate")).toBe("2026-12-16");
   });
 
-  test("adds nothing, and no warning, for an entry that names no leaf", () => {
+  test("adds nothing to the schedule for an entry that names no leaf, and warns of each", () => {
     const tasks = {
       ...TASKS,
       design: { dependencies: ["ux"], start: "2026-11-20" },
@@ -144,8 +159,104 @@ describe("the board's graph source, on a Gantt plan", () => {
       build: 3,
     };
     const source = boardGraphSource([WBS, plan(tasks)]);
-    expect(source).toEqual(boardGraphSource(UJ2_BOARD));
-    expect(buildGraph(source).warnings).toEqual([]);
+    expect(source).toMatchObject({ items: [{}, { strays: ["design", "nope", "build"] }] });
+    const [wbs, schedule] = source.items;
+    const [boardWbs, boardSchedule] = boardGraphSource(UJ2_BOARD).items;
+    expect(wbs).toEqual(boardWbs);
+    expect({ ...schedule, strays: undefined }).toEqual({ ...boardSchedule, strays: undefined });
+    expect(strayWarnings(source)).toEqual(["schedule.design", "schedule.nope", "schedule.build"]);
+    expect(buildGraph(source).warnings).toHaveLength(3);
+  });
+
+  test("warns once at the plan's entry for a Tree without billing, and changes nothing else", () => {
+    const nodes = withoutNode(NODES, "billing");
+    const { warnings } = buildGraph(boardGraphSource([tree(nodes), SCHEDULE]));
+    expect(warnings).toEqual([
+      {
+        error: "missing-reference",
+        address: "schedule.billing",
+        detail: "the plan names billing, which is no work package of wbs",
+      },
+    ]);
+    const bare = plan(withoutKey(TASKS, "billing"));
+    const board = [tree(nodes), bare];
+    const clean = evaluateGraph(buildGraph(boardGraphSource(board)));
+    const values = evaluateGraph(buildGraph(boardGraphSource([tree(nodes), SCHEDULE])));
+    for (const address of ["schedule.finish", "schedule.finishDate", "wbs.expected"]) {
+      expect(values.read(address)).toEqual(clean.read(address));
+    }
+    expect(values.read("schedule.reporting.startDate")).toEqual(
+      clean.read("schedule.reporting.startDate"),
+    );
+    expect(buildGraph(boardGraphSource(board)).warnings).toEqual([]);
+  });
+
+  test("warns once at the portal's entry when the Tree lacks the portal, and reporting warns as before", () => {
+    const { warnings } = buildGraph(
+      boardGraphSource([tree(withoutNode(NODES, "portal")), SCHEDULE]),
+    );
+    expect(warnings.map(({ address }) => address)).toEqual([
+      "schedule.portal",
+      "schedule.reporting.es",
+    ]);
+    expect(warnings[0]?.detail).toContain("portal");
+    expect(warnings[0]?.detail).toContain("wbs");
+  });
+
+  test("warns once at the portal's entry when the portal gets a child, which is no task then", () => {
+    const nodes = structuredClone(NODES) as Json[];
+    const build = (nodes[1] as Node).children as Json[];
+    const index = build.findIndex(({ id }) => id === "portal");
+    build[index] = { id: "portal", label: "Portal", children: [{ id: "child", label: "Child" }] };
+    const { warnings } = buildGraph(boardGraphSource([tree(nodes), SCHEDULE]));
+    expect(warnings.filter(({ address }) => address === "schedule.portal")).toHaveLength(1);
+    const values = evaluateGraph(buildGraph(boardGraphSource([tree(nodes), SCHEDULE])));
+    expect(values.read("schedule.portal.duration")).toMatchObject({ error: "missing-reference" });
+    const board = evaluateGraph(buildGraph(boardGraphSource(UJ2_BOARD)));
+    expect(values.read("wbs.expected") as number).toBeLessThan(
+      board.read("wbs.expected") as number,
+    );
+    const portal = board.read("wbs.portal.expected") as number;
+    expect(values.read("wbs.expected") as number).toBeCloseTo(
+      (board.read("wbs.expected") as number) - portal,
+      6,
+    );
+  });
+
+  test("warns once for an ID that is a stray and a predecessor at once", () => {
+    const tasks = {
+      ...TASKS,
+      ghost: { dependencies: ["ux"] },
+      reporting: { dependencies: ["ghost"] },
+    };
+    const { warnings } = buildGraph(boardGraphSource([WBS, plan(tasks)]));
+    expect(warnings.filter(({ address }) => address === "schedule.ghost")).toHaveLength(1);
+  });
+
+  test("warns once for a predecessor that names no task and has no entry", () => {
+    const tasks = { ...TASKS, reporting: { dependencies: ["review", "review"] } };
+    const { warnings } = buildGraph(boardGraphSource([WBS, plan(tasks)]));
+    expect(warnings.map(({ address }) => address)).toEqual([
+      "schedule.review",
+      "schedule.reporting.es",
+    ]);
+  });
+
+  test("warns only the existing work-packages warning when the plan names no Tree", () => {
+    const addresses = (tasks: Json) =>
+      buildGraph(boardGraphSource([plan(tasks, { workPackages: "none" })])).warnings.map(
+        ({ address }) => address,
+      );
+    expect(addresses(TASKS)).toContain("schedule.workPackages");
+    expect(addresses({ ...TASKS, ghost: {}, reporting: { dependencies: ["ghost"] } })).toEqual(
+      addresses(TASKS),
+    );
+    expect(addresses(TASKS)).not.toContain("schedule.ghost");
+  });
+
+  test("warns nothing on the UJ-2 board and on the approved answer's board", () => {
+    expect(buildGraph(boardGraphSource(UJ2_BOARD)).warnings).toEqual([]);
+    expect(buildGraph(boardGraphSource(UJ2_ANSWERED)).warnings).toEqual([]);
   });
 
   test("maps a Tree that two plans name once", () => {

@@ -5,7 +5,8 @@
 // latest earliest finish of the predecessors, or later when the user requested a later start.
 // Backward: latest finish is the earliest latest start of the successors, or the plan's finish. A
 // task is critical at zero slack. Dates count working days from the first working day on or after
-// the start.
+// the start. A plan that names an ID which is no work package of its Tree, as an entry or as a
+// predecessor, gives one `missing-reference` warning at `<plan>.<ID>` (wbs-gantt-consistency).
 
 import { ID_PATTERN } from "@askboard/contract";
 import { countWorkingDays, firstWorkingDay, serialOf } from "./dates.ts";
@@ -209,6 +210,26 @@ const scheduleItem = ({
   return { item: { kind: "fields", id, fields, children }, warnings };
 };
 
+// One warning for each ID the plan names that is no leaf: first the entries' own keys, then the
+// predecessors of the scheduled tasks, each ID once. The dependent's own formula error stays.
+const warnAboutStrays = (
+  plan: GanttPlanItem,
+  dependencies: ReadonlyMap<string, readonly string[]>,
+  leaves: readonly string[],
+  warnings: FormulaError[],
+): void => {
+  const known = new Set(leaves);
+  const warned = new Set<string>();
+  const warn = (id: string): void => {
+    if (known.has(id) || warned.has(id)) return;
+    warned.add(id);
+    const detail = `the plan names ${id}, which is no work package of ${plan.workPackages}`;
+    warnings.push({ error: "missing-reference", address: `${plan.id}.${id}`, detail });
+  };
+  for (const stray of plan.strays ?? []) warn(stray);
+  for (const [task, before] of dependencies) if (known.has(task)) before.forEach(warn);
+};
+
 /**
  * A Gantt plan as a `fields` item. `leavesOf` gives a `wbs-pert` item's leaves, or undefined when
  * the ID names none. Each task lasts its requested duration, else its expected effort rounded up
@@ -229,6 +250,7 @@ export const expandGanttPlan = (
     const detail = `the work packages ${plan.workPackages} name no WBS-with-PERT item`;
     warnings.push({ error: "missing-reference", address: `${plan.id}.workPackages`, detail });
   }
+  if (leaves !== undefined) warnAboutStrays(plan, dependencies, leaves, warnings);
   const tasks = leaves?.map((task) => {
     const effort = formula(`MAX(1,ROUNDUP([${plan.workPackages}.${task}.expected],0))`);
     const requested = durations.get(task);
