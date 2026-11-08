@@ -66,16 +66,6 @@ export const applyDensity = (root: ThemeRoot, density: Density): void => {
   root.classList.toggle(COMFORTABLE_CLASS, density === "comfortable");
 };
 
-/** Calls `apply` with the system's theme now and on each change; returns the current one. */
-export const followSystemTheme = (
-  query: SchemeQuery,
-  apply: (theme: Theme) => void,
-): (() => Theme) => {
-  apply(systemTheme(query));
-  query.addEventListener("change", () => apply(systemTheme(query)));
-  return () => systemTheme(query);
-};
-
 /** A theme as the host context carries it; anything else is no theme. */
 export const readTheme = (value: unknown): Theme | undefined =>
   value === "light" || value === "dark" ? value : undefined;

@@ -5,6 +5,8 @@
 
 import type { SnapshotRecord } from "@askboard/contract";
 import { UNSENT_WORK_NOTE } from "../snapshot-line.ts";
+import { isPresentation, type ViewPresentation } from "../view-protocol.ts";
+import { DEFAULT_PRESENTATION } from "./presentation-controls.ts";
 
 /** The record the boot block holds when the page is a Snapshot. */
 export type OpenedSnapshot = SnapshotRecord;
@@ -42,3 +44,17 @@ export const topLineOf = (opened: OpenedSnapshot, timeZone?: string): TopLine =>
 
 /** The tab's title; the ask's title is agent text and goes in through the DOM only. */
 export const snapshotTitleOf = (askTitle: string): string => `Snapshot · ${askTitle}`;
+
+/**
+ * The presentation an opened Snapshot starts in (snapshot-toolbar, design decision 4): the theme
+ * and density its record names, the placement beside and nothing locked; the defaults when the
+ * record names none or a hand-edited file names a value the page does not know, so that only the
+ * two enums ever reach the page's classes.
+ */
+export const snapshotPresentationOf = (opened: OpenedSnapshot): ViewPresentation => {
+  const recorded: unknown = opened.presentation;
+  if (typeof recorded !== "object" || recorded === null) return DEFAULT_PRESENTATION;
+  const { theme, density } = recorded as { theme?: unknown; density?: unknown };
+  const candidate = { theme, density, contextPlacement: "beside", locked: [] };
+  return isPresentation(candidate) ? candidate : DEFAULT_PRESENTATION;
+};

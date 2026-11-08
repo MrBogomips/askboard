@@ -26,9 +26,8 @@ import {
   applyDensity,
   applyTheme,
   DARK_QUERY,
-  followSystemTheme,
+  followTheme,
   resolveTheme,
-  systemTheme,
   type Theme,
 } from "../theme.ts";
 import { questionsOf, type ViewDocument } from "../view-document.ts";
@@ -64,7 +63,7 @@ import { createDraftStore, type DraftStore } from "./draft-store.ts";
 import { dropStaleEntries, entryIdsOf } from "./entries.ts";
 import { focusOpener } from "./focus-opener.ts";
 import { measureInset } from "./measure-inset.ts";
-import { snapshotTitleOf } from "./opened-snapshot.ts";
+import { snapshotPresentationOf, snapshotTitleOf } from "./opened-snapshot.ts";
 import { startPresentation } from "./presentation-extras.ts";
 import { startPushExtras } from "./push-extras.ts";
 import { createReadyTracker, questionItemsOf } from "./ready-tracker.ts";
@@ -73,7 +72,6 @@ import { createSizeNotices, settle } from "./size-notices.ts";
 import { createSnapshotControl } from "./snapshot-control.ts";
 import { createStore, type Store } from "./store.ts";
 import { shimStyleElements } from "./style-shim.ts";
-import type { ThemeChoice } from "./theme-control.tsx";
 import type { ThreadRequest } from "./thread.tsx";
 import { createChunkInstaller } from "./view-chunks.ts";
 import { workRefsOf } from "./work-refs.ts";
@@ -199,15 +197,14 @@ const boot = (): void => {
   const setTheme = (theme: Theme) => applyTheme(document.documentElement, theme);
   const scheme = window.matchMedia(DARK_QUERY);
   // The presentation the board page had at boot sets theme and density before the first render.
-  const presentation = data.presentation;
+  // An opened Snapshot starts in the theme and density its record names (snapshot-toolbar,
+  // design decision 4); its toggles act on the page alone and save nothing.
+  const initial = opened === undefined ? undefined : snapshotPresentationOf(opened);
+  const presentation = initial ?? data.presentation;
   applyDensity(document.documentElement, presentation?.density ?? "compact");
   if (hosted) setTheme(resolveTheme(presentation?.theme ?? "system", scheme.matches));
-  // An opened Snapshot's Theme control picks the system's theme or one fixed, and saves nothing.
-  const choice = createStore<ThemeChoice>("system");
-  const themeOf = (system: Theme): Theme =>
-    choice.get() === "system" ? system : (choice.get() as Theme);
-  if (!hosted) followSystemTheme(scheme, (system) => setTheme(themeOf(system)));
-  choice.subscribe(() => setTheme(themeOf(systemTheme(scheme))));
+  const follower = hosted ? undefined : followTheme(scheme, setTheme);
+  if (initial !== undefined) follower?.prefer(initial.theme);
   const channel = hosted ? connectToBoardPage() : NO_CHANNEL;
   channel.onTheme(setTheme);
   const view = createStore<BoardView>({ document: data.document, state: data.state });
@@ -361,6 +358,9 @@ const boot = (): void => {
   const controls = startPresentation(data, channel, {
     hosted,
     report,
+    ...(follower === undefined ? {} : { followTheme: follower.prefer }),
+    followDensity: (density) => applyDensity(document.documentElement, density),
+    ...(initial === undefined ? {} : { initial }),
   });
   // The presentation's placement is the board's default; a question's own control overrides it.
   const followPlacement = () =>
@@ -371,7 +371,6 @@ const boot = (): void => {
     header: startPushExtras(data, channel, hosted, report),
     presentation: controls,
     snapshot: createSnapshotControl(channel),
-    ...(opened === undefined ? {} : { theme: choice }),
   };
   createRoot(root).render(
     <BoardLanguage view={view}>

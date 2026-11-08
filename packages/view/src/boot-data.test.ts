@@ -121,6 +121,17 @@ describe("a Snapshot's record in the block (snapshot task 8.1)", () => {
   });
 });
 
+describe("a Snapshot's malformed presentation (snapshot-toolbar)", () => {
+  test("never stops the block from parsing", () => {
+    const snapshot = {
+      takenAt: "2026-10-31T14:30:00Z",
+      takenBy: "agent",
+      presentation: { theme: "sepia" },
+    } as const;
+    expect(parseBootData(JSON.stringify({ ...data, snapshot })).snapshot).toMatchObject(snapshot);
+  });
+});
+
 describe("the presentation in the block (settings-languages, task 8.2)", () => {
   const presentation = {
     theme: "dark",

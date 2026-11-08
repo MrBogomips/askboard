@@ -2,7 +2,6 @@ import { describe, expect, test } from "bun:test";
 import {
   applyDensity,
   applyTheme,
-  followSystemTheme,
   followTheme,
   readTheme,
   resolveTheme,
@@ -49,17 +48,6 @@ describe("the theme (EXPERIENCE.md, Dark theme)", () => {
     expect([...element.classes]).toEqual(["dark"]);
     applyTheme(element, "light");
     expect([...element.classes]).toEqual([]);
-  });
-
-  test("following the system applies its theme now and on each change, and reads it", () => {
-    const { list, change } = media(false);
-    const seen: string[] = [];
-    const current = followSystemTheme(list, (theme) => seen.push(theme));
-    expect(seen).toEqual(["light"]);
-    expect(current()).toBe("light");
-    change(true);
-    expect(seen).toEqual(["light", "dark"]);
-    expect(current()).toBe("dark");
   });
 
   test("only light and dark read as a theme", () => {
