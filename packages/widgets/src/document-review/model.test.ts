@@ -506,3 +506,42 @@ describe("every result the model builds fits the contract", () => {
     expect(failures).toBe(0);
   });
 });
+
+describe("the 101st annotation", () => {
+  const words = Array.from({ length: 101 }, (_, index) => `word${String(index).padStart(3, "0")}`);
+  const text = words.join(" ");
+  const quoteAt = (index: number) => {
+    const start = text.indexOf(words[index] as string);
+    const made = anchorPassage(text, [], [], start, start + (words[index] as string).length);
+    if (!made.ok) throw new Error("refused");
+    return made.quote;
+  };
+  const full = words.slice(0, DOCUMENT_REVIEW_ANNOTATIONS_MAX).map(
+    (_, index): DocumentReviewAnnotation => ({
+      id: `u-${index + 1}`,
+      target: { selector: quoteAt(index) },
+      body: { text: "n" },
+    }),
+  );
+
+  test("a passage is refused as limit and the list is unchanged", () => {
+    expect(full).toHaveLength(100);
+    const start = text.indexOf(words[100] as string);
+    const made = anchorPassage(text, full, placeAnnotations(text, full), start, start + 7);
+    expect(made).toEqual({ ok: false, refusal: { code: "limit" } });
+  });
+
+  test("a new card over 100 annotations returns the same list; an existing card still changes", () => {
+    const fresh = { id: "u-101", quote: quoteAt(100), kind: "comment" as const, text: "one more" };
+    expect(withCard(full, fresh)).toBe(full);
+    const changed = withCard(full, {
+      id: "u-7",
+      quote: quoteAt(6),
+      kind: "comment" as const,
+      text: "edited",
+    });
+    expect(changed).toHaveLength(100);
+    expect(changed[6]?.body.text).toBe("edited");
+    expect(withCard(full.slice(0, 99), fresh)).toHaveLength(100);
+  });
+});
