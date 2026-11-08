@@ -4,6 +4,7 @@ import { type Say, say } from "@askboard/view/catalog";
 import { nameColumnOf } from "./cells.ts";
 import { deletedWith } from "./deleting.ts";
 import { enterCell, nameTooLong } from "./entry.ts";
+import { groupedWith } from "./grouping.ts";
 import { refusalText } from "./linked.ts";
 import { TREE_TOOLS } from "./model/keys.ts";
 
@@ -37,5 +38,13 @@ describe("the Tree in Italian", () => {
     expect(refusalText({ ok: false, limit: "entries", most: 500 }, [], IT)).toBe(
       "Il piano conterrebbe più di 500 attività, il massimo per un piano.",
     );
+  });
+
+  test("the group question, in the ask's language (task 2.2; the Italian the PO reviews in the pull request)", () => {
+    const portal = { label: "Customer portal", estimates: true, task: true, dependents: 1 };
+    expect(groupedWith(portal, IT)).toStartWith(
+      "diventa un gruppo: le sue stime escono dai totali",
+    );
+    expect([IT("tree.group.cancel"), IT("tree.group.continue")]).toEqual(["Annulla", "Continua"]);
   });
 });
