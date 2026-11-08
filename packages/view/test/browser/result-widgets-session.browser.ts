@@ -161,7 +161,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
-      "a reopened question holding an answered Scale: Start from my previous answer puts the Scale's value in the draft and sends nothing until Answer",
+      "a reopened and changed question holding an answered Scale: Start from my previous answer puts the Scale's value in the draft and sends nothing until Answer",
       async () => {
         const run = await start(lifecycleScenario(scaleAsk(SLIDER), dist));
         const board = await openBoard(run, ["plan"]);
@@ -169,7 +169,12 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await answerOf(board, "plan").click({ timeout: STEP_TIMEOUT_MS });
         await card(board, "plan").getByText("sent", { exact: true }).waitFor();
         await actsDone(run, 1);
-        await run.session.update([{ action: "reopen", itemId: "plan" }]);
+        // Reopened with the Scale's step changed in the same update: the question changed, so it
+        // starts from the agent's version, and 100 still fits (reopen-start-from-answer, decision 3).
+        await run.session.update([
+          { action: "reopen", itemId: "plan" },
+          { action: "change", itemId: "share", props: { ...SLIDER, step: 1 } },
+        ]);
         const reopened = card(board, "plan").locator('[data-askboard-notice="reopened"]');
         await reopened.getByText("Reopened by the agent").waitFor({ timeout: STEP_TIMEOUT_MS });
         await eventually(
@@ -189,7 +194,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(again?.acts[0]).toMatchObject({
           type: "answer",
           itemId: "plan",
-          rev: 2,
+          rev: 3,
           results: { share: { value: 100 } },
         });
         expectNoCspProblem(run);
