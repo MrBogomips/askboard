@@ -153,6 +153,7 @@ export const STRING_KEYS = [
   "change.widgetPickField",
   "change.reload",
   "change.keep",
+  "change.readOnlyAfterReload",
   "reopened.title",
   "reopened.previous",
   "reopened.start",

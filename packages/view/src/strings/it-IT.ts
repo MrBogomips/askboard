@@ -159,6 +159,9 @@ export const IT_IT = {
   "change.widgetPickField": "Campo di scelta",
   "change.reload": "Ricarica, perdendo il mio lavoro",
   "change.keep": "Tieni le mie",
+  // The read-only line after a reload is to review (keep-mine-shown-revision, task 1.2).
+  "change.readOnlyAfterReload":
+    "In sola lettura dopo il ricaricamento: il tuo lavoro su questa domanda mantiene una versione precedente, che la board non può più mostrare.",
   "reopened.title": "Riaperta dall'agente",
   "reopened.previous": "Risposta precedente",
   "reopened.start": "Parti dalla mia risposta precedente",

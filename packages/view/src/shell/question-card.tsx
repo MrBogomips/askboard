@@ -28,6 +28,7 @@ import {
   changesLabel,
   type KeptChoices,
   type Revisions,
+  readOnlyItemsOf,
   workingQuestion,
 } from "./agent-change.ts";
 import type { AnswerActs } from "./answer-acts.ts";
@@ -198,6 +199,8 @@ const useCard = ({ question, state, lock, context }: CardProps) => {
     status,
     pending,
     shown,
+    // The items that take no edit while the card shows a revision its answer does not name.
+    readOnlyItems: readOnlyItemsOf(question, shown, work),
     card,
     blocked,
     actions,
@@ -334,6 +337,7 @@ export const QuestionCard = (props: CardProps) => {
     status,
     pending,
     shown,
+    readOnlyItems,
     card,
     blocked,
     actions,
@@ -459,6 +463,7 @@ export const QuestionCard = (props: CardProps) => {
           itemIds={itemIdsOf(question)}
           context={context}
           disabled={readOnly}
+          readOnlyItems={readOnlyItems}
           shown={shownFor(card.shown, question.id, item.id)}
           shownResult={shownResultFor(card.shown, question.id, item.id)}
           shownOf={(itemId) => shownFor(card.shown, question.id, itemId)}

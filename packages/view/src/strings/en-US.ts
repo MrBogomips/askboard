@@ -152,6 +152,8 @@ export const EN_US = {
   "change.widgetPickField": "PickField",
   "change.reload": "Reload, losing my work",
   "change.keep": "Keep mine",
+  "change.readOnlyAfterReload":
+    "Read-only after the reload: your work on this question keeps an earlier version, which the board can no longer show.",
   "reopened.title": "Reopened by the agent",
   "reopened.previous": "Previous answer",
   "reopened.start": "Start from my previous answer",
