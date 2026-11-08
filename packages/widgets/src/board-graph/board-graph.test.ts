@@ -296,3 +296,25 @@ describe("the live graph's recalculation", () => {
     expect(recalc).toBeLessThan(500);
   });
 });
+
+describe("an empty input in the live graph", () => {
+  test("reads as empty, as in the sent graph, never as a missing node", () => {
+    const props = {
+      columns: [
+        { field: "a", label: "A", type: "number" },
+        { field: "b", label: "B", type: "toggle" },
+      ],
+      rows: [{ id: "r", a: 1 }],
+    };
+    const items: readonly BoardWidgetItem[] = [{ type: "table", id: "t", props }];
+    const live = liveGraph({
+      items,
+      draft: new Map([["t", props]]),
+      shown: new Map([["t", props]]),
+    });
+    expect(live?.read("t.r.a")).toBe(1);
+    expect(live?.read("t.r.b")).toBeNull();
+    expect(sentGraph(board(NOTHING, items))?.read("t.r.b")).toBeNull();
+    expect(live?.read("t.r.nope")).toMatchObject({ error: "missing-reference" });
+  });
+});
