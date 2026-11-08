@@ -177,6 +177,7 @@ An agent can change, delete or answer an item it sent earlier, by its item ID, a
 - An agent can delete an item; it disappears from the board.
 - An agent can close an ask; its board then stays readable, shows that the ask is closed and accepts no more answers, and the board's link still opens it.
 - When the agent changes an item on which the user has unsent work, the board signals the change, and the user either reloads the item, losing the unsent work, or ignores the update and keeps that work. The agent is told which the user chose before it receives the answer to that item.
+- When the agent reopens an answered question and changes nothing else, the board starts it from the user's previous answer and says so; otherwise it says it starts from the agent's version, and the user can start from the previous answer explicitly.
 
 #### FR-7: Open prompt
 
