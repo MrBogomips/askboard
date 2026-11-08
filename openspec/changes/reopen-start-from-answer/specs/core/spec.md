@@ -28,7 +28,7 @@ The board state SHALL give a question's current and previous answer the item IDs
 - **THEN** neither holds the unchanged IDs
 
 ### Requirement: How unchanged items are compared
-Props SHALL be compared canonically as the board shows them: each revision's props with the context they point to (excerpts, images, file references) resolved for that revision, an unresolved pointer comparing as itself. A layout SHALL be compared with each item inside it replaced by its ID, so a Group whose members changed only inside is listed, and one that gained or lost a member is not. Memoised comparisons SHALL be kept only for the question's current revision (NFR-10, AD-9, AD-20).
+Props SHALL be compared canonically as the board shows them: each revision's props with the context they point to (excerpts, images, file references) resolved for that revision, a pointer whose read timed out or was too large at either revision counting as changed, and one unresolved for another reason comparing as itself. A layout SHALL be compared with each item inside it replaced by its ID, so a Group whose members changed only inside is listed, and one that gained or lost a member is not. Memoised comparisons SHALL be kept only for the question's current revision (NFR-10, AD-9, AD-20).
 
 #### Scenario: Context changed under the same props
 - **WHEN** a reopened question's item points to an excerpt whose text changed between the answer's revision and the current one, its props unchanged
