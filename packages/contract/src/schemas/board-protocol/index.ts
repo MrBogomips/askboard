@@ -369,8 +369,11 @@ export type CurrentAnswer = {
   /** Since widget-registry: the logged result of each widget item, by expanded item ID. */
   readonly results?: Readonly<Record<string, unknown>>;
   /**
-   * Since reopen-start-from-answer: the IDs of the question and of its items, at any depth, whose
-   * props equal those of the revision the answer names.
+   * Since reopen-start-from-answer: present only for an answer on an earlier revision than the
+   * question's current one, the IDs of the question and of its items, at any depth, whose props
+   * equal those of the revision the answer names; possibly empty, which says nothing is unchanged.
+   * Absent, every item is unchanged on a current answer and none on a previous one (NFR-10). Never
+   * logged and never sent to the agent.
    */
   readonly unchanged?: readonly string[];
   readonly declined?: true;

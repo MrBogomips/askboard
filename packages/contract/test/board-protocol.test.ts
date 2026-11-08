@@ -285,17 +285,30 @@ describe("the unchanged items of an answer (reopen-start-from-answer)", () => {
     }
   });
 
-  test("an empty list, a repeated ID and an ID the input format refuses fail, naming the field", () => {
+  test("an empty list validates in a previous and in a current answer: nothing is unchanged", () => {
+    for (const make of [previous, current]) {
+      expect(validateBoardMessage("toPage", make({ unchanged: [] })).ok).toBe(true);
+    }
+  });
+
+  test("a repeated ID and an ID the input format refuses fail, naming the field", () => {
     const at = (make: Make) =>
       make === previous
         ? "/state/questions/0/previous/unchanged"
         : "/state/questions/0/answer/unchanged";
     for (const make of [previous, current]) {
-      for (const bad of [[], ["plan", "plan"], ["a b"], [""], [5], "plan"]) {
+      for (const bad of [["plan", "plan"], ["a b"], [""], [5], "plan"]) {
         const result = validateBoardMessage("toPage", make({ unchanged: bad }));
         expect([JSON.stringify(bad), result.ok]).toEqual([JSON.stringify(bad), false]);
         expect(problemPaths(result).some((path) => path.startsWith(at(make)))).toBe(true);
       }
+    }
+  });
+
+  test("an answer without the list validates: everything unchanged on a current one, nothing on a previous one", () => {
+    // The meaning is the reader's (view-and-widgets, `unchangedOf`); the schema only admits the absence.
+    for (const make of [previous, current]) {
+      expect(validateBoardMessage("toPage", make({})).ok).toBe(true);
     }
   });
 

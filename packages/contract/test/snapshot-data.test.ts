@@ -326,12 +326,16 @@ describe("the unchanged items of an answer in the Snapshot data (reopen-start-fr
     expect(problemPaths(withUnchanged([question.id, "roadmap"]))).toEqual([]);
   });
 
-  test("an empty list or a repeated ID fails, naming the field", () => {
-    for (const bad of [[], [question.id, question.id]]) {
-      expect(problemPaths(withUnchanged(bad)).some((p) => p.endsWith("/answer/unchanged"))).toBe(
-        true,
-      );
-    }
+  test("an empty list validates: nothing is unchanged", () => {
+    expect(problemPaths(withUnchanged([]))).toEqual([]);
+  });
+
+  test("a repeated ID fails, naming the field", () => {
+    expect(
+      problemPaths(withUnchanged([question.id, question.id])).some((p) =>
+        p.endsWith("/answer/unchanged"),
+      ),
+    ).toBe(true);
   });
 
   test("the data of the previous minor, with no unchanged, still validates", () => {
