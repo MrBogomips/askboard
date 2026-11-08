@@ -38,6 +38,7 @@ describe("the generated files", () => {
     expect([...files.keys()]).toEqual([
       "SKILL.md",
       "references/answers.md",
+      "references/items.md",
       "references/context.md",
       ...WIDGET_TYPES.map(({ type }) => `references/widgets/${type}.md`),
       ...READY_MOLECULES.map(({ molecule }) => `references/molecules/${molecule}.md`),
@@ -239,26 +240,27 @@ describe("the shipped widget references (skills spec: The skill names the three)
   });
 });
 
-describe("SKILL.md item index", () => {
+describe("the item index", () => {
+  const catalogue = files.get("references/items.md") ?? "";
   const index = skill.slice(skill.indexOf("## Items"));
   const linked = [...index.matchAll(/\]\((references\/[^)]+)\)/g)].map((match) => match[1] ?? "");
 
-  test("lists the context types, then the registry's types in order, then the molecules", () => {
+  test("the catalogue lists the context types, then the registry's types in order, then the molecules", () => {
     const positions = [
       ...contextTypes().map((type) => `\`${type}\``),
       ...WIDGET_TYPES.map(({ noun }) => noun),
       ...READY_MOLECULES.map(({ molecule }) => `\`${molecule}\``),
-    ].map((label) => index.indexOf(`- ${label}`));
+    ].map((label) => catalogue.indexOf(`- ${label}`));
     expect(positions.every((position) => position >= 0)).toBe(true);
     expect([...positions].sort((a, b) => a - b)).toEqual(positions);
   });
 
-  test("links each to a file the generator writes, and states each one's use", () => {
+  test("SKILL.md links each to a file the generator writes; the catalogue states each one's use", () => {
     expect(linked.length).toBeGreaterThan(0);
     for (const path of linked) expect(files.has(path), path).toBe(true);
     for (const { skill: teaching } of WIDGET_TYPES)
-      expect(index).toContain(teaching?.use ?? "unreachable");
-    for (const { use } of Object.values(MOLECULE_SKILLS)) expect(index).toContain(use);
+      expect(catalogue).toContain(teaching?.use ?? "unreachable");
+    for (const { use } of Object.values(MOLECULE_SKILLS)) expect(catalogue).toContain(use);
   });
 
   test("names every item type of the contract in backticks, a test-made one included", () => {
@@ -267,7 +269,7 @@ describe("SKILL.md item index", () => {
     }
     const extra = { ...PROBE_WIDGET, skill: { use: "a pick among options" } };
     const more = generateSkill({ widgets: [...WIDGET_TYPES, extra] }).files.get("SKILL.md") ?? "";
-    expect(more.slice(more.indexOf("## Items"))).toContain("(`probe`)");
+    expect(more.slice(more.indexOf("## Items"))).toContain("[`probe`]");
   });
 
   test("teaches the area: its shape, top level only, holding questions, all or none", () => {
@@ -338,6 +340,9 @@ describe("generateSkill's inputs", () => {
     const extra = { ...PROBE_WIDGET, skill: { use: "a pick among options" } };
     const more = generateSkill({ widgets: [...WIDGET_TYPES, extra] });
     expect(more.files.has("references/widgets/probe.md")).toBe(true);
-    expect(more.files.get("SKILL.md")).toContain("a Probe (`probe`): a pick among options");
+    expect(more.files.get("references/items.md")).toContain(
+      "a Probe (`probe`): a pick among options",
+    );
+    expect(more.files.get("SKILL.md")).toContain("[`probe`](references/widgets/probe.md)");
   });
 });
