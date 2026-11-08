@@ -149,6 +149,7 @@ export const EN_US = {
   "change.widgetNumberField": "NumberField",
   "change.widgetMoneyField": "MoneyField",
   "change.widgetDateField": "DateField",
+  "change.widgetPickField": "PickField",
   "change.reload": "Reload, losing my work",
   "change.keep": "Keep mine",
   "reopened.title": "Reopened by the agent",
@@ -398,4 +399,9 @@ export const EN_US = {
   "field.required": "(required)",
   "field.minLength": "At least {min} characters.",
   "field.pattern": "Not in the expected form.",
+  "field.minItems": "Pick at least {min}.",
+  "field.maxItems": "Pick at most {max}.",
+  "pick.clear": "Clear",
+  "pick.filter": "Filter the options",
+  "pick.noMatch": "No option matches.",
 } as const satisfies StringTable;

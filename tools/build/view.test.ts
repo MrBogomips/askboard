@@ -106,6 +106,8 @@ describe("bun run build:view (design decision 7)", () => {
       latex: "component",
       "money-field": "component",
       "number-field": "component",
+      // The PickField: Radix's Radio Group and Checkbox, in the radix chunk (form-widget, design decision 4).
+      "pick-field": "component",
       radix: "library",
       ranking: "component",
       react: "library",
@@ -134,6 +136,8 @@ describe("bun run build:view (design decision 7)", () => {
       expect(manifest.chunks[atom]?.needs).toEqual(["react", "shell"]);
     }
     expect(manifest.chunks.toggle?.needs).toEqual(["radix", "react", "shell"]);
+    expect(manifest.chunks["pick-field"]?.components).toEqual(["pick-field"]);
+    expect(manifest.chunks["pick-field"]?.needs).toEqual(["radix", "react", "shell"]);
     // The DateField's calendar is react-day-picker in Radix's Popover, with date-fns, all in its own
     // chunk (task 5.5; design decision 9).
     expect(manifest.chunks["date-field"]?.components).toEqual(["date-field"]);
@@ -367,6 +371,7 @@ describe("bun run build:view (design decision 7)", () => {
       "latex",
       "money-field",
       "number-field",
+      "pick-field",
       "radix",
       "ranking",
       "react",

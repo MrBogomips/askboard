@@ -4,6 +4,7 @@
 // budgets are checked before the registration task regenerates the files.
 
 import { describe, expect, test } from "bun:test";
+import { WIDGET_TYPES } from "@askboard/contract";
 import { FORM_TYPES, withWidgetTypes } from "@askboard/contract/fixtures";
 import { BUDGETS, budgetReport } from "./budgets.ts";
 import { generateSkill } from "./generate.ts";
@@ -55,11 +56,20 @@ describe("the skill with the PickField registered", () => {
   });
 });
 
-describe("the skill without the PickField", () => {
-  test("holds no form sentence and no PickField line", () => {
+describe("the shipped skill, with the PickField registered (task 3.3)", () => {
+  test("holds the PickField's line and the form sentence, as `bun run build:skills` writes them", () => {
     const shipped = generateSkill().files.get("SKILL.md") ?? "";
-    if (shipped.includes("(`pick-field`)")) return;
-    expect(shipped).not.toContain("For a form,");
-    expect(shipped).not.toContain("PickField");
+    expect(shipped).toContain("(`pick-field`)");
+    expect(shipped.split("\n").filter((line) => line.startsWith("For a form,"))).toEqual([
+      FORM_SENTENCE,
+    ]);
+    expect(shipped).toBe(skill);
+  });
+
+  test("a registry without the PickField holds no form sentence and no PickField line", () => {
+    const without = WIDGET_TYPES.filter(({ type }) => type !== "pick-field");
+    const text = generateSkill({ widgets: without }).files.get("SKILL.md") ?? "";
+    expect(text).not.toContain("For a form,");
+    expect(text).not.toContain("PickField");
   });
 });

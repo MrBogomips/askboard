@@ -37,6 +37,10 @@ const probesOf = (entry: WidgetType): readonly unknown[] => {
     series?: { id: string }[];
     categories?: { id: string }[];
   };
+  // The PickField's options: a result names one of them, or several in their order.
+  const picks = ((entry.example.item.props as { options?: { id: string }[] }).options ?? []).map(
+    ({ id }) => id,
+  );
   const series = chart.series?.[0]?.id ?? "series";
   const category = chart.categories?.[0]?.id ?? "category";
   return [
@@ -78,6 +82,10 @@ const probesOf = (entry: WidgetType): readonly unknown[] => {
     { amount: "12.50", currency: "EUR" },
     { amount: 12.5, currency: "EUR" },
     "2026-03-02",
+    // The PickField's: one option, two in order, two reversed, an option and a stranger, a stranger.
+    ...(picks.length < 2
+      ? []
+      : [picks[0], [picks[0], picks[1]], [picks[1], picks[0]], [picks[0], "extra"], "extra"]),
     // Shapes no type takes, and one of each type's own with a field it lacks or a value off its kind.
     { value: "5" },
     { low: 1 },

@@ -155,6 +155,7 @@ export const IT_IT = {
   "change.widgetNumberField": "Campo numerico",
   "change.widgetMoneyField": "Campo importo",
   "change.widgetDateField": "Campo data",
+  "change.widgetPickField": "Campo di scelta",
   "change.reload": "Ricarica, perdendo il mio lavoro",
   "change.keep": "Tieni le mie",
   "reopened.title": "Riaperta dall'agente",
@@ -414,4 +415,10 @@ export const IT_IT = {
   "field.required": "(obbligatorio)",
   "field.minLength": "Almeno {min} caratteri.",
   "field.pattern": "Non è nella forma attesa.",
+  // The PickField's texts are provisional, to review (form-widget, task 3.3).
+  "field.minItems": "Scegline almeno {min}.",
+  "field.maxItems": "Scegline al massimo {max}.",
+  "pick.clear": "Cancella",
+  "pick.filter": "Filtra le opzioni",
+  "pick.noMatch": "Nessuna opzione corrisponde.",
 } as const satisfies StringTable;

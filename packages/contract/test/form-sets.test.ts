@@ -1,7 +1,7 @@
 // The sets form-widget widens in task 1.2 (contract spec: Form fields in the schema sets; design
 // decision 9): the input format, the board document and the tool envelopes each take one minor past
 // layouts' for the field checks' props, and each module's header names this change. The output
-// format moves with the PickField's registration (task 3.3). The numbers are bound here and in the
+// format moves with the PickField's registration (task 3.3, below). The numbers are bound here and in the
 // constants only (askboard-contract-versioning, Rule 1), and the rebase task binds them again; the
 // next change that widens a set moves the pins below.
 
@@ -10,6 +10,7 @@ import {
   BOARD_DOCUMENT_VERSION,
   BOARD_PROTOCOL_VERSION,
   INPUT_FORMAT_VERSION,
+  OUTPUT_FORMAT_VERSION,
   SCHEMA_SETS,
   TOOL_ENVELOPES_VERSION,
 } from "../src/index.ts";
@@ -57,5 +58,22 @@ describe("the minors form-widget binds in group 1", () => {
       const header = text.split("\nimport ")[0] as string;
       expect(header, module).toContain("form-widget");
     }
+  });
+});
+
+describe("the output format's minor, with the PickField's registration (task 3.3)", () => {
+  test("it is one minor past layouts' 1.9, and the set carries the constant", () => {
+    expect(OUTPUT_FORMAT_VERSION).toBe("1.10");
+    expect(setOf("output").version).toBe(OUTPUT_FORMAT_VERSION);
+  });
+
+  test("a receiver at the new minor accepts the previous minor and refuses another major", () => {
+    expect(unsupportedVersion(setOf("output"), "1.9")).toBeUndefined();
+    expect(unsupportedVersion(setOf("output"), "2.0")).toBeDefined();
+  });
+
+  test("the module's header names this change", async () => {
+    const text = await Bun.file(new URL("../src/schemas/output/index.ts", import.meta.url)).text();
+    expect(text.split("\nimport ")[0] as string).toContain("form-widget");
   });
 });

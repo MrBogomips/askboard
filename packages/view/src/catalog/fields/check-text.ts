@@ -20,6 +20,10 @@ export const fieldErrorOf = (
         : undefined;
     case "pattern":
       return say("field.pattern");
+    case "minItems":
+      return failure.code === "min-items" ? say("field.minItems", { min: failure.min }) : undefined;
+    case "maxItems":
+      return failure.code === "max-items" ? say("field.maxItems", { max: failure.max }) : undefined;
     default:
       return undefined;
   }

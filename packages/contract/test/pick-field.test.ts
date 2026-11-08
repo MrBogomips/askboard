@@ -62,7 +62,7 @@ const resultProblems = (it: Item, result: unknown) =>
 const characters = (count: number) => "😀".repeat(count);
 
 describe("the PickField in the registry", () => {
-  test("is an unregistered entry the registry that holds it is sound with", () => {
+  test("is an entry the registry that holds it is sound with", () => {
     expect(PICK_FIELD_WIDGET.props.$id).toBe("urn:askboard:input:pick-field-props");
     expect(PICK_FIELD_WIDGET.result?.schema.$id).toBe("urn:askboard:output:pick-field-result");
     expect(PICK_FIELD_WIDGET.edits).toBeUndefined();
@@ -76,9 +76,12 @@ describe("the PickField in the registry", () => {
     expect(widgetRegistryProblems(TYPES)).toEqual([]);
   });
 
-  test("is not in the shipped registry until its component's chunk lands", () => {
-    expect(WIDGET_TYPES.map(({ type }) => type)).not.toContain("pick-field");
+  test("is in the shipped registry after the layouts, once its component's chunk has landed", () => {
+    const types = WIDGET_TYPES.map(({ type }) => type);
+    expect(types.slice(-5)).toEqual(["stack", "row", "group", "tabs", "pick-field"]);
     expect(TYPES.map(({ type }) => type).at(-1)).toBe("pick-field");
+    expect(TYPES).toHaveLength(WIDGET_TYPES.length);
+    expect(widgetRegistryProblems(WIDGET_TYPES)).toEqual([]);
   });
 
   test("passes the registry's rule that a result schema refuses what holds nothing", () => {
