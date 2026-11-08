@@ -12,7 +12,9 @@ the decisions that belong to the PO. Session notes, agent memory, chat transcrip
 not: an item kept only there is lost to the next session. Hand work between sessions as Issue
 numbers, never as lists in a message.
 
-**GitHub tool:** _to be set by the coordinator_. Until it is, agents use the GitHub CLI `gh`, as below.
+**GitHub tools:** GitHub's official MCP server (`github-mcp-server`) and GitHub's own `github-issues` skill
+(github/awesome-copilot), both set up at user level for every coding agent; where they have no tool, the
+GitHub CLI `gh` (`gh issue`, `gh api`), which the commands below use. No project skill duplicates them.
 
 ### Labels
 
@@ -45,8 +47,10 @@ comments to a file outside the repository and pass them with `--body-file`.
 and the evidence that matters (the error text, the request and the answer, the lines of a report or
 a log that show the fault), so anyone can act on it without the machine it was found on. A path on
 someone's machine is never the only evidence: quote what the file holds. Images go in as
-attachments or as links to files in the repository, never as local paths (`gh` cannot attach a
-file). Never put a board link (it carries the token in `?t=`), a token or a session file in an Issue.
+attachments dragged in on GitHub, or as files on the `issue-assets` branch linked as
+`https://github.com/MrBogomips/askboard/raw/issue-assets/<path>` (the Contents API: `gh api
+repos/MrBogomips/askboard/contents/<path> -X PUT -f branch=issue-assets -f message=… -f content=<base64>`,
+the method of the `github-issues` skill for private repositories), never as local paths. Never put a board link (it carries the token in `?t=`), a token or a session file in an Issue.
 
 1. **Deduplicate, then open.** Search open and closed Issues with two or three wordings (the widget
    or tool name, the symptom, the API name):
