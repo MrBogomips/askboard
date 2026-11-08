@@ -15,6 +15,7 @@ import { nestedWidgetItemsOf, valueItemsOf } from "../nested-items.ts";
 import { questionsOf, type ViewDocument } from "../view-document.ts";
 import type { AnswerContent } from "../view-protocol.ts";
 import type { DraftRecord } from "./draft-store.ts";
+import { type CheckFactsOf, itemCheckFailure } from "./field-block.ts";
 import { statusOf } from "./question-state.ts";
 
 /** What the board is made from: the shell's latest board document and the board state. */
@@ -122,23 +123,77 @@ export const createAnsweredResults = (
   };
 };
 
-// The boards that hold entries: one per board and entries record, so a component may memoize.
-const WITH_ENTRIES = new WeakMap<BoardContent, WeakMap<DraftRecord, BoardContent>>();
+// The ID of each item of a board, made once per items list.
+const ITEMS_BY_ID = new WeakMap<readonly BoardWidgetItem[], ReadonlyMap<string, BoardWidgetItem>>();
+
+const itemsById = (board: BoardContent): ReadonlyMap<string, BoardWidgetItem> => {
+  const known = ITEMS_BY_ID.get(board.items);
+  if (known !== undefined) return known;
+  const byId = new Map(board.items.map((item) => [item.id, item] as const));
+  ITEMS_BY_ID.set(board.items, byId);
+  return byId;
+};
+
+// The IDs of the items whose held result fails their check, once per board and results record: the
+// check of a TextField runs its pattern, which is not repeated for every item that reads the board.
+const FAILING = new WeakMap<BoardContent, WeakMap<DraftRecord, readonly string[]>>();
+const NO_IDS: readonly string[] = Object.freeze([]);
+
+const failingIds = (
+  board: BoardContent,
+  results: DraftRecord,
+  factsOf: CheckFactsOf | undefined,
+): readonly string[] => {
+  const compute = (): readonly string[] => {
+    const byId = itemsById(board);
+    return [...results].flatMap(([id, result]) => {
+      const item = byId.get(id);
+      return item === undefined ||
+        result === undefined ||
+        itemCheckFailure(item, result, factsOf) === undefined
+        ? []
+        : [id];
+    });
+  };
+  if (factsOf !== undefined) return compute();
+  const byRecord = FAILING.get(board) ?? new WeakMap<DraftRecord, readonly string[]>();
+  FAILING.set(board, byRecord);
+  const known = byRecord.get(results);
+  if (known !== undefined) return known;
+  const ids = compute();
+  byRecord.set(results, ids);
+  return ids;
+};
+
+// The boards that hold entries or failing fields, by board and the IDs they hold, so that a
+// component may memoize on the board while the set is the same.
+const WITH_ENTRIES = new WeakMap<BoardContent, Map<string, BoardContent>>();
 
 /**
- * The board with the IDs of the items whose fields hold an entry (`BoardContent.entries`, layouts
- * design decision 6): the same board while the record holds none, else one frozen board per board
- * and record. The Tabs read it for the mark of a tab that holds a field to correct.
+ * The board with the IDs of the items whose fields need a correction (`BoardContent.entries`,
+ * layouts design decision 6; form-widget, design decision 5): those that hold an entry and those
+ * whose held result fails their field check on a value (`kind: "check"`; an empty required field
+ * adds none). The same board while none does, else one frozen board per board and set of IDs. The
+ * Tabs read it for the mark of a tab that holds a field to correct. `results` and `factsOf` default
+ * to none and to the registered facts.
  */
-export const withEntries = (board: BoardContent, entries: DraftRecord): BoardContent => {
+export const withEntries = (
+  board: BoardContent,
+  entries: DraftRecord,
+  results?: DraftRecord,
+  factsOf?: CheckFactsOf,
+): BoardContent => {
   const held = [...entries].filter(([, text]) => text !== undefined).map(([id]) => id);
-  if (held.length === 0) return board;
-  const byRecord = WITH_ENTRIES.get(board) ?? new WeakMap<DraftRecord, BoardContent>();
-  WITH_ENTRIES.set(board, byRecord);
-  const known = byRecord.get(entries);
+  const failing = results === undefined ? NO_IDS : failingIds(board, results, factsOf);
+  const ids = [...new Set([...held, ...failing])];
+  if (ids.length === 0) return board;
+  const bySet = WITH_ENTRIES.get(board) ?? new Map<string, BoardContent>();
+  WITH_ENTRIES.set(board, bySet);
+  const key = [...ids].sort().join("\n");
+  const known = bySet.get(key);
   if (known !== undefined) return known;
-  const marked: BoardContent = Object.freeze({ ...board, entries: new Set(held) });
-  byRecord.set(entries, marked);
+  const marked: BoardContent = Object.freeze({ ...board, entries: new Set(ids) });
+  bySet.set(key, marked);
   return marked;
 };
 

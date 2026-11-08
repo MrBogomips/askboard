@@ -113,6 +113,8 @@ export const STRING_KEYS = [
   "question.reasonRequired",
   "question.reasonMissing",
   "question.entryHint",
+  // The Form (form-widget, task 3.1; ux-update-draft.md block 6).
+  "question.requiredHint",
   // Revising a verdict the agent has received (approval-scale-ranking, design decision 6).
   "revision.confirmTitle",
   "revision.confirmBody",

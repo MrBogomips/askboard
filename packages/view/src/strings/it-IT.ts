@@ -112,6 +112,8 @@ export const IT_IT = {
   "question.reasonRequired": "Motivo delle modifiche (obbligatorio)",
   "question.reasonMissing": "Aggiungi il motivo delle modifiche.",
   "question.entryHint": "Correggi prima {label}.",
+  // The Form's texts are provisional, to review (form-widget, task 3.1).
+  "question.requiredHint": "Completa prima {label}.",
   "revision.confirmTitle": "Inviare una nuova risposta?",
   "revision.confirmBody":
     "L'agente ha già ricevuto la tua risposta precedente. Questa la sostituisce.",

@@ -27,6 +27,7 @@ import {
 import {
   type AnswerContext,
   answerNeedsReason,
+  blockedBy,
   nextHeldOrder,
   recommendedOf,
   revisionFor,
@@ -34,7 +35,7 @@ import {
 } from "./card-acts.ts";
 import type { DerivedStore } from "./derived-store.ts";
 import type { DraftRecord, DraftStore } from "./draft-store.ts";
-import { holdsEntry } from "./entries.ts";
+import { holdsBlock } from "./field-block.ts";
 import { contentOf } from "./question-state.ts";
 import { type FactsOf, reasonOf } from "./reason.ts";
 import { questionsToConfirm } from "./revision-confirm.ts";
@@ -149,6 +150,10 @@ export type SubmitInputs = {
   readonly sending: (questionId: string) => boolean;
   /** The entries the fields hold, by item ID: a held answer of a question holding one waits. */
   readonly entries?: ReadonlyMap<string, unknown> | undefined;
+  /** The results the widget items hold, by item ID: a held answer whose field fails its check waits. */
+  readonly results?: ReadonlyMap<string, unknown> | undefined;
+  /** The facts of each widget type, whose `check` decides (the registered ones when none). */
+  readonly facts?: FactsOf | undefined;
 };
 
 export type SubmitState = {
@@ -160,24 +165,28 @@ export type SubmitState = {
 };
 
 /**
- * The first question, in board order, with a held answer whose question holds an entry: text a field
- * cannot read, which no answer carries and which disables "Answer" (atoms, design decision 3;
- * checkpoints 2.3 and 4.4, X-1). A held answer that outlived the entry would otherwise go without
- * the field the user filled, and the typed text would be dropped silently (AD-10).
+ * The first question, in board order, with a held answer whose question holds a blocking field: an
+ * entry, a value that fails its check or an empty required field (atoms, design decision 3;
+ * form-widget, design decision 5; checkpoints 2.3 and 4.4, X-1). A held answer that outlived the
+ * block, such as an agent's update that made a field required, would otherwise go without what the
+ * field needs, and the user's text would be dropped silently (AD-10). Waits for the entries and the
+ * results to be known: with neither, nothing is read.
  */
-export const heldWithEntry = (
+export const heldWithBlock = (
   document: ViewDocument,
   held: readonly HeldWork[],
   entries: ReadonlyMap<string, unknown> | undefined,
+  results: ReadonlyMap<string, unknown> | undefined,
+  facts?: FactsOf,
 ): ViewQuestion | undefined =>
-  entries === undefined
+  entries === undefined && results === undefined
     ? undefined
     : questionsOf(document).find((question) =>
         held.some(
           (each) =>
             each.question.id === question.id &&
             each.work.held.act === "answer" &&
-            holdsEntry(question, entries),
+            holdsBlock(question, entries ?? new Map(), results ?? new Map(), facts),
         ),
       );
 
@@ -195,7 +204,8 @@ export const submitStateOf = (inputs: SubmitInputs): SubmitState => {
     inputs.lock !== undefined ||
     blocked.length > 0 ||
     ids.some(inputs.sending) ||
-    heldWithEntry(inputs.document, held, inputs.entries) !== undefined;
+    heldWithBlock(inputs.document, held, inputs.entries, inputs.results, inputs.facts) !==
+      undefined;
   return { held: held.length, blocked, disabled };
 };
 
@@ -218,7 +228,7 @@ const hasChoice = (question: ViewQuestion, values: DraftRecord, work: QuestionWo
  * declined or postponed), holds no act but a note, and where the user has chosen nothing, unless
  * `skip` says the question cannot take it now. In submitted delivery each selection is held for
  * Submit, marked as made by it, unless a held result requires a reason the note lacks, or a field
- * of the question holds an entry: that question keeps its selection and is not marked ready, as
+ * of the question blocks (an entry, a failed check, an empty required field): that question keeps its selection and is not marked ready, as
  * "Answer" would refuse it; nothing is sent (AD-10). Returns how many it selected, marked or not.
  */
 export const selectRecommended = (
@@ -257,8 +267,8 @@ export const selectRecommended = (
       facts,
       delivery: board.get().delivery,
     });
-    const unreadable = entries !== undefined && holdsEntry(question, entries.record());
-    if (board.get().delivery === "submitted" && !lacksReason && !unreadable) {
+    const blocked = blockedBy(question, { results, entries, facts });
+    if (board.get().delivery === "submitted" && !lacksReason && !blocked) {
       const order = nextHeldOrder(board);
       board.edit(question.id, question.rev, (current) => ({
         ...current,
@@ -299,8 +309,8 @@ export const heldMissingReason = (
 /** What a press of Submit comes to: a question whose reason is missing, the acts to send, or the acts and the questions to ask about first. */
 export type SubmitPress =
   | { readonly kind: "needs-reason"; readonly questionId: string }
-  /** A held answer's question holds an entry: nothing is sent, and the board goes to the question. */
-  | { readonly kind: "has-entry"; readonly questionId: string }
+  /** A held answer's question holds a blocking field: nothing is sent, and the board goes to the question. */
+  | { readonly kind: "field-block"; readonly questionId: string }
   | { readonly kind: "send"; readonly acts: ViewAct[] }
   | {
       readonly kind: "confirm";
@@ -312,7 +322,7 @@ export type SubmitPress =
 /**
  * A press of Submit (design decision 6): the last reason check over every held answer comes
  * before anything else; one that fails sends nothing and leaves every act held, naming the
- * question the board goes to; a held answer whose question holds an entry sends nothing either.
+ * question the board goes to; a held answer whose question holds a blocking field sends nothing either.
  * Then, when a held answer or decline would replace a received
  * verdict, the questions to ask about with the acts; otherwise the one command, every held act in
  * the order the user produced them.
@@ -336,8 +346,8 @@ export const submitPress = (
   const held = heldWorkOf(document, board);
   const missing = heldMissingReason(document, held, values, results, facts);
   if (missing !== undefined) return { kind: "needs-reason", questionId: missing.id };
-  const unreadable = heldWithEntry(document, held, entries);
-  if (unreadable !== undefined) return { kind: "has-entry", questionId: unreadable.id };
+  const blocked = heldWithBlock(document, held, entries, results, facts);
+  if (blocked !== undefined) return { kind: "field-block", questionId: blocked.id };
   const acts = submitActsOf(held, values, at, reported, results);
   const questions = state === undefined ? [] : questionsToConfirm(document, held, state, facts);
   return questions.length === 0 ? { kind: "send", acts } : { kind: "confirm", acts, questions };
@@ -347,7 +357,7 @@ export const submitPress = (
 export type ConfirmedPress =
   | { readonly kind: "blocked" }
   | { readonly kind: "needs-reason"; readonly questionId: string }
-  | { readonly kind: "has-entry"; readonly questionId: string }
+  | { readonly kind: "field-block"; readonly questionId: string }
   | { readonly kind: "ask"; readonly questions: readonly ViewQuestion[] }
   | { readonly kind: "send"; readonly acts: ViewAct[] };
 
@@ -364,7 +374,7 @@ export const confirmedPress = (
   now: SubmitPress,
 ): ConfirmedPress => {
   if (disabled) return { kind: "blocked" };
-  if (now.kind === "needs-reason" || now.kind === "has-entry") return now;
+  if (now.kind === "needs-reason" || now.kind === "field-block") return now;
   if (now.kind === "send") return now;
   const same =
     now.questions.length === asked.length &&

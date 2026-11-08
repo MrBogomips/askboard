@@ -3,12 +3,12 @@
 // refuses, is kept in the draft record as the item's entry, apart from its value and its result. An
 // entry is at most `ENTRY_MAX_CHARS` code points, belongs only to an item of those three types, goes
 // with its item when an update removes it, is never part of an answer, and while any item of a
-// question holds one the question's "Answer" is disabled and its description names the first field
-// to correct. Plain functions, tested without a DOM.
+// question holds one the question's "Answer" is disabled (the field block, `field-block.ts`, reads
+// them with the fields' checks and names the first field to fix). Plain functions, tested without a
+// DOM.
 
-import { ENTRY_MAX_CHARS, type Locale } from "@askboard/contract";
-import { nestedItemById, valueItemsOf } from "../nested-items.ts";
-import { t } from "../strings/index.ts";
+import { ENTRY_MAX_CHARS } from "@askboard/contract";
+import { valueItemsOf } from "../nested-items.ts";
 import { questionsOf, type ViewDocument, type ViewQuestion } from "../view-document.ts";
 import type { DraftStore } from "./draft-store.ts";
 
@@ -39,47 +39,6 @@ export const cutEntry = (text: unknown): string | undefined => {
   if (typeof text !== "string" || text === "") return undefined;
   const points = Array.from(text);
   return points.length <= ENTRY_MAX_CHARS ? text : points.slice(0, ENTRY_MAX_CHARS).join("");
-};
-
-/** The first item of the question, in its order, that holds an entry, with the label it shows. */
-export type EntryBlock = { readonly itemId: string; readonly label: string };
-
-const labelOf = (question: ViewQuestion, itemId: string): string => {
-  const props = nestedItemById(question.props.items, itemId)?.props;
-  const label =
-    typeof props === "object" && props !== null && Object.hasOwn(props, "label")
-      ? (props as { readonly label?: unknown }).label
-      : undefined;
-  return typeof label === "string" && label !== "" ? label : itemId;
-};
-
-export const entryBlock = (
-  question: ViewQuestion,
-  entries: ReadonlyMap<string, unknown>,
-): EntryBlock | undefined => {
-  const itemId = entryIdsOf(question).find((id) => entries.get(id) !== undefined);
-  return itemId === undefined ? undefined : { itemId, label: labelOf(question, itemId) };
-};
-
-/** Whether an item of the question holds an entry: its "Answer" is then disabled. */
-export const holdsEntry = (
-  question: ViewQuestion,
-  entries: ReadonlyMap<string, unknown>,
-): boolean => entryBlock(question, entries) !== undefined;
-
-/**
- * What the disabled "Answer" is described by while the question holds an entry: "Correct {label}
- * first." naming the first field in error, the label as text; none while it holds none.
- */
-export const answerHint = (
-  question: ViewQuestion,
-  entries: ReadonlyMap<string, unknown>,
-  language: Locale,
-): string | undefined => {
-  const block = entryBlock(question, entries);
-  return block === undefined
-    ? undefined
-    : t(language, "question.entryHint", { label: block.label });
 };
 
 /**

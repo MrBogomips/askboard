@@ -58,7 +58,7 @@ import { ChangeNotice, ReopenedNotice } from "./change-notice.tsx";
 import type { ViewChannel } from "./channel.ts";
 import { ContextColumn } from "./context-column.tsx";
 import { couldSplit, layoutOf } from "./context-layout.ts";
-import { answerHint, holdsEntry } from "./entries.ts";
+import { answerHint, holdsBlock } from "./field-block.ts";
 import { QuestionMarker } from "./markers.tsx";
 import type { OpenedSnapshot } from "./opened-snapshot.ts";
 import { ActionsRow } from "./question-actions.tsx";
@@ -166,6 +166,8 @@ const useCard = ({ question, state, lock, context }: CardProps) => {
   // The revision the card works on: the one the work was made on, while it is earlier.
   const shown = workingQuestion(question, work, revisions);
   const heldAct = work?.held?.act;
+  // A field blocks: an entry, a value that fails its check, an empty required field.
+  const blocked = holdsBlock(shown, heldEntries, heldResults);
   const card = cardState({
     status,
     draft: answerContentOf(shown, values, work, heldResults),
@@ -175,7 +177,7 @@ const useCard = ({ question, state, lock, context }: CardProps) => {
     ready: heldAct === "answer" || heldAct === "note",
     editing: hasAnswerWork(shown, values, work, heldResults, heldEntries),
     pending,
-    entry: holdsEntry(shown, heldEntries),
+    fieldBlock: blocked,
     language,
   });
   const actions = cardActions({
@@ -197,8 +199,9 @@ const useCard = ({ question, state, lock, context }: CardProps) => {
     pending,
     shown,
     card,
+    blocked,
     actions,
-    answerHint: answerHint(shown, heldEntries, language),
+    answerHint: answerHint(shown, heldEntries, heldResults, language),
     followUp,
     choosing,
     placement,
@@ -332,6 +335,7 @@ export const QuestionCard = (props: CardProps) => {
     pending,
     shown,
     card,
+    blocked,
     actions,
     answerHint: hint,
     followUp,
@@ -440,7 +444,7 @@ export const QuestionCard = (props: CardProps) => {
         {item === shown ? (
           <OptionsLabel
             question={shown}
-            disabled={readOnly || pending}
+            disabled={readOnly || pending || blocked}
             onAccept={(control) => {
               revise();
               selectRecommendedOption(shown, acting);

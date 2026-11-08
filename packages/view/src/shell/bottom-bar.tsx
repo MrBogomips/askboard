@@ -121,8 +121,8 @@ export const BottomBar = (props: BottomBarProps) => {
       props.onNeedsReason(pressed.questionId);
       return;
     }
-    // A held answer's question holds an entry: nothing is sent, the board goes to the field.
-    if (pressed.kind === "has-entry") {
+    // A held answer's question holds a blocking field: nothing is sent, the board goes to it.
+    if (pressed.kind === "field-block") {
       props.onJump(pressed.questionId);
       return;
     }
@@ -140,7 +140,7 @@ export const BottomBar = (props: BottomBarProps) => {
     }
     setReplacing(undefined);
     if (outcome.kind === "needs-reason") props.onNeedsReason(outcome.questionId);
-    else if (outcome.kind === "has-entry") props.onJump(outcome.questionId);
+    else if (outcome.kind === "field-block") props.onJump(outcome.questionId);
     else if (outcome.kind === "send") sendActsOf(outcome.acts, then);
   };
   // Leaving submitted delivery with held work asks first, and waits whenever Submit waits.

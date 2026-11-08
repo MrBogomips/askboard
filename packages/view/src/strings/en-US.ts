@@ -107,6 +107,7 @@ export const EN_US = {
   "question.reasonRequired": "Reason for the changes (required)",
   "question.reasonMissing": "Add the reason for your changes.",
   "question.entryHint": "Correct {label} first.",
+  "question.requiredHint": "Complete {label} first.",
   "revision.confirmTitle": "Send a new answer?",
   "revision.confirmBody":
     "The agent has already received your earlier answer. This one replaces it.",
