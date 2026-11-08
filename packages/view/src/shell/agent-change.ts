@@ -148,6 +148,24 @@ export const readOnlyOfBoard =
     return readOnlyItemsOf(question, workingQuestion(question, work, revisions), work, factsOf);
   };
 
+/**
+ * The question as the card of it shows it, by the question the board holds: `workingQuestion` for
+ * the work and the revisions of the board. Every gate of an act reads it, so that a press agrees
+ * with the card (document-review, design decision 15; review S-1 of 6.5, Issue #92); with none
+ * given, a gate reads the question itself.
+ */
+export type ShownOf = (question: ViewQuestion) => ViewQuestion;
+
+/**
+ * `ShownOf` for each question of a board, by the work the board holds for it and the revisions the
+ * view has seen: what the readers that run beyond one card (Submit, "Select recommended") ask, and
+ * the card computes for itself.
+ */
+export const shownOfBoard =
+  (board: { work(questionId: string): QuestionWork | undefined }, revisions: Revisions): ShownOf =>
+  (question) =>
+    workingQuestion(question, board.work(question.id), revisions);
+
 /** A text field of the new revision, with the earlier text when it changed. */
 export type FieldChange = {
   readonly now?: string;

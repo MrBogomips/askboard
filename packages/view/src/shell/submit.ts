@@ -16,7 +16,7 @@ import {
 import { t } from "../strings/index.ts";
 import { questionsOf, type ViewDocument, type ViewQuestion } from "../view-document.ts";
 import type { ViewAct, ViewLock } from "../view-protocol.ts";
-import type { ReadOnlyOf } from "./agent-change.ts";
+import type { ReadOnlyOf, ShownOf } from "./agent-change.ts";
 import {
   answerContentOf,
   type BoardDraft,
@@ -158,6 +158,8 @@ export type SubmitInputs = {
   readonly facts?: FactsOf | undefined;
   /** The items of a question the card makes read-only; the field block skips them (decision 15). */
   readonly readOnlyOf?: ReadOnlyOf | undefined;
+  /** The question as its card shows it: the field block reads that revision (Issue #92). */
+  readonly shownOf?: ShownOf | undefined;
 };
 
 export type SubmitState = {
@@ -183,6 +185,7 @@ export const heldWithBlock = (
   results: ReadonlyMap<string, unknown> | undefined,
   facts?: FactsOf,
   readOnlyOf?: ReadOnlyOf,
+  shownOf?: ShownOf,
 ): ViewQuestion | undefined =>
   entries === undefined && results === undefined
     ? undefined
@@ -192,7 +195,7 @@ export const heldWithBlock = (
             each.question.id === question.id &&
             each.work.held.act === "answer" &&
             holdsBlock(
-              question,
+              shownOf?.(question) ?? question,
               entries ?? new Map(),
               results ?? new Map(),
               facts,
@@ -222,6 +225,7 @@ export const submitStateOf = (inputs: SubmitInputs): SubmitState => {
       inputs.results,
       inputs.facts,
       inputs.readOnlyOf,
+      inputs.shownOf,
     ) !== undefined;
   return { held: held.length, blocked, disabled };
 };
@@ -259,6 +263,7 @@ export const selectRecommended = (
     board,
     facts,
     readOnlyOf,
+    shownOf,
   }: {
     readonly draft: DraftStore;
     readonly results?: DraftStore | undefined;
@@ -267,6 +272,7 @@ export const selectRecommended = (
     readonly board: BoardDraft;
     readonly facts?: AnswerContext["facts"];
     readonly readOnlyOf?: ReadOnlyOf | undefined;
+    readonly shownOf?: ShownOf | undefined;
   },
   skip: (questionId: string) => boolean,
 ): number => {
@@ -287,8 +293,16 @@ export const selectRecommended = (
       board,
       facts,
       delivery: board.get().delivery,
+      shownOf,
     });
-    const blocked = blockedBy(question, { results, entries, cellEntries, facts, readOnlyOf });
+    const blocked = blockedBy(question, {
+      results,
+      entries,
+      cellEntries,
+      facts,
+      readOnlyOf,
+      shownOf,
+    });
     if (board.get().delivery === "submitted" && !lacksReason && !blocked) {
       const order = nextHeldOrder(board);
       board.edit(question.id, question.rev, (current) => ({
@@ -312,13 +326,15 @@ export const heldMissingReason = (
   values: DraftRecord,
   results: DraftRecord | undefined,
   facts?: FactsOf,
+  shownOf?: ShownOf,
 ): ViewQuestion | undefined => {
   for (const question of questionsOf(document)) {
     const entry = held.find((each) => each.question.id === question.id);
     if (entry === undefined || entry.work.held.act !== "answer") continue;
     const content = answerContentOf(question, values, entry.work, results);
     if (
-      reasonOf(question, results ?? new Map(), undefined, facts) !== undefined &&
+      reasonOf(shownOf?.(question) ?? question, results ?? new Map(), undefined, facts) !==
+        undefined &&
       !noteHoldsReason(content.note)
     ) {
       return question;
@@ -363,13 +379,15 @@ export const submitPress = (
     readonly entries?: ReadonlyMap<string, unknown> | undefined;
     /** The items of a question the card makes read-only; the field block skips them (decision 15). */
     readonly readOnlyOf?: ReadOnlyOf | undefined;
+    /** The question as its card shows it: the gates read that revision (Issue #92). */
+    readonly shownOf?: ShownOf | undefined;
   },
 ): SubmitPress => {
-  const { results, facts, state, entries, readOnlyOf } = options;
+  const { results, facts, state, entries, readOnlyOf, shownOf } = options;
   const held = heldWorkOf(document, board);
-  const missing = heldMissingReason(document, held, values, results, facts);
+  const missing = heldMissingReason(document, held, values, results, facts, shownOf);
   if (missing !== undefined) return { kind: "needs-reason", questionId: missing.id };
-  const blocked = heldWithBlock(document, held, entries, results, facts, readOnlyOf);
+  const blocked = heldWithBlock(document, held, entries, results, facts, readOnlyOf, shownOf);
   if (blocked !== undefined) return { kind: "field-block", questionId: blocked.id };
   const acts = submitActsOf(held, values, at, reported, results);
   const questions = state === undefined ? [] : questionsToConfirm(document, held, state, facts);

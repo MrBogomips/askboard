@@ -17,6 +17,7 @@
 // drawn disabled with a line under it, and writes nothing into the draft (keep-mine-shown-revision,
 // design decisions 3 and 4).
 
+import { isLayoutType } from "@askboard/contract";
 import { Component, type ReactNode, useCallback, useMemo, useSyncExternalStore } from "react";
 import type { Rendered } from "../catalog/components.ts";
 import {
@@ -28,6 +29,7 @@ import {
   type ItemProps,
   useStrings,
 } from "../catalog/port.ts";
+import { nestedWidgetItemsOf } from "../nested-items.ts";
 import { withEntries } from "./board-content.ts";
 import { CELL_ENTRY_ITEM_TYPE, cellEntriesShown, entriesWithCells } from "./cell-entries.ts";
 import type { DerivedStore } from "./derived-store.ts";
@@ -202,12 +204,19 @@ export const RenderItem = ({
     cellEntries.record,
     cellEntries.record,
   );
+  // A layout's own items are the revision the card shows, which may be earlier than the board's:
+  // a hidden tab's mark is checked on them (document-review, design decision 15).
+  const shownItems = useMemo(
+    () => (isLayoutType(item.type) ? nestedWidgetItemsOf([item]) : undefined),
+    [item],
+  );
   const board = withEntries(
     boardContent(record),
     entriesWithCells(heldEntries, heldCells),
     heldResults,
     undefined,
     readOnlyItems,
+    shownItems,
   );
   const onDerived = useCallback(
     (values: DerivedValues) => derived.report(item.id, values),

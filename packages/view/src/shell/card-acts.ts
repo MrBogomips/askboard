@@ -32,7 +32,7 @@ import {
   type ViewAct,
   type ViewMessage,
 } from "../view-protocol.ts";
-import type { ReadOnlyOf } from "./agent-change.ts";
+import type { ReadOnlyOf, ShownOf } from "./agent-change.ts";
 import type { AnswerActs } from "./answer-acts.ts";
 import {
   answerContentOf,
@@ -143,7 +143,18 @@ export type AnswerContext = Senders & {
    * no item is read-only.
    */
   readonly readOnlyOf?: ReadOnlyOf;
+  /**
+   * The question as the card shows it, by the question the board holds (`shownOfBoard`): the
+   * revision the work was made on after "Keep mine". The gates of an act (the field block, the
+   * reason gate) read it, so that a press agrees with the card (document-review, design decision
+   * 15; Issue #92). None: the question itself.
+   */
+  readonly shownOf?: ShownOf;
 };
+
+// The question a gate reads: the one the card shows, else the question itself.
+const shownIn = (question: ViewQuestion, context: Pick<AnswerContext, "shownOf">): ViewQuestion =>
+  context.shownOf?.(question) ?? question;
 
 /** What "Answer" gave: nothing to report, or that the answer lacks the reason it requires. */
 export type AnswerOutcome = "needs-reason" | undefined;
@@ -242,15 +253,17 @@ const now = () => new Date().toISOString();
 // the card answers at once the press sends, so a mark excuses nothing.
 const reasonGate = (
   question: ViewQuestion,
-  {
-    results,
-    board,
-    facts,
-    delivery,
-  }: Pick<AnswerContext, "results" | "board" | "facts" | "delivery">,
+  context: Pick<AnswerContext, "results" | "board" | "facts" | "delivery" | "shownOf">,
   content: AnswerContent,
 ): AnswerOutcome => {
-  const requires = reasonOf(question, results?.record() ?? new Map(), undefined, facts);
+  const { results, board, facts, delivery } = context;
+  // The reason the card asks for is that of the revision it shows (Issue #92).
+  const requires = reasonOf(
+    shownIn(question, context),
+    results?.record() ?? new Map(),
+    undefined,
+    facts,
+  );
   const marked = delivery === "submitted" && board.work(question.id)?.held?.act === "answer";
   return requires !== undefined && !noteHoldsReason(content.note) && !marked
     ? "needs-reason"
@@ -263,7 +276,7 @@ const reasonGate = (
  */
 export const answerNeedsReason = (
   question: ViewQuestion,
-  context: Pick<AnswerContext, "draft" | "results" | "board" | "facts" | "delivery">,
+  context: Pick<AnswerContext, "draft" | "results" | "board" | "facts" | "delivery" | "shownOf">,
 ): boolean => {
   const { draft, results, board } = context;
   const content = answerContentOf(
@@ -278,14 +291,18 @@ export const answerNeedsReason = (
 /**
  * Whether a field of the question blocks "Answer", by the entries and the results the user holds
  * and the facts of each type (`fieldBlock`), apart from the items the card makes read-only: the one
- * check the press, "Accept recommended" and the card's state make.
+ * check the press, "Accept recommended" and the card's state make, on the revision the card shows
+ * (`shownOf`; Issue #92).
  */
 export const blockedBy = (
   question: ViewQuestion,
-  context: Pick<AnswerContext, "results" | "entries" | "cellEntries" | "facts" | "readOnlyOf">,
+  context: Pick<
+    AnswerContext,
+    "results" | "entries" | "cellEntries" | "facts" | "readOnlyOf" | "shownOf"
+  >,
 ): boolean =>
   holdsBlock(
-    question,
+    shownIn(question, context),
     entriesWithCells(context.entries?.record(), context.cellEntries?.record()),
     context.results?.record() ?? new Map(),
     context.facts,

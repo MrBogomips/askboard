@@ -17,7 +17,7 @@ import { useRef, useState } from "react";
 import { useLanguage, useStrings } from "../catalog/port.ts";
 import type { ViewDocument, ViewQuestion } from "../view-document.ts";
 import type { ViewAct } from "../view-protocol.ts";
-import type { ReadOnlyOf } from "./agent-change.ts";
+import type { ReadOnlyOf, ShownOf } from "./agent-change.ts";
 import type { BoardDraft, Delivery } from "./board-draft.ts";
 import { type Senders, sendSubmit } from "./card-acts.ts";
 import { entriesWithCells } from "./cell-entries.ts";
@@ -67,6 +67,8 @@ export type BottomBarProps = {
   readonly onSelectRecommended: () => void;
   /** The items of a question the card makes read-only; Submit's field block skips them. */
   readonly readOnlyOf?: ReadOnlyOf;
+  /** The question each card shows; Submit's gates read that revision (Issue #92). */
+  readonly shownOf?: ShownOf;
   /** Submit found a held answer lacking the reason it requires: go to its prompt with the error. */
   readonly onNeedsReason: (questionId: string) => void;
   readonly onJump: (questionId: string) => void;
@@ -87,6 +89,7 @@ export const BottomBar = (props: BottomBarProps) => {
     locked,
     context,
     readOnlyOf,
+    shownOf,
   } = props;
   const [confirming, setConfirming] = useState(false);
   // Submit asks once more when it would replace a verdict the agent has received (design decision 6).
@@ -122,6 +125,7 @@ export const BottomBar = (props: BottomBarProps) => {
         entries: entriesWithCells(context.entries?.record(), context.cellEntries?.record()),
         state,
         ...(readOnlyOf === undefined ? {} : { readOnlyOf }),
+        ...(shownOf === undefined ? {} : { shownOf }),
       },
     );
   // Submit's one command: every held act, in the order the user produced them (AD-20), after a

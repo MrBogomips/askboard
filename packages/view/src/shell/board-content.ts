@@ -165,6 +165,29 @@ const failingIds = (
   return ids;
 };
 
+// The failing IDs of `failingIds`, with the items the card shows (`shownItems`, at every depth: those of
+// the revision its work was made on) checked by their own props in place of the board's, whose items
+// are the current revision's (document-review, design decision 15; Issue #92).
+const failingShown = (
+  board: BoardContent,
+  results: DraftRecord,
+  factsOf: CheckFactsOf | undefined,
+  shownItems: readonly BoardWidgetItem[] | undefined,
+): readonly string[] => {
+  const ofBoard = failingIds(board, results, factsOf);
+  if (shownItems === undefined || shownItems.length === 0) return ofBoard;
+  const shown = new Map(shownItems.map((item) => [item.id, item] as const));
+  const ofShown = [...results].flatMap(([id, result]) => {
+    const item = shown.get(id);
+    return item === undefined ||
+      result === undefined ||
+      itemCheckFailure(item, result, factsOf) === undefined
+      ? []
+      : [id];
+  });
+  return [...ofBoard.filter((id) => !shown.has(id)), ...ofShown];
+};
+
 // The boards that hold entries or failing fields, by board and the IDs they hold, so that a
 // component may memoize on the board while the set is the same.
 const WITH_ENTRIES = new WeakMap<BoardContent, Map<string, BoardContent>>();
@@ -176,7 +199,8 @@ const WITH_ENTRIES = new WeakMap<BoardContent, Map<string, BoardContent>>();
  * adds none). The same board while none does, else one frozen board per board and set of IDs. The
  * Tabs read it for the mark of a tab that holds a field to correct. `results` and `factsOf` default
  * to none and to the registered facts; an item in `readOnly`, the card's read-only set, is marked
- * for no failing check (document-review, design decision 15).
+ * for no failing check, and an item in `shownItems`, the items of a layout as the card shows them,
+ * is checked by those props, not the board's (document-review, design decision 15).
  */
 export const withEntries = (
   board: BoardContent,
@@ -184,13 +208,16 @@ export const withEntries = (
   results?: DraftRecord,
   factsOf?: CheckFactsOf,
   readOnly?: ReadonlySet<string>,
+  shownItems?: readonly BoardWidgetItem[],
 ): BoardContent => {
   const held = [...entries].filter(([, text]) => text !== undefined).map(([id]) => id);
   // An item the card makes read-only is marked for no failing check (document-review, decision 15).
   const failing =
     results === undefined
       ? NO_IDS
-      : failingIds(board, results, factsOf).filter((id) => readOnly?.has(id) !== true);
+      : failingShown(board, results, factsOf, shownItems).filter(
+          (id) => readOnly?.has(id) !== true,
+        );
   const ids = [...new Set([...held, ...failing])];
   if (ids.length === 0) return board;
   const bySet = WITH_ENTRIES.get(board) ?? new Map<string, BoardContent>();
