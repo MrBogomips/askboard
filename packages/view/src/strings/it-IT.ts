@@ -155,6 +155,7 @@ export const IT_IT = {
   "change.widgetNumberField": "Campo numerico",
   "change.widgetMoneyField": "Campo importo",
   "change.widgetDateField": "Campo data",
+  // The PickField's name is provisional, to review (form-widget, task 3.3).
   "change.widgetPickField": "Campo di scelta",
   "change.reload": "Ricarica, perdendo il mio lavoro",
   "change.keep": "Tieni le mie",
