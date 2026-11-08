@@ -188,6 +188,64 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
+      "a delivered Approve whose Tree is then renamed shows no verdict, and the revision's Answer sends the rename and no verdict",
+      async () => {
+        const run = await start(lifecycleScenario(reviewedAsk("immediate"), dist));
+        const board = await openBoard(run, [PLAN, REVIEW]);
+        await decisionOf(board, PLAN, "Approve").click();
+        await answerOf(board, PLAN).click({ timeout: STEP_TIMEOUT_MS });
+        await actsDone(run, 1);
+        const [first] = checkedEvents(await run.session.collectJson());
+        await delivered(board, PLAN).waitFor({ timeout: STEP_TIMEOUT_MS });
+        expect(await isPressed(decisionOf(board, PLAN, "Approve"))).toBe(true);
+        // A rename makes "Approve" impossible: the Approval clears its held verdict and shows none.
+        await renameNode(board, "ux", UX);
+        await eventually(
+          async () => !(await isPressed(decisionOf(board, PLAN, "Approve"))),
+          "no verdict after the rename",
+        );
+        await answerOf(board, PLAN).click({ timeout: STEP_TIMEOUT_MS });
+        await dialog(board).getByRole("button", { name: "Send", exact: true }).click();
+        await actsDone(run, 2);
+        const [revised] = checkedEvents(await run.session.collectJson());
+        expect(revised?.replaces).toBe(first?.cursor);
+        expect(revised?.results).toBeUndefined();
+        expect(revised?.changes).toEqual([{ op: "set", target: "wbs.ux.label", value: UX }]);
+        expectNoCspProblem(run);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a verdict the revision cleared stays cleared when the rename that cleared it is undone: the card does not show the answered Approve again (Issue #107)",
+      async () => {
+        const run = await start(lifecycleScenario(reviewedAsk("immediate"), dist));
+        const board = await openBoard(run, [PLAN, REVIEW]);
+        await decisionOf(board, PLAN, "Approve").click();
+        await answerOf(board, PLAN).click({ timeout: STEP_TIMEOUT_MS });
+        await actsDone(run, 1);
+        await run.session.collect();
+        await delivered(board, PLAN).waitFor({ timeout: STEP_TIMEOUT_MS });
+        await renameNode(board, "ux", UX);
+        await eventually(
+          async () => !(await isPressed(decisionOf(board, PLAN, "Approve"))),
+          "no verdict after the rename",
+        );
+        // A note keeps the revision's work once the rename is undone, which alone would end it.
+        await promptOf(board, PLAN, OPEN_NOTE).fill(WHY);
+        await renameNode(board, "ux", "UX design");
+        await Bun.sleep(QUIET_MS);
+        for (const name of ["Approve", "Approve with changes", "Reject"]) {
+          expect(await isPressed(decisionOf(board, PLAN, name))).toBe(false);
+        }
+        expect(await promptOf(board, PLAN, OPEN_NOTE).inputValue()).toBe(WHY);
+        expect(sentActs(run)).toHaveLength(1);
+        expectNoCspProblem(run);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
       "Decline chosen again on a delivered decline asks first: cancelled it sends nothing with the focus on the question's More menu button; confirmed it sends the reopen and moves the focus to the heading",
       async () => {
         const run = await start(lifecycleScenario(reviewedAsk("immediate"), dist));

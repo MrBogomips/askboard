@@ -143,6 +143,11 @@ type RenderItemProps = Rendered & {
    * writing nothing; none: every item takes edits.
    */
   readonly readOnlyItems?: ReadonlySet<string>;
+  /**
+   * The question's work holds a revision of its answer: the item then shows the results it holds
+   * and none from the latest answer, which the revision's start already copied.
+   */
+  readonly revising?: boolean;
   /** What the item shows in place of its draft value, such as the answer the log holds. */
   readonly shown?: unknown;
   /** The result the item shows in place of the one it holds, such as the answer's being sent. */
@@ -177,6 +182,7 @@ export const RenderItem = ({
   context,
   disabled,
   readOnlyItems = NO_READ_ONLY,
+  revising = false,
   shown,
   shownResult,
   extras,
@@ -263,6 +269,7 @@ export const RenderItem = ({
       context={context}
       disabled={disabled}
       readOnlyItems={readOnlyItems}
+      revising={revising}
       shown={shownOf?.(child.id)}
       shownResult={shownResultOf?.(child.id)}
       {...(shownOf === undefined ? {} : { shownOf })}
@@ -280,7 +287,12 @@ export const RenderItem = ({
           value={itemValueOf(shown, board, item.id)}
           onValueChange={onValueChange}
           onValuesChange={onValuesChange}
-          result={itemResultOf(shownResult, heldResults.get(item.id), answeredResult?.(item.id))}
+          result={itemResultOf(
+            shownResult,
+            heldResults.get(item.id),
+            answeredResult?.(item.id),
+            revising,
+          )}
           onResultChange={onResultChange}
           disabled={disabled || readOnly}
           ready={tracker.readyFor(item.id)}

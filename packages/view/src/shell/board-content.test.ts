@@ -15,6 +15,7 @@ import {
   type ViewQuestion,
   type WidgetItem,
 } from "../view-document.ts";
+import "../catalog/number-field/index.tsx";
 import {
   answeredResultsOf,
   boardItemsOf,
@@ -378,6 +379,31 @@ describe("the results the board's answers hold (widget-registry, design decision
       facts,
     );
     expect(resultOf("days")).toBeUndefined();
+  });
+
+  // The shell calls `createAnsweredResults` with no facts, so the gate rests on the default
+  // `componentFacts`, which the NumberField's own chunk fills (re-review 2.11 X-2): no stub here.
+  test("with the default facts, the real NumberField's chunk hides 7 under max 5 and shows 3", () => {
+    const days: WidgetItem = { type: "number-field", id: "days", props: { label: "Days", max: 5 } };
+    const doc = {
+      ...plainChoiceBoardDocument,
+      items: [holding([days])],
+    } as unknown as ViewDocument;
+    const statusWith = (value: number) =>
+      ({
+        itemId: question.id,
+        rev: 2,
+        state: "answered",
+        answer: { results: { days: value }, when: "2026-11-06T10:00:00Z", receipt: "delivered" },
+      }) as unknown as LifecycleQuestionStatus;
+    const source = (value: number) => ({
+      document: doc,
+      state: stateOf(doc, [statusWith(value)]),
+    });
+    expect(answeredResultsOf(source(7)).has("days")).toBe(false);
+    expect(answeredResultsOf(source(3)).get("days")).toBe(3);
+    expect(createAnsweredResults(() => source(7))("days")).toBeUndefined();
+    expect(createAnsweredResults(() => source(3))("days")).toBe(3);
   });
 });
 

@@ -187,6 +187,8 @@ const useCard = ({ question, state, lock, context }: CardProps) => {
   const heldAct = work?.held?.act;
   // A field blocks: an entry, a value that fails its check, an empty required field.
   const blocked = holdsBlock(shown, heldEntries, heldResults);
+  // The work holds an edit: on an answered question, a revision under way.
+  const revising = hasAnswerWork(shown, values, work, heldResults, heldEntries);
   const card = cardState({
     status,
     draft: answerContentOf(shown, values, work, heldResults),
@@ -194,7 +196,7 @@ const useCard = ({ question, state, lock, context }: CardProps) => {
     load,
     lock,
     ready: heldAct === "answer" || heldAct === "note",
-    editing: hasAnswerWork(shown, values, work, heldResults, heldEntries),
+    editing: revising,
     pending,
     fieldBlock: blocked,
     language,
@@ -217,6 +219,7 @@ const useCard = ({ question, state, lock, context }: CardProps) => {
     status,
     pending,
     shown,
+    revising,
     // The items that take no edit while the card shows a revision its answer does not name.
     readOnlyItems: readOnlyItemsOf(question, shown, work),
     card,
@@ -367,6 +370,7 @@ export const QuestionCard = (props: CardProps) => {
     placement,
     sizeNotice,
     draftLeftOut,
+    revising,
   } = useCard(props);
   const section = useRef<HTMLElement>(null);
   useInView(section, question.id, context.attention);
@@ -492,6 +496,7 @@ export const QuestionCard = (props: CardProps) => {
           context={context}
           disabled={readOnly}
           readOnlyItems={readOnlyItems}
+          revising={revising}
           shown={shownFor(card.shown, question.id, item.id)}
           shownResult={shownResultFor(card.shown, question.id, item.id)}
           shownOf={(itemId) => shownFor(card.shown, question.id, itemId)}
