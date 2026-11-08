@@ -50,6 +50,12 @@ describe("the group question", () => {
     expect(html).not.toContain("<img");
   });
 
+  test("isolates the agent's label for bidirectional text, quotes inside (F-64, AD-8)", () => {
+    const html = draw({ ...PORTAL, label: "Customer portal\u202E" });
+    expect(html).toContain("<bdi>“Customer portal\u202E”</bdi>");
+    expect(html).not.toContain("style=");
+  });
+
   test("says nothing of a plan for a work breakdown no plan names", () => {
     const html = draw({ ...PORTAL, task: false, dependents: 0 });
     expect(html).toContain("its estimates leave the totals while it has children.");

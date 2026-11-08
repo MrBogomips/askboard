@@ -5,7 +5,8 @@
 // with the focus on "Cancel"; Escape is "Cancel". It stays until the user answers it, and nothing
 // changes before "Continue". Its sentence is long, so it wraps in a column with the leaf's name
 // first and whole and the buttons on a line under it (decision 2, Layout; review 3.3 S-1). The
-// leaf's name is text, never markup (AD-8).
+// leaf's name is text, never markup (AD-8), and isolated for bidirectional text, so an override in
+// it ends with it (DESIGN, Agent-written labels).
 
 import { useStrings } from "@askboard/view/catalog";
 import { type KeyboardEvent, useId } from "react";
@@ -48,7 +49,7 @@ export const GroupQuestion = ({
       onKeyDown={questionKeyDown(onCancel)}
     >
       <p id={id} className={GROUP_QUESTION}>
-        <span>“{question.label}”</span> <span>{groupedWith(question, text)}</span>
+        <bdi>“{question.label}”</bdi> <span>{groupedWith(question, text)}</span>
       </p>
       <div className={GROUP_QUESTION_BUTTONS}>
         <button ref={focusOnMount} type="button" className={TOOL} onClick={onCancel}>

@@ -93,3 +93,31 @@ export const expectWrapped = (layout: GroupLayout): void => {
   expect(layout.underButtons).toBe(0);
   expect(layout.insideToolbar).toBe(true);
 };
+
+/** Runs in the view: whether the question's words after the name run left to right on the page. */
+const readOrder = (): boolean | undefined => {
+  const fieldset = [...document.querySelectorAll("fieldset[aria-labelledby]")].find((candidate) =>
+    /becomes a group:|diventa un gruppo:/.test(candidate.textContent ?? ""),
+  );
+  const paragraph = document.getElementById(fieldset?.getAttribute("aria-labelledby") ?? "");
+  const words = paragraph?.lastElementChild;
+  const node = words?.firstChild;
+  if (node?.nodeType !== Node.TEXT_NODE) return undefined;
+  const at = (index: number): DOMRect => {
+    const range = document.createRange();
+    range.setStart(node, index);
+    range.setEnd(node, index + 1);
+    return range.getBoundingClientRect();
+  };
+  // The first and fourth characters of the words, on one line: "bec" in "becomes".
+  const first = at(0);
+  const fourth = at(3);
+  return Math.abs(first.top - fourth.top) < 2 && first.left < fourth.left;
+};
+
+/** Whether the group question's own words read left to right, whatever the leaf's name holds. */
+export const wordsReadLeftToRight = async (board: Board): Promise<boolean> => {
+  const order = await (await board.viewFrame()).evaluate(readOrder);
+  if (order === undefined) throw new Error("no group question is showing");
+  return order;
+};

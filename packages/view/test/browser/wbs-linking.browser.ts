@@ -41,7 +41,7 @@ import {
   TEST_TIMEOUT_MS,
 } from "./harness/board-test.ts";
 import { enginesFrom } from "./harness/engines.ts";
-import { expectWrapped, groupLayout } from "./harness/group-layout.ts";
+import { expectWrapped, groupLayout, wordsReadLeftToRight } from "./harness/group-layout.ts";
 import { dragDrop, ZONE } from "./harness/tree-drag.ts";
 import {
   deleteQuestion,
@@ -745,6 +745,21 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const italian = { ...rowDocument, language: "it-IT" } as unknown as ViewDocument;
         const { layout } = await askedOn(italian, ITALIAN_GROUP);
         expectWrapped(layout);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    // DESIGN and EXPERIENCE, "Agent-written labels" (F-64; review 3.10 X-1): an unterminated
+    // right-to-left override in the label ends with the label, so AskBoard's own words still read
+    // left to right.
+    test(
+      "a leaf named with an unterminated right-to-left override: AskBoard's words after it read left to right",
+      async () => {
+        const run = await host(dist, rowPortalNamedDocument("Customer portal\u202E"));
+        await readyIn(run);
+        await dragDrop(run.board, treeGridOf(run.board), "billing", "portal", ZONE.into);
+        await askedGroup(run);
+        expect(await wordsReadLeftToRight(run.board)).toBe(true);
       },
       TEST_TIMEOUT_MS,
     );
