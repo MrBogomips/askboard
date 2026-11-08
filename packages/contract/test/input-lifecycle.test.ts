@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
+import { UNREGISTERED_TYPE } from "../src/fixtures/unregistered-type.ts";
 import { SCHEMA_IDS } from "../src/index.ts";
 import { type RequestProblem, validateAgainst, validateAskRequest } from "../src/validate.ts";
 
@@ -133,7 +134,7 @@ describe("areas (FR-2)", () => {
   });
 
   test("an item of another type inside an area is refused for its type alone", () => {
-    const table = { type: "table", id: "rates", props: { rows: [] } };
+    const table = { type: UNREGISTERED_TYPE, id: "rates", props: { rows: [] } };
     const value = ask([area("scope", [question("q1"), table as never])]);
     const problem = only(value);
     expect(problem).toMatchObject({ itemId: "rates", field: "type" });

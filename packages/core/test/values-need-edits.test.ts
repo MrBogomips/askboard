@@ -137,8 +137,8 @@ describe("edits still answered", () => {
 });
 
 describe("which types take edits", () => {
-  test("the registry's Tree, Gantt, LaTeX, Kanban and Timeline do; no other type does", () => {
+  test("the registry's Tree, Gantt, LaTeX, Kanban, Timeline and Table do; no other type does", () => {
     const editing = WIDGET_TYPES.filter((entry) => entry.edits !== undefined).map((e) => e.type);
-    expect(editing.sort()).toEqual(["gantt", "kanban", "latex", "timeline", "tree"]);
+    expect(editing.sort()).toEqual(["gantt", "kanban", "latex", "table", "timeline", "tree"]);
   });
 });

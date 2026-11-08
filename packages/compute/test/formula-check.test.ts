@@ -106,7 +106,8 @@ describe("the lexer", () => {
       "123",
       "a".repeat(64),
     ]) {
-      expect(referenceOf(`[${id}.${id === "A1" ? "B2" : "v"}]`).item).toBe(id);
+      const reference = referenceOf(`[${id}.${id === "A1" ? "B2" : "v"}]`);
+      expect("item" in reference ? reference.item : undefined).toBe(id);
     }
   });
 

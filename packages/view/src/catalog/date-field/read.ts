@@ -7,10 +7,12 @@
 import {
   type DateFieldProps,
   dateEcho,
+  dateFieldBound,
   dateFieldResultProblems,
   dateFieldResultShape,
   ENTRY_MAX_CHARS,
   formatDate,
+  GANTT_FIRST_DATE,
   type Locale,
   parseDate,
 } from "@askboard/contract";
@@ -43,11 +45,13 @@ export const readDate = (
   if (dateFieldResultShape(date) && dateFieldResultProblems(date, props).length === 0) {
     return { kind: "value", date };
   }
-  const { first } = rangeOf(props);
-  const error =
-    date < first
-      ? say(language, "field.onOrAfter", { date: formatDate(first, locale) })
-      : say(language, "field.onOrBefore", { date: formatDate(rangeOf(props).last, locale) });
+  // A day before the range is before `min`, or, with none, before the Gantt's first day.
+  const bound = dateFieldBound(date, props);
+  const before = bound === "min" || (bound === undefined && date < GANTT_FIRST_DATE);
+  const { first, last } = rangeOf(props);
+  const error = before
+    ? say(language, "field.onOrAfter", { date: formatDate(first, locale) })
+    : say(language, "field.onOrBefore", { date: formatDate(last, locale) });
   return { kind: "entry", error, echo: dateEcho(date, locale) };
 };
 

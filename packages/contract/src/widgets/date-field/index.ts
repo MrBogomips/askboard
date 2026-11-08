@@ -3,6 +3,8 @@
 // entry is registered (design decision 10), and nothing compiles them when this module loads.
 
 export {
+  type DateFieldBound,
+  dateFieldBound,
   dateFieldPropsProblems,
   dateFieldResultProblems,
   dateFieldResultShape,

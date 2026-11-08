@@ -30,8 +30,8 @@ const setOf = (name: string) => {
 describe("the minors layouts binds", () => {
   test("the three widened sets are at layouts' minor or a later one, and the sets carry the constants", () => {
     // Layouts took input 1.10, tool envelopes 1.10 and board document 1.9, one past atoms' 1.9, 1.9
-    // and 1.8; a later change takes the next minor again (form-widget's version test holds the
-    // exact numbers now).
+    // and 1.8; a later change takes the next minor again (the latest change's version test holds the
+    // exact numbers).
     const minorOf = (version: string) => Number(version.split(".")[1]);
     expect(minorOf(INPUT_FORMAT_VERSION)).toBeGreaterThanOrEqual(10);
     expect(minorOf(TOOL_ENVELOPES_VERSION)).toBeGreaterThanOrEqual(10);
@@ -41,18 +41,18 @@ describe("the minors layouts binds", () => {
     expect(setOf("board-document").version).toBe(BOARD_DOCUMENT_VERSION);
   });
 
-  test("every other set keeps atoms' minor, the output format at it or a later one", () => {
+  test("the Snapshot data, the view manifest and the standalone sets keep their minor; the output format and the board protocol stand at atoms' minor or a later one", () => {
     // Form-widget's output minor moved with the PickField's registration (task 3.3).
     expect(Number(OUTPUT_FORMAT_VERSION.split(".")[1])).toBeGreaterThanOrEqual(9);
+    // The board protocol took 1.7 with atoms and moves on with the Table's cell entries.
+    expect(Number(BOARD_PROTOCOL_VERSION.split(".")[1])).toBeGreaterThanOrEqual(7);
     expect({
-      protocol: BOARD_PROTOCOL_VERSION,
       snapshot: SNAPSHOT_DATA_VERSION,
       manifest: VIEW_MANIFEST_VERSION,
       configuration: CONFIGURATION_VERSION,
       localApi: LOCAL_API_VERSION,
       sessionFile: SESSION_FILE_FORMAT,
     }).toEqual({
-      protocol: "1.7",
       snapshot: "1.1",
       manifest: "1.1",
       configuration: "1.0",

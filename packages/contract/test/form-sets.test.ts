@@ -23,20 +23,22 @@ const setOf = (name: string) => {
 };
 
 describe("the minors form-widget binds in group 1", () => {
-  test("the three widened sets are one minor past layouts', and the sets carry the constants", () => {
-    // Layouts' were input 1.10, tool envelopes 1.10 and board document 1.9.
-    expect({
-      input: INPUT_FORMAT_VERSION,
-      envelopes: TOOL_ENVELOPES_VERSION,
-      document: BOARD_DOCUMENT_VERSION,
-    }).toEqual({ input: "1.11", envelopes: "1.11", document: "1.10" });
+  test("the three widened sets are at form-widget's minor or a later one, and the sets carry the constants", () => {
+    // Form-widget took input 1.11, tool envelopes 1.11 and board document 1.10, one past layouts'
+    // 1.10, 1.10 and 1.9; a later change takes the next minor again (the latest change's version
+    // test holds the exact numbers).
+    const minorOf = (version: string) => Number(version.split(".")[1]);
+    expect(minorOf(INPUT_FORMAT_VERSION)).toBeGreaterThanOrEqual(11);
+    expect(minorOf(TOOL_ENVELOPES_VERSION)).toBeGreaterThanOrEqual(11);
+    expect(minorOf(BOARD_DOCUMENT_VERSION)).toBeGreaterThanOrEqual(10);
     expect(setOf("input").version).toBe(INPUT_FORMAT_VERSION);
     expect(setOf("tool-envelopes").version).toBe(TOOL_ENVELOPES_VERSION);
     expect(setOf("board-document").version).toBe(BOARD_DOCUMENT_VERSION);
   });
 
-  test("the board protocol keeps its minor", () => {
-    expect(BOARD_PROTOCOL_VERSION).toBe("1.7");
+  test("the board protocol keeps its minor, or a later one", () => {
+    // Table-widget's cell entries moved it on; its own version test holds the exact number.
+    expect(Number(BOARD_PROTOCOL_VERSION.split(".")[1])).toBeGreaterThanOrEqual(7);
   });
 
   test("a receiver at the new minor accepts the previous minor and refuses another major", () => {
@@ -62,8 +64,8 @@ describe("the minors form-widget binds in group 1", () => {
 });
 
 describe("the output format's minor, with the PickField's registration (task 3.3)", () => {
-  test("it is one minor past layouts' 1.9, and the set carries the constant", () => {
-    expect(OUTPUT_FORMAT_VERSION).toBe("1.10");
+  test("it is at form-widget's minor (one past layouts' 1.9) or a later one, and the set carries the constant", () => {
+    expect(Number(OUTPUT_FORMAT_VERSION.split(".")[1])).toBeGreaterThanOrEqual(10);
     expect(setOf("output").version).toBe(OUTPUT_FORMAT_VERSION);
   });
 

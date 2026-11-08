@@ -33,6 +33,8 @@ const draw = (props: unknown, id = "intro"): string => {
     onDerived: NONE,
     entry: undefined,
     onEntryChange: NONE,
+    cellEntries: new Map(),
+    onCellEntriesChange: NONE,
   };
   return renderToStaticMarkup(createElement(Text as never, given));
 };

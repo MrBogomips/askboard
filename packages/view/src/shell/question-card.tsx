@@ -55,6 +55,7 @@ import {
   selectRecommendedOption,
   sendFollowUp,
 } from "./card-acts.ts";
+import { entriesWithCells } from "./cell-entries.ts";
 import { ChangeNotice, ReopenedNotice } from "./change-notice.tsx";
 import type { ViewChannel } from "./channel.ts";
 import { ContextColumn } from "./context-column.tsx";
@@ -140,7 +141,7 @@ const focusHeadingOf = (questionId: string) => () =>
 // What the card shows, from the stores it follows: its loading, its work, its commands and the
 // agent's changes under the work.
 const useCard = ({ question, state, lock, context }: CardProps) => {
-  const { tracker, draft, results, entries, acts, board, kept, revisions } = context;
+  const { tracker, draft, results, entries, cellEntries, acts, board, kept, revisions } = context;
   const language = useLanguage();
   const load = useSyncExternalStore(tracker.subscribe, () => tracker.questionStatus(question.id));
   const values = useSyncExternalStore(draft.subscribe, draft.record);
@@ -148,10 +149,16 @@ const useCard = ({ question, state, lock, context }: CardProps) => {
     results?.subscribe ?? NO_SUBSCRIPTION,
     () => results?.record() ?? NO_RECORD,
   );
-  const heldEntries = useSyncExternalStore(
+  const fieldEntries = useSyncExternalStore(
     entries?.subscribe ?? NO_SUBSCRIPTION,
     () => entries?.record() ?? NO_RECORD,
   );
+  const heldCells = useSyncExternalStore(
+    cellEntries?.subscribe ?? NO_SUBSCRIPTION,
+    () => cellEntries?.record() ?? NO_RECORD,
+  );
+  // Every entry the card holds, the fields' and the Tables' cells', through the one function.
+  const heldEntries = entriesWithCells(fieldEntries, heldCells);
   const work = useSyncExternalStore(board.subscribe, () => board.work(question.id));
   const keptChoices = useSyncExternalStore(kept.subscribe, kept.get);
   const flight = useSyncExternalStore(acts.subscribe, () => acts.of(question.id, CARD_ACTS));
@@ -418,7 +425,12 @@ export const QuestionCard = (props: CardProps) => {
   const revise = () => {
     if (status?.state !== "answered" || seeding.current) return;
     const held = context.results?.record();
-    if (hasAnswerWork(shown, context.draft.record(), context.board.work(question.id), held)) return;
+    const typed = entriesWithCells(context.entries?.record(), context.cellEntries?.record());
+    if (
+      hasAnswerWork(shown, context.draft.record(), context.board.work(question.id), held, typed)
+    ) {
+      return;
+    }
     seeding.current = true;
     queueMicrotask(() => {
       seeding.current = false;
@@ -500,7 +512,7 @@ export const QuestionCard = (props: CardProps) => {
           stake={changesLabel(changeCountOf(shown, values, work, results), language)}
           busy={!usable || choosing !== undefined}
           onReload={() => reloadQuestion(question, acting)}
-          onKeep={() => keepMine(question, acting, shown)}
+          onKeep={() => keepMine(question, acting, shown, readOnlyItems)}
         />
       ) : null}
       {reopened?.previous === undefined ? null : (

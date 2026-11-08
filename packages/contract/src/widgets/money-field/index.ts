@@ -4,6 +4,8 @@
 // nothing compiles them when this module loads.
 
 export {
+  type MoneyFieldBound,
+  moneyFieldBound,
   moneyFieldPropsProblems,
   moneyFieldResultProblems,
   moneyFieldResultShape,

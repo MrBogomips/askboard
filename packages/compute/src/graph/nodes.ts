@@ -1,7 +1,7 @@
 // The node index: every field and cell of a checked source as one node, in document order (item
 // fields, then cells row by row, then children depth first), with each item's tree kept for
 // wildcards. Child IDs are unique within their item (AD-7), so `item.child.field` names a node
-// wherever the child sits; walks use explicit stacks, so a deep tree costs no call stack.
+// wherever the child sits; a column formula adds one node per top-level child; walks use explicit stacks, so a deep tree costs no call stack.
 
 import { parseCell } from "@askboard/contract";
 import {
@@ -20,7 +20,11 @@ import {
 } from "../source.ts";
 import type { Address } from "../types.ts";
 
-export type NodeEntry = FieldInput & { readonly address: Address };
+export type NodeEntry = FieldInput & {
+  readonly address: Address;
+  /** The field of the column formula this node comes from, absent for any other node. */
+  readonly column?: string;
+};
 
 export type ItemCell = { readonly column: number; readonly row: number; readonly address: Address };
 
@@ -41,11 +45,26 @@ export type NodeIndex = {
 /** The item's own top level in `ItemIndex.children`; no ID is empty. */
 export const ROOT = "";
 
+/** The item's column formulas: formula inputs only, in declaration order. */
+const columnsOf = (
+  item: FieldsItem,
+  where: string,
+  currency: string | undefined,
+): readonly (readonly [string, FieldInput])[] => {
+  const columns = fieldsOf(item.columns, `${where}, columns`, currency);
+  for (const [field, input] of columns) {
+    if (input.formula === undefined) refuse(`${where}: column ${field} holds no formula`);
+  }
+  return columns;
+};
+
 const indexChildren = (
   item: FieldsItem,
   where: string,
   entries: NodeEntry[],
+  columns: readonly (readonly [string, FieldInput])[],
 ): Omit<ItemIndex, "cells"> => {
+  const columnFields = new Set(columns.map(([field]) => field));
   const children = new Map<string, string[]>([[ROOT, []]]);
   const childIds = new Set<string>();
   const stack: { child: unknown; parent: string }[] = listOf<unknown>(
@@ -64,7 +83,15 @@ const indexChildren = (
     children.get(parent)?.push(id);
     children.set(id, []);
     for (const [field, input] of fieldsOf(child.fields, `${where}, child ${id}`, item.currency)) {
+      if (parent === ROOT && columnFields.has(field)) {
+        refuse(`${where}, child ${id}: holds ${field} itself, which is the item's column`);
+      }
       entries.push({ ...input, address: `${item.id}.${id}.${field}` });
+    }
+    if (parent === ROOT) {
+      for (const [field, input] of columns) {
+        entries.push({ ...input, address: `${item.id}.${id}.${field}`, column: field });
+      }
     }
     const below = listOf<GraphChild>(child.children, "children", `${where}, child ${id}`);
     for (let i = below.length - 1; i >= 0; i--) stack.push({ child: below[i], parent: id });
@@ -75,6 +102,7 @@ const indexChildren = (
 const indexItem = (item: FieldsItem, entries: NodeEntry[]): ItemIndex => {
   const where = `item ${item.id}`;
   const currency = checkCurrency(item.currency, where);
+  const columns = columnsOf(item, where, currency);
   for (const [field, input] of fieldsOf(item.fields, where, currency)) {
     entries.push({ ...input, address: `${item.id}.${field}` });
   }
@@ -84,7 +112,7 @@ const indexItem = (item: FieldsItem, entries: NodeEntry[]): ItemIndex => {
     entries.push({ ...input, address });
     cells.push({ ...(parseCell(cell) as { column: number; row: number }), address });
   }
-  return { ...indexChildren(item, where, entries), cells };
+  return { ...indexChildren(item, where, entries, columns), cells };
 };
 
 /** Checks a source of `fields` items and indexes its nodes. */

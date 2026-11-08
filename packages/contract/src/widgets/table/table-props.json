@@ -1,0 +1,240 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:input:table-props",
+  "title": "Table props",
+  "description": "A Table item's props (FR-11, table-widget design decision 2): 1 to 10 columns, 0 to 200 rows, an optional label of 1 to 200 characters and an optional fixedRows true. A column holds a field, a label and a type (text, number, money, date or toggle) with only that type's keys: maxLength for text; min, max, step, integer and unit for number; a required currency, min and max for money; min and max for date. A formula (1 to 500 characters) is for number, money and date columns, a total of sum for number and money columns. A row holds its ID and, for each input column with a value, that value: a string for text, money (a decimal string) and date, a number for number, a boolean for toggle. What a schema cannot say (field names unique, the bounds as the input atoms check them, each cell against its column, row IDs unique, the view's prefix, no value for a formula column) is checked by tablePropsProblems. In the input format since table-widget.",
+  "type": "object",
+  "properties": {
+    "label": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "fixedRows": {
+      "const": true
+    },
+    "columns": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 10,
+      "items": {
+        "$ref": "#/$defs/column"
+      }
+    },
+    "rows": {
+      "type": "array",
+      "maxItems": 200,
+      "items": {
+        "$ref": "#/$defs/row"
+      }
+    }
+  },
+  "required": ["columns", "rows"],
+  "additionalProperties": false,
+  "$defs": {
+    "column": {
+      "description": "A column: a field (addressed item.row.field, AD-13; never id, never a spreadsheet cell), a label and a type, with the keys of its type only.",
+      "type": "object",
+      "properties": {
+        "field": {
+          "type": "string",
+          "pattern": "^(?!id$)[a-z][A-Za-z0-9]{0,63}$"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "type": {
+          "enum": ["text", "number", "money", "date", "toggle"]
+        },
+        "formula": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "total": {
+          "const": "sum"
+        },
+        "maxLength": true,
+        "min": true,
+        "max": true,
+        "step": true,
+        "integer": true,
+        "unit": true,
+        "currency": true
+      },
+      "required": ["field", "label", "type"],
+      "additionalProperties": false,
+      "if": {
+        "properties": {
+          "type": {
+            "const": "text"
+          }
+        },
+        "required": ["type"]
+      },
+      "then": {
+        "properties": {
+          "maxLength": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500
+          },
+          "formula": false,
+          "total": false,
+          "min": false,
+          "max": false,
+          "step": false,
+          "integer": false,
+          "unit": false,
+          "currency": false
+        }
+      },
+      "else": {
+        "if": {
+          "properties": {
+            "type": {
+              "const": "number"
+            }
+          },
+          "required": ["type"]
+        },
+        "then": {
+          "properties": {
+            "min": {
+              "type": "number",
+              "minimum": -1000000000000000,
+              "maximum": 1000000000000000
+            },
+            "max": {
+              "type": "number",
+              "minimum": -1000000000000000,
+              "maximum": 1000000000000000
+            },
+            "step": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 2000000000000000
+            },
+            "integer": {
+              "type": "boolean"
+            },
+            "unit": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 20
+            },
+            "maxLength": false,
+            "currency": false
+          }
+        },
+        "else": {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "money"
+              }
+            },
+            "required": ["type"]
+          },
+          "then": {
+            "required": ["currency"],
+            "properties": {
+              "currency": {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              },
+              "min": {
+                "type": "string",
+                "pattern": "^-?(0|[1-9][0-9]{0,14})(\\.[0-9]{1,4})?$"
+              },
+              "max": {
+                "type": "string",
+                "pattern": "^-?(0|[1-9][0-9]{0,14})(\\.[0-9]{1,4})?$"
+              },
+              "maxLength": false,
+              "step": false,
+              "integer": false,
+              "unit": false
+            }
+          },
+          "else": {
+            "if": {
+              "properties": {
+                "type": {
+                  "const": "date"
+                }
+              },
+              "required": ["type"]
+            },
+            "then": {
+              "properties": {
+                "min": {
+                  "$ref": "urn:askboard:input:gantt-props#/$defs/fullDate"
+                },
+                "max": {
+                  "$ref": "urn:askboard:input:gantt-props#/$defs/fullDate"
+                },
+                "total": false,
+                "maxLength": false,
+                "step": false,
+                "integer": false,
+                "unit": false,
+                "currency": false
+              }
+            },
+            "else": {
+              "properties": {
+                "formula": false,
+                "total": false,
+                "maxLength": false,
+                "min": false,
+                "max": false,
+                "step": false,
+                "integer": false,
+                "unit": false,
+                "currency": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "row": {
+      "description": "A row: its ID (unique in the item) and a value for each input column that has one, absent when empty. A formula column's field is never a key.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "urn:askboard:input:id"
+        }
+      },
+      "patternProperties": {
+        "^(?!id$)[a-z][A-Za-z0-9]{0,63}$": {
+          "$ref": "#/$defs/cell"
+        }
+      },
+      "required": ["id"],
+      "maxProperties": 11,
+      "additionalProperties": false
+    },
+    "cell": {
+      "description": "A cell's value, by its column's type: a string of 1 to 500 characters (text; a money amount; a date), a number within a quadrillion either way, or a boolean.",
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        {
+          "type": "number",
+          "minimum": -1000000000000000,
+          "maximum": 1000000000000000
+        },
+        {
+          "type": "boolean"
+        }
+      ]
+    }
+  }
+}

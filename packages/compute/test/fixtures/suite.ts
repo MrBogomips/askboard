@@ -12,6 +12,7 @@ import { BOARD_SOURCE_FIXTURES, EXPANDED_SOURCE_FIXTURES } from "./board.ts";
 import { GANTT_FIXTURES } from "./gantt.ts";
 import { ERROR_FIXTURES, type Expected } from "./index.ts";
 import spreadsheet from "./spreadsheet.json" with { type: "json" };
+import { TABLE_SOURCE_FIXTURES } from "./table.ts";
 import uj2 from "./uj2-wbs-gantt.json" with { type: "json" };
 import whitelist from "./whitelist.json" with { type: "json" };
 
@@ -263,6 +264,16 @@ export const runBoardSources = (tally: Tally): void => {
   }
 };
 
+/** The Tables through `boardGraphSource`, with a date column and money (table-widget). */
+export const runTables = (tally: Tally): void => {
+  for (const fixture of TABLE_SOURCE_FIXTURES) {
+    const graph = buildGraph(boardGraphSource(fixture.items));
+    const values = evaluateGraph(graph);
+    tally.values(`table:${fixture.name}`, fixture.expected, (address) => values.read(address));
+    tally.warnings(`table:${fixture.name}`, [], graph.warnings);
+  }
+};
+
 export const runAll = (): Tally => {
   const tally = new Tally();
   runWhitelist(tally);
@@ -270,5 +281,6 @@ export const runAll = (): Tally => {
   runBoards(tally);
   runGantt(tally);
   runBoardSources(tally);
+  runTables(tally);
   return tally;
 };

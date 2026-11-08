@@ -23,6 +23,7 @@ import {
   type Locale,
   noteHoldsReason,
 } from "@askboard/contract";
+import { nestedItemById } from "../nested-items.ts";
 import { t } from "../strings/index.ts";
 import type { ViewQuestion } from "../view-document.ts";
 import {
@@ -43,6 +44,12 @@ import {
   resultIdsOf,
   valueDropped,
 } from "./board-draft.ts";
+import {
+  cellEntryIdsOf,
+  clearCellEntries,
+  entriesWithCells,
+  fitCellEntries,
+} from "./cell-entries.ts";
 import type { ViewChannel } from "./channel.ts";
 import type { DerivedStore } from "./derived-store.ts";
 import type { DraftStore } from "./draft-store.ts";
@@ -95,6 +102,8 @@ export type AnswerContext = Senders & {
   readonly results?: DraftStore;
   /** The entries the fields hold, beside the draft record (atoms, design decision 3). */
   readonly entries?: DraftStore;
+  /** The cell entries the Tables hold, beside the draft record (table-widget, design decision 8). */
+  readonly cellEntries?: DraftStore;
   readonly board: BoardDraft;
   /** The derived values each widget item last reported (widget-answers design decision 10). */
   readonly derived: DerivedStore;
@@ -241,11 +250,11 @@ export const answerNeedsReason = (
  */
 export const blockedBy = (
   question: ViewQuestion,
-  context: Pick<AnswerContext, "results" | "entries" | "facts">,
+  context: Pick<AnswerContext, "results" | "entries" | "cellEntries" | "facts">,
 ): boolean =>
   holdsBlock(
     question,
-    context.entries?.record() ?? new Map(),
+    entriesWithCells(context.entries?.record(), context.cellEntries?.record()),
     context.results?.record() ?? new Map(),
     context.facts,
   );
@@ -402,14 +411,18 @@ export const dropWork = (
     draft,
     results,
     entries,
+    cellEntries,
     board,
-  }: Pick<AnswerContext, "draft" | "results" | "entries" | "board">,
+  }: Pick<AnswerContext, "draft" | "results" | "entries" | "cellEntries" | "board">,
 ): void => {
   for (const itemId of itemIdsOf(question)) draft.set(itemId, undefined);
   for (const itemId of resultIdsOf(question)) results?.set(itemId, undefined);
   for (const itemId of entryIdsOf(question)) entries?.set(itemId, undefined);
+  clearCellEntries(question, cellEntries);
   board.forget(question.id);
 };
+
+const NO_READ_ONLY: ReadonlySet<string> = new Set();
 
 /** "Reload, losing my work": the choice at once, and the question's draft goes (FR-6). */
 export const reloadQuestion = (question: ViewQuestion, context: AnswerContext): void => {
@@ -425,15 +438,20 @@ export const reloadQuestion = (question: ViewQuestion, context: AnswerContext): 
  * current one: a result the draft holds that `shown` refuses, as when the page was reloaded after
  * the agent's change and shows the new props, is dropped, and its item shows as untouched
  * (approval-scale-ranking, pre-PR reviews, "A draft holds only results its items accept").
+ * `readOnlyItems` are the items the card makes read-only (`readOnlyItemsOf`): the cell entries a
+ * Table among them holds are dropped, since the user can no longer correct them and a held entry
+ * blocks "Answer" (table-widget, review 8.3c; keep-mine-shown-revision, decision 3).
  */
 export const keepMine = (
   question: ViewQuestion,
   context: AnswerContext,
   shown: ViewQuestion = question,
+  readOnlyItems: ReadonlySet<string> = NO_READ_ONLY,
 ): void => {
   const work = context.board.work(question.id);
   if (work === undefined || work.rev >= question.rev) return;
-  const { results, facts, draft } = context;
+  const { results, facts, draft, cellEntries } = context;
+  const dropped = new Set<string>();
   for (const itemId of resultIdsOf(shown)) {
     const held = results?.valueOf(itemId);
     if (held !== undefined && !resultFits(shown, itemId, held, facts))
@@ -441,8 +459,23 @@ export const keepMine = (
     // A widget's value the card does not show on the revision the work was made on is dropped too
     // (security review X-2): an answer sends what its widgets show.
     const value = draft.valueOf(itemId);
-    if (value !== undefined && valueDropped(shown, work.rev, itemId, value, facts))
+    if (value !== undefined && valueDropped(shown, work.rev, itemId, value, facts)) {
       draft.set(itemId, undefined);
+      dropped.add(itemId);
+    }
+  }
+  // A Table's cell entries go with a value dropped (review S-1); otherwise they stay only for input
+  // cells of the value it holds, the draft's where that was kept, else the props the card shows:
+  // none is left that no cell shows (review U-1).
+  for (const itemId of cellEntryIdsOf(shown)) {
+    const held = cellEntries?.valueOf(itemId);
+    if (!(held instanceof Map)) continue;
+    if (dropped.has(itemId) || readOnlyItems.has(itemId)) {
+      cellEntries?.set(itemId, undefined);
+      continue;
+    }
+    const props = draft.valueOf(itemId) ?? nestedItemById(shown.props.items, itemId)?.props;
+    cellEntries?.set(itemId, fitCellEntries(held, props));
   }
   sendActs(context, [
     {
@@ -469,9 +502,10 @@ export const fillFrom = (
     draft,
     results,
     entries,
+    cellEntries,
     board,
     facts,
-  }: Pick<AnswerContext, "draft" | "results" | "entries" | "board" | "facts">,
+  }: Pick<AnswerContext, "draft" | "results" | "entries" | "cellEntries" | "board" | "facts">,
 ): void => {
   const labels = new Set((question.props.options ?? []).map((option) => option.label));
   const choice = (content.choice ?? []).filter((label) => labels.has(label));
@@ -489,6 +523,7 @@ export const fillFrom = (
   // The start of a revision, or "Start from my previous answer", replaces the draft: text a field
   // could not read goes, as a result of the answer takes the item's place.
   for (const itemId of entryIdsOf(question)) entries?.set(itemId, undefined);
+  clearCellEntries(question, cellEntries);
   board.edit(question.id, question.rev, ({ other: _o, optionNotes: _n, note: _t, ...rest }) => ({
     ...rest,
     ...(other === undefined ? {} : { other }),

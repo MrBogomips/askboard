@@ -203,7 +203,9 @@ describe("the board protocol (owner board-host)", () => {
 });
 
 describe("minor versions of the board protocol (design decision 2)", () => {
-  const later = "1.8";
+  // The minor after the current one, so the board's tolerance of a later minor stays tested whatever the
+  // protocol's number (askboard-contract-versioning: a literal standing for a later minor is not a pin).
+  const later = `1.${Number(BOARD_PROTOCOL_VERSION.split(".")[1]) + 1}`;
   test.each([
     ...Object.entries(toHost).map(([type, message]) => ["toHost", type, message] as const),
     ...Object.entries(toPage).map(([type, message]) => ["toPage", type, message] as const),

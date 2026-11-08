@@ -76,9 +76,13 @@ const openState = (doc: ViewDocument): LifecycleBoardState => ({
 });
 
 describe("which items hold an entry", () => {
-  test("the NumberField, the MoneyField and the DateField; no other type", () => {
-    expect([...ENTRY_ITEM_TYPES]).toEqual(["number-field", "money-field", "date-field"]);
-    for (const type of ENTRY_ITEM_TYPES) expect(isEntryType(type)).toBe(true);
+  test("the NumberField, the MoneyField and the DateField hold an entry; the Table holds cell entries, for the readers", () => {
+    // The readers look at the Table too (table-widget, task 4.3); only the three fields hold a plain entry.
+    expect([...ENTRY_ITEM_TYPES]).toEqual(["number-field", "money-field", "date-field", "table"]);
+    for (const type of ["number-field", "money-field", "date-field"]) {
+      expect(isEntryType(type)).toBe(true);
+    }
+    expect(isEntryType("table")).toBe(false);
     for (const type of [
       "text-field",
       "toggle",

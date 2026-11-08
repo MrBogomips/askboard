@@ -31,6 +31,8 @@ const draw = (type: "value" | "divider", props: unknown, locale: "en-US" | "it-I
     onDerived: NONE,
     entry: undefined,
     onEntryChange: NONE,
+    cellEntries: new Map(),
+    onCellEntriesChange: NONE,
   };
   return renderToStaticMarkup(
     createElement(

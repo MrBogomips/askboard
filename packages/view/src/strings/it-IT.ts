@@ -425,4 +425,31 @@ export const IT_IT = {
   "pick.clear": "Cancella",
   "pick.filter": "Filtra le opzioni",
   "pick.noMatch": "Nessuna opzione corrisponde.",
+
+  // The Table (table-widget, task 4.4; ux-update-draft.md block 1): the Italian texts are to review.
+  "table.toolbar": "Strumenti della tabella",
+  "table.addRow": "Aggiungi riga",
+  "table.deleteRow": "Elimina riga",
+  "table.noChanges": "Nessuna modifica",
+  "table.changes": { one: "Le tue modifiche: {count}", other: "Le tue modifiche: {count}" },
+  "table.total": "Totale",
+  "table.computed": "Calcolata",
+  "table.on": "Sì",
+  "table.off": "No",
+  "table.notSet": "Non impostato",
+  "table.cellName": "{column}, riga {row}",
+  "table.maxRows": "Una tabella contiene al massimo {max} righe.",
+  "table.entry.textTooLong": "Una cella di testo contiene al massimo {max} caratteri.",
+  "table.noValue": "—",
+  "table.problem.syntax": "{column}: la formula non si legge.",
+  "table.problem.overLimit":
+    "{column}: la formula è troppo lunga o legge più di un campo alla volta.",
+  "table.problem.notWhitelisted": "{column}: la formula usa una funzione che AskBoard non offre.",
+  "table.problem.missingReference":
+    "{column}: la formula legge un campo o un elemento che non esiste.",
+  "table.problem.cycle": "{column}: la formula dipende da sé stessa.",
+  "table.problem.mixedCurrencies": "{column}: la formula mescola valute.",
+  "table.problem.value": "{column}: un valore del tipo sbagliato.",
+  "table.problem.divisionByZero": "{column}: divisione per zero.",
+  "change.widgetTable": "Tabella",
 } as const satisfies StringTable;

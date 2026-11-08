@@ -13,6 +13,7 @@ import {
   parseCell,
   RANGE_MAX_CELLS,
   REFUSED_OPERATORS,
+  ROW_REFERENCE_PREFIX,
   SHEET_MAX_COLUMN,
   SHEET_MAX_ROW,
 } from "../src/index.ts";
@@ -160,5 +161,30 @@ describe("limits and error kinds", () => {
       "division-by-zero",
     ]);
     for (const kind of FORMULA_ERROR_KINDS) expect(kind).toMatch(/^[a-z]+(-[a-z]+)*$/);
+  });
+});
+
+describe("the row reference's terminal (table-widget, design decision 4)", () => {
+  test("`[@field]` reads a field of the formula's own row: the prefix is @", () => {
+    expect(ROW_REFERENCE_PREFIX).toBe("@");
+  });
+
+  test("the prefix is no part of a field name, a cell or an ID, so a row reference never reads as another form", () => {
+    const names = [`${ROW_REFERENCE_PREFIX}a`, `${ROW_REFERENCE_PREFIX}A1`, ROW_REFERENCE_PREFIX];
+    for (const name of names) {
+      expect(isFieldName(name)).toBe(false);
+      expect(parseCell(name)).toBeUndefined();
+      expect(new RegExp(FIELD_NAME_PATTERN).test(name)).toBe(false);
+      expect(new RegExp(CELL_PATTERN).test(name)).toBe(false);
+      expect(new RegExp(ID_PATTERN).test(name)).toBe(false);
+    }
+  });
+
+  test("a field name and a cell still read as they did", () => {
+    expect(isFieldName("days")).toBe(true);
+    expect(isFieldName("a1")).toBe(true);
+    expect(isFieldName("A1")).toBe(false);
+    expect(parseCell("A1")).toEqual({ column: 1, row: 1 });
+    expect(parseCell("@A1")).toBeUndefined();
   });
 });

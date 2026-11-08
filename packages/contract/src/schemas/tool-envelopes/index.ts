@@ -8,7 +8,8 @@
 // an option's `previewFormat` to the question `fetch` returns (design decision 11); layouts' minor
 // adds the items of the Stack, the Row, the Group and the Tabs layout, and the items they hold, to it
 // (design decision 8); form-widget's minor adds the field checks' props and the PickField's item to it
-// (design decisions 2 and 4).
+// (design decisions 2 and 4); table-widget's minor adds the Table's item, a question's and a
+// layout's, to `fetch`'s results (design decision 16).
 
 import type { SchemaSet } from "../../versions.ts";
 import { composeFetchResult } from "../../widgets/compose.ts";
@@ -45,7 +46,7 @@ import versions from "./versions.json" with { type: "json" };
 // The `fetch` result with each registered type's item composed in.
 const fetchResult = composeFetchResult(fetchResultBase);
 
-export const TOOL_ENVELOPES_VERSION = "1.11";
+export const TOOL_ENVELOPES_VERSION = "1.12";
 
 /** A tool as `tools/list` lists it: the approved definition, unchanged. */
 export type ToolDefinition = {

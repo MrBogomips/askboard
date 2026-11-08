@@ -19,6 +19,7 @@ import type { ViewDocument, ViewQuestion } from "../view-document.ts";
 import type { ViewAct } from "../view-protocol.ts";
 import type { BoardDraft, Delivery } from "./board-draft.ts";
 import { type Senders, sendActs } from "./card-acts.ts";
+import { entriesWithCells } from "./cell-entries.ts";
 import type { DerivedStore } from "./derived-store.ts";
 import type { DraftStore } from "./draft-store.ts";
 import { QuestionMarker } from "./markers.tsx";
@@ -58,6 +59,7 @@ export type BottomBarProps = {
     readonly draft: DraftStore;
     readonly results?: DraftStore;
     readonly entries?: DraftStore;
+    readonly cellEntries?: DraftStore;
     readonly board: BoardDraft;
     readonly derived: DerivedStore;
   };
@@ -102,7 +104,11 @@ export const BottomBar = (props: BottomBarProps) => {
       context.draft.record(),
       new Date(),
       context.derived.reported,
-      { results: context.results?.record(), entries: context.entries?.record(), state },
+      {
+        results: context.results?.record(),
+        entries: entriesWithCells(context.entries?.record(), context.cellEntries?.record()),
+        state,
+      },
     );
   // Submit's one command: every held act, in the order the user produced them (AD-20), after a
   // last check that every held answer has the reason its held result requires: one that lacks it

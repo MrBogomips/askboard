@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:output:table-changes",
+  "title": "Table changes",
+  "description": "A Table's changes (AD-20, FR-20, table-widget design decision 6): the output format's changes narrowed to three operations of the one generic diff on a flat list of rows keyed by ID, addressed as AD-13's reference syntax without brackets: add of a row, item.row, after the row it follows (none when first), its value an object of the fields of its input columns; remove of a row, item.row; set of a field of a row, item.row.field, the value of the field's type or null when the cell is emptied. A Table never moves a row, so a reordered value gives a move, which falls outside them, and a set of a computed column's field is never in a value the checks accept. In the output format since table-widget.",
+  "type": "array",
+  "items": {
+    "allOf": [
+      {
+        "$ref": "urn:askboard:output:answer-event#/$defs/change"
+      },
+      {
+        "type": "object",
+        "properties": {
+          "op": {
+            "enum": ["add", "remove", "set"]
+          }
+        }
+      },
+      {
+        "if": {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "add"
+            }
+          },
+          "required": ["op"]
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "target": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,64}\\.[A-Za-z0-9_-]{1,64}$"
+            },
+            "parent": false,
+            "value": {
+              "type": "object"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "remove"
+            }
+          },
+          "required": ["op"]
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "target": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,64}\\.[A-Za-z0-9_-]{1,64}$"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "set"
+            }
+          },
+          "required": ["op"]
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "target": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,64}\\.[A-Za-z0-9_-]{1,64}\\.(?!id$)[a-z][A-Za-z0-9]{0,63}$"
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 500
+                },
+                {
+                  "type": "number",
+                  "minimum": -1000000000000000,
+                  "maximum": 1000000000000000
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        }
+      }
+    ]
+  }
+}

@@ -100,4 +100,21 @@ describe("a widget validator", () => {
     const validate = widgetValidator([loose], loose.$id);
     expect(() => validate("text")).toThrow("strict mode");
   });
+
+  test("leaves out an `if` error beside others, as the schema sets' validators do (table-widget)", () => {
+    // Written as JSON text: a schema's `then` is a property name the linter reserves for promises.
+    const branching = JSON.parse(`{
+      "$schema": "${SCHEMA}",
+      "$id": "urn:askboard:test:probe-branching",
+      "type": "object",
+      "properties": { "kind": { "enum": ["a", "b"] }, "extra": true },
+      "required": ["kind"],
+      "if": { "properties": { "kind": { "const": "a" } }, "required": ["kind"] },
+      "then": { "properties": { "extra": false } }
+    }`);
+    const checked = widgetValidator([branching], branching.$id)({ kind: "a", extra: 1 });
+    expect(checked.ok).toBe(false);
+    const problems = checked.ok ? [] : checked.problems;
+    expect(problems.map(({ path }) => path)).toEqual(["/extra"]);
+  });
 });

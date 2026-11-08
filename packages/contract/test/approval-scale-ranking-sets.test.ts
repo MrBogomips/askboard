@@ -52,11 +52,13 @@ describe("the versions of the four widened sets", () => {
       envelopes: minor(TOOL_ENVELOPES_VERSION) >= 6,
       document: minor(BOARD_DOCUMENT_VERSION) >= 5,
     }).toEqual({ input: true, output: true, envelopes: true, document: true });
+    // The board protocol: this change's minor or a later one (table-widget's cell entries pin the
+    // latest in table-sets.test.ts).
+    expect(minor(BOARD_PROTOCOL_VERSION)).toBeGreaterThanOrEqual(6);
     expect({
-      protocol: BOARD_PROTOCOL_VERSION,
       snapshot: SNAPSHOT_DATA_VERSION,
       manifest: VIEW_MANIFEST_VERSION,
-    }).toEqual({ protocol: "1.7", snapshot: "1.1", manifest: "1.1" });
+    }).toEqual({ snapshot: "1.1", manifest: "1.1" });
   });
 
   test("the sets hold those constants", () => {

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import { plainChoiceBoardDocument } from "../src/fixtures/board-document.ts";
+import { UNREGISTERED_TYPE } from "../src/fixtures/unregistered-type.ts";
 import {
   type RequestProblem,
   validateAskRequest,
@@ -83,7 +84,7 @@ describe("widget items in a question's items", () => {
   });
 
   test("a widget type the input format does not define is refused at its type", () => {
-    const table: Item = { type: "table", id: "rates", props: { rows: [] } };
+    const table: Item = { type: UNREGISTERED_TYPE, id: "rates", props: { rows: [] } };
     const [problem, ...rest] = problemsOf(ask(question("q", [table], true)));
     expect(rest).toEqual([]);
     expect(problem).toMatchObject({ itemId: "rates", field: "type" });
