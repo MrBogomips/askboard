@@ -41,6 +41,10 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const isHigh = (unit: number): boolean => unit >= 0xd800 && unit <= 0xdbff;
 const isLow = (unit: number): boolean => unit >= 0xdc00 && unit <= 0xdfff;
 
+// Whether the position lies between the two units of a surrogate pair.
+const cutsPair = (text: string, at: number): boolean =>
+  at > 0 && at < text.length && isHigh(text.charCodeAt(at - 1)) && isLow(text.charCodeAt(at));
+
 // The position of the code point `count` code points before `from`, or the text's start.
 const backBy = (text: string, from: number, count: number): number => {
   let at = from;
@@ -74,7 +78,8 @@ const holdsMore = (text: string, max: number): boolean => {
  * The place of `quote` in `text`: its `prefix`, `exact` and `suffix`, joined, must occur exactly
  * once (overlapping occurrences counted), and the place is that occurrence's `exact`. A quote that
  * occurs nowhere is `missing`, one that occurs more than once `ambiguous`, and neither has a
- * place. A quote that is not a quote, or whose `exact` is empty, is `missing`.
+ * place. A quote that is not a quote, or whose `exact` is empty, or whose place would cut a
+ * surrogate pair in two, is `missing`.
  */
 export const placeQuote = (text: string, quote: unknown): QuotePlace => {
   const missing: QuotePlace = { ok: false, reason: "missing" };
@@ -88,7 +93,11 @@ export const placeQuote = (text: string, quote: unknown): QuotePlace => {
   if (first < 0) return missing;
   if (text.indexOf(joined, first + 1) >= 0) return { ok: false, reason: "ambiguous" };
   const start = first + before.length;
-  return { ok: true, start, end: start + exact.length };
+  const end = start + exact.length;
+  // A place never cuts a surrogate pair, so that no mark splits one: a forged exact starting or
+  // ending in the middle of a pair has none (review U-2).
+  if (cutsPair(text, start) || cutsPair(text, end)) return missing;
+  return { ok: true, start, end };
 };
 
 // Whether the joined quote occurs exactly once in the text.

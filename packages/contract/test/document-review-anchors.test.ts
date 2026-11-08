@@ -108,6 +108,65 @@ describe("a quote's place in a text", () => {
   });
 });
 
+describe("a place never splits a surrogate pair (document-review task 5.3, review U-2)", () => {
+  test("a forged exact starting with a lone low surrogate is missing in a text holding the pair", () => {
+    expect(placeQuote("x😀y", { type: "quote", exact: "\uDE00y" })).toEqual({
+      ok: false,
+      reason: "missing",
+    });
+  });
+
+  test("a forged exact ending with a lone high surrogate is missing in a text holding the pair", () => {
+    expect(placeQuote("x😀y", { type: "quote", exact: "x\uD83D" })).toEqual({
+      ok: false,
+      reason: "missing",
+    });
+  });
+
+  test("a context that cuts the pair does not matter while the exact keeps it whole", () => {
+    expect(placeQuote("x😀y", { type: "quote", exact: "y", prefix: "\uDE00" })).toEqual({
+      ok: true,
+      start: 3,
+      end: 4,
+    });
+    expect(placeQuote("x😀y", { type: "quote", exact: "x", suffix: "\uD83D" })).toEqual({
+      ok: true,
+      start: 0,
+      end: 1,
+    });
+  });
+
+  test("lone surrogates of the document itself are places like any other character", () => {
+    const text = "a\uD83Db\uDE00c";
+    expect(placeQuote(text, { type: "quote", exact: "\uD83Db" })).toEqual({
+      ok: true,
+      start: 1,
+      end: 3,
+    });
+    expect(placeQuote(text, { type: "quote", exact: "b\uDE00" })).toEqual({
+      ok: true,
+      start: 2,
+      end: 4,
+    });
+  });
+
+  test("the whole pair is a place, and an annotation cutting it is detached as missing", () => {
+    expect(placeQuote("x😀y", { type: "quote", exact: "😀" })).toEqual({
+      ok: true,
+      start: 1,
+      end: 3,
+    });
+    const cut = {
+      id: "u-1",
+      target: { selector: { type: "quote", exact: "\uDE00y" } },
+      body: { text: "t" },
+    };
+    expect(placeAnnotations("x😀y", [cut])).toEqual([
+      { id: "u-1", status: "detached", reason: "missing" },
+    ]);
+  });
+});
+
 describe("two places that overlap", () => {
   const TEXT = "The board remembers drafts. Old drafts stay.";
   const note = (id: string, exact: string, extra: Record<string, unknown> = {}) => ({
