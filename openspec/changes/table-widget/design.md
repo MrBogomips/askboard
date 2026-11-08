@@ -116,6 +116,8 @@ The input bounds are decision 2's; the cost they admit is timed on its worst for
 | A committed cell edit painted | WebKit | 100 ms |
 | A row added painted | WebKit | 250 ms |
 
+The fan-out form (review U-1: each formula reads the item's own total, so a cell set recalculates 1,810 nodes) has its own edit gate: 150 ms in WebKit, 100 ms in Chromium. Task 6.4 measured 98 to 103 ms in WebKit, 4 to 5 of them in `compute`, the rest the paint of 200 rows. `TABLE_MAX_ROWS` stays at 200 and the worst form keeps 100 ms (decision of 2026-11-08 under the PO's unattended handoff: input-side bounds, pathological residual risks as known limits).
+
 Task 0.4 times today's `compute` on the same form written with explicit references (an upper bound: no parse cache), task 0.5 a static 200 × 10 grid in each engine; task 2.5 and task 6.4 time the built code. A gate missed lowers `TABLE_MAX_ROWS` (to 100, then 50) or `TABLE_FORMULA_MAX_CHARS` through `/opsx:update`, before the group that would rely on the bound; the figures go to CHANGELOG's Known limits. A board of many Tables is bounded per item only, as a board of many Trees is today: a known limit.
 
 ### 14. Registration waits for the chunk
@@ -168,6 +170,7 @@ Seams this change creates, which later changes borrow once it merges: `ROW_REFER
 ## Risks / Trade-offs
 
 - [The worst form misses a gate in WebKit] → tasks 0.4 and 0.5 time it before any code relies on the bounds, tasks 2.5 and 6.4 again on the built code; a miss lowers a bound through `/opsx:update` (PO rule of 2026-11-07), never a new mechanism such as virtualisation.
+- [The fan-out form's edit is painted just over 100 ms in WebKit] → a known limit (decision 13): its gate is 150 ms there, and CHANGELOG's Known limits say so (task 8.1).
 - [A forged edited value or draft holds prototype names] → row IDs and fields `__proto__`, `constructor` and `toString` are tested in `contract`, `compute`, `core`, the shell and the component; every map is built with `Object.fromEntries` or `Map` and read with `Object.hasOwn`.
 - [A column formula reaches every row's work] → single reads only (decision 4), about 100 references per row; the worst form is the gate's.
 - [200 warnings in an `ask` result] → one per column and kind (decision 4); a test over 200 rows.

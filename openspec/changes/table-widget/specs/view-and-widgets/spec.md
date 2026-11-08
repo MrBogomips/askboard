@@ -172,3 +172,7 @@ A Table at its bounds SHALL become visible, and take a cell edit and a row added
 #### Scenario: The worst form in WebKit
 - **WHEN** a board holding the worst Table the bounds admit opens in a fresh WebKit page, the user edits one input cell, then adds a row
 - **THEN** each step is within its gate, and the figures are recorded
+
+#### Scenario: The fan-out form in WebKit
+- **WHEN** a board holding a 200-row Table whose every formula reads a total opens in a fresh WebKit page and the user edits one input cell
+- **THEN** the edit is painted within the fan-out form's gate, and the figures are recorded
