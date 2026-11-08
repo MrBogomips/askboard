@@ -18,6 +18,8 @@ type EntryFieldProps = {
   readonly echo: string | undefined;
   readonly error: string | undefined;
   readonly hasDescription: boolean;
+  /** The field is required and may still be filled: the input is marked required. */
+  readonly required?: boolean;
   /** What sits after the input: the currency control, the calendar button. */
   readonly after?: ReactNode;
   /** The keyboard the input asks for on a touch device: `decimal` for amounts, `numeric` for dates. */
@@ -33,6 +35,7 @@ export const EntryField = ({
   echo,
   error,
   hasDescription,
+  required = false,
   after,
   inputMode = "decimal",
 }: EntryFieldProps) => {
@@ -54,6 +57,7 @@ export const EntryField = ({
             value={text}
             readOnly={readOnly}
             autoComplete="off"
+            aria-required={required ? true : undefined}
             aria-invalid={error === undefined ? undefined : true}
             aria-describedby={describedBy === "" ? undefined : describedBy}
             className={GROUP_INPUT}

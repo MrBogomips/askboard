@@ -33,7 +33,8 @@ import {
   valueFits,
 } from "./board-draft.ts";
 import { createDraftStore } from "./draft-store.ts";
-import { answerHint, entryBlock, entryIdsOf } from "./entries.ts";
+import { entryIdsOf } from "./entries.ts";
+import { answerHint, fieldBlock } from "./field-block.ts";
 import { draftAnswerOf } from "./question-state.ts";
 import { createReadyTracker, questionItemsOf } from "./ready-tracker.ts";
 import { reasonOf } from "./reason.ts";
@@ -285,8 +286,12 @@ describe("entries at every depth", () => {
       ["plan-budget", "x"],
       ["plan-hours", "12,5"],
     ]);
-    expect(entryBlock(question, entries)).toEqual({ itemId: "plan-hours", label: "Hours" });
-    expect(answerHint(question, entries, "en-US")).toContain("Hours");
+    expect(fieldBlock(question, entries, new Map())).toEqual({
+      itemId: "plan-hours",
+      label: "Hours",
+      kind: "entry",
+    });
+    expect(answerHint(question, entries, new Map(), "en-US")).toContain("Hours");
   });
 
   test("the board carries the IDs of the items that hold an entry, the same object while none", () => {

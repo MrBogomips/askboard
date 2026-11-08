@@ -247,8 +247,10 @@ class BoardPageController implements BoardPage {
   #cancelRetry: (() => void) | undefined;
   #suspended = false;
   #view: ViewHandle | undefined;
-  // The document the view booted with: a later one goes to it in the updates.
-  #booted: ViewDocument | undefined;
+  // The last document the view was sent, at boot or in an update: a later one goes to it only when
+  // it differs, so each view update does not bring a fresh copy that resets the per-field memos
+  // (form-widget design decision 3).
+  #sentDocument: ViewDocument | undefined;
   #loading = false;
   // A failed load is tried again on the next socket, not on every message.
   #mayLoad = true;
@@ -354,12 +356,12 @@ class BoardPageController implements BoardPage {
     const connection = connectionOf(this.#status);
     const pending = pendingOf(this.#outbox);
     const { settled } = this.#outbox;
+    const changed = document !== undefined && document !== this.#sentDocument;
+    if (changed) this.#sentDocument = document as ViewDocument;
     this.#view.update({
       type: "state",
       state,
-      ...(document === undefined || document === this.#booted
-        ? {}
-        : { document: document as ViewDocument }),
+      ...(changed ? { document: document as ViewDocument } : {}),
       ...(lock === undefined ? {} : { lock }),
       ...(connection === undefined ? {} : { connection }),
       ...(pending.length === 0 ? {} : { pending }),
@@ -596,7 +598,7 @@ class BoardPageController implements BoardPage {
       (opened) => {
         this.#loading = false;
         this.#view = opened;
-        this.#booted = data.document;
+        this.#sentDocument = data.document;
         this.#deps.showLoadError(undefined);
         this.#updateView();
       },

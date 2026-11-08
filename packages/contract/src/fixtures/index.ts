@@ -267,3 +267,9 @@ export { LINK_URL_TABLE, LONGEST_LINK_URL } from "./link-urls.ts";
 // shipped registry through `withWidgetTypes` while the layouts are not registered.
 
 export { ARRANGED_ITEM, LAYOUT_WIDGETS } from "./layouts.ts";
+
+// The Form's added entry, a question built as a Form and an answer's results for it (form-widget,
+// task 1.3): what a test gives the shipped registry through `withWidgetTypes` while the PickField
+// is not registered.
+
+export { FORM_QUESTION, FORM_RESULTS, FORM_TYPES } from "./form.ts";

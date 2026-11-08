@@ -112,6 +112,8 @@ export const IT_IT = {
   "question.reasonRequired": "Motivo delle modifiche (obbligatorio)",
   "question.reasonMissing": "Aggiungi il motivo delle modifiche.",
   "question.entryHint": "Correggi prima {label}.",
+  // The Form's texts are provisional, to review (form-widget, task 3.1).
+  "question.requiredHint": "Completa prima {label}.",
   "revision.confirmTitle": "Inviare una nuova risposta?",
   "revision.confirmBody":
     "L'agente ha già ricevuto la tua risposta precedente. Questa la sostituisce.",
@@ -153,6 +155,8 @@ export const IT_IT = {
   "change.widgetNumberField": "Campo numerico",
   "change.widgetMoneyField": "Campo importo",
   "change.widgetDateField": "Campo data",
+  // The PickField's name is provisional, to review (form-widget, task 3.3).
+  "change.widgetPickField": "Campo di scelta",
   "change.reload": "Ricarica, perdendo il mio lavoro",
   "change.keep": "Tieni le mie",
   "reopened.title": "Riaperta dall'agente",
@@ -408,4 +412,14 @@ export const IT_IT = {
   "date.previous": "Mese precedente",
   "date.next": "Mese successivo",
   "date.nav": "Navigazione tra i mesi",
+  // The Form's texts are provisional, to review (form-widget, task 3.2).
+  "field.required": "(obbligatorio)",
+  "field.minLength": "Almeno {min} caratteri.",
+  "field.pattern": "Non è nella forma attesa.",
+  // The PickField's texts are provisional, to review (form-widget, task 3.3).
+  "field.minItems": "Scegline almeno {min}.",
+  "field.maxItems": "Scegline al massimo {max}.",
+  "pick.clear": "Cancella",
+  "pick.filter": "Filtra le opzioni",
+  "pick.noMatch": "Nessuna opzione corrisponde.",
 } as const satisfies StringTable;

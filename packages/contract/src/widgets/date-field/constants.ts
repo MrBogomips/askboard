@@ -13,6 +13,8 @@ export type DateFieldProps = {
   readonly min?: string;
   /** The latest day, not before `min`. */
   readonly max?: string;
+  /** The user must give a value before "Answer" (form-widget): the field's check fails while it has none. */
+  readonly required?: boolean;
 };
 
 export type DateFieldItem = {

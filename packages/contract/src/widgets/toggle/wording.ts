@@ -5,11 +5,13 @@ import { ATOM_DESCRIPTION_MAX_CHARS, ATOM_LABEL_MAX_CHARS } from "../shared/atom
 import { text } from "../wording-parts.ts";
 
 export const TOGGLE_EXPECTED: Readonly<Record<string, string>> = {
-  "toggle.props": "a Toggle's props {label, description?}",
+  "toggle.props": "a Toggle's props {label, description?, required?}",
   "toggle.props.label": text(ATOM_LABEL_MAX_CHARS),
   "toggle.props.description": text(ATOM_DESCRIPTION_MAX_CHARS),
+  "toggle.props.required":
+    "true, for a field that must hold a value before the question is answered",
 };
 
 export const TOGGLE_FIELDS: Readonly<Record<string, string>> = {
-  "toggle.props": "a Toggle's props hold only label and description",
+  "toggle.props": "a Toggle's props hold only label, description and required",
 };

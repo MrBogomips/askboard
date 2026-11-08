@@ -16,6 +16,7 @@ import {
 } from "../../locale/amount.ts";
 import { isRecord } from "../../problems.ts";
 import type { Problem } from "../../validate.ts";
+import { type FieldCheckFailure, requiredFailure, requiredPropProblems } from "../field-checks.ts";
 import {
   ATOM_DESCRIPTION_MAX_CHARS,
   ATOM_LABEL_MAX_CHARS,
@@ -23,7 +24,7 @@ import {
 } from "../shared/atoms.ts";
 import { MONEY_FIELD_MAX_CURRENCIES, MONEY_FIELD_MIN_CURRENCIES } from "./constants.ts";
 
-const KEYS = ["label", "description", "currency", "currencies", "min", "max"];
+const KEYS = ["label", "description", "currency", "currencies", "min", "max", "required"];
 const CURRENCY = /^[A-Z]{3}$/;
 
 const textWithin = (value: unknown, max: number): boolean =>
@@ -89,6 +90,7 @@ export const moneyFieldPropsProblems = (props: unknown): readonly Problem[] => {
     .filter((key) => !KEYS.includes(key))
     .map((key) => ({ path: `/${key}`, message: `unknown field "${key}"` }));
   const at = (path: string, message: string) => problems.push({ path, message });
+  problems.push(...requiredPropProblems(props));
   if (!textWithin(props.label, ATOM_LABEL_MAX_CHARS)) {
     at("/label", `the label is a text of 1 to ${ATOM_LABEL_MAX_CHARS} characters`);
   }
@@ -178,3 +180,12 @@ export const moneyFieldResultProblems = (result: unknown, props: unknown): reado
  * capital letters. What the item's props add is the check's.
  */
 export const moneyFieldResultShape = (result: unknown): boolean => isResult(result);
+
+/**
+ * The MoneyField's field check (form-widget, design decision 2): `required`, the one check it has.
+ * A value that fails only it still fits.
+ */
+export const moneyFieldFieldCheck = (
+  result: unknown,
+  props: unknown,
+): FieldCheckFailure | undefined => requiredFailure(props, result);

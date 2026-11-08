@@ -546,3 +546,95 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     }
   });
 }
+
+// The PickField (form-widget, task 3.3; spec, Hover cursors and looks): an option row takes the
+// pointer and the `muted` fill, "Clear" points with an underline, the filter takes the text cursor and the ring from
+// the keyboard, the first radio takes the ring on Tab, and a locked board's rows change no look.
+const PICK_ITEMS = [
+  {
+    type: "pick-field",
+    id: "country",
+    props: {
+      label: "Country",
+      options: Array.from({ length: 12 }, (_, at) => ({ id: `c${at}`, label: `Country ${at}` })),
+    },
+  },
+  {
+    type: "pick-field",
+    id: "tags",
+    props: {
+      label: "Tags",
+      multiple: true,
+      options: [
+        { id: "a", label: "Alpha" },
+        { id: "b", label: "Beta" },
+      ],
+    },
+  },
+];
+
+for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
+  describe(`${engine}: the hover and focus audit of the PickField`, () => {
+    const { host } = useWidgetHost(engine);
+
+    for (const scheme of ["light", "dark"] as const) {
+      test(
+        `in the ${scheme} scheme, an option row and a checkbox respond, Clear points with an underline, the filter takes the text cursor and the ring, Tab gives the first radio the ring, and a locked board's rows show no change`,
+        async () => {
+          const document = atomDocument(PICK_ITEMS);
+          const run = await host(dist, document, { colorScheme: scheme });
+          await readyIn(run);
+          const { view, page } = run.board;
+          const row = view.getByRole("radio", { name: "Country 3", exact: true });
+          const checkbox = view.getByRole("checkbox", { name: "Alpha", exact: true });
+          // An option row, as the Choice's: the pointer and the `muted` fill, the border as it was.
+          for (const control of [row, checkbox]) {
+            await page.mouse.move(0, 0);
+            const resting = await lookOf(control);
+            const over = await hovered(control);
+            expect(over.cursor).toBe("pointer");
+            expect(over.background).toBe(tokenColor("muted", scheme));
+            expect(over.background).not.toBe(resting.background);
+            expect(over.border).toBe(resting.border);
+            expect(over.outline).not.toContain("2px solid");
+          }
+          await page.mouse.move(0, 0);
+          // A text input's own cursor: `text` in Chromium, `auto` in WebKit.
+          const filter = view.getByLabel("Filter the options");
+          expect(["text", "auto"]).toContain((await hovered(filter)).cursor);
+          await page.mouse.move(0, 0);
+          await filter.focus();
+          await expectRing(filter);
+          await page.mouse.move(0, 0);
+          await row.click();
+          const clear = view.getByRole("button", { name: "Clear", exact: true });
+          await clear.waitFor();
+          await page.mouse.move(0, 0);
+          await clear.hover();
+          expect(
+            await clear.evaluate((el) => {
+              const style = getComputedStyle(el);
+              return [style.cursor, style.textDecorationLine];
+            }),
+          ).toEqual(["pointer", "underline"]);
+          await page.mouse.move(0, 0);
+          await clear.click();
+          await eventually(async () => (await clear.count()) === 0, "Clear to leave");
+          await page.mouse.move(0, 0);
+          // Tab into the group: the first radio takes the ring.
+          const group = view.getByRole("radiogroup", { name: "Country" });
+          await tabIntoGroup(run.board, plan.props.text, group);
+          await expectRing(view.getByRole("radio", { name: "Country 0", exact: true }));
+          // A locked board: the rows are disabled and respond to nothing, the filter is gone.
+          await lock(run, document);
+          await eventually(() => row.isDisabled(), "the radios to be disabled");
+          await expectInert(run, row);
+          await expectInert(run, checkbox);
+          expect(await view.getByLabel("Filter the options").count()).toBe(0);
+          expect(run.browser.errors).toEqual([]);
+        },
+        TEST_TIMEOUT_MS,
+      );
+    }
+  });
+}

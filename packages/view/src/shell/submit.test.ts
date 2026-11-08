@@ -809,7 +809,7 @@ describe("Select recommended and Submit with an entry held (checkpoints 2.3 and 
       entries: entries.record(),
       state: stateOf(),
     });
-    expect(pressed).toEqual({ kind: "has-entry", questionId: "region" });
+    expect(pressed).toEqual({ kind: "field-block", questionId: "region" });
     expect(JSON.stringify([...board.get().questions])).toBe(before);
   });
 
@@ -835,7 +835,7 @@ describe("Select recommended and Submit with an entry held (checkpoints 2.3 and 
   });
 
   test("the confirmation's Submit refuses to send it too, naming the question", () => {
-    const entry = { kind: "has-entry", questionId: "region" } as const;
+    const entry = { kind: "field-block", questionId: "region" } as const;
     expect(confirmedPress([], false, entry)).toEqual(entry);
     expect(confirmedPress([], true, entry)).toEqual({ kind: "blocked" });
   });

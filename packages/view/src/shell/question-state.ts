@@ -49,10 +49,11 @@ export type CardInputs = {
   /** An agent-change notice waits for the user's choice (FR-6). */
   readonly pending?: boolean;
   /**
-   * An item of the question holds an entry, text its field cannot read or a bound refuses: the
-   * answer would leave that field out, so "Answer" is disabled (atoms, design decision 3; NFR-10).
+   * A field of the question blocks (`fieldBlock`): it holds an entry, its value fails its check, or
+   * it is required and empty. The answer would leave it out or send what it refuses, so "Answer" is
+   * disabled and a held answer is no longer ready (form-widget, design decision 5; NFR-10).
    */
-  readonly entry?: boolean;
+  readonly fieldBlock?: boolean;
   /** The ask's language, for the receipt: en-US when not given. */
   readonly language?: Locale;
 };
@@ -155,7 +156,7 @@ export const cardState = ({
   ready,
   editing = false,
   pending = false,
-  entry = false,
+  fieldBlock = false,
   language = "en-US",
 }: CardInputs): CardState => {
   const logged = status?.state === "answered" || status?.state === "declined" ? status : undefined;
@@ -194,9 +195,9 @@ export const cardState = ({
     phase: "open",
     ...receipt,
     readOnly: !answerable,
-    canAnswer: answerable && !pending && !entry && (answers || noted),
+    canAnswer: answerable && !pending && !fieldBlock && (answers || noted),
     noteOnly: !answers && noted,
-    ready,
+    ready: ready && !fieldBlock,
   };
 };
 

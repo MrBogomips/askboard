@@ -22,14 +22,13 @@ import type { ViewChannel } from "./channel.ts";
 import { createDerivedStore } from "./derived-store.ts";
 import { createDraftStore } from "./draft-store.ts";
 import {
-  answerHint,
   cutEntry,
   dropStaleEntries,
   ENTRY_ITEM_TYPES,
-  entryBlock,
   entryIdsOf,
   isEntryType,
 } from "./entries.ts";
+import { answerHint, fieldBlock } from "./field-block.ts";
 import { itemCallbacks } from "./item-callbacks.ts";
 import { cardState } from "./question-state.ts";
 
@@ -290,7 +289,7 @@ describe("restoring entries after a reload (FR-25)", () => {
     expect(entries.record().size).toBe(0);
     expect(board.get().questions.get(QUESTION)).toBeUndefined();
     const [next] = questionsOf(changed) as [ViewQuestion];
-    expect(entryBlock(next, new Map([["days", "21"]]))).toBeUndefined();
+    expect(fieldBlock(next, new Map([["days", "21"]]), new Map())).toBeUndefined();
   });
 
   test("an entry makes the work of an answered question a revision, never a stale copy of its answer", () => {
@@ -345,13 +344,13 @@ describe("an entry for an item an update removed (design decision 3)", () => {
 
 describe("an entry blocks Answer (view-and-widgets spec; NFR-10)", () => {
   const draft = { values: { days: 21 } };
-  const card = (entry: boolean) =>
+  const card = (fieldBlock: boolean) =>
     cardState({
       status: { itemId: QUESTION, rev: 1, state: "open" },
       draft,
       load: "visible",
       ready: false,
-      entry,
+      fieldBlock,
     });
 
   test("while the question holds an entry, Answer is disabled; clearing it enables it", () => {
@@ -366,7 +365,7 @@ describe("an entry blocks Answer (view-and-widgets spec; NFR-10)", () => {
       draft: { note: "Why" },
       load: "visible",
       ready: false,
-      entry: true,
+      fieldBlock: true,
     });
     expect(withNote.canAnswer).toBe(false);
   });
@@ -376,11 +375,15 @@ describe("an entry blocks Answer (view-and-widgets spec; NFR-10)", () => {
       ["due", "tomorrow-ish"],
       ["days", "21"],
     ]);
-    expect(entryBlock(question, held)).toEqual({ itemId: "days", label: "Days" });
-    expect(answerHint(question, held, "en-US")).toBe("Correct Days first.");
-    expect(answerHint(question, held, "it-IT")).toBe("Correggi prima Days.");
-    expect(answerHint(question, new Map(), "en-US")).toBeUndefined();
-    expect(answerHint(question, new Map([["name", "x"]]), "en-US")).toBeUndefined();
+    expect(fieldBlock(question, held, new Map())).toEqual({
+      itemId: "days",
+      label: "Days",
+      kind: "entry",
+    });
+    expect(answerHint(question, held, new Map(), "en-US")).toBe("Correct Days first.");
+    expect(answerHint(question, held, new Map(), "it-IT")).toBe("Correggi prima Days.");
+    expect(answerHint(question, new Map(), new Map(), "en-US")).toBeUndefined();
+    expect(answerHint(question, new Map([["name", "x"]]), new Map(), "en-US")).toBeUndefined();
   });
 
   test("a label the item lacks falls back to its ID, and the agent's text goes in as text", () => {
@@ -389,8 +392,10 @@ describe("an entry blocks Answer (view-and-widgets spec; NFR-10)", () => {
       { type: "number-field", id: "n2", props: { label: "{label} <b>x</b>" } },
     ]);
     const [oddQuestion] = questionsOf(odd) as [ViewQuestion];
-    expect(answerHint(oddQuestion, new Map([["n1", "x"]]), "en-US")).toBe("Correct n1 first.");
-    expect(answerHint(oddQuestion, new Map([["n2", "x"]]), "en-US")).toBe(
+    expect(answerHint(oddQuestion, new Map([["n1", "x"]]), new Map(), "en-US")).toBe(
+      "Correct n1 first.",
+    );
+    expect(answerHint(oddQuestion, new Map([["n2", "x"]]), new Map(), "en-US")).toBe(
       "Correct {label} <b>x</b> first.",
     );
   });

@@ -8,13 +8,15 @@ import { text } from "../wording-parts.ts";
 const DAYS = `a full-date from ${GANTT_FIRST_DATE} to ${GANTT_LAST_DATE}`;
 
 export const DATE_FIELD_EXPECTED: Readonly<Record<string, string>> = {
-  "date-field.props": "a DateField's props {label, description?, min?, max?}",
+  "date-field.props": "a DateField's props {label, description?, required?, min?, max?}",
   "date-field.props.label": text(ATOM_LABEL_MAX_CHARS),
   "date-field.props.description": text(ATOM_DESCRIPTION_MAX_CHARS),
+  "date-field.props.required":
+    "true, for a field that must hold a value before the question is answered",
   "date-field.props.min": `${DAYS}, the earliest day`,
   "date-field.props.max": `${DAYS}, the latest day, not before min`,
 };
 
 export const DATE_FIELD_FIELDS: Readonly<Record<string, string>> = {
-  "date-field.props": "a DateField's props hold only label, description, min and max",
+  "date-field.props": "a DateField's props hold only label, description, required, min and max",
 };

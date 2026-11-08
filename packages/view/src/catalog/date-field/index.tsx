@@ -13,6 +13,7 @@
 import {
   type DateFieldProps,
   dateEcho,
+  dateFieldFieldCheck,
   dateFieldPropsProblems,
   dateFieldResultProblems,
   dateFieldResultShape,
@@ -164,7 +165,12 @@ const DateField = ({
     </Popover.Root>
   );
   return (
-    <Field itemId={item.id} label={props.label} description={props.description}>
+    <Field
+      itemId={item.id}
+      label={props.label}
+      description={props.description}
+      required={props.required === true}
+    >
       <EntryField
         itemId={item.id}
         text={shownDate({ entry, result, typed, locale })}
@@ -174,6 +180,7 @@ const DateField = ({
         echo={echo}
         error={refused?.error}
         hasDescription={props.description !== undefined}
+        required={props.required === true}
         after={calendar}
         inputMode="numeric"
       />
@@ -187,4 +194,5 @@ register(DATE_FIELD, DateField, {
   name: "change.widgetDateField",
   fits: (result, props) =>
     dateFieldResultShape(result) && dateFieldResultProblems(result, props).length === 0,
+  check: dateFieldFieldCheck,
 });

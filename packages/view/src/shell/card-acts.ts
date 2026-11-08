@@ -46,7 +46,8 @@ import {
 import type { ViewChannel } from "./channel.ts";
 import type { DerivedStore } from "./derived-store.ts";
 import type { DraftStore } from "./draft-store.ts";
-import { entryIdsOf, holdsEntry } from "./entries.ts";
+import { entryIdsOf } from "./entries.ts";
+import { holdsBlock } from "./field-block.ts";
 import { answerOf } from "./question-state.ts";
 import { type FactsOf, reasonOf } from "./reason.ts";
 import { asksFirst, press, type Waiting } from "./revision-confirm.ts";
@@ -99,7 +100,7 @@ export type AnswerContext = Senders & {
   readonly derived: DerivedStore;
   /** The delivery the question answers in: immediate on a single-question board. */
   readonly delivery: Delivery;
-  /** The facts of each widget type, which say whether an item's result requires a reason. */
+  /** The facts of each widget type: whether an item's result requires a reason, and its field check. */
   readonly facts?: FactsOf;
 };
 
@@ -224,6 +225,22 @@ export const answerNeedsReason = (
 };
 
 /**
+ * Whether a field of the question blocks "Answer", by the entries and the results the user holds
+ * and the facts of each type (`fieldBlock`): the one check the press, "Accept recommended" and the
+ * card's state make.
+ */
+export const blockedBy = (
+  question: ViewQuestion,
+  context: Pick<AnswerContext, "results" | "entries" | "facts">,
+): boolean =>
+  holdsBlock(
+    question,
+    context.entries?.record() ?? new Map(),
+    context.results?.record() ?? new Map(),
+    context.facts,
+  );
+
+/**
  * "Answer": sends, marks ready or unmarks, or sends or holds the note alone (FR-7, FR-22). While a
  * held result requires a reason (approval-scale-ranking, design decision 6) and the note holds no
  * character but white space, it sends and marks nothing and says so, so that the card shows the
@@ -231,9 +248,10 @@ export const answerNeedsReason = (
  */
 export const answer = (question: ViewQuestion, context: AnswerContext): AnswerOutcome => {
   const { draft, results, board, derived, delivery } = context;
-  // A field holds text it cannot read: the answer would leave it out, so nothing is sent, marked or
-  // held (atoms, design decision 3; NFR-10).
-  if (holdsEntry(question, context.entries?.record() ?? new Map())) return undefined;
+  // A field blocks (an entry, a value that fails its check, an empty required field): the answer
+  // would leave it out or send what it refuses, so nothing is sent, marked or held (atoms, design
+  // decision 3; form-widget, design decision 5; NFR-10).
+  if (blockedBy(question, context)) return undefined;
   const work = board.work(question.id);
   const content = withDerived(
     answerContentOf(question, draft.record(), work, results?.record()),
@@ -509,7 +527,7 @@ export const acceptRecommended = (
   question: ViewQuestion,
   context: AnswerContext,
 ): AnswerOutcome => {
-  if (recommendedOf(question) === undefined) return undefined;
+  if (recommendedOf(question) === undefined || blockedBy(question, context)) return undefined;
   selectRecommendedOption(question, context);
   return answer(question, context);
 };

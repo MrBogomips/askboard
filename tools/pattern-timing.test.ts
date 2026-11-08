@@ -1,0 +1,200 @@
+// The pattern timing script (form-widget, task 1.4; design decision 3; the PO's rule of
+// 2026-11-07): the patterns it times are inside the safe subset, so that what it measures is the
+// residual the subset leaves; it runs on Bun and on Node 24 with no imports, and prints a table.
+
+import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import {
+  PATTERN_MAX_CHARS,
+  PATTERN_MAX_REPEATS,
+  PATTERN_TEXT_MAX_CHARS,
+  patternProblem,
+} from "@askboard/contract";
+import {
+  ENDINGS,
+  FIXTURES,
+  formatTable,
+  GATE_MS,
+  KNOWN_LIMIT_MS,
+  report,
+  runTimings,
+  runtimeName,
+  runWorstShapes,
+  SIZES,
+  sizesFrom,
+  TEXT_CAP,
+  timeMatch,
+  WORST_SHAPES,
+} from "./pattern-timing.ts";
+
+const SOURCE = new URL("./pattern-timing.ts", import.meta.url);
+
+describe("the fixtures", () => {
+  test("hold the four patterns of the task and the budget's worst shapes, each over a run of its class", () => {
+    expect(FIXTURES.map(({ pattern }) => pattern)).toEqual([
+      "^\\d*\\d*\\d*$",
+      "\\d+\\d+x",
+      "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$",
+      "^(?:[a-z0-9-]+\\.)?[a-z0-9-]+$",
+      "^(?:\\d|1)\\d*\\d*$",
+      "(?:\\d|1)\\d*x",
+      "^(?:\\d|1)(?:\\d|1)(?:\\d|1)$",
+      "\\d*\\d*$",
+    ]);
+    expect(FIXTURES.length).toBeGreaterThan(PATTERN_MAX_REPEATS);
+    for (const { pattern, run } of FIXTURES) {
+      expect(run.length, pattern).toBe(1);
+    }
+  });
+
+  test("every pattern it times passes the safe-pattern check", () => {
+    for (const { pattern } of FIXTURES) expect(patternProblem(pattern), pattern).toBeUndefined();
+  });
+
+  test("the texts end in x, ! and U+2028, in sizes of 100, 300 and 1,000", () => {
+    expect(ENDINGS.map(({ text }) => text)).toEqual(["x", "!", " "]);
+    expect(SIZES).toEqual([100, 300, 1_000]);
+    expect(GATE_MS).toBe(2_000);
+    expect(KNOWN_LIMIT_MS).toBe(500);
+  });
+});
+
+describe("the worst shapes at the text cap", () => {
+  const unit = (pattern: string) => Array.from(pattern).length;
+
+  test("the cap is the contract's, which a field with a pattern holds", () => {
+    expect(TEXT_CAP).toBe(PATTERN_TEXT_MAX_CHARS);
+  });
+
+  test("every shape passes the safe-pattern check, anchored and not, on . and on \\d", () => {
+    for (const { pattern } of WORST_SHAPES) {
+      expect(patternProblem(pattern), pattern).toBeUndefined();
+      expect(unit(pattern), pattern).toBeLessThanOrEqual(PATTERN_MAX_CHARS);
+    }
+    const patterns = WORST_SHAPES.map(({ pattern }) => pattern);
+    for (const head of ["^.*.*.*", ".*.*", "^\\d*\\d*\\d*", "\\d*\\d*"]) {
+      expect(patterns.filter((each) => each.startsWith(head)).length, head).toBeGreaterThanOrEqual(
+        5,
+      );
+    }
+  });
+
+  test("each head has no tail, {k} tails and a literal tail up to the pattern limit", () => {
+    const dot = WORST_SHAPES.filter(({ pattern }) => pattern.startsWith("^.*.*.*"));
+    expect(dot.some(({ pattern }) => pattern === "^.*.*.*$")).toBe(true);
+    expect(dot.some(({ pattern }) => /\.\{\d+\}\$$/.test(pattern))).toBe(true);
+    expect(dot.some(({ pattern }) => unit(pattern) === PATTERN_MAX_CHARS)).toBe(true);
+    for (const { pattern, label } of WORST_SHAPES) expect(label, pattern).toBeString();
+  });
+
+  test("a class uniting property escapes heads shapes over an astral run, anchored and not (review X-2)", () => {
+    const klass = "[\\p{L}\\p{N}\\p{S}\\p{P}\\p{M}\\p{Cf}\\p{Co}]";
+    const shapes = WORST_SHAPES.filter(({ pattern }) => pattern.includes(klass));
+    const anchored = shapes.filter(({ pattern }) =>
+      pattern.startsWith(`^${klass}*${klass}*${klass}*`),
+    );
+    const open = shapes.filter(({ pattern }) => pattern.startsWith(`${klass}*${klass}*`));
+    expect(anchored.length).toBeGreaterThanOrEqual(5);
+    expect(open.length).toBeGreaterThanOrEqual(5);
+    expect(
+      anchored.some(({ pattern }) => pattern === `^${klass}*${klass}*${klass}*${klass}{50}$`),
+    ).toBe(true);
+    for (const { run } of shapes) expect(run).toBe(String.fromCodePoint(0x20000));
+  });
+
+  test("the run is of the class the shape's quantifiers read, so it fails only at its end", () => {
+    for (const { pattern, run } of WORST_SHAPES) {
+      const text = run.repeat(PATTERN_MAX_CHARS + TEXT_CAP);
+      expect(new RegExp(pattern.replace(/\$$/, ""), "u").test(text), pattern).toBe(true);
+    }
+  });
+
+  test("each shape, at the cap and with each ending, runs within the known-limit gate here", () => {
+    const rows = runWorstShapes();
+    expect(rows).toHaveLength(WORST_SHAPES.length * ENDINGS.length);
+    for (const row of rows) {
+      expect(row.size).toBe(TEXT_CAP - 1);
+      expect(row.ms, `${row.pattern} ${row.ending}`).toBeLessThan(KNOWN_LIMIT_MS);
+    }
+  });
+});
+
+describe("the timings", () => {
+  test("a case is timed in milliseconds, whatever the pattern says of the text", () => {
+    const ms = timeMatch("^a+$", "aaaa!");
+    expect(ms).toBeGreaterThanOrEqual(0);
+    expect(Number.isFinite(ms)).toBe(true);
+  });
+
+  test("each pattern and ending is run at each size while the one before took under the gate", () => {
+    const rows = runTimings(FIXTURES, [5, 10, 20], GATE_MS);
+    expect(rows).toHaveLength(FIXTURES.length * ENDINGS.length * 3);
+    for (const row of rows) expect(row.ms).toBeGreaterThanOrEqual(0);
+    expect(rows.filter(({ size }) => size === 20)).toHaveLength(FIXTURES.length * ENDINGS.length);
+  });
+
+  test("a case over the gate stops its own larger sizes and no other", () => {
+    const rows = runTimings(FIXTURES, [5, 10, 20], 0);
+    expect(rows.map(({ size }) => size)).toEqual(rows.map(() => 5));
+    expect(rows).toHaveLength(FIXTURES.length * ENDINGS.length);
+  });
+
+  test("the table has a header, each pattern and a row for every case", () => {
+    const rows = runTimings(FIXTURES, [5, 10], GATE_MS);
+    const table = formatTable(rows);
+    expect(table.split("\n")[0]).toContain("pattern");
+    for (const { pattern } of FIXTURES) expect(table).toContain(pattern);
+    expect(table).toContain("U+2028");
+    expect(table.split("\n").length).toBe(rows.length + 2);
+  });
+
+  test("a row over the limit is marked", () => {
+    const table = formatTable([
+      { pattern: "a", ending: "x", size: 100, ms: KNOWN_LIMIT_MS + 1 },
+      { pattern: "a", ending: "!", size: 100, ms: 1 },
+    ]);
+    expect(table.split("\n").filter((line) => line.includes("over"))).toHaveLength(1);
+  });
+});
+
+describe("the report", () => {
+  test("reads the sizes from its arguments, else the specified ones", () => {
+    expect(sizesFrom(["--sizes", "5,10"])).toEqual([5, 10]);
+    expect(sizesFrom([])).toEqual(SIZES);
+    expect(sizesFrom(["--sizes"])).toEqual(SIZES);
+  });
+
+  test("names the runtime, prints the table and says whether a case is over the limit", () => {
+    expect(runtimeName()).toMatch(/^Bun \d/);
+    const [name, table, verdict, worstName, worstTable, worstVerdict] = report(["--sizes", "5"]);
+    expect(name).toBe(`pattern-timing on ${runtimeName()}`);
+    expect(table).toContain("^\\d*\\d*\\d*$");
+    expect(verdict).toBe(`no case over ${KNOWN_LIMIT_MS} ms`);
+    expect(worstName).toBe(`worst shapes at ${TEXT_CAP} characters`);
+    for (const { label } of WORST_SHAPES) expect(worstTable).toContain(label as string);
+    expect(worstVerdict).toBe(`no case over ${KNOWN_LIMIT_MS} ms`);
+  });
+});
+
+describe("the script", () => {
+  test("has no import and only erasable TypeScript", () => {
+    const text = readFileSync(SOURCE, "utf8");
+    expect(text).not.toMatch(/^\s*(import|export \* from)\s/m);
+    expect(text).not.toMatch(/\brequire\(/);
+    expect(text).not.toMatch(/^\s*(export )?(const )?enum\s/m);
+    expect(text).not.toMatch(/^\s*(export )?(declare )?namespace\s/m);
+    expect(text).not.toMatch(/constructor\([^)]*(public|private|protected|readonly)\s/);
+  });
+
+  for (const runtime of ["bun", "node"]) {
+    test(`runs on ${runtime} and prints its table`, () => {
+      const run = Bun.spawnSync([runtime, "tools/pattern-timing.ts", "--sizes", "5,10"], {
+        cwd: new URL("..", import.meta.url).pathname,
+      });
+      const out = run.stdout.toString();
+      expect(run.exitCode, run.stderr.toString()).toBe(0);
+      expect(out).toContain("pattern");
+      for (const { pattern } of FIXTURES) expect(out).toContain(pattern);
+    }, 60_000);
+  }
+});

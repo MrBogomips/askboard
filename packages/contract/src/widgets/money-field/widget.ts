@@ -5,6 +5,7 @@
 
 import type { WidgetType } from "../registry.ts";
 import {
+  moneyFieldFieldCheck,
   moneyFieldPropsProblems,
   moneyFieldResultProblems,
   moneyFieldResultShape,
@@ -18,6 +19,7 @@ export const MONEY_FIELD_WIDGET: WidgetType = {
   noun: "a MoneyField",
   props: moneyFieldProps,
   propsProblems: moneyFieldPropsProblems,
+  fieldCheck: moneyFieldFieldCheck,
   result: {
     schema: moneyFieldResult,
     shape: moneyFieldResultShape,

@@ -30,6 +30,8 @@ export type NumberFieldProps = {
   readonly step?: number;
   readonly integer?: boolean;
   readonly unit?: string;
+  /** The user must give a value before "Answer" (form-widget): the field's check fails while it has none. */
+  readonly required?: boolean;
 };
 
 export type NumberFieldItem = {

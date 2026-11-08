@@ -1,12 +1,13 @@
 # Toggle
 
 Use for an on or off choice the user sets, such as a switch or a yes or no.
-Item type `toggle`: props are a Toggle's props {label, description?}.
+Item type `toggle`: props are a Toggle's props {label, description?, required?}.
 
 ## Fields
 
 - `label` (required, string, 1 to 200 characters)
 - `description` (string, 1 to 1000 characters)
+- `required` (true or false)
 
 ## Notes
 

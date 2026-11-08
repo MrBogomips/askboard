@@ -17,6 +17,12 @@ export type TextFieldProps = {
   readonly multiline?: boolean;
   /** In code points; `TEXT_FIELD_MAX_CHARS` when absent. */
   readonly maxLength?: number;
+  /** At least this many code points, at most `maxLength` (form-widget). */
+  readonly minLength?: number;
+  /** An ECMAScript pattern in the safe subset, run by the board on the text, unanchored (form-widget). */
+  readonly pattern?: string;
+  /** The user must give a value before "Answer" (form-widget): the field's check fails while it has none. */
+  readonly required?: boolean;
 };
 
 export type TextFieldItem = {

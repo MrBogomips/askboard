@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:askboard:input:number-field-props",
   "title": "NumberField props",
-  "description": "A NumberField item's props (FR-13, atoms design decision 1): a label of 1 to 200 characters, an optional description of 1 to 1000, optional min and max within a quadrillion either way, an optional step above 0, an optional integer and an optional unit of 1 to 20 characters. That max is not below min is a check of numberFieldPropsProblems. In the input format since atoms.",
+  "description": "A NumberField item's props (FR-13, atoms design decision 1): a label of 1 to 200 characters, an optional description of 1 to 1000, optional min and max within a quadrillion either way, an optional step above 0, an optional integer and an optional unit of 1 to 20 characters. That max is not below min is a check of numberFieldPropsProblems. `required` since form-widget. In the input format since atoms.",
   "type": "object",
   "properties": {
     "label": { "type": "string", "minLength": 1, "maxLength": 200 },
@@ -11,7 +11,8 @@
     "max": { "type": "number", "minimum": -1000000000000000, "maximum": 1000000000000000 },
     "step": { "type": "number", "exclusiveMinimum": 0, "maximum": 2000000000000000 },
     "integer": { "type": "boolean" },
-    "unit": { "type": "string", "minLength": 1, "maxLength": 20 }
+    "unit": { "type": "string", "minLength": 1, "maxLength": 20 },
+    "required": { "type": "boolean" }
   },
   "required": ["label"],
   "additionalProperties": false

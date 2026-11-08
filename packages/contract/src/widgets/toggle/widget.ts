@@ -4,7 +4,7 @@
 // gives a result, on or off, and an untouched Toggle gives none.
 
 import type { WidgetType } from "../registry.ts";
-import { togglePropsProblems, toggleResultShape } from "./checks.ts";
+import { toggleFieldCheck, togglePropsProblems, toggleResultShape } from "./checks.ts";
 import toggleProps from "./toggle-props.json" with { type: "json" };
 import toggleResult from "./toggle-result.json" with { type: "json" };
 import { TOGGLE_EXPECTED, TOGGLE_FIELDS } from "./wording.ts";
@@ -14,6 +14,7 @@ export const TOGGLE_WIDGET: WidgetType = {
   noun: "a Toggle",
   props: toggleProps,
   propsProblems: togglePropsProblems,
+  fieldCheck: toggleFieldCheck,
   result: { schema: toggleResult, shape: toggleResultShape },
   wording: { expected: TOGGLE_EXPECTED, fields: TOGGLE_FIELDS },
   example: {

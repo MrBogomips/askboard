@@ -113,6 +113,8 @@ export const STRING_KEYS = [
   "question.reasonRequired",
   "question.reasonMissing",
   "question.entryHint",
+  // The Form (form-widget, task 3.1; ux-update-draft.md block 6).
+  "question.requiredHint",
   // Revising a verdict the agent has received (approval-scale-ranking, design decision 6).
   "revision.confirmTitle",
   "revision.confirmBody",
@@ -148,6 +150,7 @@ export const STRING_KEYS = [
   "change.widgetNumberField",
   "change.widgetMoneyField",
   "change.widgetDateField",
+  "change.widgetPickField",
   "change.reload",
   "change.keep",
   "reopened.title",
@@ -371,6 +374,16 @@ export const STRING_KEYS = [
   "date.previous",
   "date.next",
   "date.nav",
+  // The Form's field checks (form-widget, task 3.2; ux-update-draft.md block 6; the Italian texts to review).
+  "field.required",
+  "field.minLength",
+  "field.pattern",
+  // The PickField (form-widget, task 3.3; ux-update-draft.md block 6; the Italian texts to review).
+  "field.minItems",
+  "field.maxItems",
+  "pick.clear",
+  "pick.filter",
+  "pick.noMatch",
 ] as const;
 
 export type StringKey = (typeof STRING_KEYS)[number];

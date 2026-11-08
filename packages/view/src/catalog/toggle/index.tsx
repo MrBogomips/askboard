@@ -5,10 +5,15 @@
 // (`false`); an unset one gives none (AD-10). Answered or locked it is read-only and shows the
 // state as text. It holds no entry and no state of its own (AD-9).
 
-import { type ToggleProps, togglePropsProblems, toggleResultShape } from "@askboard/contract";
+import {
+  type ToggleProps,
+  toggleFieldCheck,
+  togglePropsProblems,
+  toggleResultShape,
+} from "@askboard/contract";
 import { Switch } from "radix-ui";
 import { BUTTON_LINK, DESCRIPTION } from "../fields/classes.ts";
-import { fieldIds } from "../fields/field.tsx";
+import { fieldIds, RequiredMark } from "../fields/field.tsx";
 import { checkedProps } from "../fields/props.ts";
 import { putting } from "../fields/text.ts";
 import { type ItemProps, register, useReadyAfterLayout, useStrings } from "../port.ts";
@@ -45,6 +50,7 @@ const Toggle = ({
           id={ids.control}
           checked={shown === true}
           disabled={disabled}
+          required={props.required === true && !disabled}
           aria-labelledby={ids.label}
           aria-describedby={described}
           className={ROOT}
@@ -54,6 +60,12 @@ const Toggle = ({
         </Switch.Root>
         <label id={ids.label} htmlFor={ids.control} className={TOGGLE_LABEL}>
           {props.label}
+          {props.required === true && !disabled ? (
+            <>
+              {" "}
+              <RequiredMark />
+            </>
+          ) : null}
         </label>
         <span id={ids.state} className={shown === undefined ? STATE : STATE_SET}>
           {state}
@@ -82,4 +94,5 @@ const Toggle = ({
 register(TOGGLE, Toggle, {
   name: "change.widgetToggle",
   fits: toggleResultShape,
+  check: toggleFieldCheck,
 });

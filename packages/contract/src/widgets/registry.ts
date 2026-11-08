@@ -24,12 +24,14 @@ import { CHART_WIDGET } from "./chart/widget.ts";
 import { DATE_FIELD_WIDGET } from "./date-field/widget.ts";
 import { DIVIDER_WIDGET } from "./divider/widget.ts";
 import type { ElementShape } from "./element-diff.ts";
+import type { FieldCheckFailure } from "./field-checks.ts";
 import { GANTT_WIDGET } from "./gantt/widget.ts";
 import { GROUP_WIDGET } from "./group/widget.ts";
 import { KANBAN_WIDGET } from "./kanban/widget.ts";
 import { LATEX_WIDGET } from "./latex/widget.ts";
 import { MONEY_FIELD_WIDGET } from "./money-field/widget.ts";
 import { NUMBER_FIELD_WIDGET } from "./number-field/widget.ts";
+import { PICK_FIELD_WIDGET } from "./pick-field/widget.ts";
 import { RANKING_WIDGET } from "./ranking/widget.ts";
 import { ROW_WIDGET } from "./row/widget.ts";
 import { SCALE_WIDGET } from "./scale/widget.ts";
@@ -130,6 +132,14 @@ export type WidgetType = {
     readonly use: string;
     readonly notes?: readonly string[];
   };
+  /**
+   * The check of an input field's value against its props (form-widget, design decision 2):
+   * `required`, a text's `minLength`, a pick's counts; `result` is `undefined` when the item has
+   * none. A failure is apart from fit: a result that fails only this check still fits, so the
+   * board keeps it as the user's draft and shows the failure, and `ask-core` refuses an answer that
+   * holds one, except a pattern, which only the board runs.
+   */
+  readonly fieldCheck?: (result: unknown, props: unknown) => FieldCheckFailure | undefined;
 };
 
 /** The widget types a question's items may hold, in order. */
@@ -157,6 +167,8 @@ export const WIDGET_TYPES: readonly WidgetType[] = [
   ROW_WIDGET,
   GROUP_WIDGET,
   TABS_WIDGET,
+  // The PickField, as its chunk lands (form-widget, design decision 8).
+  PICK_FIELD_WIDGET,
 ];
 
 /** The entry of an item type, when the registry holds it. */

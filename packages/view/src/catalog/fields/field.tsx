@@ -3,7 +3,8 @@
 // built from the item's, which holds no `:`, so no two fields clash. Agent text is text (AD-8).
 
 import type { ReactNode } from "react";
-import { DESCRIPTION, FIELD, LABEL } from "./classes.ts";
+import { useStrings } from "../port.ts";
+import { DESCRIPTION, FIELD, LABEL, REQUIRED_MARK } from "./classes.ts";
 
 /** The DOM IDs of an item's control, its label, its description, its state text and its field error. */
 export const fieldIds = (itemId: string) => ({
@@ -18,15 +19,33 @@ type FieldProps = {
   readonly itemId: string;
   readonly label: string;
   readonly description: string | undefined;
+  /**
+   * The field is required and may still be filled (form-widget, design decision 6): the label ends
+   * with "(required)" in its own span, as text. The control carries `aria-required` itself. Read-only
+   * fields ask for nothing and pass none.
+   */
+  readonly required?: boolean;
   readonly children: ReactNode;
 };
 
-export const Field = ({ itemId, label, description, children }: FieldProps) => {
+/** The "(required)" mark after a label; the text comes from the string tables. */
+export const RequiredMark = () => {
+  const text = useStrings();
+  return <span className={REQUIRED_MARK}>{text("field.required")}</span>;
+};
+
+export const Field = ({ itemId, label, description, required = false, children }: FieldProps) => {
   const ids = fieldIds(itemId);
   return (
     <div data-askboard-field={itemId} className={FIELD}>
       <label id={ids.label} htmlFor={ids.control} className={LABEL}>
         {label}
+        {required ? (
+          <>
+            {" "}
+            <RequiredMark />
+          </>
+        ) : null}
       </label>
       {description === undefined ? null : (
         <p id={ids.description} className={DESCRIPTION}>

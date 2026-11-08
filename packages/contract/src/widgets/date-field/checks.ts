@@ -8,6 +8,7 @@
 
 import { isRecord } from "../../problems.ts";
 import type { Problem } from "../../validate.ts";
+import { type FieldCheckFailure, requiredFailure, requiredPropProblems } from "../field-checks.ts";
 import { isGanttDate } from "../gantt/checks.ts";
 import { GANTT_FIRST_DATE, GANTT_LAST_DATE } from "../gantt/index.ts";
 import {
@@ -16,7 +17,7 @@ import {
   codePointCount,
 } from "../shared/atoms.ts";
 
-const KEYS = ["label", "description", "min", "max"];
+const KEYS = ["label", "description", "min", "max", "required"];
 const DAYS = `a day that exists, from ${GANTT_FIRST_DATE} to ${GANTT_LAST_DATE}`;
 
 const textWithin = (value: unknown, max: number): boolean =>
@@ -35,6 +36,7 @@ export const dateFieldPropsProblems = (props: unknown): readonly Problem[] => {
     .filter((key) => !KEYS.includes(key))
     .map((key) => ({ path: `/${key}`, message: `unknown field "${key}"` }));
   const at = (path: string, message: string) => problems.push({ path, message });
+  problems.push(...requiredPropProblems(props));
   if (!textWithin(props.label, ATOM_LABEL_MAX_CHARS)) {
     at("/label", `the label is a text of 1 to ${ATOM_LABEL_MAX_CHARS} characters`);
   }
@@ -90,3 +92,12 @@ export const dateFieldResultProblems = (result: unknown, props: unknown): readon
  */
 export const dateFieldResultShape = (result: unknown): boolean =>
   typeof result === "string" && /^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/.test(result);
+
+/**
+ * The DateField's field check (form-widget, design decision 2): `required`, the one check it has.
+ * A value that fails only it still fits.
+ */
+export const dateFieldFieldCheck = (
+  result: unknown,
+  props: unknown,
+): FieldCheckFailure | undefined => requiredFailure(props, result);

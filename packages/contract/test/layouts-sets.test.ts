@@ -28,21 +28,23 @@ const setOf = (name: string) => {
 };
 
 describe("the minors layouts binds", () => {
-  test("the three widened sets are one minor past atoms', and the sets carry the constants", () => {
-    // Atoms' were input 1.9, output 1.9, tool envelopes 1.9, board document 1.8 and board protocol 1.7.
-    expect({
-      input: INPUT_FORMAT_VERSION,
-      envelopes: TOOL_ENVELOPES_VERSION,
-      document: BOARD_DOCUMENT_VERSION,
-    }).toEqual({ input: "1.10", envelopes: "1.10", document: "1.9" });
+  test("the three widened sets are at layouts' minor or a later one, and the sets carry the constants", () => {
+    // Layouts took input 1.10, tool envelopes 1.10 and board document 1.9, one past atoms' 1.9, 1.9
+    // and 1.8; a later change takes the next minor again (form-widget's version test holds the
+    // exact numbers now).
+    const minorOf = (version: string) => Number(version.split(".")[1]);
+    expect(minorOf(INPUT_FORMAT_VERSION)).toBeGreaterThanOrEqual(10);
+    expect(minorOf(TOOL_ENVELOPES_VERSION)).toBeGreaterThanOrEqual(10);
+    expect(minorOf(BOARD_DOCUMENT_VERSION)).toBeGreaterThanOrEqual(9);
     expect(setOf("input").version).toBe(INPUT_FORMAT_VERSION);
     expect(setOf("tool-envelopes").version).toBe(TOOL_ENVELOPES_VERSION);
     expect(setOf("board-document").version).toBe(BOARD_DOCUMENT_VERSION);
   });
 
-  test("every other set keeps atoms' minor", () => {
+  test("every other set keeps atoms' minor, the output format at it or a later one", () => {
+    // Form-widget's output minor moved with the PickField's registration (task 3.3).
+    expect(Number(OUTPUT_FORMAT_VERSION.split(".")[1])).toBeGreaterThanOrEqual(9);
     expect({
-      output: OUTPUT_FORMAT_VERSION,
       protocol: BOARD_PROTOCOL_VERSION,
       snapshot: SNAPSHOT_DATA_VERSION,
       manifest: VIEW_MANIFEST_VERSION,
@@ -50,7 +52,6 @@ describe("the minors layouts binds", () => {
       localApi: LOCAL_API_VERSION,
       sessionFile: SESSION_FILE_FORMAT,
     }).toEqual({
-      output: "1.9",
       protocol: "1.7",
       snapshot: "1.1",
       manifest: "1.1",

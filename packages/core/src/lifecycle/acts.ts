@@ -20,6 +20,7 @@ import type { BoardModel, QuestionRecord } from "./model.ts";
 import { type QuestionStatus, questionStatus } from "./states.ts";
 import {
   answerRequirementProblem,
+  fieldCheckProblem,
   type KeptAnswer,
   sharedResultAddress,
   type WidgetFields,
@@ -198,6 +199,8 @@ const answered = (target: Target, declined: boolean, who: string): Built => {
           target.types,
         );
   if (unmet !== undefined) return problem("content", unmet, itemId);
+  const unchecked = widgets === undefined ? undefined : fieldCheckProblem(widgets, target.types);
+  if (unchecked !== undefined) return problem("content", unchecked, itemId);
   if (widgets !== undefined) keepWidgets(target, widgets);
   return withinLimit({ ...head, ...body, ...widget, ...replacesOf(target) } as AnswerEvent);
 };

@@ -9,7 +9,7 @@
 // question into the draft record in one update, as a linked edit does (molecules, design decision
 // 11).
 
-import type { ElementShape, Locale } from "@askboard/contract";
+import type { ElementShape, FieldCheckFailure, Locale } from "@askboard/contract";
 import {
   createContext,
   type ReactNode,
@@ -166,6 +166,15 @@ export type ComponentFacts = {
    * such value registers none, and the shell keeps its values as they are.
    */
   readonly valueFits?: (value: unknown, props: unknown) => boolean;
+  /**
+   * Why the item's result fails its field check, if it does (form-widget, design decisions 2 and
+   * 5): `result` is `undefined` while the item holds none, and a `required` failure is that case
+   * alone. The shell blocks "Answer" while any field of a question fails it, apart from fit: a
+   * value that fails only its check still fits and stays in the draft. Each chunk of an input
+   * field registers its contract function (the TextField's also runs its pattern, which only the
+   * board does); a type that registers none never blocks.
+   */
+  readonly check?: (result: unknown, props: unknown) => FieldCheckFailure | undefined;
 };
 
 /** The two strings a required reason uses: the open prompt's label and its field error. */

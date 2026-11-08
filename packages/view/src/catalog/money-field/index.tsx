@@ -13,6 +13,7 @@ import {
   amountEcho,
   formatMoney,
   type MoneyFieldProps,
+  moneyFieldFieldCheck,
   moneyFieldPropsProblems,
   moneyFieldResultProblems,
   moneyFieldResultShape,
@@ -127,7 +128,12 @@ const MoneyField = ({
       </ToggleGroup.Root>
     );
   return (
-    <Field itemId={item.id} label={props.label} description={props.description}>
+    <Field
+      itemId={item.id}
+      label={props.label}
+      description={props.description}
+      required={props.required === true}
+    >
       <EntryField
         itemId={item.id}
         text={shown}
@@ -137,6 +143,7 @@ const MoneyField = ({
         echo={echoOf()}
         error={refused?.error}
         hasDescription={props.description !== undefined}
+        required={props.required === true}
         after={control}
       />
     </Field>
@@ -149,4 +156,5 @@ register(MONEY_FIELD, MoneyField, {
   name: "change.widgetMoneyField",
   fits: (result, props) =>
     moneyFieldResultShape(result) && moneyFieldResultProblems(result, props).length === 0,
+  check: moneyFieldFieldCheck,
 });

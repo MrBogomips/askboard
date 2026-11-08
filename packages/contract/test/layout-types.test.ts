@@ -77,8 +77,9 @@ const refusedByCheck = (item: Item) => accepted(item) && problemsOf(item).length
 const fromJson = (json: string): unknown => JSON.parse(json);
 
 describe("the layouts in the registry", () => {
-  test("follow the shipped types, in the order stack, row, group, tabs", () => {
-    expect(TYPES.slice(-4).map(({ type }) => type)).toEqual(["stack", "row", "group", "tabs"]);
+  test("follow the shipped types, in the order stack, row, group, tabs, before the PickField", () => {
+    expect(TYPES.slice(-5, -1).map(({ type }) => type)).toEqual(["stack", "row", "group", "tabs"]);
+    expect(TYPES.at(-1)?.type).toBe("pick-field");
     expect(TYPES).toEqual([...WIDGET_TYPES]);
   });
 

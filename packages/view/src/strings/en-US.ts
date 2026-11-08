@@ -107,6 +107,7 @@ export const EN_US = {
   "question.reasonRequired": "Reason for the changes (required)",
   "question.reasonMissing": "Add the reason for your changes.",
   "question.entryHint": "Correct {label} first.",
+  "question.requiredHint": "Complete {label} first.",
   "revision.confirmTitle": "Send a new answer?",
   "revision.confirmBody":
     "The agent has already received your earlier answer. This one replaces it.",
@@ -148,6 +149,7 @@ export const EN_US = {
   "change.widgetNumberField": "NumberField",
   "change.widgetMoneyField": "MoneyField",
   "change.widgetDateField": "DateField",
+  "change.widgetPickField": "PickField",
   "change.reload": "Reload, losing my work",
   "change.keep": "Keep mine",
   "reopened.title": "Reopened by the agent",
@@ -394,4 +396,12 @@ export const EN_US = {
   "date.previous": "Previous month",
   "date.next": "Next month",
   "date.nav": "Month navigation",
+  "field.required": "(required)",
+  "field.minLength": "At least {min} characters.",
+  "field.pattern": "Not in the expected form.",
+  "field.minItems": "Pick at least {min}.",
+  "field.maxItems": "Pick at most {max}.",
+  "pick.clear": "Clear",
+  "pick.filter": "Filter the options",
+  "pick.noMatch": "No option matches.",
 } as const satisfies StringTable;

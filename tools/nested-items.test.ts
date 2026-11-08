@@ -267,8 +267,13 @@ const VIEW_READS: readonly Read[] = [
     count: 3,
   },
   {
-    file: "packages/view/src/shell/entries.ts",
+    file: "packages/view/src/shell/field-block.ts",
     text: "nestedItemById(question.props.items",
+    reason: HANDED,
+  },
+  {
+    file: "packages/view/src/shell/field-block.ts",
+    text: "valueItemsOf(question.props.items)",
     reason: HANDED,
   },
   {

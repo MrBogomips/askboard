@@ -399,6 +399,7 @@ export const Board = ({
     pending: (id) => changed.has(id),
     sending: (id) => context.acts.of(id, CARD_ACTS) !== undefined,
     entries: context.entries?.record(),
+    results: context.results?.record(),
   });
   return (
     <div

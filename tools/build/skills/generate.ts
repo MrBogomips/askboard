@@ -88,6 +88,13 @@ const layoutNote = (widgets: readonly WidgetType[]): string => {
   return `\n\nA question's \`items\` may sit in layouts (${names}) that hold atoms, widgets and other layouts, four deep at most; context items and molecule references stay in the question's own \`items\`. Item IDs are unique at every depth.`;
 };
 
+// The sentence on building a form from fields (form-widget, design decision 7): empty until the
+// PickField is registered, so that the skill teaches nothing the contract refuses.
+const formNote = (widgets: readonly WidgetType[]): string =>
+  widgets.some(({ type }) => type === "pick-field")
+    ? "\n\nFor a form, put fields in the question, a Group per section; a `required` field must be filled."
+    : "";
+
 // The collect result of the answers reference: the lifecycle fixture's first event, alone.
 const collectExample = (): ExampleBody => {
   const [ask] = lifecycleCollectResult.asks;
@@ -133,6 +140,7 @@ export const generateSkill = (inputs: Partial<SkillInputs> = {}): GeneratedSkill
       askingRules: askingRules(),
       itemIndex: itemIndex(widgets, molecules),
       layoutNote: layoutNote(widgets),
+      formNote: formNote(widgets),
       idPattern: ID_PATTERN.slice(1, -1),
       snapshotFolder: SNAPSHOT_FOLDER,
       snapshotElement: SNAPSHOT_DATA_ELEMENT,

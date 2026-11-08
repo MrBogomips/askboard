@@ -575,6 +575,70 @@ describe("the draft mirror and its restore (ask-lifecycle, design decision 6; AD
       );
     expect(run.updates.at(-1)?.document).toEqual(changed);
   });
+
+  describe("the document goes to the view only when it differs from the last one sent (form-widget 5.8)", () => {
+    const revised = (rev: number, items: readonly unknown[] = plainChoiceBoardDocument.items) =>
+      ({ ...plainChoiceBoardDocument, items }) as unknown as typeof plainChoiceBoardDocument & {
+        rev: number;
+      };
+    const stateAt = (rev: number) =>
+      stateOf({ ask: "waiting", questions: [{ itemId: "database", rev, state: "open" }] });
+    const reviseTo = (rev: number) => {
+      const [question] = plainChoiceBoardDocument.items;
+      return revised(rev, [{ ...question, rev }]);
+    };
+
+    test("after an agent update, a receipt, an agent status and a settled act carry no document", async () => {
+      const run = await opened();
+      const changed = reviseTo(2);
+      run.socket(1).receive({ version, type: "board", document: changed }, stateAt(2));
+      expect(run.updates.at(-1)?.document).toEqual(changed);
+      const before = run.updates.length;
+      run.socket(1).receive({ version, type: "receipt", itemId: "database", receipt: "delivered" });
+      run.socket(1).receive(stateAt(2));
+      await run.view(answer);
+      await settled();
+      expect(run.updates.length).toBeGreaterThan(before);
+      for (const update of run.updates.slice(before)) expect(update.document).toBeUndefined();
+    });
+
+    test("every change the agent makes reaches the view, once each", async () => {
+      const run = await opened();
+      const [question] = plainChoiceBoardDocument.items;
+      const second = reviseTo(2);
+      const third = revised(3, [{ ...question, rev: 3 }]);
+      const added = revised(4, [
+        { ...question, rev: 3 },
+        { ...question, id: "cache", rev: 1 },
+      ]);
+      run.socket(1).receive({ version, type: "board", document: second }, stateAt(2));
+      run.socket(1).receive({ version, type: "receipt", itemId: "database", receipt: "delivered" });
+      run.socket(1).receive({ version, type: "board", document: third }, stateAt(3));
+      run.socket(1).receive(
+        { version, type: "board", document: added },
+        stateOf({
+          ask: "waiting",
+          questions: [
+            { itemId: "database", rev: 3, state: "open" },
+            { itemId: "cache", rev: 1, state: "open" },
+          ],
+        } as unknown as BoardState),
+      );
+      const sentDocuments = run.updates.flatMap((update) =>
+        update.document === undefined ? [] : [update.document],
+      );
+      expect(sentDocuments).toEqual([second, third, added]);
+    });
+
+    test("a document received before the view loads is the one it boots with, and not sent again", async () => {
+      const run = setUp();
+      const changed = reviseTo(2);
+      run.socket(1).receive({ version, type: "board", document: changed }, stateAt(2));
+      await settled();
+      expect(run.loads[0]?.document).toEqual(changed);
+      expect(run.updates.every((update) => update.document === undefined)).toBe(true);
+    });
+  });
 });
 
 describe("a closed ask (ask-lifecycle: FR-6; Board banner, Closed and Unsent work)", () => {

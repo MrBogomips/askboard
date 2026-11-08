@@ -8,10 +8,13 @@ import {
   ANSWER_EVENT_MAX_CHARS,
   type AnswerEvent,
   type Change,
+  fieldCheckMessage,
+  fieldCheckProp,
   type QuestionProps,
   WIDGET_TYPES,
   type WidgetType,
   widgetAnswerProblems,
+  widgetFieldCheck,
 } from "@askboard/contract";
 import { answerInReferenceAddressing, referenceAddressing } from "../molecules/addressing.ts";
 import type { ExpansionMap } from "../molecules/map.ts";
@@ -96,6 +99,28 @@ export const answerRequirementProblem = (
     if (item === undefined) continue;
     const [first] = widgetAnswerProblems({ type: item.type, id }, result, answer, types);
     if (first !== undefined) return first;
+  }
+  return undefined;
+};
+
+/**
+ * Why a field of the question fails its check against the answer's results, if one does (form-widget
+ * design decisions 2 and 3): the first item, in document order and at any depth, whose type's
+ * `fieldCheck` fails for its result, or for none when the answer gives it none. The sentence names
+ * the item and the check. The checks run on the items as sent (a field takes no edited value) and
+ * are the contract's own, the view's too. The TextField's `pattern` is no check here: the session
+ * process runs no agent pattern on user text (NFR-10, AD-8). Called for answers only, so a decline
+ * and a note are unaffected, after `answerRequirementProblem`.
+ */
+export const fieldCheckProblem = (
+  content: WidgetContent,
+  types: readonly WidgetType[] = WIDGET_TYPES,
+): string | undefined => {
+  for (const item of content.sent) {
+    const result = Object.hasOwn(content.results, item.id) ? content.results[item.id] : undefined;
+    const failure = widgetFieldCheck(item, result, types);
+    if (failure === undefined) continue;
+    return `item "${item.id}" ${fieldCheckMessage(failure)} (${fieldCheckProp(failure)})`;
   }
   return undefined;
 };

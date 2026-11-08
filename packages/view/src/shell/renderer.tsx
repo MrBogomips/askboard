@@ -180,7 +180,7 @@ export const RenderItem = ({
   const record = useSyncExternalStore(draft.subscribe, draft.record);
   const heldResults = useSyncExternalStore(results.subscribe, results.record);
   const heldEntries = useSyncExternalStore(entries.subscribe, entries.record);
-  const board = withEntries(boardContent(record), heldEntries);
+  const board = withEntries(boardContent(record), heldEntries, heldResults);
   const onDerived = useCallback(
     (values: DerivedValues) => derived.report(item.id, values),
     [derived, item.id],

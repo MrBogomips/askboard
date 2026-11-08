@@ -979,3 +979,54 @@ export {
   type TabsProps,
   tabsPropsProblems,
 } from "./widgets/tabs/index.ts";
+
+// The safe subset of a TextField's pattern (form-widget, design decision 3): the one-pass check
+// `ask` and `update` run, and its limits.
+
+export {
+  PATTERN_MAX_CHARS,
+  PATTERN_MAX_REPEATS,
+  PATTERN_TEXT_MAX_CHARS,
+  patternProblem,
+} from "./widgets/shared/pattern.ts";
+
+// The field checks of the input fields (form-widget, design decision 2): the failure a value can
+// have, `required` and the TextField's length and pattern, and the check through the registry.
+
+export { dateFieldFieldCheck } from "./widgets/date-field/checks.ts";
+export {
+  type FieldCheckFailure,
+  fieldCheckMessage,
+  fieldCheckProp,
+  requiredFailure,
+  requiredPropProblems,
+} from "./widgets/field-checks.ts";
+export { moneyFieldFieldCheck } from "./widgets/money-field/checks.ts";
+export { numberFieldFieldCheck } from "./widgets/number-field/checks.ts";
+export {
+  patternRunCount,
+  textFieldFieldCheck,
+  textFieldLimit,
+  textFieldPatternFailure,
+} from "./widgets/text-field/checks.ts";
+export { toggleFieldCheck } from "./widgets/toggle/checks.ts";
+export { widgetFieldCheck } from "./widgets/widget-field-check.ts";
+
+// The PickField (form-widget, design decision 4), unregistered until its component's chunk exists:
+// its entry with its limits and checks.
+
+export {
+  PICK_FIELD_MAX_OPTIONS,
+  PICK_FIELD_MIN_OPTIONS,
+  PICK_FIELD_SCHEMA_IDS,
+  PICK_FIELD_WIDGET,
+  PICK_FILTER_OVER,
+  type PickFieldItem,
+  type PickFieldProps,
+  type PickFieldResult,
+  type PickOption,
+  pickFieldFieldCheck,
+  pickFieldPropsProblems,
+  pickFieldResultProblems,
+  pickFieldResultShape,
+} from "./widgets/pick-field/index.ts";

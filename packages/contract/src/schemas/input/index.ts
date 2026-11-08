@@ -9,7 +9,9 @@
 // chart-widget's admits the Chart as a widget item (design decision 11);
 // atoms' marks an option's preview as Markdown with `previewFormat` (design decision 11);
 // layouts' admits the Stack, the Row, the Group and the Tabs layout as items, and the items they hold in a question's
-// items (design decisions 1, 3 and 8).
+// items (design decisions 1, 3 and 8);
+// form-widget's admits `required` on the input atoms, a TextField's `minLength` and `pattern`, and the PickField
+// (design decisions 2, 3 and 4).
 
 import type { MoleculeProps } from "../../molecules/index.ts";
 import moleculeDefinition from "../../molecules/molecule-definition.json" with { type: "json" };
@@ -33,7 +35,7 @@ import update from "./update.json" with { type: "json" };
 // The question props with each registered type's item composed in.
 const questionProps = composeQuestionProps(questionPropsBase);
 
-export const INPUT_FORMAT_VERSION = "1.10";
+export const INPUT_FORMAT_VERSION = "1.11";
 
 export const inputFormat: SchemaSet = {
   name: "input",
