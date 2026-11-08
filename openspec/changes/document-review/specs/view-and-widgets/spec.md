@@ -23,7 +23,7 @@ A Document review SHALL show its `title` as text and its document through the sh
 - **THEN** the board shows the first as text and the second's text with no link, and nothing runs
 
 #### Scenario: A long unspaced word
-- **WHEN** a title, a document, a comment and a replacement each hold 200 characters with no space, on a board 1,280 pixels wide
+- **WHEN** a title of 120 characters with no space, and a document word, a comment and a replacement of 200 characters with no space, are shown on a board 1,280 pixels wide
 - **THEN** each wraps inside the widget frame, and the board scrolls no wider than the frame
 
 ### Requirement: Commenting on a passage
@@ -90,18 +90,22 @@ A Document review SHALL hold its annotations as the item's result in the draft r
 - **THEN** the answer carries the Approval's result and none for the Document review
 
 ### Requirement: Detached annotations
-When the agent changes a Document review's document, a held annotation whose quote no longer has exactly one place, or whose place overlaps an earlier one, SHALL be listed under the document as detached, with its quote, its text and "Delete", and never moved or dropped. While one is listed, the question's "Answer", "Accept recommended", "Select recommended" and Submit SHALL not send it, and the hint SHALL say why, except on a revision the board cannot show (AD-10, NFR-10).
+A held annotation whose quote has no single place in the document of the revision the card shows, or whose place overlaps an earlier one, SHALL be listed under the document as detached, with its quote, its text and "Delete", never moved or dropped. While one is listed, "Answer", "Accept recommended", "Select recommended" and Submit SHALL not send it, and the hint SHALL say why, except on a revision the board cannot show (AD-10, NFR-10).
 
-#### Scenario: A commented sentence rewritten
-- **WHEN** the user has commented on "remembers" and the agent's revision replaces that word, and the user keeps the draft
-- **THEN** the comment is listed as detached, "Answer" sends nothing, and the hint says to delete the detached comments first
+#### Scenario: A comment put back on a rewritten sentence
+- **WHEN** the user answered with a comment on "remembers", the agent reopens the question with a revision that replaces that word, and the user presses "Start from my previous answer"
+- **THEN** the comment is listed as detached, "Answer" sends nothing, and the hint says to delete the detached comments first, also after a reload
+
+#### Scenario: Kept work on its own revision
+- **WHEN** the user has commented on "remembers" in revision 1, the agent's revision replaces that word, and the user chooses "Keep mine" with no reload
+- **THEN** the card shows revision 1 with the comment marked, nothing is listed as detached, no hint shows, and "Answer" sends the comment naming revision 1
 
 #### Scenario: The detached comment deleted
 - **WHEN** the user deletes the detached comment
 - **THEN** the hint is gone and "Answer" sends the remaining annotations
 
 #### Scenario: A passage the revision kept
-- **WHEN** the agent's revision changes another paragraph only
+- **WHEN** annotations are put back on a revision that changed another paragraph only
 - **THEN** each annotation keeps its place, mark and pin
 
 #### Scenario: Inside a hidden tab
@@ -109,7 +113,7 @@ When the agent changes a Document review's document, a held annotation whose quo
 - **THEN** that tab shows its mark
 
 ### Requirement: A Document review at the keyboard
-The document SHALL be one Tab stop whose Up, Down, Home and End move the current block (a paragraph, heading, list item, table cell or code block), and whose Left and Right move between the current block's pins; Enter opens the current pin's card. With no text selected, "Comment" and "Suggest edit" SHALL anchor the current block's text. The toolbar SHALL be another Tab stop (EXPERIENCE, Accessibility Floor).
+The document SHALL be one Tab stop, apart from the links it holds, whose Up, Down, Home and End move the current block (a paragraph, heading, list item, table cell or code block), and whose Left and Right move between the current block's pins; Enter opens the current pin's card. With no text selected, "Comment" and "Suggest edit" SHALL anchor the current block's text. The toolbar SHALL be another Tab stop (EXPERIENCE, Accessibility Floor).
 
 #### Scenario: A comment from the keyboard
 - **WHEN** the user tabs into the document, presses Down twice, then tabs to the toolbar and presses "Comment"
@@ -120,18 +124,22 @@ The document SHALL be one Tab stop whose Up, Down, Home and End move the current
 - **THEN** no card opens, and the message asks for a shorter passage selected with the pointer
 
 ### Requirement: Links in a Document review
-A link in a Document review SHALL open as a Markdown Text's link does. The board page SHALL open it only when the URL passes the contract's link check and the item the message names is a Document review of the board document, at any depth of its question's layouts. In a Snapshot it SHALL open in a new tab with no opener and no referrer (AD-8).
+A link in a Document review SHALL open as a Markdown Text's link does, on a click of the link alone; a pin or a suggested replacement after link text SHALL never open it. The board page SHALL open it only when the URL passes the contract's link check and the item the message names is a Document review of the board document, at any depth of its question's layouts. In a Snapshot it SHALL open in a new tab with no opener and no referrer (AD-8).
 
 #### Scenario: A link clicked
 - **WHEN** the user clicks an `https:` link in a Document review on the live board
 - **THEN** the board page opens it in a new tab
+
+#### Scenario: A pin at the end of a link
+- **WHEN** a comment's passage ends inside the text of the link "docs", and the user clicks its pin or presses Enter on it
+- **THEN** its card opens, no link opens, and the link's accessible name is still exactly "docs"
 
 #### Scenario: A message naming another item
 - **WHEN** an open-link message names a Chart's item ID
 - **THEN** the board page opens nothing and logs the refusal with no agent text
 
 ### Requirement: A Document review read-only and in Snapshots
-Once its question is answered, locked or shown in a Snapshot, a Document review SHALL show its annotations' marks and pins and open their cards read-only, with no toolbar, "Edit" or "Delete". An annotation that has no place in the shown revision SHALL be listed as detached, without actions (AD-15, FR-26).
+Once its ask is closed or the board is locked, or in a Snapshot, a Document review SHALL show its annotations' marks and pins and open their cards read-only, with no toolbar, "Edit" or "Delete". An annotation that has no place in the shown revision SHALL be listed as detached, without actions (AD-15, FR-26).
 
 #### Scenario: A Snapshot of an answered review
 - **WHEN** a Snapshot of a board with an answered Document review is opened from `file://`
@@ -151,6 +159,17 @@ While a card shows a revision other than the one its answer names, as after a re
 #### Scenario: Reload makes it editable
 - **WHEN** the user then chooses "Reload, losing my work"
 - **THEN** the line goes, the comment is gone, and a selection can be commented on the current revision
+
+### Requirement: The answer gates read the revision the card shows
+"Answer", "Accept recommended", "Select recommended", Submit and a tab's correction mark SHALL read a question's fields, entries and reasons at the revision its card shows, which is the revision the answer names, as the card's state and hint do: after "Keep mine", while the card shows the kept revision, a field passes or fails by that revision's props, and a press never refuses what the card shows as ready (NFR-10, AD-10, AD-20).
+
+#### Scenario: Keep mine across a stricter revision
+- **WHEN** the user has chosen an option of a question that also holds an empty TextField, the agent's revision makes that field required, and the user chooses "Keep mine" with no reload
+- **THEN** the card shows the earlier revision with no hint, and "Answer" sends the answer naming that revision
+
+#### Scenario: Submit after Keep mine
+- **WHEN** in submitted delivery the user marks such an answer ready, the agent's revision makes the empty field required, the user chooses "Keep mine" with no reload and presses Submit
+- **THEN** Submit sends the held answer naming the earlier revision
 
 ### Requirement: Document review strings
 Every string a Document review shows SHALL come from the view's tables in en-US and it-IT: the toolbar, the counter, the cards, the detached list, the refusals and the hint (FR-34; EXPERIENCE, Voice and Tone).
