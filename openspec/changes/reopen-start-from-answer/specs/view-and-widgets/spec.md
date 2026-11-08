@@ -84,6 +84,10 @@ The first edit of an answered question SHALL put its latest answer's widget valu
 - **WHEN** the user answers 7 in a NumberField, the agent sets its maximum to 5, the user chooses "Keep mine" and answers, then edits another field of the question
 - **THEN** the NumberField shows no value, and the revised answer carries no result for it
 
+#### Scenario: A result cleared during a revision
+- **WHEN** a question answered with a TextField's text and a NumberField's value is revised by emptying the TextField, and "Answer" is pressed
+- **THEN** the TextField shows empty while the revision lasts, and the revised answer carries the NumberField's value and no result for the TextField
+
 #### Scenario: Revising one of two edited widgets
 - **WHEN** a question answered with edits to a Timeline and a Kanban is revised by moving one more Kanban card, and "Answer" is pressed
 - **THEN** the revision carries both widgets' values, and its `changes` hold the earlier Timeline edit and both Kanban moves
