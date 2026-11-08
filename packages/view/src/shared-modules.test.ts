@@ -3,7 +3,7 @@ import { provide, shared } from "./shared-modules.ts";
 
 describe("the shared-module registry (design decision 7)", () => {
   test("a module one chunk provides is the one the next chunk gets", () => {
-    const module = { RadioGroup: {} };
+    const module = { Checkbox: {} };
     provide("test-radix-ui", module);
     expect(shared("test-radix-ui")).toBe(module);
   });

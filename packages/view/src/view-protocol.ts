@@ -215,10 +215,19 @@ export type AnswerReply =
   | { readonly outcome: "queued" }
   | { readonly outcome: "refused"; readonly detail: string };
 
-/** The board page's reply to an answer or an act command, naming the action ID it gave it. */
+/**
+ * The size of a message the board page refused to send and the limit it passed, in UTF-8 bytes
+ * (oversized-acts, design decision 2).
+ */
+export type MessageSize = { readonly bytes: number; readonly max: number };
+
+/**
+ * The board page's reply to an answer or an act command, naming the action ID it gave it. A
+ * command refused for passing the message limit carries its `size`.
+ */
 export type ActReply =
   | { readonly outcome: "sent" | "queued"; readonly actionId: string }
-  | { readonly outcome: "refused"; readonly detail: string };
+  | { readonly outcome: "refused"; readonly detail: string; readonly size?: MessageSize };
 
 export type ViewToolCall = {
   readonly name: string;
@@ -239,11 +248,14 @@ export type PendingAct = { readonly actionId: string; readonly outcome: "sent" |
 
 /**
  * How a command the board page held ended: applied (`done`), refused by `board-host`, or dropped
- * by the board page, since the board changed under it while it was not live (AD-10).
+ * by the board page, since the board changed under it while it was not live (AD-10). A command
+ * refused because its socket was closed as too large is `refused` with `tooLarge` (oversized-acts,
+ * design decision 3).
  */
 export type SettledAct = {
   readonly actionId: string;
   readonly outcome: "done" | "refused" | "dropped";
+  readonly tooLarge?: true;
 };
 
 /** A draft record to restore, numbered so that the view restores each once. */
@@ -734,8 +746,33 @@ export const readActReply = (content: unknown): ActReply | undefined => {
   if ((outcome === "sent" || outcome === "queued") && typeof actionId === "string") {
     return ACTION_ID.test(actionId) ? { outcome, actionId } : undefined;
   }
-  if (outcome === "refused" && typeof detail === "string") return { outcome, detail };
+  if (outcome === "refused" && typeof detail === "string") {
+    const size = readMessageSize(content.size);
+    return size === undefined ? { outcome, detail } : { outcome, detail, size };
+  }
   return undefined;
+};
+
+/**
+ * The board page's reply to the view's draft: the questions whose work it left out of the record
+ * it mirrors, as IDs (oversized-acts, design decision 4); none when the whole record fits. A
+ * refusal or a malformed reply is `undefined`, so the latest good reply stands.
+ */
+export const readDraftReply = (content: unknown): readonly string[] | undefined => {
+  if (!isRecord(content) || content.outcome === "refused") return undefined;
+  const { leftOut } = content;
+  if (leftOut === undefined) return [];
+  if (!Array.isArray(leftOut)) return undefined;
+  return leftOut.every((id) => typeof id === "string" && ID.test(id)) ? leftOut : undefined;
+};
+
+// A size is two positive safe integers; anything else is dropped, never trusted for a line the
+// user reads.
+const readMessageSize = (value: unknown): MessageSize | undefined => {
+  if (!isRecord(value)) return undefined;
+  const { bytes, max } = value;
+  const positive = (n: unknown): n is number => Number.isSafeInteger(n) && (n as number) > 0;
+  return positive(bytes) && positive(max) ? { bytes, max } : undefined;
 };
 
 /** The tool result that carries an update to the view. */
@@ -770,7 +807,8 @@ const isPendingAct = (value: unknown): value is PendingAct =>
 const isSettledAct = (value: unknown): value is SettledAct =>
   isRecord(value) &&
   isActionId(value.actionId) &&
-  (value.outcome === "done" || value.outcome === "refused" || value.outcome === "dropped");
+  (value.outcome === "done" || value.outcome === "refused" || value.outcome === "dropped") &&
+  (value.tooLarge === undefined || value.tooLarge === true);
 
 const isRestore = (value: unknown): value is DraftRestore =>
   isRecord(value) &&

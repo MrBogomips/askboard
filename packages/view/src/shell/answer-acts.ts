@@ -31,6 +31,11 @@ export type AnswerActs = {
   replied(key: number, reply: ActReply | undefined): void;
   /** The command did not reach the board page: its questions are open again. */
   drop(key: number): void;
+  /**
+   * The replied commands the settled list marks as refused for being too large (oversized-acts,
+   * design decision 3): read before `reconcile`, which settles them as it does any refusal.
+   */
+  tooLarge(settled: readonly SettledAct[]): readonly Flight[];
   /** An update came: each replied command it no longer holds settles; returns those done. */
   reconcile(pending: readonly PendingAct[], settled: readonly SettledAct[]): readonly Flight[];
   /** Moves on each change: what a view of every command follows. */
@@ -72,6 +77,14 @@ export const createAnswerActs = (): AnswerActs => {
     },
     drop: (key) => {
       if (flights.delete(key)) changed();
+    },
+    tooLarge: (settled) => {
+      const marked = new Set(
+        settled.flatMap((entry) => (entry.tooLarge === true ? [entry.actionId] : [])),
+      );
+      return [...flights.values()].filter(
+        (flight) => flight.actionId !== undefined && marked.has(flight.actionId),
+      );
     },
     reconcile: (pending, settled) => {
       const done: Flight[] = [];

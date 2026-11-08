@@ -452,4 +452,14 @@ export const IT_IT = {
   "table.problem.value": "{column}: un valore del tipo sbagliato.",
   "table.problem.divisionByZero": "{column}: divisione per zero.",
   "change.widgetTable": "Tabella",
+
+  // The texts for a message too large are provisional, to review (oversized-acts, task 1.4).
+  "send.tooLarge":
+    "Non inviata: questa risposta è troppo grande ({size} MB, al massimo {max} MB). Accorcia il tuo lavoro su questa domanda, poi rispondi di nuovo.",
+  "send.tooLargeSubmit":
+    "Non inviate: l'invio è troppo grande per una volta sola ({size} MB, al massimo {max} MB). Passa a Immediata e rispondi alle domande una alla volta, o accorcia il tuo lavoro.",
+  "send.tooLargeClosed":
+    "Non inviata: la board ha rifiutato questa risposta perché troppo grande. Accorcia il tuo lavoro su questa domanda, poi rispondi di nuovo.",
+  "draft.tooLarge":
+    "Troppo grande per conservarlo dopo un ricaricamento: rispondi a questa domanda prima di ricaricare, o accorcia il tuo lavoro.",
 } as const satisfies StringTable;
