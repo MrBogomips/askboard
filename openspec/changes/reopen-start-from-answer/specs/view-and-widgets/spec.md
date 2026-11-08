@@ -20,6 +20,14 @@ When the agent reopens a question and the board state lists the question itself 
 - **WHEN** the user moves a Timeline entry and answers, the agent reopens the question, and the user reloads the board
 - **THEN** the Timeline shows the moved entry with its change mark, and the notice reads "Your previous answer is filled in. Change it or answer again."
 
+#### Scenario: A reload with no draft record held
+- **WHEN** a reopened question qualifies for the prefill, `board-host` holds no draft record for the ask, and the user reloads the board
+- **THEN** the question is filled once, with the first state the view receives
+
+#### Scenario: A restored draft comes first
+- **WHEN** the user reloads a board whose restored draft record holds work on a reopened question's current revision
+- **THEN** the question shows that work, and nothing of the previous answer is filled over it
+
 #### Scenario: Answering again keeps the earlier edit
 - **WHEN** on that reopened question the user moves a second entry and presses "Answer"
 - **THEN** the answer names the current revision and its `changes` hold both moves

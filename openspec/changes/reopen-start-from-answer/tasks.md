@@ -6,11 +6,11 @@ Each task writes its tests first and sees them fail for the right reason before 
 - "Coverage" means at least 80% of lines and functions for every source file the task changes, read from `bun test --coverage`'s per-file table.
 - "Browser files" means the named files run with `bun packages/view/test/browser/run.ts --engines chromium,webkit --target session-process`, under the browser lock.
 
-Order: group 0, then 1, 2, 3 and 4, in order. Inside group 2, 2.1 comes before 2.2 and 2.3. Inside group 3, 3.2 may run beside 3.1. No group runs in parallel with another: group 2 reads the types group 1 adds.
+Order: group 0, then 1, 2, 3 and 4, in order. Inside group 2: 2.1, then 2.6, then 2.2 and 2.3 (2.3 relies on 2.6's opening order), then 2.4, and the checkpoint 2.5 last, over the whole group, 2.6 included. Inside group 3, 3.2 may run beside 3.1. No group runs in parallel with another: group 2 reads the types group 1 adds.
 
 ## 0. Base
 
-- [ ] 0.1 Names, versions, signals and baseline (askboard-contract-versioning, Rule 3; design.md, Merge points and decisions 3 and 7). Tests: none.
+- [x] 0.1 Names, versions, signals and baseline (askboard-contract-versioning, Rule 3; design.md, Merge points and decisions 3 and 7). Tests: none.
   - Check with `git grep -n` on `origin/main` every name design.md borrows, and record each with its file and line.
   - Record every `*_VERSION` and `*_FORMAT` constant of `packages/contract/src`. The board protocol and the Snapshot data start at main's minor plus one in task 1.1; the others stay.
   - Record the head of each branch in Merge points, and whether it moved since the head named there. Record whether `document-review` has merged.
@@ -22,6 +22,7 @@ Order: group 0, then 1, 2, 3 and 4, in order. Inside group 2, 2.1 comes before 2
   - Heads: `document-review` is a local branch only, 02ed0dfb (design named 2c35cf1e), not merged, labels input 1.13, output 1.12, tool envelopes 1.13, board document 1.12, board protocol 1.8, Snapshot data 1.1: no collision. `snapshot-toolbar` (PR #94) e48c40fc holds Snapshot data 1.2: COLLISION with this change's 1.2; whichever merges second rebinds (to 1.3 if this one). `wbs-gantt-consistency` 02f273c8: no set moves. `keyboard-help` 101a9498 as named. `diagram`, `diagram-render`, `diff-review`, `graph`, `image-annotation`, `spreadsheet`: heads as named, bases old, no board protocol 1.9 or Snapshot 1.2 label read.
   - Baseline `bun test`: contract 3552 pass, core 1097 pass, view 2002 pass, 0 fail each.
   - NO RESTORE SIGNAL. The page's first restore is `update.restore` (id above `restored`) in `shell/index.tsx:258-299`; it exists only when `board-host` holds a draft (`boards.ts:592-595`, `draftToRestore`, `core.ts:429`). Opener order is board, state (`sendState`), then draft, so the first state reaches the shell before its restore, and a board with no record sends no message at all and sets no `restore` (`controller.ts:380`, `#onDraft` 774). The shell cannot tell "none" from "not yet". Design decision 3 and task 2.3 need one; group 1 does not use it. Stopped per this task's Verify: needs `/opsx:update`.
+  - Gate resolved (`/opsx:update`, 2026-11-08; Refs #70): design decision 9 makes the signal. `board-host` sends a held draft record before the state on connect (the draft opener one place up in `Boards.#openers`, `boards.ts:586`), and the board page's `#onDraft` (`controller.ts:774`) holds the restore until the socket's first state, so the view's first update after a reload or a takeover carries the restore whenever one was held; the shell runs the prefill at the end of each update, after its restore, never on the boot data. Option (a) in its smallest form (the order, no new message), proposed default accepted under the PO's unattended handoff; (b) and (c) are rejected in decision 9. New task 2.6 builds the order; task 2.3 relies on it. The rest of this task's checks were done above, so it is ticked; group 1 runs as written. Snapshot data collides with `snapshot-toolbar` (#94): recorded in design.md, Merge points.
 - [x] 0.2 PO decisions (proposal, open questions 1 to 5). Record each answer under this task: question 1's default was given by the Issue and is accepted under the PO's unattended handoff of 2026-11-08; questions 2 to 5 take their proposed defaults under the same handoff unless the PO answered on Issue #70. Tests: none. Verify: five answers recorded. An answer other than the default stops the work for `/opsx:update` before group 1.
   - Note (done 2026-11-08; Refs #70): the PO answered "Accept all" on Issue #70 on 2026-11-08 (comment: "The PO accepted every proposed default on 2026-11-08"). Recorded as accepted: (1) prefill when unchanged and fitting, else a notice pointing to "Start from my previous answer"; (2) a revision carries untouched widgets' edits, in this change; (3) the gate is the whole question; (4) prefilled work is unsent work; (5) the notice lines of the proposal, en-US and it-IT (Italian to review). No answer differs from its default.
 
@@ -91,12 +92,15 @@ Order: group 0, then 1, 2, 3 and 4, in order. Inside group 2, 2.1 comes before 2
     - `restoreDraft` keeps the mark on the current revision and drops it with a stale one;
     - `hasAnswerWork` is false for a mark alone;
     - `unsent-work.test.ts`: `hasUnsentWork` is false for a mark alone.
-  - Tests first, in a shell test over `channel.onUpdate`:
-    - a state before its restore fills nothing;
-    - after the restore, the question fills once and the mirrored record holds the mark;
+  - Tests first, in a shell test over `channel.onUpdate` (design decisions 3 and 9):
+    - the boot data alone fills nothing, though it holds a qualifying question;
+    - a first update with no restore fills the question once, and the mirrored record holds the mark;
+    - a first update whose restore holds work on the question's current revision fills nothing, and the restored work stands;
+    - a first update whose restore holds the mark alone fills nothing;
+    - a first update whose restore holds work on other questions only fills the question once, after the restore;
     - a second state fills nothing more;
     - a part that does not fit fills nothing and sets no mark.
-  - Then `shell/reopen-prefill.ts`, `QuestionWork`'s mark, the readers above, and the shell's call after each restore, on the signal task 0.1 found.
+  - Then `shell/reopen-prefill.ts`, `QuestionWork`'s mark, the readers above, and the shell's call at the end of each update, after its restore is applied (decision 9's order, built by task 2.6).
   - Verify: the tests fail before and pass after; coverage of every changed file; the check passes.
 - [ ] 2.4 The notice line (view-and-widgets: Reopened question; design decision 5; open question 5).
   - Tests first:
@@ -105,9 +109,24 @@ Order: group 0, then 1, 2, 3 and 4, in order. Inside group 2, 2.1 comes before 2
   - Then the keys in `keys.ts`, `en-US.ts` and `it-IT.ts` (Italian to review), and `carried` from the card (the mark on the current revision).
   - Verify: the tests fail before and pass after; chunk sizes re-recorded with `bun run build:view --record-sizes`, each moved chunk in the note; the check passes.
 - [ ] 2.5 Review checkpoint for group 2. Tests: none (review).
-  - Spec review: every view scenario of group 2 has its test; decisions 2 to 5 hold.
-  - Security review (the view; NFR-10, AD-10): no path carries a value onto an item missing from `unchanged`, or one its `valueFits` refuses; nothing is sent without a press of "Answer" or Submit; the prefill never overwrites restored work; an answer's values equal what the card shows, nested items included.
+  - Spec review: every view and board-host scenario of group 2 has its test; decisions 2 to 5 and 9 hold; `#openers` changed by the one move decision 9 records.
+  - Security review (the view and `board-host`; NFR-10, AD-10, AD-21): no path carries a value onto an item missing from `unchanged`, or one its `valueFits` refuses; nothing is sent without a press of "Answer" or Submit; the prefill never overwrites restored work; an answer's values equal what the card shows, nested items included; the opening still sends nothing of the ask before the token is accepted, and a takeover still restores the older tab's last draft.
   - Verify: the check passes; findings recorded as S-n or X-n and turned into tasks before group 3.
+
+- [ ] 2.6 The held draft before the state on connect (board-host delta: Board protocol over a WebSocket, all its scenarios; view-and-widgets: A reopened question starts from the previous answer, "A restored draft comes first"; design decision 9).
+  - Tests first, in `packages/server/test/board-host/`:
+    - every opening that holds a draft expects the board, the draft, then the state: `connections.test.ts` (the `types(…, 3)` checks at 158, 227 and 438, and the takeover read at 140) and `lifecycle-protocol.test.ts:492` (`["board", "draft", "state", "closed"]`); find the rest with `grep -rn '"draft"' packages/server/test`;
+    - an opening with no record still sends the board then the state, and no draft (the existing `["board", "state"]` checks stand, `settings-connect.test.ts` included).
+  - Tests first, in `packages/view/src/board-page/controller.test.ts`:
+    - a draft before the socket's first state sends the view nothing; the first update after the view loads carries the state and the restore together;
+    - on a reconnect of a page with no record of its own, a draft before the new socket's state reaches the view with that state, never with the previous socket's;
+    - a draft after the state still becomes a restore (the existing test at 549 stands);
+    - a page holding its own record ignores the held one (the existing test at 538, its messages in the new order).
+  - Then:
+    - the draft opener one place up in `Boards.#openers` (`boards.ts:586`), before the state's, and the comment above the table saying the new order and citing this change;
+    - `#onDraft` (`controller.ts:774`) keeps the restore and calls `#updateView` only once the socket's state has been seen (`#stateSeen`);
+    - `draft.json`'s `description`: the held record goes after the board document and before the state on connect.
+  - Verify: the order tests fail before and pass after; the conformance suite passes in its three configurations on Bun (`bun packages/server/test/conformance/run.ts`); coverage of `boards.ts` and `controller.ts`; the check passes.
 
 ## 3. Session scenarios and documents
 
@@ -119,7 +138,7 @@ Order: group 0, then 1, 2, 3 and 4, in order. Inside group 2, 2.1 comes before 2
     - (d) a Timeline and a Kanban, reopen, then a second `update` adding a Kanban card: the agent-change notice shows (prefilled work); "Reload, losing my work"; "Start from my previous answer" carries the Timeline only. "Answer": `ask-core` accepts it, and its changes hold the Timeline move only.
     - (e) the prefill undone by hand, then a reload: no second fill.
     - (f) a Gantt reopened unchanged: "Answer" carries derived values matching the prefilled plan.
-  - Verify: each case fails before group 2's fix (record which, by a mutation of `reopenPrefills` returning none for (a), (b) and (f)) and passes after, in Chromium and WebKit; `keep-mine-reload-session`, `widget-revision` and `result-widgets-session` pass in the same run; counts in the note.
+  - Verify: each case fails before group 2's fix (record which, by a mutation of `reopenPrefills` returning none for (a), (b) and (f)) and passes after, in Chromium and WebKit; `keep-mine-reload-session`, `widget-revision`, `result-widgets-session`, `connection` and `lifecycle-board-page` (reloads and takeovers on decision 9's order) pass in the same run; counts in the note.
 - [ ] 3.2 Documents (design decision 8). Tests: none (documents).
   - EXPERIENCE: Component Patterns, Reopened question; both Voice and Tone rows for Reopened question (en-US and it-IT, Italian to review).
   - DESIGN.md: Reopened question.
@@ -138,7 +157,7 @@ Order: group 0, then 1, 2, 3 and 4, in order. Inside group 2, 2.1 comes before 2
 - [ ] 4.2 Rebase onto `origin/main` and bind the version labels (askboard-contract-versioning).
   - Bind the board protocol and the Snapshot data at main's minor plus one, and move the earlier exact pins.
   - Write the binding line in design.md, decision 7.
-  - Re-check every borrowed name.
+  - Re-check every borrowed name, and that no change merged since edited `Boards.#openers` or `#onDraft` (decision 9).
   - If `document-review` has merged, add decision 2's `revisionBound` clause with a test first in `card-acts.test.ts`.
   - Set CLAUDE.md's Status and an "In code since" line naming the change and its versions.
   - Verify: `git grep` finds each borrowed name on the rebased head; the diff carries no stale number; `bun run check`, `bun run build` and `openspec validate --all --strict --no-interactive` pass; the note records main's SHA, the bound versions and the counts.

@@ -15,7 +15,7 @@ Read on `origin/main` 8e2e1247. See proposal.md, Why.
 1. EXPERIENCE (Component Patterns, Reopened question) and DESIGN.md (Reopened question) say the card starts "with nothing carried over (AD-10)", and that the button "moves it into the draft". The spec agrees ("Reopened question", `openspec/specs/view-and-widgets/spec.md:721`). The start matches. The button does not, for edit widgets: their values are never moved. The PRD is silent on what the board shows after an agent's reopen. AD-20 says only that a reopen "starts a new revision with no answer", which concerns the answer state, not the draft. AD-10's "start with nothing chosen and no value set" concerns what the agent recommends.
 2. A second path loses edits the same way. On an answered question, `revise` (`question-card.tsx:425`) seeds no widget value (molecules decision 11, option A): an item the revision leaves alone shows its answer's value through `BoardContent.shown`. `answer` sends only the draft (`answerContentOf`, `board-draft.ts:659`). So a revision that edits one widget and leaves another edited widget alone sends no value for the second. `ask-core` reads that as no change, and the edit the card showed is lost. This breaks AD-10 (sent equals shown) and the spec's "Revising the WBS … carries both edited values" for any two unlinked widgets. widget-answers' design said "the draft starts from the logged values"; molecules decision 11 left the question to it, and it was never settled.
 
-ADs relied on: AD-7, AD-10, AD-13, AD-20. UX: EXPERIENCE Component Patterns (Reopened question) and Voice and Tone (Reopened question rows); DESIGN.md Reopened question.
+ADs relied on: AD-7, AD-10, AD-13, AD-20, AD-21. UX: EXPERIENCE Component Patterns (Reopened question) and Voice and Tone (Reopened question rows); DESIGN.md Reopened question.
 
 ## Goals / Non-Goals
 
@@ -71,7 +71,7 @@ A pure function in a new `shell/reopen-prefill.ts` takes the document, the board
 - the question holds no work on its current revision;
 - its work holds no `prefilled` mark for that revision.
 
-The shell (`shell/index.tsx`, `channel.onUpdate` at `:242`) runs the function after each update has applied its `restore`. It never runs before the page's first restore has been applied, or before the page has said there is none (task 0.1 finds that signal). For each question returned, it dry-runs the carry:
+The shell (`shell/index.tsx`, `channel.onUpdate` at `:258`) runs the function at the end of every update the board page sends, after that update's `restore` is applied, and never on the boot data alone. Decision 9 makes the first update after a reload or a takeover carry the restore whenever `board-host` held a record, so an update with no restore before it means there is none. For each question returned, it dry-runs the carry:
 
 - if every part fits, it calls `fillFrom` with `previous` and sets the mark;
 - otherwise it fills nothing and sets nothing. The check gives the same answer on the next update, since its inputs have not changed.
@@ -116,7 +116,7 @@ Main holds board protocol 1.8 and Snapshot data 1.1 (read at 8e2e1247; task 0.1 
 - the **board protocol**: `unchanged` in board state answers, and `prefilled` in the draft record;
 - the **Snapshot data**: its schema refers to the board state, as widget-registry's `results` did.
 
-Every other set keeps main's value. The numbers are bound at the rebase task, with the binding line here.
+Every other set keeps main's value. Decision 9 changes the order of the opening, not a schema: the draft message keeps its shape, takes no minor of its own, and only `draft.json`'s `description` says the new order. The numbers are bound at the rebase task, with the binding line here.
 
 Binding: (filled at task 4.2) "Bound on <date>, rebased onto origin/main <sha>: board protocol <n> (main <m>), Snapshot data <n> (main <m>)."
 
@@ -126,9 +126,29 @@ Binding: (filled at task 4.2) "Bound on <date>, rebased onto origin/main <sha>: 
 - **EXPERIENCE**, Voice and Tone: both Reopened question rows gain the two lines.
 - **DESIGN.md**, Reopened question: "with nothing selected" becomes "from the previous answer or from the agent's revision, as its line under the title says".
 - **Spine AD-10**, the "Choice and input widgets start with nothing chosen…" bullet, gains: "A question the agent reopens may start from the user's own previous answer, which the user still sends by an explicit act (AD-20)." Amended in place.
-- **Spine AD-20**, Drafts: the per-question list gains "whether the board started the revision from the question's previous answer". Amended in place.
+- **Spine AD-20**, Drafts: the per-question list gains "whether the board started the revision from the question's previous answer", and "A reconnecting or taking-over board restores it from `ask-core`" gains ", which `board-host` sends before the board state, so the view takes both together" (decision 9). Amended in place.
 - **PRD FR-6** gains one consequence: "When the agent reopens an answered question and changes nothing else, the board starts it from the user's previous answer and says so; otherwise it says it starts from the agent's version, and the user can start from the previous answer explicitly."
 - `updated:` and `sources:` follow each document's convention.
+
+### 9. On connect, the held draft comes before the state
+
+Task 0.1 found that the shell cannot tell "no restore" from "restore not here yet": `board-host`'s opening sends the board, the state, then the draft only when `ask-core` holds one (`Boards.#openers`, `server/src/board-host/boards.ts:586`), and the board page hands the view a restore only when a draft message came (`#onDraft`, `view/src/board-page/controller.ts:774`). Running the prefill before the restore is not safe: the prefill fills the draft, the mirror sends it, and the page then ignores `board-host`'s record because it holds one of its own, so the restored work is lost (NFR-10).
+
+The opening sends the draft before the state: settings, board, draft (when held), state, closed, origin, agent. Nothing else changes:
+
+- `board-host`: the draft opener moves one place up in `#openers`; the takeover still opens the new tab once the flush ends (AD-21), so the record it restores is the older tab's last one, as today.
+- The board page: `#onDraft` keeps the restore and calls `#updateView` only once the socket's state has been seen (`#stateSeen`), so the restore reaches the view together with the socket's first state, never with a previous socket's state. The view loads only after a socket's first state (`#onState`, `#loadView`), so its first update carries the restore whenever one was held. The page still takes a draft after the state, as today's order sends it.
+- The shell: the prefill runs at the end of each update (decision 3). After the first update, a later restore comes only on a reconnect of a page that holds no draft of its own, whose shell then holds no work either; that update applies the restore before the prefill runs.
+
+This reorders an entry of `#openers`, a table push-delivery made, where askboard-contract-versioning Rule 3 asks to append. No change in flight edits `#openers`, `#onDraft` or `board-host`'s requirement "Board protocol over a WebSocket" (branches read on 2026-11-08), so the move is recorded here and re-checked at the rebase task.
+
+*Alternatives:*
+
+- (a) as task 0.1 put it: `board-host` always sends a draft message at open, an empty record when it holds none. Rejected: `board-host` would invent a record, with a delivery mode taken from the document, that the shell then restores over its initial state; and every opening gains a message, which moves every opening-order test and the browser harness's sequences.
+- (b) a `restoreSettled` flag in the `ViewUpdate`, set after a host "opened" marker. Rejected: the marker is a new board-protocol message and the flag a new `UPDATE_FIELDS` member, for what the order alone says.
+- (c) the prefill only on a later state or on the first user act. Rejected: after a plain reload with the agent idle no later state comes, so the Issue's own steps fail; and a first act that refills the card under the user's pointer is worse than no prefill.
+
+Decision: the order change, the smallest form of (a); proposed default accepted under the PO's unattended handoff of 2026-11-08.
 
 ## Merge points
 
@@ -141,6 +161,7 @@ Read on 2026-11-08. If one merges first, the rebase keeps both sides and re-chec
 | `document-review` | `worktree-feature-document-review` 2c35cf1e | Appends `ComponentFacts.revisionBound` (not on `main`), widens `readOnlyItemsOf`, adds `AnswerContext.readOnlyOf`; edits `card-acts.ts`, `question-card.tsx`, `board-content.ts` | Not borrowed until it merges. Then decision 2's rule gains one clause: the result of an item whose facts set `revisionBound` is carried only when the item is in `unchanged`. Task 4.2 adds it with a test, or task 0.1 records that it has not merged. |
 | `diagram-widget`, `diagram-render` | `worktree-feature-diagram` ed783fe5, `worktree-feature-diagram-render` 9281d923 | Both widen the board protocol (`render`); diagram-render also widens the Snapshot data; each registers `valueFits` | Same sets: whichever merges first takes the next minor and the other rebinds. Their `valueFits` feeds decision 2 unchanged. |
 | `graph-widget`, `spreadsheet-widget`, `image-annotation`, `diff-review`, `keyboard-shortcuts-help` | `worktree-feature-graph` 482223d0, `worktree-feature-spreadsheet` 972b9622, `worktree-feature-image-annotation` 1f8f6811, `worktree-feature-diff-review` dfb0e6cb, `worktree-feature-keyboard-help` 101a9498 | Register `valueFits` (Graph, Spreadsheet), borrow `revisionBound` (Image annotation), or neither; none widens the board protocol or the Snapshot data | Nothing to borrow. A new edit widget is carried by decision 2's rule through its own `valueFits`. |
+| `snapshot-toolbar` (#94) | `worktree-fix-snapshot-toolbar` e48c40fc | Takes Snapshot data at the next minor after main's, as this change does; edits `shell/index.tsx`'s boot (theme and density), not `channel.onUpdate` | Whichever merges second rebinds the Snapshot data (task 4.2). Keep both sides of `shell/index.tsx`. |
 | `backlog-issues` (#89) | `worktree-feature-backlog-issues` | `CLAUDE.md` (it moves to `AGENTS.md`) | The Status line goes wherever `main` then keeps it. |
 
 Borrowed from `origin/main` 8e2e1247 (task 0.1 records each with its file and line):
@@ -149,15 +170,17 @@ Borrowed from `origin/main` 8e2e1247 (task 0.1 records each with its file and li
 - `valueFits`, `resultFits`, `hasAnswerWork`, `restoreDraft`, `answerContentOf`, `QuestionWork` (`board-draft.ts`);
 - `valueItemsOf` (`view/src/nested-items.ts`), `ReopenedNotice` (`change-notice.tsx`), `contentOf` (`question-state.ts`), `hasUnsentWork` (`board-page/unsent-work.ts`);
 - `answerView`, `fullAnswer` (`views.ts`), `BoardModel.reopen` (`model.ts`), `canonicalize`, `nestedItemsOf`;
-- the board state's `$defs/answer` and the draft record's `$defs/question`.
+- the board state's `$defs/answer` and the draft record's `$defs/question`;
+- `Boards.#openers` (`server/src/board-host/boards.ts`), `#onDraft`, `#stateSeen` and `#updateView` (`view/src/board-page/controller.ts`), `DraftRestore` (`view/src/view-protocol.ts`) (decision 9; checked by task 2.6 and the rebase task).
 
-Seams this change creates: `unchanged` on the board state's answers, and `prefilled` in the draft record.
+Seams this change creates: `unchanged` on the board state's answers, and `prefilled` in the draft record. Seam this change reorders: the draft opener before the state opener in `Boards.#openers` (decision 9).
 
 ## Risks / Trade-offs
 
 - [The agent reopens in one `update` and changes the question in a later one] → The prefilled draft is unsent work, so the agent-change notice shows (FR-6) though the user typed nothing. This is visible and safe: "Reload" or "Keep mine". An `update` that reopens and changes in one request gives one state with the question changed, so no prefill runs.
 - [A large prefilled answer passes the draft or message limit] → `oversized-acts` handles it as for any draft or answer.
-- [The restore arrives after the first state] → Decision 3 waits for the first restore. Task 2.3 tests a state before its restore.
+- [A restore after the first update] → Only on a reconnect of a page with no draft of its own, whose shell holds no work; the update applies the restore before the prefill (decision 9). Task 2.6 tests the order, task 2.3 the shell.
+- [The boot render comes before the first update] → For one render a qualifying card may show the agent's version and the not-carried line; the first update, sent as the view loads, fills it and turns the line.
 - [Reversing molecules decision 11's seeding] → The draft holds the answer's values from the first edit of a revision. Linked items (Tree and Gantt) stay consistent, since both values come from the same answer. Task 2.2 runs the UJ-2 revision scenario.
 - [Canonical comparison cost on large widgets] → Memoised per pair of revisions (decision 1).
 
