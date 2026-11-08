@@ -13,9 +13,10 @@ const { files, examples } = generateSkill({ widgets });
 const skill = files.get("SKILL.md") ?? "";
 
 describe("the skill with the layouts registered", () => {
-  test("lists each layout on one line, with the use of its entry", () => {
+  test("lists each layout on one catalogue line, with the use of its entry", () => {
+    const catalogue = files.get("references/items.md") ?? "";
     for (const { type, noun, skill: teaching } of LAYOUT_WIDGETS) {
-      const line = skill.split("\n").find((each) => each.startsWith(`- ${noun} (\`${type}\`)`));
+      const line = catalogue.split("\n").find((each) => each.startsWith(`- ${noun} (\`${type}\`)`));
       expect(line, type).toContain(teaching?.use ?? "no use");
     }
   });
@@ -58,10 +59,10 @@ describe("the skill with the layouts registered", () => {
 });
 
 describe("the shipped skill, as the layouts register", () => {
-  test("names the four layouts", () => {
+  test("names the four layouts, each linked to its reference", () => {
     const shipped = generateSkill().files.get("SKILL.md") ?? "";
     expect(shipped).toContain("may sit in layouts");
     for (const type of ["stack", "row", "group", "tabs"])
-      expect(shipped).toContain(`(\`${type}\`)`);
+      expect(shipped).toContain(`[\`${type}\`](references/widgets/${type}.md)`);
   });
 });

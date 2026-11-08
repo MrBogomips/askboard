@@ -12,10 +12,10 @@ const widgets = withWidgetTypes(...ATOM_TYPES);
 const { files } = generateSkill({ widgets });
 
 describe("the skill with the atoms registered", () => {
-  test("lists each atom on one line, with the use of its entry", () => {
-    const skill = files.get("SKILL.md") ?? "";
+  test("lists each atom on one catalogue line, with the use of its entry", () => {
+    const catalogue = files.get("references/items.md") ?? "";
     for (const { type, noun, skill: teaching } of ATOM_TYPES) {
-      const line = skill.split("\n").find((each) => each.startsWith(`- ${noun} (\`${type}\`)`));
+      const line = catalogue.split("\n").find((each) => each.startsWith(`- ${noun} (\`${type}\`)`));
       expect(line, type).toContain(teaching?.use ?? "no use");
     }
   });

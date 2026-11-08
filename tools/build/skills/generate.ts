@@ -18,10 +18,9 @@ import {
 import { lifecycleCollectResult } from "@askboard/contract/fixtures";
 import { MOLECULE_SKILLS, type MoleculeSkill, READY_MOLECULES } from "@askboard/molecules";
 import { type ExampleBody, exampleBlock } from "./blocks.ts";
-import { CONTEXT_TEACHING } from "./context-examples.ts";
+import { catalogueText, itemIndex } from "./catalogue.ts";
 import { contractSchemaResolver, type Schema } from "./fields.ts";
 import {
-  contextTypes,
   renderContextReference,
   renderMoleculeReference,
   renderWidgetReference,
@@ -89,29 +88,6 @@ const layoutNote = (widgets: readonly WidgetType[]): string => {
   return `\n\nA question's \`items\` may sit in layouts (${names}) that hold atoms, widgets and other layouts, four deep at most; context items and molecule references stay in the question's own \`items\`. Item IDs are unique at every depth.`;
 };
 
-const link = (label: string, path: string): string => `[${label}](${path})`;
-
-// One line for each item type a question's `items` may hold, with where to read about it.
-const itemIndex = (
-  widgets: readonly WidgetType[],
-  molecules: readonly MoleculeDefinition[],
-  skills: Readonly<Record<string, MoleculeSkill>>,
-): string =>
-  [
-    ...contextTypes().map((type) => {
-      const use = CONTEXT_TEACHING.find((entry) => entry.type === type)?.use;
-      return `- \`${type}\`: ${use} → ${link("context", "references/context.md")}`;
-    }),
-    ...widgets.map(
-      ({ type, noun, skill }) =>
-        `- ${noun} (\`${type}\`): ${skill?.use} → ${link(type, `references/widgets/${type}.md`)}`,
-    ),
-    ...molecules.map(
-      ({ molecule }) =>
-        `- \`${molecule}\`: ${skills[molecule]?.use} → ${link(molecule, `references/molecules/${molecule}.md`)}`,
-    ),
-  ].join("\n");
-
 // The collect result of the answers reference: the lifecycle fixture's first event, alone.
 const collectExample = (): ExampleBody => {
   const [ask] = lifecycleCollectResult.asks;
@@ -155,7 +131,7 @@ export const generateSkill = (inputs: Partial<SkillInputs> = {}): GeneratedSkill
     { skill: templates.skill, answers: templates.answers },
     {
       askingRules: askingRules(),
-      itemIndex: itemIndex(widgets, molecules, skills),
+      itemIndex: itemIndex(widgets, molecules),
       layoutNote: layoutNote(widgets),
       idPattern: ID_PATTERN.slice(1, -1),
       snapshotFolder: SNAPSHOT_FOLDER,
@@ -172,6 +148,7 @@ export const generateSkill = (inputs: Partial<SkillInputs> = {}): GeneratedSkill
   };
   add("SKILL.md", prose.skill ?? "", []);
   add("references/answers.md", prose.answers ?? "", [collect]);
+  add("references/items.md", catalogueText(widgets, molecules, skills), []);
   for (const [path, { text, examples: own }] of rendered) add(path, text, own);
   return { files, examples };
 };
