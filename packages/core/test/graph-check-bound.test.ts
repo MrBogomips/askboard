@@ -96,6 +96,14 @@ describe("the bound on the send-time warnings", () => {
     expect(size(result)).toBeLessThanOrEqual(MAX);
   });
 
+  test("one warning left out after the first is counted in the singular", () => {
+    const result = boundedFormulaWarnings([warning(0, "z".repeat(MAX)), warning(1)], MAX);
+    expect(result).toHaveLength(1);
+    expect(result[0]?.message).toBe(
+      "The formula at schedule.x0 is in error (missing-reference), and 1 more formula warning is left out.",
+    );
+  });
+
   test("a single warning too large for the budget is the closing one, with none left out", () => {
     const result = boundedFormulaWarnings([warning(0, "z".repeat(MAX))], MAX);
     expect(result).toHaveLength(1);

@@ -86,7 +86,7 @@ export const boundedFormulaWarnings = (
   const first = warnings[kept] as FormulaWarning;
   const left = warnings.length - kept - 1;
   const { itemId, address, error } = first as FormulaWarning & { error: string };
-  const message = `The formula at ${address} is in error (${error}), and ${left} more formula warnings are left out.`;
+  const message = `The formula at ${address} is in error (${error}), and ${left} more formula ${left === 1 ? "warning is" : "warnings are"} left out.`;
   return [...warnings.slice(0, kept), { code: "formula", itemId, address, error, message }];
 };
 

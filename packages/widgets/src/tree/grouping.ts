@@ -99,6 +99,16 @@ export const groupQuestionOf = (
   return Object.freeze({ label, estimates, task: planned, dependents: countDependents([id]) });
 };
 
+/**
+ * Whether `now` says what `shown` said: the same name, the same losses and the same count of
+ * dependents. An open question that no longer does closes, never re-worded in place (decision 3).
+ */
+export const sameQuestion = (shown: GroupQuestion, now: GroupQuestion): boolean =>
+  shown.label === now.label &&
+  shown.estimates === now.estimates &&
+  shown.task === now.task &&
+  shown.dependents === now.dependents;
+
 // What leaves with the leaf: its estimates, its task, or both.
 const losing = ({ estimates, task }: GroupQuestion, text: Say): string =>
   text(

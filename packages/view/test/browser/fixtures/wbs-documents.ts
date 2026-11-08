@@ -55,6 +55,10 @@ const renamed = (nodes: readonly TreeNode[], id: string, label: string): TreeNod
 export const uxNamedDocument = (label: string): ViewDocument =>
   wbsDocumentWith({ ...wbsTree.props, nodes: renamed(wbsTree.props.nodes, "ux", label) });
 
+/** The UJ-2 work breakdown whose Customer portal package is named `label`. */
+export const portalNamedDocument = (label: string): ViewDocument =>
+  wbsDocumentWith({ ...wbsTree.props, nodes: renamed(wbsTree.props.nodes, "portal", label) });
+
 const NEW_CHILD: TreeNode = {
   id: "gateway",
   label: "Gateway",

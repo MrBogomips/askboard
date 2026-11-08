@@ -54,7 +54,14 @@ import {
 import { NO_ROW_EVENTS, type RowDragEvents, type TreeDrag } from "./drag.ts";
 import { useCellEditing } from "./editing.tsx";
 import { TreeGrid } from "./grid.tsx";
-import { type GroupEdit, grouped, groupKey, groupQuestionOf } from "./grouping.ts";
+import {
+  type GroupEdit,
+  type GroupQuestion,
+  grouped,
+  groupKey,
+  groupQuestionOf,
+  sameQuestion,
+} from "./grouping.ts";
 import { treeKeyOf } from "./key-event.ts";
 import { applyAdjustment } from "./model/adjust.ts";
 import { anchorOf, type Current, canAct, currentIn } from "./model/current.ts";
@@ -114,6 +121,8 @@ type AskedGroup = {
   readonly edit: GroupEdit;
   readonly from: TreePart;
   readonly leafId: string;
+  /** What the question said when it opened: it closes when its words would change. */
+  readonly shown: GroupQuestion;
 };
 
 /** The question the toolbar row shows, if any: one at a time. */
@@ -361,9 +370,10 @@ export const TreeWidget = ({
   const askGroup = (edit: GroupEdit, from: TreePart): boolean => {
     const leafId = grouped(value, edit);
     if (leafId === undefined) return false;
-    if (groupQuestionOf(value, edit, { planned, countDependents }) === undefined) return false;
+    const shown = groupQuestionOf(value, edit, { planned, countDependents });
+    if (shown === undefined) return false;
     groupAsked.current = true;
-    setAsked({ kind: "group", edit, from, leafId });
+    setAsked({ kind: "group", edit, from, leafId, shown });
     return true;
   };
   // An edit of the focused node, from a key or a tool, where it is possible.
@@ -473,7 +483,7 @@ export const TreeWidget = ({
       const question = stands
         ? groupQuestionOf(value, open.edit, { planned, countDependents })
         : undefined;
-      return question === undefined
+      return question === undefined || !sameQuestion(open.shown, question)
         ? undefined
         : {
             kind: "group",

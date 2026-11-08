@@ -22,6 +22,7 @@ import {
   crowdedDocument,
   draftValues,
   planWith,
+  portalNamedDocument,
   portalUnderBillingDocument,
   portalWithChildDocument,
   railDocument,
@@ -429,6 +430,27 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await run.update({ type: "state", state: openStateOf(next), document: next });
         await groupQuestion(run.board).waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
         expect(await shownIds(tree)).toContain("gateway");
+        expect((await placeOf(tree, "billing"))[0]).toBe("2");
+        expect(draftValues(run)).toEqual({});
+        expect(await focusInTree(tree)).toBe(true);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "the agent renaming the leaf the question names closes it with nothing applied, and the focus stays in the Tree (never re-worded in place)",
+      async () => {
+        const { run, tree } = await opened();
+        await dropBillingIntoPortal(run, tree);
+        const next = portalNamedDocument("Client portal");
+        await run.update({ type: "state", state: openStateOf(next), document: next });
+        await eventually(
+          async () =>
+            (await tree.cell("portal", 0).textContent())?.includes("Client portal") === true,
+          "the Tree to show the new name",
+        );
+        await groupQuestion(run.board).waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
+        expect(await groupQuestion(run.board, /Client portal/).count()).toBe(0);
         expect((await placeOf(tree, "billing"))[0]).toBe("2");
         expect(draftValues(run)).toEqual({});
         expect(await focusInTree(tree)).toBe(true);

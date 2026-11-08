@@ -3,7 +3,7 @@ import { TREE_MAX_DEPTH, type TreeNode, type TreeProps } from "@askboard/contrac
 import { treeBoardDocument, uj2ExpandedBoardDocument } from "@askboard/contract/fixtures";
 import type { BoardContent } from "@askboard/view/catalog";
 import { chain } from "../../test/tree-model.ts";
-import { type GroupEdit, grouped, groupKey, groupQuestionOf } from "./grouping.ts";
+import { type GroupEdit, grouped, groupKey, groupQuestionOf, sameQuestion } from "./grouping.ts";
 import { linkedDependents } from "./linked.ts";
 import { dropOn } from "./model/drop.ts";
 
@@ -201,5 +201,24 @@ describe("the question's key", () => {
     expect(refused).toMatchObject({ drop: { kind: "refused" } });
     expect(groupKey(refused, "portal")).toContain("build");
     expect(groupKey(refused, "portal")).not.toBe(groupKey(refused, "reporting"));
+  });
+});
+
+// Design decision 3 (review 3.10 X-2): an open question is never re-worded in place; it closes when
+// the words it would show are no longer the words it showed.
+describe("whether a question still says what it said", () => {
+  const shown = { label: "Customer portal", estimates: true, task: true, dependents: 1 };
+
+  test("the same words are the same question", () => {
+    expect(sameQuestion(shown, { ...shown })).toBe(true);
+  });
+
+  test.each([
+    ["a renamed leaf", { label: "Client portal" }],
+    ["a changed estimate", { estimates: false }],
+    ["a changed plan", { task: false }],
+    ["a changed count of dependents", { dependents: 3 }],
+  ])("%s is another question", (_name, change) => {
+    expect(sameQuestion(shown, { ...shown, ...change })).toBe(false);
   });
 });
