@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { TableColumn, TableProps } from "@askboard/contract";
+import type { TableColumn, TableProps, TableRow } from "@askboard/contract";
 import { TABLE_FIXTURE_ITEM } from "@askboard/contract/fixtures";
 import {
   editingStands,
@@ -251,11 +251,37 @@ describe("keys that are not the Table's", () => {
 
 describe("editingStands", () => {
   const rate = ROLES.columns.find((column) => column.field === "rate") as TableColumn;
-  const opened = { rowId: "pm", field: "rate", column: rate };
+  const opened = { rowId: "pm", field: "rate", column: rate, value: "1040.00" };
 
   test("holds while the row exists and the column is the one the editor opened on", () => {
     expect(editingStands(ROLES, opened)).toBe(true);
     expect(editingStands(ROLES, { ...opened, column: { ...rate } })).toBe(true);
+  });
+
+  test("falls when the agent changed the cell's value, and holds when another cell changed", () => {
+    const set = (rowId: string, field: string, value: unknown): TableProps => ({
+      ...ROLES,
+      rows: ROLES.rows.map((row) =>
+        row.id === rowId ? { ...row, [field]: value } : row,
+      ) as TableRow[],
+    });
+    expect(editingStands(set("pm", "rate", "1200.00"), opened)).toBe(false);
+    const { rate: _rate, ...bare } = ROLES.rows[0] as Record<string, unknown>;
+    expect(editingStands({ ...ROLES, rows: [bare as never, ...ROLES.rows.slice(1)] }, opened)).toBe(
+      false,
+    );
+    expect(editingStands(set("dev", "rate", "9.00"), opened)).toBe(true);
+    expect(editingStands(set("pm", "role", "Other"), opened)).toBe(true);
+  });
+
+  test("a cell that held nothing stands until the agent gives it a value", () => {
+    const days = ROLES.columns.find((column) => column.field === "days") as TableColumn;
+    const none = { rowId: "pm", field: "days", column: days, value: undefined };
+    const row = ROLES.rows[0] as Record<string, unknown>;
+    const bare = { ...ROLES, rows: [{ id: "pm" }, ...ROLES.rows.slice(1)] } as TableProps;
+    expect(row.days).toBeDefined();
+    expect(editingStands(bare, none)).toBe(true);
+    expect(editingStands(ROLES, none)).toBe(false);
   });
 
   test("falls when the row or the column is gone", () => {
@@ -281,8 +307,12 @@ describe("editingStands", () => {
     expect(editingStands(swap({ ...rate, type: "text" }), opened)).toBe(false);
     expect(editingStands(swap({ ...rate, label: "Other" }), opened)).toBe(false);
     const amount = ROLES.columns.find((column) => column.field === "amount") as TableColumn;
-    expect(editingStands(ROLES, { rowId: "pm", field: "amount", column: amount })).toBe(false);
+    expect(
+      editingStands(ROLES, { rowId: "pm", field: "amount", column: amount, value: undefined }),
+    ).toBe(false);
     const billable = ROLES.columns.find((column) => column.field === "billable") as TableColumn;
-    expect(editingStands(ROLES, { rowId: "pm", field: "billable", column: billable })).toBe(false);
+    expect(
+      editingStands(ROLES, { rowId: "pm", field: "billable", column: billable, value: undefined }),
+    ).toBe(false);
   });
 });

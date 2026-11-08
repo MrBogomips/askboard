@@ -12,6 +12,7 @@
 
 import { describe, expect, test } from "bun:test";
 import type { TableProps } from "@askboard/contract";
+import type { Locator } from "playwright";
 import type { ViewDocument } from "../../src/view-document.ts";
 import type { ViewUpdate } from "../../src/view-protocol.ts";
 import { atomDocument } from "./fixtures/atom-documents.ts";
@@ -734,6 +735,72 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         );
         await released(run, table);
         expect(await cellOf(table, "pm", "role").getAttribute("aria-checked")).toBe("true");
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    // An editor open on a cell whose value the agent changes (review X-2 of review-table-g7): it
+    // closes without a commit, so the agent's value is never answered back as the user's.
+    const agentSets = (rate: string): TableProps =>
+      rolesWith({
+        rows: ROLES.rows.map((row) => (row.id === "pm" ? { ...row, rate } : row)),
+      } as never);
+    const openAndChange = async (): Promise<{
+      run: WidgetHostRun;
+      table: TableGrid;
+      editor: Locator;
+      document: ViewDocument;
+    }> => {
+      const document = tableDocument();
+      const run = await host(dist, document);
+      await readyIn(run);
+      const table = tableGridOf(run.board);
+      const editor = await openEditor(run.board, table, "pm", "rate", RATE_PM);
+      return { run, table, editor, document };
+    };
+    const agentValueKept = async (run: WidgetHostRun, table: TableGrid): Promise<void> => {
+      await eventually(
+        async () => (await cellText(table, "pm", "rate")) === "$1,200.00",
+        "the agent's value",
+      );
+      expect(await table.frame.getByRole("textbox").count()).toBe(0);
+      expect(await counterText(table)).toBe("No changes");
+      expect(draftCellEntries(run) ?? {}).toEqual({});
+    };
+
+    test(
+      "an editor opened and left without typing, after the agent changed its cell, commits nothing: the agent's value stays and no change is counted",
+      async () => {
+        const { run, table, editor, document } = await openAndChange();
+        await run.update(revise(document, agentSets("1200.00")));
+        await editor.waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
+        await cellOf(table, "dev", "role").click();
+        await agentValueKept(run, table);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "Enter in an editor the agent changed the cell of, with nothing typed, commits nothing",
+      async () => {
+        const { run, table, editor, document } = await openAndChange();
+        await run.update(revise(document, agentSets("1200.00")));
+        await editor.waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
+        await run.board.page.keyboard.press("Enter");
+        await agentValueKept(run, table);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "typing in an editor the agent changed the cell of, then leaving, closes it without a commit",
+      async () => {
+        const { run, table, editor, document } = await openAndChange();
+        await editor.fill("77");
+        await run.update(revise(document, agentSets("1200.00")));
+        await editor.waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
+        await cellOf(table, "dev", "role").click();
+        await agentValueKept(run, table);
       },
       TEST_TIMEOUT_MS,
     );

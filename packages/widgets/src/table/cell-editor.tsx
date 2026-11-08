@@ -28,8 +28,11 @@ export type CellEditorProps = {
   readonly errorId: string;
   /** What the typed text reads as, for the echo. */
   readonly echoOf: (text: string) => string | undefined;
-  /** Commits the text; returns whether the editor closes. */
-  readonly onCommit: (text: string, by: CommitBy) => boolean;
+  /**
+   * Commits the text; returns whether the editor closes. `changed` is false when the text is the
+   * one the editor opened with: nothing was typed, so nothing is committed.
+   */
+  readonly onCommit: (text: string, by: CommitBy, changed: boolean) => boolean;
   readonly onCancel: () => void;
   /** The text changed, so a field error no longer applies. */
   readonly onEdit: () => void;
@@ -71,14 +74,14 @@ export const CellEditor = ({
       onCancel();
     } else if (event.key === "Enter") {
       event.preventDefault();
-      closed.current = onCommit(text, "enter");
+      closed.current = onCommit(text, "enter", text !== initial);
     }
   };
   const onBlur = (event: FocusEvent<HTMLInputElement>): void => {
     const field = event.currentTarget;
     if (closed.current || field.ownerDocument.activeElement === field) return;
     closed.current = true;
-    onCommit(text, "leave");
+    onCommit(text, "leave", text !== initial);
   };
   const onChange = (event: ChangeEvent<HTMLInputElement>): void => {
     setText(event.target.value);

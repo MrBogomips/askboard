@@ -73,11 +73,21 @@ export const settleFocus = (
   return first === undefined ? undefined : focusOf(row.id, first.field);
 };
 
-/** An open editor: the cell, and the column as it was when the editor opened. */
+/**
+ * An open editor: the cell, the column and the cell's value as they were when the editor opened
+ * (`undefined` for a cell that held none).
+ */
 export type EditingCell = {
   readonly rowId: string;
   readonly field: string;
   readonly column: TableColumn;
+  readonly value: unknown;
+};
+
+/** The value a cell holds, `undefined` when the row holds none for the field. */
+export const cellValueOf = (props: TableProps, rowId: string, field: string): unknown => {
+  const row = props.rows.find((candidate) => candidate.id === rowId);
+  return row !== undefined && Object.hasOwn(row, field) ? row[field] : undefined;
 };
 
 const sameValue = (left: unknown, right: unknown): boolean => {
@@ -107,7 +117,8 @@ export const editingStands = (props: TableProps, editing: EditingCell): boolean 
     column !== undefined &&
     isInputColumn(editing.column) &&
     editing.column.type !== "toggle" &&
-    sameValue(column, editing.column)
+    sameValue(column, editing.column) &&
+    sameValue(cellValueOf(props, editing.rowId, editing.field), editing.value)
   );
 };
 

@@ -37,6 +37,7 @@ import { editText, isInputColumn, nextToggle } from "./model/columns.ts";
 import { columnProblems, derivedMarks, formulaErrors, problemText } from "./model/derived.ts";
 import { addRow, deleteRow, fixedRows, setCell } from "./model/edits.ts";
 import {
+  cellValueOf,
   type EditingCell,
   editingStands,
   focusAfterAdd,
@@ -58,10 +59,7 @@ type Entries = ReadonlyMap<string, string>;
 const NO_LINES: readonly RowLine[] = Object.freeze([]);
 const NO_FIELDS: ReadonlySet<string> = new Set();
 
-const held = (value: TableProps, rowId: string, field: string): unknown => {
-  const row = value.rows.find((candidate) => candidate.id === rowId);
-  return row !== undefined && Object.hasOwn(row, field) ? row[field] : undefined;
-};
+const held = cellValueOf;
 
 // A cell entry's key splits at its first dot: a row's ID and a field hold none.
 const splitKey = (key: string): readonly [string, string] => {
@@ -230,8 +228,14 @@ export const TableWidget = ({
     if (moveFocus && editing !== undefined) moveTo.current = editing;
     setEditing(undefined);
   };
-  const commit = (typed: string, by: CommitBy): boolean => {
+  const commit = (typed: string, by: CommitBy, changed: boolean): boolean => {
     if (editing === undefined) return true;
+    // Nothing typed (and no entry the user left there): nothing to commit, whatever the cell holds now.
+    if (!changed && !cellEntries.has(cellKey(editing.rowId, editing.field))) {
+      refuse(undefined);
+      close(by === "enter");
+      return true;
+    }
     const column = columnOf(value, editing.field);
     if (column === undefined) return true;
     const reading = readCell(typed, column, locale, language);
@@ -278,7 +282,12 @@ export const TableWidget = ({
     if (disabled || column === undefined || !isInputColumn(column) || column.type === "toggle") {
       return;
     }
-    setEditing({ rowId: at.rowId, field: at.field, column });
+    setEditing({
+      rowId: at.rowId,
+      field: at.field,
+      column,
+      value: cellValueOf(value, at.rowId, at.field),
+    });
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLTableElement>): void => {
@@ -426,8 +435,7 @@ export const TableWidget = ({
         onCommit={commit}
         onCancel={() => close(true)}
         onEdit={() => {
-          if (editing.error !== undefined)
-            setEditing({ rowId: editing.rowId, field: editing.field, column: editing.column });
+          if (editing.error !== undefined) setEditing({ ...editing, error: undefined });
         }}
       />
     );
