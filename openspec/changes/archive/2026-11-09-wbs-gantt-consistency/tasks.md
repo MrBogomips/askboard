@@ -289,4 +289,5 @@ Inside a group, tasks run in their order.
 ## Workflow follow-up
 
 - Undo of a confirmed group edit arrives with Issue #80 (`edit-undo`), not here.
-- Archive after the pull request merges, with CLAUDE.md's Status naming the change as merged.
+- Archived on 2026-11-09 after #106 merged (ac9f891f), with the pinned CLI (`openspec archive`), which applied the deltas to `compute`, `core` and `view-and-widgets`. The merged "The send-time graph check" ran past the strict validator's 500 characters for a requirement's text, so the rule for the closing warning is its own requirement, "The closing formula warning", in the main spec and in this delta, with the two scenarios that check it; no rule changed.
+- Records: #106 merged with this change's "In code since" paragraph and Status sentence in CLAUDE.md. PR #109 moves the paragraph unchanged to `docs/as-built/wbs-gantt-consistency.md` and drops the Status paragraph; task 3.4, the review of the Italian wording and the Firefox run are on Issue #108. This archive does not edit CLAUDE.md.
