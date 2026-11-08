@@ -124,7 +124,7 @@ its screenshots attached. It sends the coordinating session only the Issue numbe
 - Work on a branch in a worktree based on `origin/main`: one change, one worktree, one branch.
   Location and names are in `CLAUDE.md` (Git / PR Working Policy); without a worktree command of
   your own: `git worktree add .claude/worktrees/feature-<slug> -b worktree-feature-<slug> origin/main`.
-- Never commit to `main`, push to it or merge into it: open a pull request; the PO merges.
+- Agents never merge into `main` or push to it: every change goes through a pull request, which the PO merges. The one exception is a small fix (documents, typos, configuration) that the PO commits on `main` or asks to have committed there (CLAUDE.md, Git / PR Working Policy).
 - Conventional commits: `<type>(<scope>): <description>`, type `feat`, `fix`, `refactor`, `docs`,
   `test`, `chore`, `perf` or `ci`, the scope optional (a package or a change). A commit body may say
   `Refs #n`; only a pull request body says `Closes #n`.

@@ -101,7 +101,7 @@ In code since `table-widget`: one registry entry in `contract` and `widgets` (`t
 
 ## OpenSpec workflow and commands
 
-OpenSpec 1.15.0, schema `spec-driven`. The rules for its artifacts (which IDs proposals and designs cite, capabilities per `SOLUTION-DESIGN.md` §3.1, platforms per NFR-7) are in the `context` field of `openspec/config.yaml`, which every OpenSpec workflow reads: change them there, not here. The same file's `rules` (for designs and tasks) and `operations` (guidance for apply and archive) wire in the agent harness.
+OpenSpec 1.15.0, schema `spec-driven`; run it as `npx --yes @fission-ai/openspec@1.15.0 <command>`, never a global `openspec` of another version (the commands below are shown bare). The rules for its artifacts (which IDs proposals and designs cite, capabilities per `SOLUTION-DESIGN.md` §3.1, platforms per NFR-7) are in the `context` field of `openspec/config.yaml`, which every OpenSpec workflow reads: change them there, not here. The same file's `rules` (for designs and tasks) and `operations` (guidance for apply and archive) wire in the agent harness.
 
 Slash commands, in workflow order: `/opsx:explore` (think; never writes code), `/opsx:propose` (creates the change and all its artifacts, then stops before implementation), `/opsx:update` (revises a change's artifacts), `/opsx:apply` (implements its tasks), `/opsx:verify`, `/opsx:sync` (merges delta specs into `openspec/specs/` without archiving), `/opsx:archive`.
 
