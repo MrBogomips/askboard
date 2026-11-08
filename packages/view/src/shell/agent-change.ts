@@ -6,8 +6,12 @@
 // seen, so that the card keeps showing the revision the work was made on, and "Show the agent's
 // change" can mark what changed; a revision the view never saw (as after a reload) shows unmarked.
 // Pure functions and two small in-memory stores; nothing here is sent or mirrored.
+// `readOnlyItemsOf` names the items of a card that cannot take an edit while it shows another
+// revision than its answer names (keep-mine-shown-revision, design decision 1).
 
 import type { ChoiceOption, Locale } from "@askboard/contract";
+import { componentFacts } from "../catalog/port.ts";
+import { valueItemsOf } from "../nested-items.ts";
 import { t } from "../strings/index.ts";
 import {
   questionsOf,
@@ -16,7 +20,9 @@ import {
   type ViewQuestionProps,
 } from "../view-document.ts";
 import { itemIdsOf, type QuestionWork, resultIdsOf } from "./board-draft.ts";
+import { revisionFor } from "./card-acts.ts";
 import type { DraftRecord } from "./draft-store.ts";
+import type { FactsOf } from "./reason.ts";
 import { type WidgetChange, widgetChanges } from "./widget-changes.ts";
 
 /** "Keep mine", once done: the revision it was about, and the one it kept. */
@@ -94,6 +100,29 @@ export const workingQuestion = (
   work !== undefined && work.rev < question.rev
     ? (revisions.question(question.id, work.rev) ?? question)
     : question;
+
+/**
+ * The IDs, at every depth of the layouts, of the items that take no edit while the card shows
+ * `shown`, a revision other than the one its answer names (`revisionFor`), as after a reload when
+ * the page never saw the revision the work was made on (FR-6, AD-10, AD-20): the items whose type
+ * edits the agent's content, which is to say registers the element `shape` its answer's `changes`
+ * are computed from. An edit made on the shown props would be diffed by `ask-core` against the
+ * kept revision's, and carry the agent's change as the user's. None while the card shows the
+ * revision its answer names; the other types keep working.
+ */
+export const readOnlyItemsOf = (
+  question: ViewQuestion,
+  shown: ViewQuestion,
+  work: QuestionWork | undefined,
+  factsOf: FactsOf = componentFacts,
+): ReadonlySet<string> => {
+  if (shown.rev === revisionFor(question, work)) return new Set();
+  return new Set(
+    valueItemsOf(shown.props.items)
+      .filter((item) => factsOf(item.type)?.shape !== undefined)
+      .map((item) => item.id),
+  );
+};
 
 /** A text field of the new revision, with the earlier text when it changed. */
 export type FieldChange = {

@@ -1,11 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import { lifecycleBoardDocument } from "@askboard/contract/fixtures";
+import type { ComponentFacts } from "../catalog/port.ts";
 import type { ViewArea, ViewDocument, ViewQuestion } from "../view-document.ts";
 import {
   changeCountOf,
   changePending,
   changesLabel,
   createRevisions,
+  readOnlyItemsOf,
   revisionDiff,
   workingQuestion,
 } from "./agent-change.ts";
@@ -71,6 +73,61 @@ describe("the agent-change notice (FR-6; task 6.7)", () => {
     expect(workingQuestion(at(2), { rev: 2 }, revisions).rev).toBe(2);
     expect(workingQuestion(at(2), undefined, revisions).rev).toBe(2);
     expect(workingQuestion(at(3), { rev: 2 }, revisions).rev).toBe(3);
+  });
+});
+
+// Edit widgets on a revision the board cannot show (keep-mine-shown-revision, design decision 1):
+// the facts of four stub types, one registering `shape`, and the others each some other fact or none.
+const SHAPE = () => ({ kind: "keyed" as const, path: ["rows"] }) as never;
+const stubFacts: Readonly<Record<string, ComponentFacts>> = {
+  editing: { shape: SHAPE, valueFits: () => true, name: "change.widgetTree" },
+  holding: { valueFits: () => true },
+  fitting: { fits: () => true },
+};
+const factsOf = (type: string): ComponentFacts | undefined => stubFacts[type];
+const withItems = (question: ViewQuestion, items: unknown): ViewQuestion =>
+  ({ ...question, props: { ...question.props, items } }) as ViewQuestion;
+const mixed = (rev: number): ViewQuestion =>
+  withItems(at(rev), [
+    { type: "editing", id: "top", props: {} },
+    { type: "holding", id: "held", props: {} },
+    { type: "fitting", id: "fitted", props: {} },
+    { type: "bare", id: "plain", props: {} },
+    {
+      type: "group",
+      id: "box",
+      props: {
+        title: "Box",
+        items: [
+          { type: "editing", id: "inner", props: {} },
+          { type: "fitting", id: "inner-fitted", props: {} },
+        ],
+      },
+    },
+  ]);
+
+describe("the items an edit widget makes read-only on a revision the board cannot show", () => {
+  test("the items whose type registers a shape, at the top level and inside a layout, when the work is on an earlier revision than the card shows", () => {
+    const question = mixed(2);
+    const read = readOnlyItemsOf(question, question, { rev: 1 }, factsOf);
+    expect([...read].sort()).toEqual(["inner", "top"]);
+  });
+
+  test("none while the card shows the revision the work was made on, there is no work, or the work is on the current revision", () => {
+    const current = mixed(2);
+    const earlier = mixed(1);
+    // The page saw revision 1: the card shows it and the answer names it.
+    expect(readOnlyItemsOf(current, earlier, { rev: 1 }, factsOf).size).toBe(0);
+    expect(readOnlyItemsOf(current, current, undefined, factsOf).size).toBe(0);
+    expect(readOnlyItemsOf(current, current, { rev: 2 }, factsOf).size).toBe(0);
+    // A work that names a later revision than the question's names the question's (revisionFor).
+    expect(readOnlyItemsOf(current, current, { rev: 3 }, factsOf).size).toBe(0);
+  });
+
+  test("a type with no facts registered at all makes no item read-only, and the default reads the registered facts", () => {
+    const question = withItems(at(2), [{ type: "unregistered", id: "x", props: {} }]);
+    expect(readOnlyItemsOf(question, question, { rev: 1 }, factsOf).size).toBe(0);
+    expect(readOnlyItemsOf(question, question, { rev: 1 }).size).toBe(0);
   });
 });
 
