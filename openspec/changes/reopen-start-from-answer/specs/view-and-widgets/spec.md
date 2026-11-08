@@ -48,7 +48,7 @@ When the board state does not list a reopened question itself as unchanged, or a
 - **THEN** the Timeline shows the agent's revision with no change mark, the draft is empty, and the notice reads the line for a question that starts from the agent's version
 
 ### Requirement: An answer carried into the draft brings back widget values
-When "Start from my previous answer", a revision's start or the reopen prefill carries an answer into the draft, each edit widget item SHALL take the answer's value for it only if the board state lists the item unchanged and the item's type shows the value on its current props. Every other item SHALL show as the agent sent it. Results, choices and notes SHALL be carried as before (AD-10, AD-20).
+When "Start from my previous answer", a revision's start or the reopen prefill carries an answer into the draft, each edit widget item SHALL take the answer's value for it only if the answer holds the item unchanged and the item's type shows the value on its current props. Every other item SHALL show as the agent sent it. Results, choices and notes SHALL be carried as before (AD-10, AD-20).
 
 #### Scenario: One widget changed by the agent
 - **WHEN** a question answered with edits to a Timeline and a Kanban is reopened, the agent adds a card to the Kanban, and the user presses "Start from my previous answer"
@@ -57,6 +57,17 @@ When "Start from my previous answer", a revision's start or the reopen prefill c
 #### Scenario: What is sent is what is shown
 - **WHEN** after that the user presses "Answer"
 - **THEN** the answer carries the Timeline's value and no Kanban value, and `ask-core` accepts it
+
+### Requirement: Which items an answer holds unchanged
+The board SHALL hold an item unchanged since an answer's revision when the answer's `unchanged` lists it. A current answer without the list SHALL hold every item unchanged, since it names the current revision; a previous answer without it SHALL hold none (AD-10, NFR-10).
+
+#### Scenario: A previous answer without the list
+- **WHEN** a reopened question's previous answer holds edits to a Timeline and no `unchanged`, and the user presses "Start from my previous answer"
+- **THEN** the draft holds no Timeline value, and the Timeline shows the agent's revision
+
+#### Scenario: A current answer without the list
+- **WHEN** the user revises an answered question whose answer holds a Timeline edit and no `unchanged`
+- **THEN** the draft holds the Timeline's answered value from the first edit
 
 ### Requirement: A revision keeps the widgets' edits
 The first edit of an answered question SHALL put its latest answer's widget values into the draft, by the rule for an answer carried into the draft, as it puts the answer's results, choice and note. A revised answer SHALL carry the edits the user left untouched, as the card shows them (AD-10, AD-20).

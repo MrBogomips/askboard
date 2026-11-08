@@ -36,25 +36,32 @@ After a reload or a takeover the page holds only the current revision (keep-mine
 
 - the question's ID, when its props in the current revision equal, whole, those of the revision the answer names;
 - each item's ID, at any depth (`nestedItemsOf`), whose type and props are equal in both;
-- compared with `canonicalize` (`core/src/canonical.ts:20`), over expanded items;
-- left out when empty.
+- compared with `canonicalize` (`core/src/canonical.ts:20`), over expanded items.
 
 The revision an answer names is the logged event's `rev`. For a recorded answer it is the revision current when it was recorded, which a recorded question keeps until it is reopened. `QuestionRecord` gains `previousRev`, set by `reopen`. The model keeps that revision's props while `previous` names it, beside the revisions events name. The result is memoised per question and pair of revisions.
 
-*Alternatives:* (a) the view's `Revisions` store, which a reload empties; (b) sending the answered revision's props to the page, which means a larger board state for the same answer.
+**When the field is present** (amended by `/opsx:update` on 2026-11-08, after group 1 found that sending it on every answer rewrites E1's frozen transcripts; proposed default accepted under the PO's unattended handoff of 2026-11-08):
+
+- `unchanged` is present exactly when the answer names a revision earlier than the question's current one, and then lists the IDs unchanged since it, possibly none (`[]`).
+- It is absent when the answer names the current revision: the question and every item are unchanged by definition, so the field would say nothing. The board state of every answered question therefore stays byte for byte as before, E1's transcripts included.
+- When `ask-core` cannot compare (the earlier revision is not held, or `canonicalize` refuses a value), it sends `[]`, never nothing (NFR-10): absence would read as "all unchanged".
+- A previous answer always carries the field, since a reopen starts a new revision (`BoardModel.reopen` calls `revise`). A current answer carries it only when it was given on an earlier revision ("Keep mine", then "Answer"; an answered or recorded question refuses the agent's `change` until it is reopened).
+- The board reads it by the answer's role (decision 2): a current answer without the field holds every item unchanged; a previous answer without it holds none, so a field lost on the way never carries a value (fail closed).
+
+*Alternatives:* (a) the view's `Revisions` store, which a reload empties; (b) sending the answered revision's props to the page, which means a larger board state for the same answer; (c) `unchanged` on every answer, as first built: it rewrites E1's frozen transcripts (`plainChoice`, `duplicateAnswer`, `resendAfterDrop`), the lifecycle `submit` and widget answer transcripts and the Snapshot's "after submit" state, for a field that says nothing on the current revision; (d) the inverse, `changed`, absent when nothing changed: as small on the wire, but a field lost on the way, or a comparison that fails, then reads as "all unchanged" on the previous answer, the one path that carries values over the agent's changes; (e) `unchanged` left out when empty, as first built, with a `rev` added to each answer so the board can tell "current" from "none": a new field on every answer, which rewrites the same transcripts.
 
 ### 2. One rule for carrying an answer into the draft
 
-`fillFrom` takes the answer's `unchanged` and, for each value item of the question's revision (`valueItemsOf`, at any depth), puts the answer's value into the draft only when both hold:
+One reader, `unchangedOf(answer, role)` in `shell/question-state.ts`, gives what an answer holds unchanged, by decision 1's rule: the listed IDs when the answer carries `unchanged`; otherwise every ID for the `current` answer and none for the `previous` one. `fillFrom` takes the answer and its role and, for each value item of the question's revision (`valueItemsOf`, at any depth), puts the answer's value into the draft only when both hold:
 
-- the item's ID is in `unchanged`;
+- the item's ID is unchanged by `unchangedOf`;
 - `valueFits(question, itemId, value)` (`board-draft.ts:232`) holds.
 
 Every other value item gets `undefined`, so it shows as sent. Results, the choice, notes and the note are carried as today. Three callers use this rule:
 
-- "Start from my previous answer";
-- `revise` (open question 2, which closes divergence 2);
-- the reopen prefill (decision 3).
+- "Start from my previous answer", with the `previous` answer;
+- `revise` (open question 2, which closes divergence 2), with the `current` answer;
+- the reopen prefill (decision 3), with the `previous` answer.
 
 `revise` now seeds the answer's values, which reverses that part of molecules decision 11. The draft then holds what the next answer sends. The change marks already compare with the agent's revision. The counters count edits the answer will carry, which is what they should count. `BoardContent.shown` stays as it is for items before the first edit.
 
@@ -67,7 +74,7 @@ Every other value item gets `undefined`, so it shows as sent. Results, the choic
 A pure function in a new `shell/reopen-prefill.ts` takes the document, the board state, the draft record and the question work. It returns the questions to fill, those that meet all of these:
 
 - the state is `open` or `postponed`, with a `previous` answer that is not a decline;
-- `previous.unchanged` holds the question's own ID (open question 3);
+- `unchangedOf(previous, "previous")` holds the question's own ID (open question 3), so a previous answer without the field fills nothing;
 - the question holds no work on its current revision;
 - its work holds no `prefilled` mark for that revision.
 
@@ -114,7 +121,7 @@ keep-mine-shown-revision decision 7 holds unchanged. An answer to a reopened que
 Main holds board protocol 1.8 and Snapshot data 1.1 (read at 8e2e1247; task 0.1 re-reads them). Two sets widen, each to the **next minor after main's**:
 
 - the **board protocol**: `unchanged` in board state answers, and `prefilled` in the draft record;
-- the **Snapshot data**: its schema refers to the board state, as widget-registry's `results` did.
+- the **Snapshot data**: its schema refers to the board state, as widget-registry's `results` did, and its board state carries `unchanged` as the live board receives it (decision 10).
 
 Every other set keeps main's value. Decision 9 changes the order of the opening, not a schema: the draft message keeps its shape, takes no minor of its own, and only `draft.json`'s `description` says the new order. The numbers are bound at the rebase task, with the binding line here.
 
@@ -150,6 +157,27 @@ This reorders an entry of `#openers`, a table push-delivery made, where askboard
 
 Decision: the order change, the smallest form of (a); proposed default accepted under the PO's unattended handoff of 2026-11-08.
 
+### 10. The wire: `board-host` and the Snapshot pass `unchanged` as `ask-core` gives it
+
+Group 1 found no step that takes `unchanged` from `ask-core`'s view to the page. Two functions copy an answer field by field and both drop it:
+
+- `board-host`'s `currentOf` (`server/src/board-host/messages.ts:28`), for the current and the previous answer of `stateOf`;
+- the Snapshot's `currentOf` (`core/src/snapshot/state.ts:18`), whose rule is `stateOf`'s, since `ask-core` may not import `board-host` (AD-1).
+
+Each gains the one line that copies `unchanged` when the view holds it, `[]` included (a check on `undefined`, never on length or truth), as a new array. Nothing else moves: `fetch`, `collect`, the log and the local API never read `AnswerView.unchanged`.
+
+The Snapshot passes it too, though the Snapshot view runs no prefill and has no "Start from my previous answer" act:
+
+- core's "What a Snapshot holds" says the data holds "the board state the live board receives", and `board-host`'s test "a Snapshot's state is the one a board receives" (`server/test/board-host/snapshot-protocol.test.ts:207`) replays each E3 transcript, one of which reopens `region`; a Snapshot without the field would break both;
+- the Snapshot data takes its minor (decision 7) for this field alone, so leaving it out would bump a set for nothing;
+- by decision 1, the field is present only on previous answers and on answers kept on an earlier revision, so a Snapshot of answered questions, the "after submit" test's included, stays as it is.
+
+The shell reads a Snapshot from its boot data, on which the prefill never runs (decision 3).
+
+*Alternative:* `board-host` only, as the implementer's reverted patch did. Rejected for the three reasons above.
+
+Decision: both; proposed default accepted under the PO's unattended handoff of 2026-11-08.
+
 ## Merge points
 
 Read on 2026-11-08. If one merges first, the rebase keeps both sides and re-checks the names.
@@ -158,10 +186,11 @@ Read on 2026-11-08. If one merges first, the rebase keeps both sides and re-chec
 |---|---|---|---|
 | `oversized-acts` (#88) | `worktree-fix-oversized-acts` 25bfc33c | `card-acts.ts` (`dispatch`, `sendActs` gain `via` and `notices`), `question-card.tsx` (`SizeNotices`), strings, the draft fit (its decision 4); no version | Keep both sides. A prefilled question too large for the mirror is left out whole with its mark, and after a reload it is filled again, which is correct. |
 | `choice-documented-activation` (#87) | `worktree-fix-choice-activation` 57618b67 | The Choice and PickField radio group, `chunk-sizes.json`, EXPERIENCE (other rows); no version | No shared line: the prefill sets the Choice's draft as `fillFrom` does today. Re-record chunk sizes. |
-| `document-review` | `worktree-feature-document-review` 2c35cf1e | Appends `ComponentFacts.revisionBound` (not on `main`), widens `readOnlyItemsOf`, adds `AnswerContext.readOnlyOf`; edits `card-acts.ts`, `question-card.tsx`, `board-content.ts` | Not borrowed until it merges. Then decision 2's rule gains one clause: the result of an item whose facts set `revisionBound` is carried only when the item is in `unchanged`. Task 4.2 adds it with a test, or task 0.1 records that it has not merged. |
+| `document-review` | `worktree-feature-document-review` c2ff8ea4 (local only, base `main` a8f1d0a0; read 2026-11-08) | Appends `ComponentFacts.revisionBound` (not on `main`), widens `readOnlyItemsOf`, adds `AnswerContext.readOnlyOf`; edits `card-acts.ts`, `question-card.tsx`, `board-content.ts`, `index.tsx`, and `board-draft.ts`, where `hasAnswerWork` and `restoreDraft` gain a shown revision (`shown`, `shownOf`) and a new `carried.ts` clears what an act carried; no edit to `messages.ts`, `snapshot/state.ts` or `core` | Not borrowed until it merges. Then decision 2's rule gains one clause: the result of an item whose facts set `revisionBound` is carried only when `unchangedOf` holds the item. Task 4.2 adds it with a test, or task 0.1 records that it has not merged. If it merges first, task 2.3's mark (decision 4) goes into its `hasAnswerWork` and `restoreDraft` over the shown revision as well, keeping both sides. |
 | `diagram-widget`, `diagram-render` | `worktree-feature-diagram` ed783fe5, `worktree-feature-diagram-render` 9281d923 | Both widen the board protocol (`render`); diagram-render also widens the Snapshot data; each registers `valueFits` | Same sets: whichever merges first takes the next minor and the other rebinds. Their `valueFits` feeds decision 2 unchanged. |
 | `graph-widget`, `spreadsheet-widget`, `image-annotation`, `diff-review`, `keyboard-shortcuts-help` | `worktree-feature-graph` 482223d0, `worktree-feature-spreadsheet` 972b9622, `worktree-feature-image-annotation` 1f8f6811, `worktree-feature-diff-review` dfb0e6cb, `worktree-feature-keyboard-help` 101a9498 | Register `valueFits` (Graph, Spreadsheet), borrow `revisionBound` (Image annotation), or neither; none widens the board protocol or the Snapshot data | Nothing to borrow. A new edit widget is carried by decision 2's rule through its own `valueFits`. |
-| `snapshot-toolbar` (#94) | `worktree-fix-snapshot-toolbar` e48c40fc | Takes Snapshot data at the next minor after main's, as this change does; edits `shell/index.tsx`'s boot (theme and density), not `channel.onUpdate` | Whichever merges second rebinds the Snapshot data (task 4.2). Keep both sides of `shell/index.tsx`. |
+| `snapshot-toolbar` (#94) | `worktree-fix-snapshot-toolbar` e48c40fc | Takes Snapshot data at the next minor after main's, as this change does; edits `shell/index.tsx`'s boot (theme and density), not `channel.onUpdate`; edits `core/src/snapshot/gather.ts` and `core.ts`, not `snapshot/state.ts` (decision 10) | Whichever merges second rebinds the Snapshot data (task 4.2). Keep both sides of `shell/index.tsx`. |
+| `wbs-gantt-consistency` | `worktree-fix-wbs-gantt-consistency` f1848541 (local; `origin` at 02f273c8) | No file this change touches: none of `messages.ts`, `snapshot/state.ts`, `core/src/lifecycle/`, the board-protocol schemas or the view shell; no set moves | Nothing to keep. |
 | `backlog-issues` (#89) | `worktree-feature-backlog-issues` | `CLAUDE.md` (it moves to `AGENTS.md`) | The Status line goes wherever `main` then keeps it. |
 
 Borrowed from `origin/main` 8e2e1247 (task 0.1 records each with its file and line):
@@ -170,10 +199,11 @@ Borrowed from `origin/main` 8e2e1247 (task 0.1 records each with its file and li
 - `valueFits`, `resultFits`, `hasAnswerWork`, `restoreDraft`, `answerContentOf`, `QuestionWork` (`board-draft.ts`);
 - `valueItemsOf` (`view/src/nested-items.ts`), `ReopenedNotice` (`change-notice.tsx`), `contentOf` (`question-state.ts`), `hasUnsentWork` (`board-page/unsent-work.ts`);
 - `answerView`, `fullAnswer` (`views.ts`), `BoardModel.reopen` (`model.ts`), `canonicalize`, `nestedItemsOf`;
+- `currentOf` and `stateOf` (`server/src/board-host/messages.ts`), the Snapshot's `currentOf` and `boardStateOf` (`core/src/snapshot/state.ts`) (decision 10; no change in flight edits either file, read 2026-11-08);
 - the board state's `$defs/answer` and the draft record's `$defs/question`;
 - `Boards.#openers` (`server/src/board-host/boards.ts`), `#onDraft`, `#stateSeen` and `#updateView` (`view/src/board-page/controller.ts`), `DraftRestore` (`view/src/view-protocol.ts`) (decision 9; checked by task 2.6 and the rebase task).
 
-Seams this change creates: `unchanged` on the board state's answers, and `prefilled` in the draft record. Seam this change reorders: the draft opener before the state opener in `Boards.#openers` (decision 9).
+Seams this change creates: `unchanged` on the board state's answers, present only for an answer on an earlier revision (decision 1), its one reader `unchangedOf` (decision 2), and `prefilled` in the draft record. Seam this change reorders: the draft opener before the state opener in `Boards.#openers` (decision 9).
 
 ## Risks / Trade-offs
 
@@ -182,7 +212,8 @@ Seams this change creates: `unchanged` on the board state's answers, and `prefil
 - [A restore after the first update] → Only on a reconnect of a page with no draft of its own, whose shell holds no work; the update applies the restore before the prefill (decision 9). Task 2.6 tests the order, task 2.3 the shell.
 - [The boot render comes before the first update] → For one render a qualifying card may show the agent's version and the not-carried line; the first update, sent as the view loads, fills it and turns the line.
 - [Reversing molecules decision 11's seeding] → The draft holds the answer's values from the first edit of a revision. Linked items (Tree and Gantt) stay consistent, since both values come from the same answer. Task 2.2 runs the UJ-2 revision scenario.
-- [Canonical comparison cost on large widgets] → Memoised per pair of revisions (decision 1).
+- [Canonical comparison cost on large widgets] → Memoised per pair of revisions (decision 1), and run only for an answer on an earlier revision.
+- [`unchanged` lost between `ask-core` and the page] → For a current answer, absence reads as "all unchanged", which is true whenever the answer names the current revision; the field is present otherwise, and the wire copies it whenever `ask-core` gives it, `[]` included (decision 10, task 1.6). For a previous answer, absence reads as none, so a loss carries nothing (decision 1).
 
 ## Migration Plan
 
