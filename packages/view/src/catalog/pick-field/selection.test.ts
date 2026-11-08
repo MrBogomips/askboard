@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { PICK_FILTER_OVER } from "@askboard/contract";
 import {
+  checkedAmong,
   clearing,
   filteredOptions,
   focusFirstRadio,
+  picking,
   showsFilter,
   toggledIds,
   toggling,
@@ -136,5 +138,33 @@ describe("what the controls do", () => {
     focusFirstRadio({ querySelector: () => null } as unknown as ParentNode);
     focusFirstRadio(null);
     expect(focused).toEqual(["radio"]);
+  });
+});
+
+describe("a single pick's radios (view-and-widgets spec: Radios with manual activation)", () => {
+  test("the checked radio is the picked option's place among those shown", () => {
+    expect(checkedAmong(COUNTRIES, "de")).toBe(2);
+    expect(checkedAmong(filteredOptions(COUNTRIES, "n"), "de")).toBe(1);
+  });
+
+  test("no radio is checked while nothing is picked, or the filter hides the pick", () => {
+    expect(checkedAmong(COUNTRIES, undefined)).toBeUndefined();
+    expect(checkedAmong(filteredOptions(COUNTRIES, "fr"), "it")).toBeUndefined();
+    expect(checkedAmong([], "it")).toBeUndefined();
+  });
+
+  test("an option ID named like an inherited object member is found by position all the same", () => {
+    const named = [option("constructor", "C"), option("__proto__", "P")];
+    expect(checkedAmong(named, "__proto__")).toBe(1);
+    expect(checkedAmong(named, "toString")).toBeUndefined();
+  });
+
+  test("checking a radio picks the ID of the option shown at its place, and no other", () => {
+    const puts: string[] = [];
+    const shown = filteredOptions(COUNTRIES, "n");
+    picking(shown, (id) => puts.push(id))(1);
+    picking(shown, (id) => puts.push(id))(9);
+    picking(shown, (id) => puts.push(id))(-1);
+    expect(puts).toEqual(["de"]);
   });
 });

@@ -137,13 +137,13 @@ describe("the shared modules and the chunks that provide them", () => {
   test("Radix provides the components that sources import, and no other yet", () => {
     // Toggle Group joined with its first control, the Gantt plan's zoom (gantt-widget design
     // decision 10); Switch with the Gantt's critical path switch (widget-editing-plus decision 8);
-    // Slider with the Scale's (approval-scale-ranking decision 9).
+    // Slider with the Scale's (approval-scale-ranking decision 9). Radio Group left with
+    // choice-documented-activation: the single choices are AskBoard's own radio group.
     expect(LIBRARY_CHUNKS.radix?.modules["radix-ui"]).toEqual([
       "AlertDialog",
       "Checkbox",
       "DropdownMenu",
       "Popover",
-      "RadioGroup",
       "Slider",
       "Switch",
       "Tabs",
@@ -308,10 +308,10 @@ describe("which chunk an import comes from", () => {
 
 describe("shims", () => {
   test("a module with named exports gets exactly those names, so another name fails the build", () => {
-    const source = shimSource("radix-ui", ["Checkbox", "RadioGroup"]);
+    const source = shimSource("radix-ui", ["Checkbox", "Switch"]);
     expect(source).toContain('shared("radix-ui")');
     expect(source).toContain("export const Checkbox = provided.Checkbox;");
-    expect(source).toContain("export const RadioGroup = provided.RadioGroup;");
+    expect(source).toContain("export const Switch = provided.Switch;");
   });
 
   test("a whole namespace is the provided module itself", () => {
@@ -370,7 +370,7 @@ describe("a chunk built with the plugin", () => {
 
   test("leaves the shared libraries out and records the chunks it needs", async () => {
     const { result, needs } = await build(
-      'import { RadioGroup } from "radix-ui";\nimport { useState } from "react";\n(globalThis as any).x = [RadioGroup, useState];\n',
+      'import { Checkbox } from "radix-ui";\nimport { useState } from "react";\n(globalThis as any).x = [Checkbox, useState];\n',
     );
     expect(result.success).toBe(true);
     expect([...needs].sort()).toEqual(["radix", "react"]);

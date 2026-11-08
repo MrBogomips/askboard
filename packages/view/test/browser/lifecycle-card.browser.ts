@@ -4,11 +4,12 @@
 // the session process, and what reaches the agent is read back through `collect`.
 
 import { describe, expect, test } from "bun:test";
-import { MARKUP, markupAsk, singleAsk, twoAsk } from "./fixtures/lifecycle-asks.ts";
+import { MARKUP, markupAsk, singleAsk, submittedAsk, twoAsk } from "./fixtures/lifecycle-asks.ts";
 import {
   eventually,
   expectNoCspProblem,
   isFocused,
+  QUIET_MS,
   STEP_TIMEOUT_MS,
   TEST_TIMEOUT_MS,
   useEngine,
@@ -20,10 +21,12 @@ import {
   answerOf,
   card,
   lifecycleScenario,
+  mirrored,
   noteOf,
   openBoard,
   optionOf,
   sentActs,
+  sentDrafts,
 } from "./harness/lifecycle-test.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 
@@ -273,6 +276,66 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         );
         expect(created).toBe(0);
         expectNoCspProblem(run);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    // Radios with manual activation (choice-documented-activation, view-and-widgets spec).
+    test(
+      "Other… chosen with text keeps both while the up arrow moves the focus twice, and the draft does not change",
+      async () => {
+        const run = await start(lifecycleScenario(singleAsk, dist));
+        const board = await openBoard(run, ["database"]);
+        await optionOf(board, "database", "Other…").click();
+        await card(board, "database").getByRole("textbox", { name: "Other…" }).fill("MariaDB");
+        await mirrored(run, (record) => record.questions.database?.other === "MariaDB", "MariaDB");
+        await Bun.sleep(QUIET_MS);
+        const before = sentDrafts(run).length;
+        await optionOf(board, "database", "Other…").focus();
+        await board.page.keyboard.press("ArrowUp");
+        await eventually(
+          () => isFocused(optionOf(board, "database", "DynamoDB")),
+          "up to DynamoDB",
+        );
+        await board.page.keyboard.press("ArrowUp");
+        await eventually(() => isFocused(optionOf(board, "database", "SQLite")), "up to SQLite");
+        await Bun.sleep(QUIET_MS);
+        expect(await checked(board, "database", ALL)).toEqual({
+          PostgreSQL: false,
+          SQLite: false,
+          DynamoDB: false,
+          "Other…": true,
+        });
+        expect(
+          await card(board, "database").getByRole("textbox", { name: "Other…" }).inputValue(),
+        ).toBe("MariaDB");
+        expect(sentDrafts(run)).toHaveLength(before);
+        expect(sentActs(run)).toEqual([]);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "in submitted delivery Space, then Enter, on the selected option leave the draft and the ready answer unchanged",
+      async () => {
+        const run = await start(lifecycleScenario(submittedAsk, dist));
+        const board = await openBoard(run, ["database", "cache", "audit"]);
+        await optionOf(board, "database", "SQLite").click();
+        await answerOf(board, "database").click();
+        await eventually(
+          async () => (await answerOf(board, "database").getAttribute("aria-pressed")) === "true",
+          "database ready",
+        );
+        await Bun.sleep(QUIET_MS);
+        const before = sentDrafts(run).length;
+        await optionOf(board, "database", "SQLite").focus();
+        await board.page.keyboard.press("Space");
+        await board.page.keyboard.press("Enter");
+        await Bun.sleep(QUIET_MS);
+        expect(await answerOf(board, "database").getAttribute("aria-pressed")).toBe("true");
+        expect(await optionOf(board, "database", "SQLite").isChecked()).toBe(true);
+        expect(sentDrafts(run)).toHaveLength(before);
+        expect(sentActs(run)).toEqual([]);
       },
       TEST_TIMEOUT_MS,
     );
