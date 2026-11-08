@@ -10,10 +10,22 @@ import { validateSnapshotData } from "@askboard/contract/validate";
 import type { Browser } from "playwright";
 import { twoAsk } from "./fixtures/lifecycle-asks.ts";
 import type { Asker } from "./harness/asker.ts";
-import { linkToken, STEP_TIMEOUT_MS, TEST_TIMEOUT_MS, useEngine } from "./harness/board-test.ts";
+import {
+  linkToken,
+  RECONNECT_TIMEOUT_MS,
+  STEP_TIMEOUT_MS,
+  TEST_TIMEOUT_MS,
+  useEngine,
+} from "./harness/board-test.ts";
 import { launchEngine } from "./harness/browser.ts";
 import { enginesFrom } from "./harness/engines.ts";
-import { answerOf, lifecycleScenario, openBoard, optionOf } from "./harness/lifecycle-test.ts";
+import {
+  answerOf,
+  barButton,
+  lifecycleScenario,
+  openBoard,
+  optionOf,
+} from "./harness/lifecycle-test.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 
 const dist = await readViewBuild();
@@ -83,43 +95,82 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       TEST_TIMEOUT_MS,
     );
 
+    // Picks Light and Comfortable on a board whose system is dark.
+    const pickLightAndComfortable = async (board: Awaited<ReturnType<typeof openBoard>>) => {
+      await board.view
+        .getByRole("radiogroup", { name: "Theme" })
+        .getByRole("radio", { name: "Light" })
+        .click({ timeout: STEP_TIMEOUT_MS });
+      await board.view
+        .getByRole("radiogroup", { name: "Density" })
+        .getByRole("radio", { name: "Comfortable" })
+        .click({ timeout: STEP_TIMEOUT_MS });
+      await board.view.locator("html.comfortable").waitFor({ state: "attached" });
+    };
+
+    // Opens the written file from `file://` offline, under a dark system, and checks it is light
+    // and comfortable with one Theme group.
+    const expectOpensLightComfortable = async (path: string) => {
+      const browser: Browser = await launchEngine(engine);
+      try {
+        const context = await browser.newContext({ colorScheme: "dark", offline: true });
+        const page = await context.newPage();
+        await page.goto(`file://${path}`);
+        await page.getByText(/^Snapshot · taken/).waitFor({ timeout: STEP_TIMEOUT_MS });
+        const classes = ((await page.locator("html").getAttribute("class")) ?? "").split(/\s+/);
+        expect(classes).toContain("comfortable");
+        expect(classes).not.toContain("dark");
+        const group = page.getByRole("radiogroup", { name: "Theme" });
+        expect(await group.count()).toBe(1);
+        expect(await group.getByRole("radio", { name: "Light" }).getAttribute("aria-checked")).toBe(
+          "true",
+        );
+        await context.close();
+      } finally {
+        await browser.close();
+      }
+    };
+
     test(
-      "Light and Comfortable picked on the board, with a dark system, are what the file opens in",
+      "Light and Comfortable picked on the board, then the bar's Snapshot, are what the file opens in",
       async () => {
         const run = await start(
           { ...lifecycleScenario(twoAsk, dist), asker: ASKER },
           { colorScheme: "dark" },
         );
         const board = await openBoard(run, ["database", "cache"]);
-        await board.view
-          .getByRole("radiogroup", { name: "Theme" })
-          .getByRole("radio", { name: "Light" })
-          .click({ timeout: STEP_TIMEOUT_MS });
-        await board.view
-          .getByRole("radiogroup", { name: "Density" })
-          .getByRole("radio", { name: "Comfortable" })
-          .click({ timeout: STEP_TIMEOUT_MS });
-        await board.view.locator("html.comfortable").waitFor({ state: "attached" });
+        await pickLightAndComfortable(board);
+        await barButton(board, "Snapshot").click({ timeout: STEP_TIMEOUT_MS });
+        const feedback = board.view.locator("[data-askboard-snapshot-feedback]");
+        await feedback
+          .filter({ hasText: "Snapshot saved:" })
+          .waitFor({ state: "visible", timeout: RECONNECT_TIMEOUT_MS });
+        const path = (await feedback.locator("code").getAttribute("title")) ?? "";
+        expect(path).toMatch(new RegExp(`/\\.askboard/snapshots/${twoAsk.askId}-[^/]+\\.html$`));
+        await run.session.exit();
+        const data = dataBlockOf(await Bun.file(path).text()) as {
+          snapshot: { takenBy: string; presentation?: unknown };
+        };
+        expect(validateSnapshotData(data).ok).toBe(true);
+        expect(data.snapshot.takenBy).toBe("user");
+        expect(data.snapshot.presentation).toEqual({ theme: "light", density: "comfortable" });
+        await expectOpensLightComfortable(path);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "Light and Comfortable picked on the board, then the agent's Snapshot, are what the file opens in",
+      async () => {
+        const run = await start(
+          { ...lifecycleScenario(twoAsk, dist), asker: ASKER },
+          { colorScheme: "dark" },
+        );
+        const board = await openBoard(run, ["database", "cache"]);
+        await pickLightAndComfortable(board);
         const taken = await run.session.snapshot();
         await run.session.exit();
-        const browser: Browser = await launchEngine(engine);
-        try {
-          const context = await browser.newContext({ colorScheme: "dark", offline: true });
-          const page = await context.newPage();
-          await page.goto(`file://${taken.path}`);
-          await page.getByText(/^Snapshot · taken/).waitFor({ timeout: STEP_TIMEOUT_MS });
-          const classes = ((await page.locator("html").getAttribute("class")) ?? "").split(/\s+/);
-          expect(classes).toContain("comfortable");
-          expect(classes).not.toContain("dark");
-          const group = page.getByRole("radiogroup", { name: "Theme" });
-          expect(await group.count()).toBe(1);
-          expect(
-            await group.getByRole("radio", { name: "Light" }).getAttribute("aria-checked"),
-          ).toBe("true");
-          await context.close();
-        } finally {
-          await browser.close();
-        }
+        await expectOpensLightComfortable(taken.path);
       },
       TEST_TIMEOUT_MS,
     );
