@@ -82,7 +82,7 @@ A Document review SHALL hold its annotations as the item's result in the draft r
 - **THEN** the answer carries the Approval's result and none for the Document review
 
 ### Requirement: Detached annotations
-When the agent changes a Document review's document, a held annotation whose quote no longer has exactly one place, or whose place overlaps an earlier one, SHALL be listed under the document as detached, with its quote, its text and "Delete", and never moved or dropped. While one is listed, the question's "Answer", "Accept recommended", "Select recommended" and Submit SHALL not send it, and the hint SHALL say why (AD-10, NFR-10).
+When the agent changes a Document review's document, a held annotation whose quote no longer has exactly one place, or whose place overlaps an earlier one, SHALL be listed under the document as detached, with its quote, its text and "Delete", and never moved or dropped. While one is listed, the question's "Answer", "Accept recommended", "Select recommended" and Submit SHALL not send it, and the hint SHALL say why, except on a revision the board cannot show (AD-10, NFR-10).
 
 #### Scenario: A commented sentence rewritten
 - **WHEN** the user has commented on "remembers" and the agent's revision replaces that word, and the user keeps the draft
@@ -128,6 +128,21 @@ Once its question is answered, locked or shown in a Snapshot, a Document review 
 #### Scenario: A Snapshot of an answered review
 - **WHEN** a Snapshot of a board with an answered Document review is opened from `file://`
 - **THEN** the marks and pins show, a pin opens its card read-only, and a link opens in a new tab
+
+### Requirement: A Document review on a revision the board cannot show
+While a card shows a revision other than the one its answer names, as after a reload or a takeover, a Document review SHALL be read-only with the line the edit widgets show then: its held annotations stay shown and are sent as before, one the shown text does not place is listed as detached without blocking "Answer", and none is added, edited or deleted. "Reload, losing my work" SHALL make it editable again (NFR-10, AD-10, AD-20).
+
+#### Scenario: A reload after the agent changed the document
+- **WHEN** the user comments on "remembers" in revision 1, the agent's `update` changes another paragraph, the tab reloads and the user chooses "Keep mine"
+- **THEN** the Document review shows the comment read-only with the line, a selection offers no "Comment" or "Suggest edit", and "Answer" sends the comment naming revision 1
+
+#### Scenario: A held comment the shown text does not place
+- **WHEN** the agent's `update` had rewritten "remembers" before the reload
+- **THEN** the comment is listed as detached without "Delete", no hint asks to delete it, and "Answer" sends it naming revision 1
+
+#### Scenario: Reload makes it editable
+- **WHEN** the user then chooses "Reload, losing my work"
+- **THEN** the line goes, the comment is gone, and a selection can be commented on the current revision
 
 ### Requirement: Document review strings
 Every string a Document review shows SHALL come from the view's tables in en-US and it-IT: the toolbar, the counter, the cards, the detached list, the refusals and the hint (FR-34; EXPERIENCE, Voice and Tone).
