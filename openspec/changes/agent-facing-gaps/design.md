@@ -118,7 +118,7 @@ Bound on 2026-11-09, merged origin/main ac9f891f: tool envelopes 1.13 (main 1.12
 
 ### 7. Documents
 
-- CLAUDE.md: the layouts paragraph's "`fetch` of one answers `deleted`" becomes true as written. Task 4.1 adds a Status sentence and an "In code since `agent-facing-gaps`" paragraph: the outcome, the reference, the language section, the amendments record and the bound version.
+- The change's record is `docs/as-built/agent-facing-gaps.md` (task 4.1): the outcome, the reference, the language section, the amendments record, the expanded IDs held against items and the bound version. CLAUDE.md is not edited: PR #109 moves every change's record out of it, the layouts paragraph included, whose "`fetch` of one answers `deleted`" becomes true as written.
 - `CHANGELOG.md`: Unreleased entries for the outcome and the teaching.
 - The PRD, the spine and the UX documents are unchanged. FR-34 and FR-29 already ask for this teaching, and AD-6 and AD-10 already make states typed.
 
@@ -130,7 +130,8 @@ Read on 2026-11-08. Whichever merges first, the rebase keeps both sides and re-c
 |---|---|---|---|
 | `oversized-acts` (#88) | `worktree-fix-oversized-acts` 25bfc33c | `CHANGELOG.md`, `CLAUDE.md`; no set widened, no skill or tool text | Keep both entries. |
 | `choice-documented-activation` (#87) | `worktree-fix-choice-activation` 57618b67 | `CLAUDE.md` only | Keep both. |
-| backlog (#89) | `worktree-feature-backlog-issues` 7046d8a6 | `CLAUDE.md` moves to `AGENTS.md` | The Status and "In code since" lines go wherever `main` keeps them then. The language teaching names both files anyway. |
+| backlog (#89) | `worktree-feature-backlog-issues` 7046d8a6 | `CLAUDE.md` moves to `AGENTS.md` | Merged. The language teaching names both files anyway. |
+| records (#109) | `worktree-fix-claude-md-conflicts` | `docs/as-built/`, `CLAUDE.md` | This change writes `docs/as-built/agent-facing-gaps.md` and leaves `CLAUDE.md` as on `main`, so the two merge in either order. |
 | `document-review` | `worktree-feature-document-review` c5383fbe (based on d6c67d87) | Widens the input format, output format, tool envelopes and board document. Appends a widget (one link line in `SKILL.md`, one catalogue line). Regenerates `references/answers.md` (the `collect` example's versions). Appends export blocks in `contract/src/index.ts` and `fixtures/index.ts`. | Tool envelopes: whichever merges first takes the next minor, and the other rebinds. Both bind 1.13 against main's 1.12 (2026-11-09): the second to merge rebinds to 1.14, moving its version test, its binding line and its as-built note, and regenerates `skills/askboard/references/answers.md`; that is the rule at work, not a conflict of design. Keep both export blocks, `main`'s first. Regenerate the skill. Its `document-review-fetch.test.ts` fetches items, not deleted ones: no clash. |
 | `snapshot-toolbar` | `worktree-fix-snapshot-toolbar` 1c235e20 | Snapshot data only; no tool or skill text | None. |
 | `reopen-start-from-answer` | `worktree-fix-reopen-start-from-answer` b8a8308c | Board protocol and Snapshot data; "no tool or skill text" (its proposal) | None. |
