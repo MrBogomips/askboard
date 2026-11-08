@@ -84,8 +84,8 @@ A Table SHALL be edited as a flat list of rows keyed by ID: its `changes` SHALL 
 - **THEN** its changes are a `set` of `costs.pm.rate` to "960.00" and an `add` of `costs.u-1` after `dev` with its fields
 
 #### Scenario: A move or a computed field
-- **WHEN** an answer's Table changes hold a `move`, or a `set` of `costs.pm.amount`
-- **THEN** they fall outside the Table's changes, and the answer is refused
+- **WHEN** an answer's Table changes hold a `move`, or its edited value holds `costs.pm.amount` in a row
+- **THEN** the `move` falls outside the Table's changes and the value fails the rows' check, and the answer is refused, appending nothing
 
 ### Requirement: Table derived values
 A Table SHALL declare as derived each total, `item.field`, and each formula column's field of every row of the value, `item.row.field`. An answer's derived values SHALL be every total and the formula cells of added rows and of rows whose value differs from the board as sent, never one in error: a number rounded half away from zero to 6 decimals, money a decimal string at its currency's minor units, a date a `full-date` (FR-12, FR-20).

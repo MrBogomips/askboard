@@ -130,6 +130,21 @@ describe("Table changes", () => {
     const refusals = widgetItemProblems({ ...ITEM, props: forged }, QUESTION, "edited", TYPES);
     expect(refusals.map(({ path }) => path)).toEqual(["/rows/0/amount"]);
   });
+
+  test("the changes schema accepts a set of a computed field; the rows' check on the edited value is what refuses it (review S-1)", () => {
+    const computed: Change = { op: "set", target: "costs.pm.amount", value: "1.00" };
+    expect(refused([computed])).toEqual([]);
+    const forged = {
+      ...PROPS,
+      rows: [{ ...(PROPS.rows[0] as TableRow), amount: "1.00" }, PROPS.rows[1] as TableRow],
+    };
+    expect(diff(forged as TableProps)).toEqual([computed]);
+    expect(
+      widgetItemProblems({ ...ITEM, props: forged }, QUESTION, "edited", TYPES).map(
+        ({ path }) => path,
+      ),
+    ).toEqual(["/rows/0/amount"]);
+  });
 });
 
 // A seeded property test (mulberry32): for 1,000 random edits of a Table's rows, the diff's changes
