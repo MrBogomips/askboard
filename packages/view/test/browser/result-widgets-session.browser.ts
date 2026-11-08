@@ -181,7 +181,10 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           async () => (await value(board).textContent()) === "Not set",
           "the reopened Scale to show nothing set",
         );
-        expect(draftHolds(sentDrafts(run), "plan", "share", undefined)).toBe(true);
+        await eventually(
+          () => draftHolds(sentDrafts(run), "plan", "share", undefined),
+          "the draft to hold no value for the reopened Scale",
+        );
         await reopened.getByRole("button", { name: "Start from my previous answer" }).click();
         await eventually(async () => (await value(board).textContent()) === "100", "100 again");
         await eventually(
