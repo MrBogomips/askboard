@@ -8,6 +8,9 @@ import {
   BOARD_MESSAGE_MAX_BYTES,
   type BoardState,
   boardMessageBytes,
+  DRAFT_RECORD_MAX_CHARS,
+  type DraftRecord,
+  draftRecordChars,
   type HostMessage,
   MESSAGE_TOO_BIG_CLOSE,
 } from "@askboard/contract";
@@ -218,5 +221,136 @@ describe("a socket closed as too large never has its commands sent again (the re
     expect(await run.view(answer)).toEqual(sent());
     expect(board).toBeDefined();
     expect(stateOf(waiting)).toBeDefined();
+  });
+});
+
+// The draft mirror keeps whole questions that fit (design decision 4; view spec, Work too large to
+// keep across a reload, Leave-page prompt).
+describe("a draft record over the draft limit is mirrored without whole questions", () => {
+  const large = (chars = DRAFT_RECORD_MAX_CHARS + 1) =>
+    ({ rev: 1, results: { database: "x".repeat(chars) } }) as const;
+  const small = { rev: 1, note: "keep me" } as const;
+  const both: DraftRecord = {
+    delivery: "immediate",
+    questions: { database: large(), cache: small },
+  };
+  const onlyLarge: DraftRecord = { delivery: "immediate", questions: { database: large() } };
+
+  test("the mirrored record holds the small question and none of the large one's work; the reply says which was left out", async () => {
+    const run = await openedTwo();
+    expect(draftRecordChars(both)).toBeGreaterThan(DRAFT_RECORD_MAX_CHARS);
+    expect(await run.view({ type: "draft", record: both })).toEqual({ leftOut: ["database"] });
+    run.fire(300);
+    const [draft] = run.drafts(1);
+    expect(draft).toEqual({
+      version,
+      type: "draft",
+      record: { delivery: "immediate", questions: { cache: small } },
+    });
+    expect(run.logs.some((line) => line.includes("refused"))).toBe(false);
+  });
+
+  test("the leave-page prompt is armed when the only work is left out", async () => {
+    const run = await openedTwo();
+    expect(run.page.leavePromptArmed()).toBe(false);
+    expect(await run.view({ type: "draft", record: onlyLarge })).toEqual({
+      leftOut: ["database"],
+    });
+    expect(run.page.leavePromptArmed()).toBe(true);
+    run.page.flushDraft();
+    expect(run.drafts(1)).toEqual([
+      { version, type: "draft", record: { delivery: "immediate", questions: {} } },
+    ]);
+  });
+
+  test("Copy my unsent work holds the left-out question's work", async () => {
+    const run = await openedTwo();
+    await run.view({ type: "draft", record: both });
+    await run.page.copyUnsentWork();
+    const [text] = run.copies;
+    expect(text).toContain('database: "xxxx');
+    expect(text?.length).toBeGreaterThan(DRAFT_RECORD_MAX_CHARS);
+    expect(text).toContain("Note for the agent: keep me");
+  });
+
+  test("the closed banner says the work was not sent, and a Snapshot request reports unsent work", async () => {
+    const run = await openedTwo();
+    await run.view({ type: "draft", record: onlyLarge });
+    expect(run.page.takeSnapshot()).toEqual({
+      outcome: "sent",
+      requestId: ID(1),
+      unsentWork: true,
+    });
+    run.socket(1).receive({ version, type: "closed", reason: "agent" });
+    expect(run.banner()).toMatchObject({
+      variant: "closed",
+      detail: "Your unsent work was not sent",
+      action: "Copy my unsent work",
+    });
+  });
+
+  test("a later record that fits is mirrored whole, with no question left out", async () => {
+    const run = await openedTwo();
+    await run.view({ type: "draft", record: both });
+    const fits: DraftRecord = {
+      delivery: "immediate",
+      questions: { database: { rev: 1, results: { database: "short" } }, cache: small },
+    };
+    expect(await run.view({ type: "draft", record: fits })).toEqual({});
+    run.fire(300);
+    expect(run.drafts(1).at(-1)).toEqual({ version, type: "draft", record: fits });
+  });
+
+  test("with two large questions the largest is left out first, and only as many as needed", async () => {
+    const run = await openedTwo();
+    const half = Math.floor(DRAFT_RECORD_MAX_CHARS * 0.6);
+    const record: DraftRecord = {
+      delivery: "immediate",
+      questions: { database: large(half), cache: large(half + 1_000) },
+    };
+    expect(await run.view({ type: "draft", record })).toEqual({ leftOut: ["cache"] });
+    run.fire(300);
+    const [mirrored] = run.drafts(1);
+    expect(Object.keys((mirrored as { record: DraftRecord }).record.questions)).toEqual([
+      "database",
+    ]);
+  });
+
+  test("a record that fails the protocol's schema, or names a question the board lacks, is still refused", async () => {
+    const run = await openedTwo();
+    const wrong = {
+      delivery: "immediate",
+      questions: { database: { rev: 0 } },
+    } as unknown as DraftRecord;
+    expect(await run.view({ type: "draft", record: wrong })).toMatchObject({ outcome: "refused" });
+    const strange: DraftRecord = {
+      delivery: "immediate",
+      questions: { nowhere: large(), cache: small },
+    };
+    expect(await run.view({ type: "draft", record: strange })).toMatchObject({
+      outcome: "refused",
+      detail: '/questions/nowhere: "nowhere" names no question of the ask',
+    });
+    run.page.flushDraft();
+    expect(run.drafts(1)).toEqual([]);
+  });
+
+  test("a record whose fields outside its questions pass the limit is refused, as before", async () => {
+    const run = await openedTwo();
+    const record = {
+      delivery: "immediate",
+      inView: "x".repeat(DRAFT_RECORD_MAX_CHARS + 1),
+      questions: {},
+    } as unknown as DraftRecord;
+    expect(await run.view({ type: "draft", record })).toMatchObject({ outcome: "refused" });
+  });
+
+  test("a record the board restores is not replaced by one that was never mirrored", async () => {
+    const run = await openedTwo();
+    await run.view({ type: "draft", record: both });
+    run
+      .socket(1)
+      .receive({ version, type: "draft", record: { delivery: "immediate", questions: {} } });
+    expect(run.updates.some((update) => update.restore !== undefined)).toBe(false);
   });
 });
