@@ -30,7 +30,7 @@ ADs relied on: AD-1 (imports; amended in place by `spine-update-draft.md` block 
 
 ### 1. The type and its props (open questions 1 and 2)
 
-`packages/contract/src/widgets/document-review/` in the Chart's layout (`document-review-props.json`, `document-review-result.json`, `constants.ts`, plain `checks.ts` and `anchors.ts`, `wording.ts`, `widget.ts`, `index.ts`); type `document-review`, noun "a Document review", appended to `WIDGET_TYPES` after `pick-field`.
+`packages/contract/src/widgets/document-review/` in the Chart's layout (`document-review-props.json`, `document-review-result.json`, `constants.ts`, plain `checks.ts` and `anchors.ts`, `wording.ts`, `widget.ts`, `index.ts`); type `document-review`, noun "a Document review", appended to `WIDGET_TYPES` after `table`, the last entry of `main`.
 
 - `markdown`: 1 to `DOCUMENT_REVIEW_MAX_CHARS` (= `TEXT_MAX_CHARS`, 10,000, the renderer's bound) code points, refusing every character `agentTextRuns` would escape except line feed and tab; the problem names the first such character as its escape. One predicate decides it: notice-text's escape rule, exported in an appended block (`isEscapedCodePoint`), so the contract has one list of escaped characters.
 - `title`: 1 to 120 code points, as the Chart's.
