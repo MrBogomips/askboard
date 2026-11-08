@@ -11,6 +11,7 @@ import {
   type Locale,
   type NumberFieldProps,
   numberEcho,
+  numberFieldBound,
   numberFieldResultProblems,
   numberFieldResultShape,
   parseNumber,
@@ -30,24 +31,33 @@ export type NumberReading =
       readonly echo: string | undefined;
     };
 
-// The bound a value breaks, in the order a user can act on them: a fraction where only whole numbers
-// go, below the minimum, past the maximum, off the step. A bound the item does not set is the
-// contract's own, one quadrillion either way.
+// The words for the bound a value breaks: the contract's code (`numberFieldBound`) names it, in the
+// order a user can act on them (a fraction where only whole numbers go, below the minimum, past the
+// maximum, off the step), and this reader says it. A bound the item does not set is the contract's
+// own, one quadrillion either way; props the code cannot read give the step's words, as before.
 const boundError = (
   value: number,
   props: NumberFieldProps,
   locale: Locale,
   language: Locale,
 ): string => {
-  const min = props.min ?? -ATOM_NUMBER_BOUND;
-  const max = props.max ?? ATOM_NUMBER_BOUND;
-  if (props.integer === true && !Number.isInteger(value)) return say(language, "field.whole");
-  if (value < min) return say(language, "field.atLeast", { min: formatNumber(min, locale) });
-  if (value > max) return say(language, "field.atMost", { max: formatNumber(max, locale) });
-  return say(language, "field.step", {
-    step: formatNumber(props.step ?? 1, locale),
-    base: formatNumber(props.min ?? 0, locale),
-  });
+  switch (numberFieldBound(value, props)) {
+    case "whole":
+      return say(language, "field.whole");
+    case "min":
+      return say(language, "field.atLeast", {
+        min: formatNumber(props.min ?? -ATOM_NUMBER_BOUND, locale),
+      });
+    case "max":
+      return say(language, "field.atMost", {
+        max: formatNumber(props.max ?? ATOM_NUMBER_BOUND, locale),
+      });
+    default:
+      return say(language, "field.step", {
+        step: formatNumber(props.step ?? 1, locale),
+        base: formatNumber(props.min ?? 0, locale),
+      });
+  }
 };
 
 /** What the text reads as against the item's props: a result, none, or an entry with its error. */
