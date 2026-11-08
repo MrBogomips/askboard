@@ -235,6 +235,7 @@ Order: group 0, then 1, 2, 3 and 4, in order. Inside group 1: 1.1 and 1.2 (done)
   - `updated:` of each is the apply date.
   - Verify: each old text stood once and each new one stands once (`grep -c -F`); `npx --yes @fission-ai/openspec@1.15.0 validate --all --strict --no-interactive` passes.
   - Note (Refs #70, #107): done as written. EXPERIENCE: the Component Patterns row, and both Voice and Tone rows (en-US in both tables, it-IT in the first, the Italian to review, the lines of `it-IT.ts`); DESIGN.md: the Reopened question row; spine: AD-10's bullet, AD-20's draft list ("whether the board started the revision from the question's previous answer") and its restore bullet ("which `board-host` sends before the board state"), plus a `sources:` entry naming this change and open question 1; PRD: FR-6's new consequence. `updated:` already read 2026-11-08, the apply date, in all four. `grep -c -F`: "nothing carried over" and "with nothing selected, under an" 0 (each stood once), each new text once (the en-US line twice, one per table). Also CHANGELOG (Unreleased, Fixed) and CLAUDE.md (Status; "In code since `reopen-start-from-answer`", versions as labels until 4.2, chunk sizes `shell` 187,378 to 191,732 and `board-page` 979,038 to 982,641 as recorded). OpenSpec validate: 18 passed. `bun run build` then `GITHUB_TOKEN=$(gh auth token) bun run check` both green in one run (licences checked); no chunk moved in this group, so none re-recorded.
+  - Note (records move, Refs #109): 3.2's "In code since" paragraph is now `docs/as-built/reopen-start-from-answer.md`, unchanged, and CLAUDE.md is back to the merge base's text, so the branch merges with #109 in either order. The Status sentence is dropped: the Firefox run of `reopen-session.browser.ts` goes on Issue #108 with the pull request.
 - [ ] 3.3 Review checkpoint for group 3. Tests: none (review).
   - Spec review: the browser cases assert what their scenarios say; the documents match what was built and cite this change; no document still says "nothing carried over".
   - Security review of 3.1's harness use: no test-only path reaches the shipped build.
@@ -248,7 +249,7 @@ Order: group 0, then 1, 2, 3 and 4, in order. Inside group 1: 1.1 and 1.2 (done)
   - Write the binding line in design.md, decision 7.
   - Re-check every borrowed name, and that no change merged since edited `Boards.#openers` or `#onDraft` (decision 9).
   - If `document-review` has merged, add decision 2's `revisionBound` clause with a test first in `card-acts.test.ts`.
-  - Set CLAUDE.md's Status and an "In code since" line naming the change and its versions.
+  - Set the bound versions in the change's record `docs/as-built/reopen-start-from-answer.md`; CLAUDE.md stays as on `main` (PR #109 moves every change's record out of it).
   - Verify: `git grep` finds each borrowed name on the rebased head; the diff carries no stale number; `bun run check`, `bun run build` and `openspec validate --all --strict --no-interactive` pass; the note records main's SHA, the bound versions and the counts.
 - [ ] 4.3 Pre-PR review (askboard-review-protocol): one spec and one security pass over the whole range. Tests: none (review). Verify: no H or M finding is left open; the PR body cites Issue #70, the bound versions and the PO's defaults.
 
