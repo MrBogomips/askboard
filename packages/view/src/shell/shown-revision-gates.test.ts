@@ -437,3 +437,88 @@ describe("the reworded scenario: annotations held on a revision whose text no lo
     expect(pressOf(stores, question, facts, shownOf).kind).toBe("send");
   });
 });
+
+describe("an act sends what the card shows, an item a later revision removed included (task 6.10, #93)", () => {
+  // Revision 1 holds the items `a` and `b`; revision 2 removes `b`. The user held a result on each
+  // and a value on `b`, then kept their work: the card shows revision 1.
+  const WITH_B = questionOf([field("a", "A"), field("b", "B")], 1);
+  const WITHOUT_B = questionOf([field("a", "A")], 2);
+  const facts = factsFailing("");
+  const setUp = (delivery: "immediate" | "submitted" = "immediate") => {
+    const stores = board(WITHOUT_B, { seen: [WITH_B, WITHOUT_B], facts, delivery });
+    stores.results.set("owner", undefined);
+    stores.results.set("a", "A");
+    stores.results.set("b", "B");
+    stores.draft.set("b", { size: 3 });
+    return stores;
+  };
+  const SENT = {
+    type: "answer",
+    rev: 1,
+    results: { a: "A", b: "B" },
+    values: { b: { size: 3 } },
+  };
+
+  test("Answer sends the results and the value of both items, naming revision 1", () => {
+    const stores = setUp();
+    expect(stores.shownOf(WITHOUT_B)).toBe(WITH_B);
+    answer(WITHOUT_B, { ...stores.context, shownOf: stores.shownOf });
+    expect(stores.sent).toHaveLength(1);
+    expect(stores.sent[0]).toMatchObject(SENT);
+  });
+
+  test("Accept recommended sends them too", () => {
+    const stores = setUp();
+    acceptRecommended(WITHOUT_B, { ...stores.context, shownOf: stores.shownOf });
+    expect(stores.sent).toHaveLength(1);
+    expect(stores.sent[0]).toMatchObject(SENT);
+  });
+
+  test("Select recommended marks the question and Submit sends them", () => {
+    const stores = setUp("submitted");
+    stores.draft.set("plan", undefined);
+    const context = { ...stores.context, shownOf: stores.shownOf };
+    expect(
+      selectRecommended(documentOf(WITHOUT_B), openState(WITHOUT_B), context, () => false),
+    ).toBe(1);
+    const pressed = pressOf(stores, WITHOUT_B, facts, stores.shownOf);
+    expect(pressed.kind).toBe("send");
+    expect(pressed.kind === "send" ? pressed.acts[0] : undefined).toMatchObject({
+      type: "answer",
+      rev: 1,
+      results: { a: "A", b: "B" },
+    });
+  });
+
+  test("Submit's held answer carries both results and the value", () => {
+    const stores = setUp("submitted");
+    held(stores, WITHOUT_B);
+    const pressed = pressOf(stores, WITHOUT_B, facts, stores.shownOf);
+    expect(pressed.kind).toBe("send");
+    expect(pressed.kind === "send" ? pressed.acts[0] : undefined).toMatchObject(SENT);
+  });
+
+  test("an entry held on the removed item blocks every press, as the card says", () => {
+    const withNumber = questionOf([field("a", "A"), field("b", "B", "number-field")], 1);
+    const stores = board(WITHOUT_B, { seen: [withNumber, WITHOUT_B], facts });
+    stores.results.set("owner", undefined);
+    stores.entries.set("b", "12x");
+    const context = { ...stores.context, shownOf: stores.shownOf };
+    expect(holdsBlock(withNumber, stores.entries.record(), stores.results.record(), facts)).toBe(
+      true,
+    );
+    expect(answer(WITHOUT_B, context)).toBeUndefined();
+    expect(acceptRecommended(WITHOUT_B, context)).toBeUndefined();
+    expect(stores.sent).toEqual([]);
+  });
+
+  test("with the work not kept (a reload) the removed item's work is not sent", () => {
+    const stores = board(WITHOUT_B, { seen: [WITHOUT_B], facts, kept: false });
+    stores.results.set("owner", undefined);
+    stores.results.set("a", "A");
+    stores.results.set("b", "B");
+    answer(WITHOUT_B, { ...stores.context, shownOf: stores.shownOf });
+    expect(stores.sent[0]).toMatchObject({ results: { a: "A" } });
+    expect((stores.sent[0] as { results: object }).results).not.toHaveProperty("b");
+  });
+});

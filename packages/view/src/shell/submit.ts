@@ -71,11 +71,13 @@ const actOf = (
   when: string,
   reported: DerivedStore["reported"],
   results?: DraftRecord,
+  shownOf?: ShownOf,
 ): ViewAct[] => {
   const itemId = question.id;
   switch (work.held.act) {
     case "answer": {
-      const held = answerContentOf(question, values, work, results);
+      // The items of the revision the card shows, even one a later revision removed (Issue #93).
+      const held = answerContentOf(shownOf?.(question) ?? question, values, work, results);
       const content = namesEarlierRevision(question, work)
         ? held
         : withDerived(held, reported, itemIdsOf(question));
@@ -129,12 +131,13 @@ export const submitActsOf = (
   at: Date,
   reported: DerivedStore["reported"],
   results?: DraftRecord,
+  shownOf?: ShownOf,
 ): ViewAct[] => {
   const when = at.toISOString();
   return held
     .flatMap((each): Ordered[] => [
       ...undoOf(each),
-      { order: each.work.held.order, acts: actOf(each, values, when, reported, results) },
+      { order: each.work.held.order, acts: actOf(each, values, when, reported, results, shownOf) },
     ])
     .sort((a, b) => a.order - b.order)
     .flatMap(({ acts }) => acts);
@@ -389,7 +392,7 @@ export const submitPress = (
   if (missing !== undefined) return { kind: "needs-reason", questionId: missing.id };
   const blocked = heldWithBlock(document, held, entries, results, facts, readOnlyOf, shownOf);
   if (blocked !== undefined) return { kind: "field-block", questionId: blocked.id };
-  const acts = submitActsOf(held, values, at, reported, results);
+  const acts = submitActsOf(held, values, at, reported, results, shownOf);
   const questions = state === undefined ? [] : questionsToConfirm(document, held, state, facts);
   return questions.length === 0 ? { kind: "send", acts } : { kind: "confirm", acts, questions };
 };

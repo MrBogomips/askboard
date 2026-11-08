@@ -280,7 +280,7 @@ export const answerNeedsReason = (
 ): boolean => {
   const { draft, results, board } = context;
   const content = answerContentOf(
-    question,
+    shownIn(question, context),
     draft.record(),
     board.work(question.id),
     results?.record(),
@@ -322,7 +322,9 @@ export const answer = (question: ViewQuestion, context: AnswerContext): AnswerOu
   // decision 3; form-widget, design decision 5; NFR-10).
   if (blockedBy(question, context)) return undefined;
   const work = board.work(question.id);
-  const held = answerContentOf(question, draft.record(), work, results?.record());
+  // What the card shows is what it sends: the values, results and entries of the items of the
+  // revision it shows, even one a later revision removed (Issue #93).
+  const held = answerContentOf(shownIn(question, context), draft.record(), work, results?.record());
   const content = namesEarlierRevision(question, work)
     ? held
     : withDerived(held, derived.reported, itemIdsOf(question));
