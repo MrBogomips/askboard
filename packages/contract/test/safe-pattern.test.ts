@@ -298,7 +298,7 @@ describe("the bounds on the pattern", () => {
 
   test("the limits are the specified ones", () => {
     expect(PATTERN_MAX_CHARS).toBe(200);
-    expect(PATTERN_TEXT_MAX_CHARS).toBe(1_000);
+    expect(PATTERN_TEXT_MAX_CHARS).toBe(100);
   });
 });
 

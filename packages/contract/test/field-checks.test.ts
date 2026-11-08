@@ -10,6 +10,7 @@ import {
   fieldCheckMessage,
   PATTERN_TEXT_MAX_CHARS,
   requiredFailure,
+  TEXT_FIELD_WIDGET,
   textFieldFieldCheck,
   textFieldPatternFailure,
   WIDGET_TYPES,
@@ -218,6 +219,9 @@ describe("a value that fails a check still fits", () => {
     const patterned = textField({ pattern: "^a+$" });
     expect(fits(patterned, "a".repeat(PATTERN_TEXT_MAX_CHARS))).toBe(true);
     expect(fits(patterned, "a".repeat(PATTERN_TEXT_MAX_CHARS + 1))).toBe(false);
+    expect(fits(patterned, "a".repeat(100))).toBe(true);
+    expect(fits(patterned, "a".repeat(101))).toBe(false);
+    expect(fits(textField({ pattern: "^a+$", maxLength: 50 }), "a".repeat(51))).toBe(false);
     expect(fits(textField({}), "a".repeat(PATTERN_TEXT_MAX_CHARS + 1))).toBe(true);
   });
 });
@@ -243,9 +247,12 @@ describe("what a request says of the props", () => {
     expect(problem?.message).toContain("40");
   });
 
-  test("a pattern beside no maxLength limits the text to 1,000, which a minimum cannot pass", () => {
-    expect(at("/minLength", textField({ pattern: "^a+$", minLength: 1_000 }))).toEqual([]);
-    expect(at("/minLength", textField({ pattern: "^a+$", minLength: 1_001 }))).toHaveLength(1);
+  test("a pattern beside no maxLength limits the text to 100, which a minimum cannot pass", () => {
+    expect(at("/minLength", textField({ pattern: "^a+$", minLength: 100 }))).toEqual([]);
+    const [problem, ...rest] = at("/minLength", textField({ pattern: "^a+$", minLength: 101 }));
+    expect(rest).toEqual([]);
+    expect(problem?.message).toContain("ticket");
+    expect(problem?.message).toContain("100 characters");
     expect(at("/minLength", textField({ minLength: 1_001 }))).toEqual([]);
   });
 
@@ -257,11 +264,17 @@ describe("what a request says of the props", () => {
     expect(at("/pattern", textField({ pattern: "x".repeat(201) }))).toHaveLength(1);
   });
 
-  test("a field with a pattern holds at most 1,000 characters", () => {
-    const [problem] = at("/maxLength", textField({ pattern: "^[^@]+@[^@]+$", maxLength: 5_000 }));
-    expect(problem?.message).toContain("ticket");
-    expect(problem?.message).toContain("1000");
-    expect(at("/maxLength", textField({ pattern: "^a+$", maxLength: 1_000 }))).toEqual([]);
+  test("a field with a pattern holds at most 100 characters", () => {
+    for (const maxLength of [101, 5_000]) {
+      const [problem, ...rest] = at(
+        "/maxLength",
+        textField({ pattern: "^[^@]+@[^@]+$", maxLength }),
+      );
+      expect(rest).toEqual([]);
+      expect(problem?.message).toContain("ticket");
+      expect(problem?.message).toContain("at most 100 characters");
+    }
+    expect(at("/maxLength", textField({ pattern: "^a+$", maxLength: 100 }))).toEqual([]);
     expect(at("/maxLength", textField({ maxLength: 5_000 }))).toEqual([]);
   });
 
@@ -341,12 +354,12 @@ describe("what update says of the merged props of a text field", () => {
 
   test("a pattern merged onto a field that holds maxLength 5000 is refused at maxLength", () => {
     const problem = refusedAt(merged({ maxLength: 5_000 }, { pattern: "^a$" }), "/maxLength");
-    expect(problem?.message).toContain("1000");
+    expect(problem?.message).toContain("at most 100 characters");
   });
 
   test("maxLength 5000 merged onto a field that holds a pattern is refused at maxLength", () => {
     const problem = refusedAt(merged({ pattern: "^a$" }, { maxLength: 5_000 }), "/maxLength");
-    expect(problem?.message).toContain("1000");
+    expect(problem?.message).toContain("at most 100 characters");
   });
 
   test("an unsafe pattern merged onto a field is refused at pattern", () => {
@@ -360,8 +373,19 @@ describe("what update says of the merged props of a text field", () => {
   });
 
   test("the same merges within the bounds are accepted", () => {
-    expect(merged({ maxLength: 1_000 }, { pattern: "^a$" }).ok).toBe(true);
-    expect(merged({ pattern: "^a$" }, { maxLength: 1_000 }).ok).toBe(true);
+    expect(merged({ maxLength: 100 }, { pattern: "^a$" }).ok).toBe(true);
+    expect(merged({ pattern: "^a$" }, { maxLength: 100 }).ok).toBe(true);
     expect(merged({ maxLength: 5_000 }, { maxLength: 400 }).ok).toBe(true);
+  });
+});
+
+describe("what the skill says of the TextField's pattern", () => {
+  const notes = TEXT_FIELD_WIDGET.skill?.notes ?? [];
+
+  test("each note is at most 300 characters and the pattern notes name the cap", () => {
+    expect(notes.length).toBeGreaterThan(0);
+    for (const note of notes) expect(note.length, note).toBeLessThanOrEqual(300);
+    const text = notes.join(" ");
+    expect(text).toContain(`at most ${PATTERN_TEXT_MAX_CHARS} characters`);
   });
 });

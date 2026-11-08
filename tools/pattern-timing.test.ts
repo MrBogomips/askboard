@@ -4,7 +4,12 @@
 
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
-import { PATTERN_MAX_REPEATS, patternProblem } from "@askboard/contract";
+import {
+  PATTERN_MAX_CHARS,
+  PATTERN_MAX_REPEATS,
+  PATTERN_TEXT_MAX_CHARS,
+  patternProblem,
+} from "@askboard/contract";
 import {
   ENDINGS,
   FIXTURES,
@@ -14,9 +19,12 @@ import {
   report,
   runTimings,
   runtimeName,
+  runWorstShapes,
   SIZES,
   sizesFrom,
+  TEXT_CAP,
   timeMatch,
+  WORST_SHAPES,
 } from "./pattern-timing.ts";
 
 const SOURCE = new URL("./pattern-timing.ts", import.meta.url);
@@ -48,6 +56,51 @@ describe("the fixtures", () => {
     expect(SIZES).toEqual([100, 300, 1_000]);
     expect(GATE_MS).toBe(2_000);
     expect(KNOWN_LIMIT_MS).toBe(500);
+  });
+});
+
+describe("the worst shapes at the text cap", () => {
+  const unit = (pattern: string) => Array.from(pattern).length;
+
+  test("the cap is the contract's, which a field with a pattern holds", () => {
+    expect(TEXT_CAP).toBe(PATTERN_TEXT_MAX_CHARS);
+  });
+
+  test("every shape passes the safe-pattern check, anchored and not, on . and on \\d", () => {
+    for (const { pattern } of WORST_SHAPES) {
+      expect(patternProblem(pattern), pattern).toBeUndefined();
+      expect(unit(pattern), pattern).toBeLessThanOrEqual(PATTERN_MAX_CHARS);
+    }
+    const patterns = WORST_SHAPES.map(({ pattern }) => pattern);
+    for (const head of ["^.*.*.*", ".*.*", "^\\d*\\d*\\d*", "\\d*\\d*"]) {
+      expect(patterns.filter((each) => each.startsWith(head)).length, head).toBeGreaterThanOrEqual(
+        5,
+      );
+    }
+  });
+
+  test("each head has no tail, {k} tails and a literal tail up to the pattern limit", () => {
+    const dot = WORST_SHAPES.filter(({ pattern }) => pattern.startsWith("^.*.*.*"));
+    expect(dot.some(({ pattern }) => pattern === "^.*.*.*$")).toBe(true);
+    expect(dot.some(({ pattern }) => /\.\{\d+\}\$$/.test(pattern))).toBe(true);
+    expect(dot.some(({ pattern }) => unit(pattern) === PATTERN_MAX_CHARS)).toBe(true);
+    for (const { pattern, label } of WORST_SHAPES) expect(label, pattern).toBeString();
+  });
+
+  test("the run is of the class the shape's quantifiers read, so it fails only at its end", () => {
+    for (const { pattern, run } of WORST_SHAPES) {
+      const text = run.repeat(PATTERN_MAX_CHARS + TEXT_CAP);
+      expect(new RegExp(pattern.replace(/\$$/, ""), "u").test(text), pattern).toBe(true);
+    }
+  });
+
+  test("each shape, at the cap and with each ending, runs within the known-limit gate here", () => {
+    const rows = runWorstShapes();
+    expect(rows).toHaveLength(WORST_SHAPES.length * ENDINGS.length);
+    for (const row of rows) {
+      expect(row.size).toBe(TEXT_CAP - 1);
+      expect(row.ms, `${row.pattern} ${row.ending}`).toBeLessThan(KNOWN_LIMIT_MS);
+    }
   });
 });
 
@@ -98,10 +151,13 @@ describe("the report", () => {
 
   test("names the runtime, prints the table and says whether a case is over the limit", () => {
     expect(runtimeName()).toMatch(/^Bun \d/);
-    const [name, table, verdict] = report(["--sizes", "5"]);
+    const [name, table, verdict, worstName, worstTable, worstVerdict] = report(["--sizes", "5"]);
     expect(name).toBe(`pattern-timing on ${runtimeName()}`);
     expect(table).toContain("^\\d*\\d*\\d*$");
     expect(verdict).toBe(`no case over ${KNOWN_LIMIT_MS} ms`);
+    expect(worstName).toBe(`worst shapes at ${TEXT_CAP} characters`);
+    for (const { label } of WORST_SHAPES) expect(worstTable).toContain(label as string);
+    expect(worstVerdict).toBe(`no case over ${KNOWN_LIMIT_MS} ms`);
   });
 });
 

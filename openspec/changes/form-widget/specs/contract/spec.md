@@ -27,7 +27,7 @@ A TextField SHALL take an optional `minLength` from 1 to its `maxLength` and an 
 - **THEN** `ask` refuses it at `minLength`, naming the item
 
 ### Requirement: Safe patterns
-`ask` and `update` SHALL refuse a TextField whose `pattern` is over 200 code points, does not compile (`u` flag), holds a backreference, a lookaround, a `(?` form but `(?:` and `(?<name>`, a name twice or a repeated group holding a quantifier or an alternation, or costs over 3 repetitions (each `?`, `*`, `+`, `{n,}`, `{n,m}` and group holding a `|`; one more with no leading `^`); and one with `maxLength` over 1,000 (1,000 when absent). Each refusal SHALL name the item and the rule (NFR-5, AD-8).
+`ask` and `update` SHALL refuse a TextField whose `pattern` is over 200 code points, does not compile, holds a backreference, a lookaround, a `(?` form but `(?:` and `(?<name>`, a name twice, a repeated group holding a quantifier or `|`, or costs over 3 repetitions (variable quantifiers and `|` groups; one more with no leading `^`), or with `maxLength` over 100 (100 when absent). Each refusal SHALL name the item and rule (NFR-5, AD-8).
 
 #### Scenario: Patterns inside the subset
 - **WHEN** an ask holds TextFields with the patterns `^[A-Z][a-z]+$`, `^\+?\d{6,15}$`, `^[^@\s]+@[^@\s]+\.[a-z]{2,}$`, `^(?:[a-z0-9-]+\.)?example\.com$`, `^(?<key>[A-Z]+)-\d+$`, `^(?:dev|test|prod)$` and `[(+*)]`
@@ -41,13 +41,17 @@ A TextField SHALL take an optional `minLength` from 1 to its `maxLength` and an 
 - **WHEN** an ask holds a TextField with the pattern `^\d*\d*\d*\d*$`, `\d+\d+\d+x`, `^(?:a|a)(?:a|a)(?:a|a)(?:a|a)$` or `a?a?a?a?`, and another with `^\d*\d*\d*$`, `\d+\d+x` or `^(?:a|b)(?:c|d)(?:e|f)$`
 - **THEN** `ask` refuses the first four, naming the item, the count (4 or more) and the limit of 3, and accepts the others
 
+#### Scenario: A pattern field's text is short
+- **WHEN** an ask holds a TextField `{label: "Code", pattern: "^[A-Z]+$", minLength: 101}`, or one with `maxLength: 101`, and another with `{pattern: "^[A-Z]+$", maxLength: 100}`
+- **THEN** `ask` refuses the first two, naming the item and the limit of 100 characters, and accepts the third; and a text of 101 characters in a TextField with a pattern and no `maxLength` does not fit, while one of 100 does
+
 #### Scenario: An update that makes a pattern unsafe
 - **WHEN** `update` adds a question whose TextField holds `{pattern: "^a$", maxLength: 5000}`, or changes a TextField holding `{maxLength: 5000}` to set `pattern: "^a$"`, or one holding `{pattern: "^a$"}` to set `maxLength: 5000`, or sets `pattern: "^(a+)+$"`
 - **THEN** `update` refuses it at the offending prop, as `ask` does, and applies nothing
 
 #### Scenario: A long field with a pattern
 - **WHEN** an ask holds a TextField `{label: "Email", pattern: "^[^@]+@[^@]+$", maxLength: 5000}`
-- **THEN** `ask` refuses it at `maxLength`, naming the item and the 1,000-character bound
+- **THEN** `ask` refuses it at `maxLength`, naming the item and the 100-character bound
 
 ### Requirement: A value that fails a check still fits
 A result that fails only its field check SHALL still fit its item: `widgetResultFits` SHALL hold for it, and a draft record holding it SHALL be valid. Only a result that the item's result schema or result checks refuse SHALL be unfit (AD-20).

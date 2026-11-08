@@ -133,8 +133,8 @@ const LINE_BREAK = /[\n\r]/;
 
 /**
  * What a schema-valid TextField result still gets wrong against the item's props: more code points
- * than `textFieldLimit` (`maxLength`, else 1,000 for a field with a pattern, else
- * `TEXT_FIELD_MAX_CHARS`), and a line feed or carriage return in a
+ * than `textFieldLimit` (`maxLength`, else `PATTERN_TEXT_MAX_CHARS` for a field with a pattern,
+ * else `TEXT_FIELD_MAX_CHARS`), and a line feed or carriage return in a
  * field that is not multiline. Props that are no TextField's refuse the result, since nothing can
  * check it.
  */

@@ -9,14 +9,20 @@
 // grows with the number of variable quantifiers and alternations written in a row, so each
 // quantifier with a range (`?`, `*`, `+`, `{n,}`, `{n,m}` with m over n), each group holding a `|`
 // (the whole pattern counts as one when it holds a top-level `|`) and a pattern with no leading `^`
-// count one each. The one pass is linear in the pattern: it tracks escapes, classes and a stack of
-// groups, and builds no regular expression but the compile that proves the pattern is one. Plain
-// ECMAScript, no DOM, Node or Bun API.
+// count one each. A fixed
+// tail after the quantifiers multiplies each attempt, so a field with a pattern holds at most
+// `PATTERN_TEXT_MAX_CHARS` characters. The one pass is linear in the pattern: it tracks escapes,
+// classes and a stack of groups, and builds no regular expression but the compile that proves the
+// pattern is one. Plain ECMAScript, no DOM, Node or Bun API.
 
 /** A pattern is at most this many code points. */
 export const PATTERN_MAX_CHARS = 200;
-/** A TextField with a pattern holds at most this many code points, 1,000 when `maxLength` is absent. */
-export const PATTERN_TEXT_MAX_CHARS = 1_000;
+/**
+ * A TextField with a pattern holds at most this many code points, which is also its limit when
+ * `maxLength` is absent: the worst admitted shape matched 100 characters in at most 146 ms on Node 24
+ * (task 1.12), where 1,000 characters took minutes.
+ */
+export const PATTERN_TEXT_MAX_CHARS = 100;
 /** A pattern costs at most this many repetitions (see the header), read by every layer. */
 export const PATTERN_MAX_REPEATS = 3;
 
