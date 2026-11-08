@@ -406,4 +406,13 @@ export const EN_US = {
   "pick.clear": "Clear",
   "pick.filter": "Filter the options",
   "pick.noMatch": "No option matches.",
+  // The shared annotation pieces (document-review, task 5.4), to review.
+  "annotations.pin": "Pin {number}",
+  "annotations.comment": "Your comment",
+  "annotations.replaceWith": "Replace with",
+  "annotations.note": "Note (optional)",
+  "annotations.done": "Done",
+  "annotations.edit": "Edit",
+  "annotations.delete": "Delete",
+  "annotations.close": "Close",
 } as const satisfies StringTable;

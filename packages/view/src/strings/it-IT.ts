@@ -425,4 +425,13 @@ export const IT_IT = {
   "pick.clear": "Cancella",
   "pick.filter": "Filtra le opzioni",
   "pick.noMatch": "Nessuna opzione corrisponde.",
+  // The shared annotation pieces (document-review, task 5.4), to review.
+  "annotations.pin": "Pin {number}",
+  "annotations.comment": "Il tuo commento",
+  "annotations.replaceWith": "Sostituisci con",
+  "annotations.note": "Nota (facoltativa)",
+  "annotations.done": "Fatto",
+  "annotations.edit": "Modifica",
+  "annotations.delete": "Elimina",
+  "annotations.close": "Chiudi",
 } as const satisfies StringTable;

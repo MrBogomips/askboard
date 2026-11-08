@@ -385,6 +385,16 @@ export const STRING_KEYS = [
   "pick.clear",
   "pick.filter",
   "pick.noMatch",
+  // The shared annotation pieces (document-review, task 5.4; ux-update-draft.md block 1; the Italian
+  // texts to review): the pin, the card and the list, which each annotating widget reuses.
+  "annotations.pin",
+  "annotations.comment",
+  "annotations.replaceWith",
+  "annotations.note",
+  "annotations.done",
+  "annotations.edit",
+  "annotations.delete",
+  "annotations.close",
 ] as const;
 
 export type StringKey = (typeof STRING_KEYS)[number];
