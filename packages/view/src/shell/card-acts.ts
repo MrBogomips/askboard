@@ -23,6 +23,7 @@ import {
   type Locale,
   noteHoldsReason,
 } from "@askboard/contract";
+import { nestedItemById } from "../nested-items.ts";
 import { t } from "../strings/index.ts";
 import type { ViewQuestion } from "../view-document.ts";
 import {
@@ -43,6 +44,7 @@ import {
   resultIdsOf,
   valueDropped,
 } from "./board-draft.ts";
+import { cellEntryIdsOf, clearCellEntries, fitCellEntries } from "./cell-entries.ts";
 import type { ViewChannel } from "./channel.ts";
 import type { DerivedStore } from "./derived-store.ts";
 import type { DraftStore } from "./draft-store.ts";
@@ -95,6 +97,8 @@ export type AnswerContext = Senders & {
   readonly results?: DraftStore;
   /** The entries the fields hold, beside the draft record (atoms, design decision 3). */
   readonly entries?: DraftStore;
+  /** The cell entries the Tables hold, beside the draft record (table-widget, design decision 8). */
+  readonly cellEntries?: DraftStore;
   readonly board: BoardDraft;
   /** The derived values each widget item last reported (widget-answers design decision 10). */
   readonly derived: DerivedStore;
@@ -402,12 +406,14 @@ export const dropWork = (
     draft,
     results,
     entries,
+    cellEntries,
     board,
-  }: Pick<AnswerContext, "draft" | "results" | "entries" | "board">,
+  }: Pick<AnswerContext, "draft" | "results" | "entries" | "cellEntries" | "board">,
 ): void => {
   for (const itemId of itemIdsOf(question)) draft.set(itemId, undefined);
   for (const itemId of resultIdsOf(question)) results?.set(itemId, undefined);
   for (const itemId of entryIdsOf(question)) entries?.set(itemId, undefined);
+  clearCellEntries(question, cellEntries);
   board.forget(question.id);
 };
 
@@ -433,7 +439,7 @@ export const keepMine = (
 ): void => {
   const work = context.board.work(question.id);
   if (work === undefined || work.rev >= question.rev) return;
-  const { results, facts, draft } = context;
+  const { results, facts, draft, cellEntries } = context;
   for (const itemId of resultIdsOf(shown)) {
     const held = results?.valueOf(itemId);
     if (held !== undefined && !resultFits(shown, itemId, held, facts))
@@ -443,6 +449,14 @@ export const keepMine = (
     const value = draft.valueOf(itemId);
     if (value !== undefined && valueDropped(shown, work.rev, itemId, value, facts))
       draft.set(itemId, undefined);
+  }
+  // A Table's cell entries stay only for input cells of the value it now holds, the draft's where
+  // that was kept, else the props the card shows: none is left that no cell shows (review U-1).
+  for (const itemId of cellEntryIdsOf(shown)) {
+    const held = cellEntries?.valueOf(itemId);
+    if (!(held instanceof Map)) continue;
+    const props = draft.valueOf(itemId) ?? nestedItemById(shown.props.items, itemId)?.props;
+    cellEntries?.set(itemId, fitCellEntries(held, props));
   }
   sendActs(context, [
     {
@@ -469,9 +483,10 @@ export const fillFrom = (
     draft,
     results,
     entries,
+    cellEntries,
     board,
     facts,
-  }: Pick<AnswerContext, "draft" | "results" | "entries" | "board" | "facts">,
+  }: Pick<AnswerContext, "draft" | "results" | "entries" | "cellEntries" | "board" | "facts">,
 ): void => {
   const labels = new Set((question.props.options ?? []).map((option) => option.label));
   const choice = (content.choice ?? []).filter((label) => labels.has(label));
@@ -489,6 +504,7 @@ export const fillFrom = (
   // The start of a revision, or "Start from my previous answer", replaces the draft: text a field
   // could not read goes, as a result of the answer takes the item's place.
   for (const itemId of entryIdsOf(question)) entries?.set(itemId, undefined);
+  clearCellEntries(question, cellEntries);
   board.edit(question.id, question.rev, ({ other: _o, optionNotes: _n, note: _t, ...rest }) => ({
     ...rest,
     ...(other === undefined ? {} : { other }),

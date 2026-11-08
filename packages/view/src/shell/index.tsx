@@ -57,6 +57,7 @@ import {
 import { BoardLanguage } from "./board-language.tsx";
 import { nextAfterRemoval, presentationOf } from "./board-view.ts";
 import { dropWork } from "./card-acts.ts";
+import { clearCellEntries, dropStaleCellEntries } from "./cell-entries.ts";
 import { NO_CHANNEL, openChannel, type ViewChannel } from "./channel.ts";
 import { createDerivedStore } from "./derived-store.ts";
 import { createDraftStore, type DraftStore } from "./draft-store.ts";
@@ -114,6 +115,7 @@ const clearCarried = (
   draft: DraftStore,
   results: DraftStore,
   entries: DraftStore,
+  cellEntries: DraftStore,
   board: BoardDraft,
   kept: Store<KeptChoices>,
 ): void => {
@@ -138,6 +140,7 @@ const clearCarried = (
       for (const itemId of itemIdsOf(question)) draft.set(itemId, undefined);
       for (const itemId of resultIdsOf(question)) results.set(itemId, undefined);
       for (const itemId of entryIdsOf(question)) entries.set(itemId, undefined);
+      clearCellEntries(question, cellEntries);
     }
     board.clear(question.id, fields);
   }
@@ -153,6 +156,7 @@ type Removal = {
   readonly draft: DraftStore;
   readonly results: DraftStore;
   readonly entries: DraftStore;
+  readonly cellEntries: DraftStore;
   readonly board: BoardDraft;
   readonly focus: Store<HeadingRequest | undefined>;
   readonly removed: Store<boolean>;
@@ -210,9 +214,11 @@ const boot = (): void => {
   const results = createDraftStore();
   // The text the NumberField, MoneyField and DateField cannot read, beside them (atoms, decision 3).
   const entries = createDraftStore();
+  // The text a Table's cells cannot read, by item and cell, beside them (table-widget, decision 8).
+  const cellEntries = createDraftStore();
   const single = presentationOf(data.document) === "single";
   const board = createBoardDraft(single ? "immediate" : (data.document.delivery ?? "immediate"));
-  connectDrafts(() => view.get().document, draft, board, results, entries);
+  connectDrafts(() => view.get().document, draft, board, results, entries, cellEntries);
   const acts = createAnswerActs();
   const attention = createAttention(data.document, data.state);
   const revisions = createRevisions();
@@ -241,8 +247,17 @@ const boot = (): void => {
     const document = update.document ?? before;
     if (update.document !== undefined) {
       revisions.record(document);
-      onRemoval(before, document, { draft, results, entries, board, focus, removed });
+      onRemoval(before, document, {
+        draft,
+        results,
+        entries,
+        cellEntries,
+        board,
+        focus,
+        removed,
+      });
       dropStaleEntries(document, entries);
+      dropStaleCellEntries(document, cellEntries);
       tracker.include(questionItemsOf(document));
       attention.documentChanged(document);
     }
@@ -263,10 +278,11 @@ const boot = (): void => {
         results,
         undefined,
         entries,
+        cellEntries,
       );
     }
     for (const flight of acts.reconcile(update.pending ?? [], update.settled ?? [])) {
-      clearCarried(flight, document, draft, results, entries, board, kept);
+      clearCarried(flight, document, draft, results, entries, cellEntries, board, kept);
     }
   });
   // The draft mirror: the whole record after each change of either store, once per task (AD-20).
@@ -284,6 +300,7 @@ const boot = (): void => {
           board.get(),
           results.record(),
           entries.record(),
+          cellEntries.record(),
         ),
       });
     });
@@ -291,11 +308,13 @@ const boot = (): void => {
   draft.subscribe(mirror);
   results.subscribe(mirror);
   entries.subscribe(mirror);
+  cellEntries.subscribe(mirror);
   board.subscribe(mirror);
   const context = {
     draft,
     results,
     entries,
+    cellEntries,
     tracker,
     channel,
     acts,

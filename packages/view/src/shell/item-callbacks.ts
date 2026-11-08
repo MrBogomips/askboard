@@ -8,15 +8,18 @@
 // the same step (widget-registry, design decision 9), and refuses one that is not JSON. `onEntryChange`
 // puts the text a field cannot read into the entries store, cut at the limit, none removing it, and
 // clears the item's result, as a result clears its entry: an item holds one or the other, never both
-// (atoms, design decision 3). An item in `readOnlyItems`, which the card cannot show the revision of
-// its work for, writes no value through `onValueChange` and none through `onValuesChange`, which
-// refuses the whole update naming it: the console names the item, nothing is failed and no step
-// runs (keep-mine-shown-revision, design decision 3). Also the value and the result an item shows.
+// (atoms, design decision 3). `onCellEntriesChange` replaces a Table's whole map of cell entries in the
+// cell entries store, the same way (table-widget, design decision 8). An item in `readOnlyItems`, which
+// the card cannot show the revision of its work for, writes no value through `onValueChange` and none
+// through `onValuesChange`, which refuses the whole update naming it: the console names the item,
+// nothing is failed and no step runs (keep-mine-shown-revision, design decision 3). Also the value and
+// the result an item shows.
 // Plain functions, tested without a DOM.
 
 import { JSON_MAX_DEPTH, resultHoldsNothing } from "@askboard/contract";
 import type { BoardContent } from "../catalog/port.ts";
 import { isJsonValue } from "../view-protocol.ts";
+import { cutCellEntries, sameCellEntries } from "./cell-entries.ts";
 import type { DraftStore } from "./draft-store.ts";
 import { cutEntry } from "./entries.ts";
 
@@ -28,6 +31,10 @@ export type ItemCallbackInputs = {
   readonly entries?: DraftStore | undefined;
   /** The item's type holds an entry (`isEntryType`); an item that reports one without it fails. */
   readonly entryAllowed?: boolean | undefined;
+  /** The cell entries store beside the draft record; without one, a reported entry is not held. */
+  readonly cellEntries?: DraftStore | undefined;
+  /** The item is a Table, which holds cell entries; any other item that reports one fails. */
+  readonly cellEntriesAllowed?: boolean | undefined;
   readonly itemId: string;
   /** The question the item sits in. */
   readonly questionId: string;
@@ -46,6 +53,7 @@ export type ItemCallbacks = {
   readonly onValuesChange: (values: Readonly<Record<string, unknown>>) => void;
   readonly onResultChange: (result: unknown) => void;
   readonly onEntryChange: (entry: string | undefined) => void;
+  readonly onCellEntriesChange: (entries: ReadonlyMap<string, string>) => void;
 };
 
 const quoted = (ids: readonly string[]): string => {
@@ -68,6 +76,8 @@ export const itemCallbacks = ({
   results,
   entries,
   entryAllowed = false,
+  cellEntries,
+  cellEntriesAllowed = false,
   itemId,
   questionId,
   itemIds,
@@ -131,6 +141,25 @@ export const itemCallbacks = ({
     onBeforeChange?.();
     entries.set(itemId, cutEntry(entry));
     results?.set(itemId, undefined);
+  },
+  onCellEntriesChange: (entries) => {
+    if (cellEntries === undefined) return;
+    if (!(entries instanceof Map) || !cellEntriesAllowed) {
+      onError(
+        new Error(
+          cellEntriesAllowed
+            ? `the item "${itemId}" reported cell entries that are no map`
+            : `the item "${itemId}" reported cell entries, which its type does not hold`,
+        ),
+      );
+      return;
+    }
+    // The whole map replaces the item's: each text cut at the limit, empty ones dropped. The same
+    // cells again change nothing, so the step before a change and the mirror do not run.
+    const cut = cutCellEntries(entries);
+    if (sameCellEntries(cellEntries.valueOf(itemId), cut)) return;
+    onBeforeChange?.();
+    cellEntries.set(itemId, cut);
   },
   onValuesChange: (values) => {
     const outside = Object.keys(values).filter((id) => !itemIds.includes(id));

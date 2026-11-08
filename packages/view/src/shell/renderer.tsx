@@ -29,6 +29,7 @@ import {
   useStrings,
 } from "../catalog/port.ts";
 import { withEntries } from "./board-content.ts";
+import { CELL_ENTRY_ITEM_TYPE, cellEntriesShown } from "./cell-entries.ts";
 import type { DerivedStore } from "./derived-store.ts";
 import { createDraftStore, type DraftRecord, type DraftStore } from "./draft-store.ts";
 import { isEntryType } from "./entries.ts";
@@ -45,6 +46,8 @@ export type RenderContext = {
   readonly results?: DraftStore;
   /** The entries the fields hold, beside the draft record; none: no item holds an entry. */
   readonly entries?: DraftStore;
+  /** The cell entries the Tables hold, beside the draft record (table-widget, design decision 8). */
+  readonly cellEntries?: DraftStore;
   /** The result an item's question's latest answer holds for it (`createAnsweredResults`). */
   readonly answeredResult?: (itemId: string) => unknown;
 };
@@ -53,6 +56,7 @@ export type RenderContext = {
 const NO_RESULTS = createDraftStore();
 const NO_ENTRIES = createDraftStore();
 const NO_READ_ONLY: ReadonlySet<string> = new Set();
+const NO_CELLS = createDraftStore();
 
 const messageOf = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
@@ -186,12 +190,14 @@ export const RenderItem = ({
     derived,
     results = NO_RESULTS,
     entries = NO_ENTRIES,
+    cellEntries = NO_CELLS,
     answeredResult,
   } = context;
   // The whole record, since the board holds it: the item's value is what the board shows for it.
   const record = useSyncExternalStore(draft.subscribe, draft.record, draft.record);
   const heldResults = useSyncExternalStore(results.subscribe, results.record, results.record);
   const heldEntries = useSyncExternalStore(entries.subscribe, entries.record, entries.record);
+  const heldCells = useSyncExternalStore(cellEntries.subscribe, cellEntries.record);
   const board = withEntries(boardContent(record), heldEntries, heldResults);
   const onDerived = useCallback(
     (values: DerivedValues) => derived.report(item.id, values),
@@ -205,33 +211,38 @@ export const RenderItem = ({
   const readOnly = readOnlyItems.has(item.id);
   const heldStore = context.results;
   const entryStore = context.entries;
-  const { onValueChange, onValuesChange, onResultChange, onEntryChange } = useMemo(
-    () =>
-      itemCallbacks({
+  const cellStore = context.cellEntries;
+  const { onValueChange, onValuesChange, onResultChange, onEntryChange, onCellEntriesChange } =
+    useMemo(
+      () =>
+        itemCallbacks({
+          draft,
+          results: heldStore,
+          entries: entryStore,
+          entryAllowed: isEntryType(item.type),
+          cellEntries: cellStore,
+          cellEntriesAllowed: item.type === CELL_ENTRY_ITEM_TYPE,
+          itemId: item.id,
+          questionId,
+          itemIds,
+          readOnlyItems,
+          onBeforeChange,
+          onError,
+        }),
+      [
         draft,
-        results: heldStore,
-        entries: entryStore,
-        entryAllowed: isEntryType(item.type),
-        itemId: item.id,
+        heldStore,
+        entryStore,
+        cellStore,
+        item.type,
+        item.id,
         questionId,
         itemIds,
         readOnlyItems,
         onBeforeChange,
         onError,
-      }),
-    [
-      draft,
-      heldStore,
-      entryStore,
-      item.type,
-      item.id,
-      questionId,
-      itemIds,
-      readOnlyItems,
-      onBeforeChange,
-      onError,
-    ],
-  );
+      ],
+    );
   // One item the layout holds, through this same renderer: its own frame, boundary and draft.
   const renderItem = (child: BoardWidgetItem): ReactNode => (
     <RenderItem
@@ -268,6 +279,8 @@ export const RenderItem = ({
           onDerived={onDerived}
           entry={entryShown(shown, shownResult, heldEntries.get(item.id))}
           onEntryChange={onEntryChange}
+          cellEntries={cellEntriesShown(shown, shownResult, heldCells.get(item.id))}
+          onCellEntriesChange={onCellEntriesChange}
           renderItem={renderItem}
           {...(extras === undefined ? {} : { extras })}
         />

@@ -20,12 +20,13 @@ import { type ComponentFacts, componentFacts } from "../catalog/port.ts";
 import { nestedItemById, valueItemsOf } from "../nested-items.ts";
 import { questionsOf, type ViewDocument, type ViewQuestion } from "../view-document.ts";
 import type { AnswerContent } from "../view-protocol.ts";
+import { cellEntryIdsOf, cutCellEntries, fitCellEntries } from "./cell-entries.ts";
 import type { DraftStore, DraftRecord as ValueRecord } from "./draft-store.ts";
 import { cutEntry, entryIdsOf } from "./entries.ts";
 import { draftAnswerOf } from "./question-state.ts";
 
 /** A question's work besides its items' values, on the revision it was made on. */
-export type QuestionWork = Omit<DraftQuestion, "values" | "results" | "entries"> & {
+export type QuestionWork = Omit<DraftQuestion, "values" | "results" | "entries" | "cellEntries"> & {
   /**
    * The held undo (`reopen`) of a sent postpone or decline that a later answer, decline or note
    * was held over: it is held again when that act is taken back or made not ready, so the undo is
@@ -261,10 +262,12 @@ const hasValues = (
   values: ValueRecord,
   results: ValueRecord = NO_RESULTS,
   entries: ValueRecord = NO_RESULTS,
+  cells: ValueRecord = NO_RESULTS,
 ): boolean =>
   itemIdsOf(question).some((itemId) => values.get(itemId) !== undefined) ||
   resultIdsOf(question).some((itemId) => results.get(itemId) !== undefined) ||
-  entryIdsOf(question).some((itemId) => entries.get(itemId) !== undefined);
+  entryIdsOf(question).some((itemId) => entries.get(itemId) !== undefined) ||
+  cellEntryIdsOf(question).some((itemId) => cells.get(itemId) !== undefined);
 
 const sameValues = (
   question: ViewQuestion,
@@ -274,10 +277,13 @@ const sameValues = (
   resultsB: ValueRecord = NO_RESULTS,
   entriesA: ValueRecord = NO_RESULTS,
   entriesB: ValueRecord = NO_RESULTS,
+  cellsA: ValueRecord = NO_RESULTS,
+  cellsB: ValueRecord = NO_RESULTS,
 ): boolean =>
   itemIdsOf(question).every((itemId) => Object.is(a.get(itemId), b.get(itemId))) &&
   resultIdsOf(question).every((itemId) => Object.is(resultsA.get(itemId), resultsB.get(itemId))) &&
-  entryIdsOf(question).every((itemId) => Object.is(entriesA.get(itemId), entriesB.get(itemId)));
+  entryIdsOf(question).every((itemId) => Object.is(entriesA.get(itemId), entriesB.get(itemId))) &&
+  cellEntryIdsOf(question).every((itemId) => Object.is(cellsA.get(itemId), cellsB.get(itemId)));
 
 /**
  * Whether the question's draft holds answer work: an item's value, result or entry, "Other…"
@@ -290,8 +296,9 @@ export const hasAnswerWork = (
   work: QuestionWork | undefined,
   results: ValueRecord = NO_RESULTS,
   entries: ValueRecord = NO_RESULTS,
+  cells: ValueRecord = NO_RESULTS,
 ): boolean =>
-  hasValues(question, values, results, entries) ||
+  hasValues(question, values, results, entries, cells) ||
   work?.other !== undefined ||
   Object.keys(work?.optionNotes ?? {}).length > 0 ||
   (work?.note !== undefined && work.note !== "");
@@ -310,23 +317,39 @@ export const connectDrafts = (
   board: BoardDraft,
   results?: DraftStore,
   entries?: DraftStore,
+  cellEntries?: DraftStore,
 ): (() => void) => {
   const documentOf = typeof document === "function" ? document : () => document;
   const resultsNow = () => results?.record() ?? NO_RESULTS;
   const entriesNow = () => entries?.record() ?? NO_RESULTS;
+  const cellsNow = () => cellEntries?.record() ?? NO_RESULTS;
   let previous = values.record();
   let previousResults = resultsNow();
   let previousEntries = entriesNow();
+  let previousCells = cellsNow();
   const onValues = () => {
     const record = values.record();
     const held = resultsNow();
     const typed = entriesNow();
+    const cells = cellsNow();
     for (const question of questionsOf(documentOf())) {
-      if (sameValues(question, previous, record, previousResults, held, previousEntries, typed)) {
+      if (
+        sameValues(
+          question,
+          previous,
+          record,
+          previousResults,
+          held,
+          previousEntries,
+          typed,
+          previousCells,
+          cells,
+        )
+      ) {
         continue;
       }
       const work = board.work(question.id);
-      if (hasValues(question, record, held, typed) && work === undefined) {
+      if (hasValues(question, record, held, typed, cells) && work === undefined) {
         board.edit(question.id, question.rev, (fresh) => fresh);
       } else if (work !== undefined && isAnswerHeld(work.held)) {
         board.edit(question.id, work.rev, releaseHeld);
@@ -335,6 +358,7 @@ export const connectDrafts = (
     previous = record;
     previousResults = held;
     previousEntries = typed;
+    previousCells = cells;
     prune();
   };
   const prune = () => {
@@ -344,7 +368,7 @@ export const connectDrafts = (
       if (
         work !== undefined &&
         isBare(work) &&
-        !hasValues(question, record, resultsNow(), entriesNow())
+        !hasValues(question, record, resultsNow(), entriesNow(), cellsNow())
       ) {
         board.forget(question.id);
       }
@@ -353,11 +377,13 @@ export const connectDrafts = (
   const stopValues = values.subscribe(onValues);
   const stopResults = results?.subscribe(onValues);
   const stopEntries = entries?.subscribe(onValues);
+  const stopCells = cellEntries?.subscribe(onValues);
   const stopBoard = board.subscribe(prune);
   return () => {
     stopValues();
     stopResults?.();
     stopEntries?.();
+    stopCells?.();
     stopBoard();
   };
 };
@@ -377,6 +403,7 @@ const questionEntry = (
   values: ValueRecord,
   results: ValueRecord,
   entries: ValueRecord,
+  cells: ValueRecord,
   work: QuestionWork | undefined,
   placement: ContextPlacement | undefined,
 ): DraftQuestion | undefined => {
@@ -393,11 +420,18 @@ const questionEntry = (
     const text = cutEntry(entries.get(itemId));
     return text === undefined ? [] : [[itemId, text] as const];
   });
+  // The cell entries of each Table that holds some, cut at the limits, never of an item that is no
+  // Table of the question: a map of `row.field` to text, own keys, so `__proto__.rate` is data.
+  const typedCells = cellEntryIdsOf(question).flatMap((itemId) => {
+    const cut = cutCellEntries(cells.get(itemId));
+    return cut === undefined ? [] : [[itemId, Object.fromEntries(cut)] as const];
+  });
   const optionNotes = filledNotes(work?.optionNotes);
   const fields = {
     ...(held.length === 0 ? {} : { values: Object.fromEntries(held) }),
     ...(resulting.length === 0 ? {} : { results: Object.fromEntries(resulting) }),
     ...(typed.length === 0 ? {} : { entries: Object.fromEntries(typed) }),
+    ...(typedCells.length === 0 ? {} : { cellEntries: Object.fromEntries(typedCells) }),
     ...(work?.other === undefined ? {} : { other: work.other }),
     ...(optionNotes === undefined ? {} : { optionNotes }),
     ...(filled(work?.note) ? { note: work.note } : {}),
@@ -417,6 +451,7 @@ export const draftRecordOf = (
   board: BoardDraftState,
   results: ValueRecord = NO_RESULTS,
   typed: ValueRecord = NO_RESULTS,
+  cells: ValueRecord = NO_RESULTS,
 ): DraftRecord => {
   const questions = questionsOf(document);
   const entries = questions.flatMap((question) => {
@@ -425,6 +460,7 @@ export const draftRecordOf = (
       values,
       results,
       typed,
+      cells,
       board.questions.get(question.id),
       board.placements?.get(question.id),
     );
@@ -499,6 +535,7 @@ const isRestoredAnswer = (
   if (entry.held !== undefined && entry.held.act !== expectedHeld) return false;
   // The answer holds no entry: text left in a field makes the draft differ from it.
   if (Object.keys(entry.entries ?? {}).length > 0) return false;
+  if (Object.keys(entry.cellEntries ?? {}).length > 0) return false;
   const itemValues = entry.values ?? {};
   if (Object.keys(itemValues).some((itemId) => itemId !== question.id)) return false;
   const choice = itemValues[question.id];
@@ -528,6 +565,7 @@ export const restoreDraft = (
   results?: DraftStore,
   factsOf?: (type: string) => ComponentFacts | undefined,
   entries?: DraftStore,
+  cellEntries?: DraftStore,
 ): void => {
   const questions = questionsOf(document);
   const work = new Map<string, QuestionWork>();
@@ -540,6 +578,7 @@ export const restoreDraft = (
       values: kept = {},
       results: keptResults = {},
       entries: keptEntries = {},
+      cellEntries: keptCells = {},
       context,
       ...rest
     } = entry;
@@ -568,6 +607,17 @@ export const restoreDraft = (
         ([itemId, value]) => !widgets.has(itemId) || takesValue(itemId, value),
       ),
     );
+    // The cell entries of a Table, each cut, then kept only for an input cell of the value the
+    // Table holds: the restored value where it keeps one, else the props as the question shows them.
+    const tables = new Set(cellEntryIdsOf(question));
+    const typedCells = Object.entries(keptCells).flatMap(([itemId, texts]) => {
+      if (!tables.has(itemId)) return [];
+      const cut = cutCellEntries(new Map(Object.entries(texts ?? {})));
+      const held = Object.hasOwn(keptValues, itemId) ? keptValues[itemId] : undefined;
+      const props = held ?? nestedItemById(question.props.items, itemId)?.props;
+      const fitting = cut === undefined ? undefined : fitCellEntries(cut, props);
+      return fitting === undefined ? [] : [[itemId, fitting] as const];
+    });
     if (!staleAnswer) {
       for (const [itemId, value] of Object.entries(keptValues)) {
         if (!items.has(itemId) || (itemId === question.id && !isLabels(value))) continue;
@@ -586,6 +636,7 @@ export const restoreDraft = (
         }
       }
       for (const [itemId, text] of typed) entries?.set(itemId, text);
+      for (const [itemId, held] of typedCells) cellEntries?.set(itemId, held);
     }
     const held = staleAnswer
       ? { rev: rest.rev, ...(rest.composer === undefined ? {} : { composer: rest.composer }) }
@@ -595,6 +646,7 @@ export const restoreDraft = (
       Object.keys(held).some((key) => key !== "rev") ||
       hasValuesIn(keptValues) ||
       typed.length > 0 ||
+      typedCells.length > 0 ||
       Object.entries(keptResults).some(
         ([itemId, r]) =>
           !typedNow.has(itemId) &&

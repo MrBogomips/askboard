@@ -122,6 +122,19 @@ export type ItemProps<Item = unknown, Value = unknown> = {
    * throws, which shows its error state.
    */
   readonly renderItem?: (item: BoardWidgetItem) => ReactNode;
+  /**
+   * The text each cell of the item holds that gives no value (table-widget, design decision 8), by
+   * cell, `row.field`: kept in the draft record apart from the item's value and result, restored
+   * after a reload and never part of an answer. The map is empty while the item holds none or is
+   * read-only; only a Table holds any.
+   */
+  readonly cellEntries: ReadonlyMap<string, string>;
+  /**
+   * Replaces the item's whole map of cell entries in the draft record, each text cut at 200 code
+   * points and each empty one dropped; an empty map removes them. Only a Table holds any, and
+   * nothing leaves the view (AD-9).
+   */
+  readonly onCellEntriesChange: (entries: ReadonlyMap<string, string>) => void;
 };
 
 export type CatalogComponent<Item = unknown, Value = unknown> = (

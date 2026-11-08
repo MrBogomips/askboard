@@ -52,6 +52,8 @@ export const OptionPreview = ({
     onDerived: NOTHING,
     entry: undefined,
     onEntryChange: NOTHING,
+    cellEntries: new Map(),
+    onCellEntriesChange: NOTHING,
   };
   return (
     <div id={id} className="ml-xl rounded-md border border-border bg-muted p-sm">

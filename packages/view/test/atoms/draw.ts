@@ -56,6 +56,8 @@ export const draw = (
     onDerived: NONE,
     entry: options.entry,
     onEntryChange: (next) => entries.push(next),
+    cellEntries: new Map(),
+    onCellEntriesChange: NONE,
   };
   const html = renderToStaticMarkup(
     createElement(
