@@ -7,6 +7,7 @@ import {
   type LifecycleBoardState,
 } from "@askboard/contract";
 import {
+  ganttPlanBoardDocument,
   lifecycleBoardDocument,
   plainChoiceBoardDocument,
   settingsWithEveryKey,
@@ -239,6 +240,59 @@ describe("an answer from the view becomes an answer act only if it can be (AD-10
       items: [{ ...question, props: { ...question.props, multiSelect: true } }],
     };
     expect(answerActFor(ready(multiple), two).ok).toBe(true);
+  });
+});
+
+describe("an item that fails stops every act of its question (document-review, design decision 15; Issue #103)", () => {
+  const when = "2026-11-08T09:41:27.123Z";
+  const [{ id: question }] = ganttPlanBoardDocument.items;
+  const planState: LifecycleBoardState = {
+    ask: "waiting",
+    questions: [{ itemId: question, rev: 1, state: "open" }],
+  };
+  // The board of one question `plan`, holding a Tree and a Gantt plan, which counted as visible.
+  const visible = (): BoardModel =>
+    withViewMessage(
+      withHostMessage(
+        withHostMessage(EMPTY_MODEL, {
+          version,
+          type: "board",
+          document: ganttPlanBoardDocument,
+        } as unknown as HostMessage),
+        { version, type: "state", state: planState } as unknown as HostMessage,
+      ),
+      { type: "ready", itemId: question },
+    );
+  const failing = (itemId: string): BoardModel =>
+    withViewMessage(visible(), { type: "item-error", itemId, error: "boom" });
+  const acts: readonly ViewAct[] = [
+    { type: "answer", itemId: question, rev: 1, values: { schedule: { size: 1 } }, when },
+    { type: "postpone", itemId: question, rev: 1 },
+    { type: "note", itemId: question, rev: 1, note: "x", when },
+  ];
+
+  test("at the head, the question's acts go", () => {
+    for (const act of acts) expect(actsFor(visible(), [act]).ok).toBe(true);
+  });
+
+  test("a widget item of the question that failed refuses each act, naming the failure", () => {
+    for (const itemId of ["schedule", "wbs"]) {
+      const model = failing(itemId);
+      for (const act of acts) {
+        expect(actsFor(model, [act])).toEqual({
+          ok: false,
+          detail: "the question's item failed in the view",
+        });
+      }
+    }
+  });
+
+  test("and refuses the whole command that holds acts for it, naming the first", () => {
+    const checked = actsFor(failing("schedule"), [acts[1] as ViewAct, acts[2] as ViewAct]);
+    expect(checked).toEqual({
+      ok: false,
+      detail: "act 1: the question's item failed in the view",
+    });
   });
 });
 

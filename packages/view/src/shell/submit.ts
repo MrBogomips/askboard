@@ -39,8 +39,12 @@ import type { DerivedStore } from "./derived-store.ts";
 import type { DraftRecord, DraftStore } from "./draft-store.ts";
 import { holdsBlock } from "./field-block.ts";
 import { contentOf } from "./question-state.ts";
+import type { QuestionStatus } from "./ready-tracker.ts";
 import { type FactsOf, reasonOf } from "./reason.ts";
 import { questionsToConfirm } from "./revision-confirm.ts";
+
+/** The ready tracker's status of a question (AD-9, AD-10). */
+export type LoadOf = (questionId: string) => QuestionStatus;
 
 /** A question with an act held for Submit, and the work that carries it. */
 export type HeldWork = {
@@ -162,6 +166,8 @@ export type SubmitInputs = {
   readonly readOnlyOf?: ReadOnlyOf | undefined;
   /** The question as its card shows it: the field block reads that revision (Issue #92). */
   readonly shownOf?: ShownOf | undefined;
+  /** The ready tracker's status of each question: a held act on one not `visible` waits (Issue #103). */
+  readonly load?: LoadOf | undefined;
 };
 
 export type SubmitState = {
@@ -206,6 +212,24 @@ export const heldWithBlock = (
         ),
       );
 
+/**
+ * The first question, in board order, with an act held for Submit that is not `visible`: still
+ * loading, or one of its items failed (AD-9, AD-10). The card gates its own acts on the same status
+ * (`usable`), and nothing is answered on a partial board, so Submit waits for it too (Issue #103).
+ * With no `load`, nothing is read.
+ */
+export const heldUnusable = (
+  document: ViewDocument,
+  held: readonly HeldWork[],
+  load: LoadOf | undefined,
+): ViewQuestion | undefined =>
+  load === undefined
+    ? undefined
+    : questionsOf(document).find(
+        (question) =>
+          held.some((each) => each.question.id === question.id) && load(question.id) !== "visible",
+      );
+
 /** Whether Submit can go, and what stops it (EXPERIENCE.md, Submit). */
 export const submitStateOf = (inputs: SubmitInputs): SubmitState => {
   const held = heldWorkOf(inputs.document, inputs.board);
@@ -220,6 +244,7 @@ export const submitStateOf = (inputs: SubmitInputs): SubmitState => {
     inputs.lock !== undefined ||
     blocked.length > 0 ||
     ids.some(inputs.sending) ||
+    heldUnusable(inputs.document, held, inputs.load) !== undefined ||
     heldWithBlock(
       inputs.document,
       held,
@@ -355,6 +380,8 @@ export const heldMissingReason = (
 
 /** What a press of Submit comes to: a question whose reason is missing, the acts to send, or the acts and the questions to ask about first. */
 export type SubmitPress =
+  /** A held act's question is loading or failed: nothing is sent, and the board goes to the question. */
+  | { readonly kind: "unusable"; readonly questionId: string }
   | { readonly kind: "needs-reason"; readonly questionId: string }
   /** A held answer's question holds a blocking field: nothing is sent, and the board goes to the question. */
   | { readonly kind: "field-block"; readonly questionId: string }
@@ -367,8 +394,9 @@ export type SubmitPress =
     };
 
 /**
- * A press of Submit (design decision 6): the last reason check over every held answer comes
- * before anything else; one that fails sends nothing and leaves every act held, naming the
+ * A press of Submit (design decision 6): a held act on a question that is loading or failed comes
+ * first and sends nothing, naming the question (Issue #103); the last reason check over every held
+ * answer comes before anything else; one that fails sends nothing and leaves every act held, naming the
  * question the board goes to; a held answer whose question holds a blocking field sends nothing either.
  * Then, when a held answer or decline would replace a received
  * verdict, the questions to ask about with the acts; otherwise the one command, every held act in
@@ -391,10 +419,14 @@ export const submitPress = (
     readonly readOnlyOf?: ReadOnlyOf | undefined;
     /** The question as its card shows it: the gates read that revision (Issue #92). */
     readonly shownOf?: ShownOf | undefined;
+    /** The ready tracker's status of each question: a held act on one not `visible` is not sent. */
+    readonly load?: LoadOf | undefined;
   },
 ): SubmitPress => {
-  const { results, facts, state, entries, readOnlyOf, shownOf } = options;
+  const { results, facts, state, entries, readOnlyOf, shownOf, load } = options;
   const held = heldWorkOf(document, board);
+  const unusable = heldUnusable(document, held, load);
+  if (unusable !== undefined) return { kind: "unusable", questionId: unusable.id };
   const missing = heldMissingReason(document, held, values, results, facts, shownOf);
   if (missing !== undefined) return { kind: "needs-reason", questionId: missing.id };
   const blocked = heldWithBlock(document, held, entries, results, facts, readOnlyOf, shownOf);
@@ -408,6 +440,7 @@ export const submitPress = (
 /** What the confirmation's Submit comes to, once pressed again against the held work as it is. */
 export type ConfirmedPress =
   | { readonly kind: "blocked" }
+  | { readonly kind: "unusable"; readonly questionId: string }
   | { readonly kind: "needs-reason"; readonly questionId: string }
   | { readonly kind: "field-block"; readonly questionId: string }
   | { readonly kind: "ask"; readonly questions: readonly ViewQuestion[] }
@@ -426,7 +459,9 @@ export const confirmedPress = (
   now: SubmitPress,
 ): ConfirmedPress => {
   if (disabled) return { kind: "blocked" };
-  if (now.kind === "needs-reason" || now.kind === "field-block") return now;
+  if (now.kind === "needs-reason" || now.kind === "field-block" || now.kind === "unusable") {
+    return now;
+  }
   if (now.kind === "send") return now;
   const same =
     now.questions.length === asked.length &&

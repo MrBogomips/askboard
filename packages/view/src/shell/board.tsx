@@ -287,6 +287,11 @@ export const Board = ({
   const shared: Shared = { document, state, lock, draft, context };
   const presentation = presentationOf(document);
   const questions = questionsOf(document);
+  // Submit waits for a held act's question that is loading or failed (Issue #103): the board
+  // redraws when any question's status changes, whatever else it reads of the tracker.
+  useSyncExternalStore(context.tracker.subscribe, () =>
+    questions.map((question) => context.tracker.questionStatus(question.id)).join(),
+  );
   const groups = groupsOf(document);
   const changed = changedOf(document, draft, kept);
   const known = questions.some((question) => question.id === draft.inView);
@@ -402,6 +407,7 @@ export const Board = ({
     results: context.results?.record(),
     readOnlyOf,
     shownOf,
+    load: context.tracker.questionStatus,
   });
   return (
     <div
@@ -430,6 +436,7 @@ export const Board = ({
           recommendations={hasRecommendation(document, shownOf)}
           readOnlyOf={readOnlyOf}
           shownOf={shownOf}
+          load={context.tracker.questionStatus}
           locked={lock !== undefined}
           context={context}
           onSelectRecommended={() =>

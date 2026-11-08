@@ -890,3 +890,76 @@ describe("Select recommended and Submit with an entry held (checkpoints 2.3 and 
     );
   });
 });
+
+describe("Submit waits for a question that is loading or failed (document-review, design decision 15; Issue #103)", () => {
+  const stores = () => {
+    const values = createDraftStore();
+    const board = createBoardDraft("submitted");
+    connectDrafts(document, values, board);
+    return { values, board };
+  };
+  const mark = (board: ReturnType<typeof stores>["board"], id: string, order: number) =>
+    board.edit(id, 1, (work) => ({ ...work, held: { act: "answer", order } }));
+  const base = {
+    document,
+    delivery: "submitted" as const,
+    connection: undefined,
+    lock: undefined,
+    pending: () => false,
+    sending: () => false,
+  };
+  // Every question visible but the one named.
+  const but = (id: string, status: "loading" | "failed") => (questionId: string) =>
+    questionId === id ? status : ("visible" as const);
+
+  for (const status of ["failed", "loading"] as const) {
+    test(`a held answer whose question is ${status} disables Submit and sends nothing, naming the question`, () => {
+      const { values, board } = stores();
+      values.set("region", ["EU"]);
+      mark(board, "region", 0);
+      values.set("payment", ["Stripe"]);
+      mark(board, "payment", 1);
+      const load = but("payment", status);
+      expect(submitStateOf({ ...base, board: board.get(), load })).toEqual({
+        held: 2,
+        blocked: [],
+        disabled: true,
+      });
+      const before = JSON.stringify([...board.get().questions]);
+      const pressed = submitPress(document, board.get(), values.record(), AT, NONE_REPORTED, {
+        state: stateOf(),
+        load,
+      });
+      expect(pressed).toEqual({ kind: "unusable", questionId: "payment" });
+      expect(JSON.stringify([...board.get().questions])).toBe(before);
+    });
+  }
+
+  test("a held postpone, decline or note on such a question waits as well", () => {
+    const { board } = stores();
+    board.edit("rollout", 1, () => ({ rev: 1, held: { act: "postpone", order: 0 } }));
+    const load = but("rollout", "failed");
+    expect(submitStateOf({ ...base, board: board.get(), load }).disabled).toBe(true);
+    board.edit("rollout", 1, () => ({ rev: 1, note: "x", held: { act: "decline", order: 0 } }));
+    expect(submitStateOf({ ...base, board: board.get(), load }).disabled).toBe(true);
+  });
+
+  test("a question with nothing held does not stop Submit, and visible questions let it go", () => {
+    const { values, board } = stores();
+    values.set("region", ["EU"]);
+    mark(board, "region", 0);
+    const load = but("payment", "failed");
+    expect(submitStateOf({ ...base, board: board.get(), load }).disabled).toBe(false);
+    const pressed = submitPress(document, board.get(), values.record(), AT, NONE_REPORTED, {
+      state: stateOf(),
+      load,
+    });
+    expect(pressed.kind).toBe("send");
+  });
+
+  test("the confirmation's Submit refuses to send it too, naming the question", () => {
+    const press = { kind: "unusable", questionId: "payment" } as const;
+    expect(confirmedPress([], false, press)).toEqual(press);
+    expect(confirmedPress([], true, press)).toEqual({ kind: "blocked" });
+  });
+});

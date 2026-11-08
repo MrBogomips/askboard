@@ -33,6 +33,7 @@ const ROOT = join(import.meta.dir, "..", "..", "..", "..", "..");
 export const DIST_VIEW = join(ROOT, "dist", VIEW_DIRECTORY);
 
 const THROWING_CHOICE_ENTRY = join(import.meta.dir, "..", "fixtures", "throwing-choice.ts");
+const BREAKING_FIELD_ENTRY = join(import.meta.dir, "..", "fixtures", "breaking-text-field.ts");
 
 /**
  * A caught `eval` and a caught `new Function`, as a library probing for code generation does. The
@@ -170,6 +171,13 @@ export const bundleTestChunk = async (entry: string): Promise<string> => {
 /** The build with the Choice chunk replaced by one whose component throws while rendering. */
 export const withThrowingChoice = async (build: ViewBuild): Promise<ViewBuild> =>
   withChunkScript(build, "choice", await bundleTestChunk(THROWING_CHOICE_ENTRY));
+
+/**
+ * The build with the TextField chunk replaced by one whose component is a button, "Break <id>",
+ * that throws on its next render once pressed: a widget item that fails after it counted as visible.
+ */
+export const withBreakingTextField = async (build: ViewBuild): Promise<ViewBuild> =>
+  withChunkScript(build, "text-field", await bundleTestChunk(BREAKING_FIELD_ENTRY));
 
 /** The board state with every question of the document open and the ask waiting. */
 export const openStateOf = (document: ViewDocument): LifecycleBoardState => {
