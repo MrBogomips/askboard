@@ -12,15 +12,26 @@ Order: group 0, then group 1. Groups 2 and 3 may then run in parallel, in separa
 
 ## 0. Base
 
-- [ ] 0.1 Names, versions and baseline (askboard-contract-versioning, Rule 3; design.md, Merge points and decision 5). Tests: none.
+- [x] 0.1 Names, versions and baseline (askboard-contract-versioning, Rule 3; design.md, Merge points and decision 5). Tests: none.
   - Check with `git grep -n` on `origin/main` every name in design.md's "Borrowed" list, and record each with its file and line.
   - Record every `*_VERSION` and `*_FORMAT` constant of `packages/contract/src`. The tool envelopes start at main's minor plus one in task 1.1; every other set stays at main's.
   - Record the head of each branch in Merge points, and whether it moved; whether `document-review` or `keyboard-shortcuts-help` has merged; and, if `wbs-gantt-consistency` has a design by then, whether it touches the skill generator, the tool texts or the tool envelopes.
   - Record `bun run check:skills`' figures (SKILL.md, answers.md, the always-loaded total) and the pass counts of `bun test` for `packages/contract`, `packages/server` and `tools/build/skills`.
   - Verify: the note lists every name, version, head and figure. If a name, signature or shape differs, or a name is not on `main`, stop and run `/opsx:update` before group 1.
-- [ ] 0.2 PO decisions (proposal.md, open questions 1 to 5). Tests: none.
+  - Note (2026-11-08, `origin/main` be308421, merged into the branch as 6004e1be; Refs #73, #75): every borrowed name is on main and matches the design. server: `notHeld` fetch.ts:26, `handleFetch` :106, `uncheckedMark` owner-refusal.ts:61, `jsonResult` results.ts:16, `errorResult` :24. contract: `FetchOutcomeResult` tool-envelopes/index.ts:273 (`outcome: "discarded"` only), `RESULT_VERSIONS` :113, `TOOL_DEFINITIONS` :69, `TOOL_ENVELOPES_VERSION` :49, `SERVER_INSTRUCTIONS` server-instructions.ts:5, `validateUpdateRequest` update-request.ts:151. core: `fullValue` kind `deleted` ask.ts:65 and :381. tools: `generateSkill` generate.ts:114, `SkillInputs` :37, `fill` :53 (module-local, not exported), `Templates` templates.ts:8, `DISK_TEMPLATES` :14, `EXAMPLE_KINDS` blocks.ts:5 (`ask`, `item`, `result`), `ExampleBody` :10, `exampleBlock` :15, `contractSchemaResolver` fields.ts:36, `budgetReport` budgets.ts:72, `BUDGETS` :8.
+  - Versions on main: input 1.12, output 1.11, tool envelopes 1.12, board document 1.11, board protocol 1.8, Snapshot data 1.2 (design said 1.1: snapshot-toolbar moved it, not ours), view manifest 1.1, configuration 1.0, local API 1.0, session file 1.0, molecule format 1.0.0. Only the envelopes move (task 1.1, to 1.13).
+  - Merge points (heads at 2026-11-08): `document-review` worktree-feature-document-review 70eb893e (local branch only, no origin branch; 67 commits past main, based on d6c67d87; binds input 1.13, output 1.12, tool envelopes 1.13, board document 1.12, board protocol 1.8; edits skills/askboard and tools/build chunks, not the generator or tool texts; unmerged); `reopen-start-from-answer` b8a8308c (unchanged; artifacts only); `wbs-gantt-consistency` 5f68e2a3 (PR #106, moved from 8e2e1247; design decision 5 "Versions: none"; no skill generator, tool text or envelopes file touched); `keyboard-shortcuts-help` 101a9498 (unchanged; artifacts only, unmerged); `snapshot-toolbar` merged (#94). Neither `document-review` nor `keyboard-shortcuts-help` has merged.
+  - Baseline: `check:skills` SKILL.md 6,257 of 9,000 characters and 69 of 250 lines, answers.md 2,047, items.md 3,105, always-loaded total 6,152 of 8,400, 29 files, no drift. `bun test`: packages/contract 3568 pass 0 fail; packages/server 1264 pass 3 skip 0 fail; tools/build/skills 142 pass 0 fail. No mismatch.
+- [x] 0.2 PO decisions (proposal.md, open questions 1 to 5). Tests: none.
   - Record each answer under this task, with its date. The date of each approved text is the `approved` field of its amendment (task 1.2).
   - Verify: five answers recorded. An answer other than the default stops the work for `/opsx:update` before group 1. If questions 1 and 2 are both declined, task 1.2 and the two mcp-adapter scenarios that name the wording are dropped there.
+  - Note (Refs #73, #75): on 2026-11-08, in the coordinating session, the PO answered "Accept all (Recommended)" to every open question's default for Issues #73 and #75. Recorded, each as the proposal's default, answered 2026-11-08 (source: the PO's reply to the coordinating session):
+    1. `update` description: the default wording, replacing the whole description. Accepted.
+    2. Server instructions' follow-up line: the default wording. Accepted.
+    3. `fetch` of a deleted item: the typed outcome `deleted`, on the tool envelopes' minor. Accepted.
+    4. `fetch` description: unchanged. Accepted.
+    5. Language source and precedence: the user's request, else the project's instructions in the agent's context, else none; no line in the server instructions. Accepted.
+    The `approved` field of each amendment in task 1.2 is `2026-11-08`. No answer differs from its default, so nothing stops for `/opsx:update`.
 
 ## 1. Contract: the outcome, the amendments, the version
 
