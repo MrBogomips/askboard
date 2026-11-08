@@ -112,3 +112,25 @@ describe("the acts the view has sent and the board page has not settled (ask-lif
     expect(heard).not.toHaveBeenCalled();
   });
 });
+
+describe("the commands the board page settled as refused for being too large (oversized-acts)", () => {
+  test("tooLarge names the replied commands the settled list marks, and nothing else", () => {
+    const acts = createAnswerActs();
+    const first = acts.start([answer]);
+    acts.replied(first, { outcome: "sent", actionId: A });
+    const second = acts.start([note]);
+    acts.replied(second, { outcome: "sent", actionId: B });
+    acts.start([note]);
+    const flights = acts.tooLarge([
+      { actionId: A, outcome: "refused", tooLarge: true },
+      { actionId: B, outcome: "refused" },
+      { actionId: "CCCCCCCCCCCCCCCCCCCCCC", outcome: "refused", tooLarge: true },
+    ]);
+    expect(flights.map((flight) => flight.acts)).toEqual([[answer]]);
+    // Reading changes nothing: the update's reconcile settles it as it does any refusal.
+    expect(acts.of("database")).toBeDefined();
+    acts.reconcile([], [{ actionId: A, outcome: "refused", tooLarge: true }]);
+    expect(acts.of("database")).toBeUndefined();
+    expect(acts.tooLarge([{ actionId: A, outcome: "refused", tooLarge: true }])).toEqual([]);
+  });
+});

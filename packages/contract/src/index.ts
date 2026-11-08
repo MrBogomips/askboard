@@ -1084,3 +1084,19 @@ export { CELL_ENTRIES_MAX } from "./lifecycle-constants.ts";
 // reads a field of the formula's own row.
 
 export { ROW_REFERENCE_PREFIX } from "./formula/index.ts";
+
+// The board's message limit and its measure (oversized-acts, design decision 1): the limit
+// board-host and the board page share, the close code for a message too big, and the byte and
+// character counts.
+
+export {
+  BOARD_MESSAGE_MAX_BYTES,
+  boardMessageBytes,
+  draftRecordChars,
+  MESSAGE_TOO_BIG_CLOSE,
+  utf8Length,
+} from "./message-size.ts";
+
+// The presentation a Snapshot's record carries (snapshot-toolbar, design decision 2).
+
+export type { SnapshotPresentation } from "./schemas/snapshot-data/index.ts";

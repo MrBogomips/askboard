@@ -14,6 +14,7 @@ import {
   originMessage,
   SNAPSHOT_DATA_VERSION,
   type SnapshotData,
+  type SnapshotPresentation,
   type SnapshotRecord,
   type SnapshotRevision,
 } from "@askboard/contract";
@@ -57,6 +58,11 @@ export type SnapshotSources = {
   readonly keptAnswerResults?: ReadonlyMap<string, Readonly<Record<string, unknown>>>;
   /** `expansionEntries(map)` of the ask's expansion map. */
   readonly molecules?: readonly ExpansionRecord[];
+  /**
+   * `Configuration.presentationNow()`, read before the gathering (snapshot-toolbar, design
+   * decision 3): the theme and density a board would open with; absent when it could not be read.
+   */
+  readonly presentation?: SnapshotPresentation;
 };
 
 type LoggedEvent = Exclude<OutputEvent, DiscardedEvent>;
@@ -64,15 +70,22 @@ type LoggedEvent = Exclude<OutputEvent, DiscardedEvent>;
 // An ask that is not discarded logs no `discarded` event: this keeps the type honest.
 const isLogged = (event: OutputEvent): event is LoggedEvent => event.type !== "discarded";
 
-const recordOf = (takenAt: string, taker: SnapshotTaker): SnapshotRecord =>
-  taker.takenBy === "agent"
-    ? { takenAt, takenBy: "agent" }
+const recordOf = (
+  takenAt: string,
+  taker: SnapshotTaker,
+  presentation: SnapshotPresentation | undefined,
+): SnapshotRecord => {
+  const shown = presentation === undefined ? {} : { presentation };
+  return taker.takenBy === "agent"
+    ? { takenAt, takenBy: "agent", ...shown }
     : {
         takenAt,
         takenBy: "user",
         who: taker.who,
         ...(taker.unsentWork ? { unsentWork: true as const } : {}),
+        ...shown,
       };
+};
 
 // The revisions each question's events name: the one they were made on, and the one an `ignore`
 // edit choice kept.
@@ -121,7 +134,8 @@ const loggedWith = (event: LoggedEvent, sources: SnapshotSources) => {
 
 /** The Snapshot's data, as the ask stands in `sources`. */
 export const gatherSnapshot = (sources: SnapshotSources): SnapshotData => {
-  const { epoch, board, kept, takenAt, taker, projectDir, asked, molecules } = sources;
+  const { epoch, board, kept, takenAt, taker, projectDir, asked, molecules, presentation } =
+    sources;
   const log = sources.log.filter(isLogged);
   const origin =
     projectDir === undefined || asked === undefined
@@ -133,7 +147,7 @@ export const gatherSnapshot = (sources: SnapshotSources): SnapshotData => {
       output: OUTPUT_FORMAT_VERSION,
       boardProtocol: BOARD_PROTOCOL_VERSION,
     },
-    snapshot: recordOf(takenAt, taker),
+    snapshot: recordOf(takenAt, taker, presentation),
     epoch,
     askId: board.askId,
     document: board.document,

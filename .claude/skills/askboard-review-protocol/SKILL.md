@@ -51,9 +51,14 @@ Both reviewers did this on their own in the first evaluation (2026-11-06).
 |---|---|---|---|
 | Group checkpoint | the group's commits | the group's tasks, the requirements and decisions they cite, the diff, the code the diff reaches | spec medium, security high |
 | Fix re-review | the fix commits | each finding being fixed, its fix and its test | as the original |
-| Pre-PR | merge base with `origin/main` to head | the whole change, the seams between groups, the documents | spec high, security xhigh |
+| Pre-PR | merge base with `origin/main` to head | the whole change, the seams between groups, the documents, the Issue links | spec high, security xhigh |
 
 A fix re-review reports each finding as closed or still open, plus anything the fix broke.
+
+The pre-PR spec review also checks the backlog links (`AGENTS.md`, The backlog): the proposal cites
+`Issue: #n` for each Issue the change resolves, each one open (`gh issue view <n>`), and the
+pull request body the coordinator will write says `Closes #n`, or `Refs #n` when the Issue spans
+several changes and this is not the last. A missing or wrong link is an L finding citing that rule.
 
 ## 3. What not to report
 
@@ -61,8 +66,11 @@ A fix re-review reports each finding as closed or still open, plus anything the 
 - Items the change already accepted or deferred: read the change's `tasks.md` notes and its "Fixes
   from review" groups, and design.md's Risks and Open Questions. Report one again only when the range
   makes it worse, and say how.
+- Items an Issue already holds: search before reporting
+  (`gh issue list --repo MrBogomips/askboard --state all --search "<key words> in:title,body"`).
+  Report one again only when the range makes it worse, and name the Issue.
 - Taste. Every finding cites the rule it breaks: a requirement or scenario, a design decision, an
-  FR, NFR or AD ID, an invariant, a UX section, or a convention in CLAUDE.md.
+  FR, NFR or AD ID, an invariant, a UX section, or a convention in CLAUDE.md or AGENTS.md.
 
 ## 4. Verify each finding before reporting it
 
@@ -110,11 +118,15 @@ End the report with:
 
 ## 6. From findings to tasks (the coordinating session)
 
-Reviewers write nothing in the repository. The session that asked for the review:
+Reviewers write nothing in the repository and open no Issues. The session that asked for the
+review:
 
 - folds H and M findings into the change through `/opsx:update`, as fix tasks with tests first, in a
   "Fixes from review" group, with the finding IDs in the task text (E4 did this with M1 to M7);
-- folds each L finding, or records it as deferred in `tasks.md` with a reason;
+- folds each L finding, or defers it: records it in `tasks.md` with a reason and opens an Issue for
+  it (`type:defect`, the finding's severity, `source:review`; the finding ID, the change and the
+  range in its Origin; `AGENTS.md`, The backlog), so it outlives the archived change. A finding the PO
+  accepts as deferred, at any severity, becomes an Issue the same way;
 - when two reviews disagree, keeps both views with their source and decides by the rule they cite, or
   asks the PO; it never drops a finding silently;
 - asks for a fix re-review of the fix range once the fixes are in.

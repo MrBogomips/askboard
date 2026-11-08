@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { snapshotTitleOf, takenAtOf, topLineOf } from "./opened-snapshot.ts";
+import {
+  snapshotPresentationOf,
+  snapshotTitleOf,
+  takenAtOf,
+  topLineOf,
+} from "./opened-snapshot.ts";
+import { DEFAULT_PRESENTATION } from "./presentation-controls.ts";
 
 describe("an opened Snapshot's top line", () => {
   test("says when, in the viewer's zone, and by the agent", () => {
@@ -22,5 +28,36 @@ describe("an opened Snapshot's top line", () => {
 
   test("the tab title keeps the ask's title as text", () => {
     expect(snapshotTitleOf("<b>x</b>")).toBe("Snapshot · <b>x</b>");
+  });
+});
+
+describe("the presentation an opened Snapshot starts in (snapshot-toolbar, design decision 4)", () => {
+  const record = { takenAt: "2026-10-28T15:12:00Z", takenBy: "agent" } as const;
+
+  test("is the record's theme and density, the placement beside, nothing locked", () => {
+    expect(
+      snapshotPresentationOf({
+        ...record,
+        presentation: { theme: "light", density: "comfortable" },
+      }),
+    ).toEqual({ theme: "light", density: "comfortable", contextPlacement: "beside", locked: [] });
+  });
+
+  test("a record with no presentation gives the defaults", () => {
+    expect(snapshotPresentationOf(record)).toEqual(DEFAULT_PRESENTATION);
+  });
+
+  test("a hand-edited presentation gives the defaults, never a class name", () => {
+    for (const presentation of [
+      { theme: "sepia", density: "compact" },
+      { theme: "dark" },
+      { theme: "dark", density: "huge" },
+      "dark",
+      null,
+    ]) {
+      expect(snapshotPresentationOf({ ...record, presentation } as never)).toEqual(
+        DEFAULT_PRESENTATION,
+      );
+    }
   });
 });

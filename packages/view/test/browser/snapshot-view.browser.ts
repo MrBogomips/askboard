@@ -4,8 +4,12 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { dirname, join } from "node:path";
-import { lifecycleSnapshotData, treeBoardDocument } from "@askboard/contract/fixtures";
-import type { Browser, BrowserContext, Page } from "playwright";
+import {
+  lifecycleSnapshotData,
+  snapshotToolbarData,
+  treeBoardDocument,
+} from "@askboard/contract/fixtures";
+import type { Browser, BrowserContext, Locator, Page } from "playwright";
 import { eventually, STEP_TIMEOUT_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
 import { launchEngine } from "./harness/browser.ts";
 import { enginesFrom } from "./harness/engines.ts";
@@ -211,27 +215,91 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
 
     const isDark = (page: Page) =>
       page.evaluate(() => document.documentElement.classList.contains("dark"));
+    const isComfortable = (page: Page) =>
+      page.evaluate(() => document.documentElement.classList.contains("comfortable"));
+    const theme = (page: Page) => page.getByRole("radiogroup", { name: "Theme" });
+    const density = (page: Page) => page.getByRole("radiogroup", { name: "Density" });
+    const checked = (group: Locator, name: string) =>
+      group.getByRole("radio", { name, exact: true }).getAttribute("aria-checked");
+    const storage = (page: Page) =>
+      page.evaluate(() => (window as never as { __storage: string[] }).__storage);
 
     test(
       "a dark system opens dark, Light shows light, reopening shows dark; no storage touched",
       async () => {
         const first = await open(lifecycleSnapshotData, { colorScheme: "dark" });
         expect(await isDark(first.page)).toBe(true);
-        await first.page.getByRole("button", { name: "Light", exact: true }).click();
+        const light = theme(first.page).getByRole("radio", { name: "Light", exact: true });
+        await light.click();
         expect(await isDark(first.page)).toBe(false);
-        await first.page.getByRole("button", { name: "Dark", exact: true }).click();
+        await theme(first.page).getByRole("radio", { name: "Dark", exact: true }).click();
         expect(await isDark(first.page)).toBe(true);
-        await first.page.getByRole("button", { name: "Light", exact: true }).click();
-        expect(
-          await first.page.evaluate(() => (window as never as { __storage: string[] }).__storage),
-        ).toEqual([]);
+        await light.click();
+        expect(await isDark(first.page)).toBe(false);
+        expect(await storage(first.page)).toEqual([]);
         const again = await open(lifecycleSnapshotData, { colorScheme: "dark" });
         expect(await isDark(again.page)).toBe(true);
-        expect(
-          await again.page
-            .getByRole("button", { name: "System", exact: true })
-            .getAttribute("aria-pressed"),
-        ).toBe("true");
+        expect(await checked(theme(again.page), "System")).toBe("true");
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "one toolbar: one Theme group, one density group, no Settings",
+      async () => {
+        const { page } = await open(lifecycleSnapshotData);
+        expect(await theme(page).count()).toBe(1);
+        expect(await density(page).count()).toBe(1);
+        expect(await page.getByText("Theme", { exact: true }).count()).toBe(1);
+        expect(await page.getByRole("button", { name: "Settings", exact: true }).count()).toBe(0);
+        expect(await page.getByRole("button", { name: "Light", exact: true }).count()).toBe(0);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "recorded light opens light under a dark system, with Light checked",
+      async () => {
+        const { page } = await open(snapshotToolbarData, { colorScheme: "dark" });
+        expect(await isDark(page)).toBe(false);
+        expect(await checked(theme(page), "Light")).toBe("true");
+        expect(await checked(theme(page), "System")).toBe("false");
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "recorded system follows a dark system, with System checked",
+      async () => {
+        const { page } = await open(
+          {
+            ...snapshotToolbarData,
+            snapshot: {
+              ...snapshotToolbarData.snapshot,
+              presentation: { theme: "system", density: "compact" },
+            },
+          },
+          { colorScheme: "dark" },
+        );
+        expect(await isDark(page)).toBe(true);
+        expect(await checked(theme(page), "System")).toBe("true");
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "recorded comfortable opens comfortable, Compact applies at once, nothing is stored, reopening is comfortable",
+      async () => {
+        const first = await open(snapshotToolbarData);
+        expect(await isComfortable(first.page)).toBe(true);
+        expect(await checked(density(first.page), "Comfortable")).toBe("true");
+        await density(first.page).getByRole("radio", { name: "Compact", exact: true }).click();
+        expect(await isComfortable(first.page)).toBe(false);
+        expect(await checked(density(first.page), "Compact")).toBe("true");
+        expect(await storage(first.page)).toEqual([]);
+        const again = await open(snapshotToolbarData);
+        expect(await isComfortable(again.page)).toBe(true);
+        expect(await checked(density(again.page), "Comfortable")).toBe("true");
       },
       TEST_TIMEOUT_MS,
     );

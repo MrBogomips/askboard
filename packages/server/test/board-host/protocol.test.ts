@@ -3,7 +3,10 @@ import { connect, type Socket } from "node:net";
 import {
   BOARD_CLOSE_CODES,
   BOARD_HOST,
+  BOARD_MESSAGE_MAX_BYTES,
   BOARD_PROTOCOL_VERSION,
+  boardMessageBytes,
+  MESSAGE_TOO_BIG_CLOSE,
   REFUSAL_DETAIL_MAX_CHARS,
 } from "@askboard/contract";
 import {
@@ -253,6 +256,33 @@ describe("refusals on an accepted socket leave it open and the ask unchanged", (
       socket.send({ ...answer, choice: ["x".repeat(MESSAGE_MAX_BYTES)] });
       expect(await socket.closed()).toBe(1009);
       expect(commands).toEqual([]);
+    } finally {
+      await host.close();
+    }
+  });
+
+  // Board-host spec, The board's message limit: the limit is the contract's, and a message of
+  // exactly that size is read, refused for its content, never closed as too big.
+  test("the host's limit is the contract's, and its close code the contract's", () => {
+    expect(MESSAGE_MAX_BYTES).toBe(BOARD_MESSAGE_MAX_BYTES);
+    expect(MESSAGE_TOO_BIG_CLOSE).toBe(1009);
+  });
+
+  test("a message of exactly the limit is read, refused by the core, with the socket open", async () => {
+    const { host, socket, commands } = await fakeHost(REFUSING);
+    try {
+      const room = BOARD_MESSAGE_MAX_BYTES - boardMessageBytes({ ...answer, choice: [""] });
+      const message = { ...answer, choice: ["x".repeat(room)] };
+      expect(boardMessageBytes(message)).toBe(BOARD_MESSAGE_MAX_BYTES);
+      socket.send(message);
+      // Read: it reached the core, which (REFUSING) refused the command; never closed as too big.
+      expect(await socket.next()).toMatchObject({ version, type: "refused" });
+      expect(await socket.next()).toMatchObject({ type: "state" });
+      expect(commands.length).toBe(1);
+      // Still open: a message within the limit after it is answered.
+      socket.send({ ...answer, choice: ["PostgreSQL"] });
+      expect(await socket.next()).toMatchObject({ type: "refused" });
+      expect(commands.length).toBe(2);
     } finally {
       await host.close();
     }

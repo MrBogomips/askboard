@@ -6,6 +6,7 @@ import Ajv2020, { type ErrorObject } from "ajv/dist/2020";
 import { AJV_OPTIONS, schemaErrors } from "./compiled.ts";
 import { contextDocumentProblems } from "./context/document.ts";
 import { DRAFT_RECORD_MAX_CHARS, DRAFT_RECORD_MAX_DEPTH } from "./lifecycle-limits.ts";
+import { draftRecordChars } from "./message-size.ts";
 import { type BoardDocument, boardDocumentSet } from "./schemas/board-document/index.ts";
 import {
   BOARD_PROTOCOL_MESSAGES,
@@ -163,7 +164,7 @@ const withinDraftLimit = <T>(checked: Checked<T>, record: unknown): Checked<T> =
     const message = `the draft record is nested deeper than ${DRAFT_RECORD_MAX_DEPTH} levels, the most the board protocol accepts`;
     return { ok: false, reason: "schema", problems: [{ path: "/record", message }] };
   }
-  const size = JSON.stringify(record).length;
+  const size = draftRecordChars(record);
   if (size <= DRAFT_RECORD_MAX_CHARS) return checked;
   const message = `the draft record takes ${size} characters of JSON, more than the ${DRAFT_RECORD_MAX_CHARS} the board protocol accepts`;
   return { ok: false, reason: "schema", problems: [{ path: "/record", message }] };

@@ -7,11 +7,12 @@
 
 import { Checkbox } from "radix-ui";
 import { type KeyboardEvent, useRef, useState } from "react";
+import { nextFocus } from "../fields/roving.ts";
 import { questionTextId, useStrings } from "../port.ts";
 import { OptionDetails, OtherField } from "./option-details.tsx";
 import { MARK, OptionText, optionAria, ROW } from "./option-text.tsx";
 import type { ChoiceProps } from "./props.ts";
-import { nextFocus, otherLabelId, toggled } from "./selection.ts";
+import { otherLabelId, toggled } from "./selection.ts";
 
 export const MultipleChoice = ({ item, value, onValueChange, disabled, extras }: ChoiceProps) => {
   const { options } = item.props;

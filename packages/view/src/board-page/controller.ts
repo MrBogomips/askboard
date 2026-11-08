@@ -18,7 +18,9 @@
 
 import {
   type ActCommand,
+  BOARD_MESSAGE_MAX_BYTES,
   BOARD_PROTOCOL_VERSION,
+  boardMessageBytes,
   DRAFT_RECORD_MAX_CHARS,
   DRAFT_RECORD_MAX_DEPTH,
   type DraftRecord,
@@ -59,6 +61,7 @@ import {
   nextStatus,
   type StatusEvent,
 } from "./board-status.ts";
+import { fitDraftRecord } from "./draft-fit.ts";
 import { createDraftMirror, type DraftMirror } from "./draft-mirror.ts";
 import type { BoardHostMessage } from "./host-messages.ts";
 import { openLinkRefusal } from "./markdown-links.ts";
@@ -82,12 +85,13 @@ import {
   newActionId,
   pendingOf,
   refusedCommand,
+  refusedTooLarge,
   settleDone,
   withoutAll,
 } from "./outbox.ts";
 import type { ReadingPanel } from "./reading-panel.ts";
 import { pathOf } from "./reading-panel-state.ts";
-import { reconnectDelay } from "./reconnect.ts";
+import { isTooBigClose, reconnectDelay } from "./reconnect.ts";
 import { sourcePointerOf, webUrlOf } from "./references.ts";
 import { type PanelData, panelData } from "./settings-panel-data.ts";
 import {
@@ -211,7 +215,8 @@ const strangeQuestion = (
 };
 
 // Why the board page refuses a draft record from the view, if it does: what the board protocol's
-// schema, its limit, and the board document refuse (AD-20).
+// schema and the board document refuse (AD-20). Its size is not refused here: a record past the
+// draft limit is mirrored without whole questions (`fitDraftRecord`, oversized-acts).
 const draftRefusal = (
   record: DraftRecord,
   document: LifecycleBoardDocument | undefined,
@@ -224,9 +229,6 @@ const draftRefusal = (
     const [first] = check.errors ?? [];
     return `the draft record is not one the board protocol takes: ${first?.instancePath || "/"} ${first?.message ?? "is invalid"}`;
   }
-  if (JSON.stringify(record).length > DRAFT_RECORD_MAX_CHARS) {
-    return `the draft record is longer than ${DRAFT_RECORD_MAX_CHARS} characters`;
-  }
   if (document === undefined) return "there is no board yet";
   return strangeQuestion(record, document);
 };
@@ -235,6 +237,14 @@ class BoardPageController implements BoardPage {
   readonly #deps: BoardPageDeps;
   readonly #draw: () => string;
   readonly #mirror: DraftMirror;
+  // The view's whole draft record: what "Copy my unsent work", the leave-page prompt, the banners'
+  // unsent flag and the Snapshot request read. The mirror holds the part of it that fits the draft
+  // limit (oversized-acts, design decision 4).
+  #viewDraft: DraftRecord | undefined;
+  // The questions left out as last logged, so a long edit logs a change, not every keystroke.
+  #leftOutLogged = "";
+  // The questions the last fit left out of the mirrored draft: a takeover does not hand them over.
+  #leftOutNow: readonly string[] = [];
   #model = EMPTY_MODEL;
   #outbox = EMPTY_OUTBOX;
   #status: BoardStatus = INITIAL_STATUS;
@@ -320,7 +330,7 @@ class BoardPageController implements BoardPage {
     const document = this.#model.document as ViewDocument | undefined;
     if (document === undefined) return;
     try {
-      await this.#deps.copyText(unsentWorkText(document, this.#mirror.latest(), this.#language()));
+      await this.#deps.copyText(unsentWorkText(document, this.#viewDraft, this.#language()));
     } catch (error) {
       this.#deps.log("the unsent work could not be copied", error);
     }
@@ -333,8 +343,9 @@ class BoardPageController implements BoardPage {
   }
 
   leavePromptArmed(): boolean {
-    if (this.#status.kind === "moved") return false;
-    if (hasUnsentWork(this.#mirror.latest()) || this.#outbox.held.length > 0) return true;
+    // A tab the board moved from keeps the prompt only for work the takeover did not carry.
+    if (this.#status.kind === "moved") return this.#leftOutNow.length > 0;
+    if (hasUnsentWork(this.#viewDraft) || this.#outbox.held.length > 0) return true;
     const ended = this.#status.kind === "closed" || this.#status.kind === "discarded";
     const state = this.#model.state;
     return (
@@ -383,7 +394,7 @@ class BoardPageController implements BoardPage {
       this.#deps.readingPanel?.close();
     }
     if (this.#status.kind === "discarded" || this.#status.kind === "closed") {
-      this.#unsent = hasUnsentWork(this.#mirror.latest()) || hasUnsent(this.#outbox);
+      this.#unsent = hasUnsentWork(this.#viewDraft) || hasUnsent(this.#outbox);
       this.#outbox = withoutAll(this.#outbox);
     }
     this.#deps.showBanner(bannerOf(this.#status, this.#unsent, this.#language()));
@@ -536,11 +547,23 @@ class BoardPageController implements BoardPage {
     if (ended !== undefined) return refusal(ended) as ActReply;
     if (!acts.ok) return refusal(acts.detail) as ActReply;
     const command: ActCommand = { version, type: "act", actionId: this.#draw(), acts: acts.value };
+    const bytes = boardMessageBytes(command);
+    if (bytes > BOARD_MESSAGE_MAX_BYTES) return this.#tooLarge(bytes);
     const sent = this.#status.kind === "live" && this.#socket?.send(command) === true;
     this.#outbox = hold(this.#outbox, command, basisOf(this.#model, acts.value), sent);
     // The view hears it held before the reply.
     this.#updateView();
     return { outcome: sent ? "sent" : "queued", actionId: command.actionId };
+  }
+
+  // A command over the contract's message limit is never sent or held: board-host would close the
+  // socket and the same command would be sent again on every new one (oversized-acts, design
+  // decision 2). The reply carries the size and the limit for the card's line; the log has no text.
+  #tooLarge(bytes: number): ActReply {
+    const max = BOARD_MESSAGE_MAX_BYTES;
+    const detail = `the answer takes ${bytes} bytes, more than the ${max} the board can send at once`;
+    this.#deps.log(`an act command was not sent: ${detail}`);
+    return { outcome: "refused", detail, size: { bytes, max } };
   }
 
   // A Snapshot request, sent once on a socket board-host accepted, with whether the board holds
@@ -549,7 +572,7 @@ class BoardPageController implements BoardPage {
     const ended = this.#status.kind === "closed" ? undefined : this.#ended();
     if (ended !== undefined) return { outcome: "refused", detail: ended };
     const requestId = this.#draw();
-    const unsentWork = hasUnsentWork(this.#mirror.latest());
+    const unsentWork = hasUnsentWork(this.#viewDraft);
     const flag = unsentWork ? { unsentWork: true as const } : {};
     const sent =
       this.#stateSeen && this.#socket?.send({ version, type: "snapshot", requestId, ...flag });
@@ -576,18 +599,38 @@ class BoardPageController implements BoardPage {
   }
 
   // The view's draft record, checked, becomes the page's own: board-host's is no longer restored.
+  // One past the draft limit is mirrored without the work of whole questions, the largest first,
+  // and the reply names them (oversized-acts, design decision 4); the page keeps the whole record.
   #takeDraft(record: DraftRecord): ViewReply {
     const refused = draftRefusal(record, this.#model.document);
     if (refused !== undefined) {
       this.#deps.log(`the view's draft record was refused: ${refused}`);
       return refusal(refused);
     }
-    this.#mirror.take(record);
+    const order = questionsOf(this.#model.document as ViewDocument).map((question) => question.id);
+    const fitted = fitDraftRecord(record, order);
+    if (fitted === undefined) {
+      const reason = `the draft record is longer than ${DRAFT_RECORD_MAX_CHARS} characters outside its questions`;
+      this.#deps.log(`the view's draft record was refused: ${reason}`);
+      return refusal(reason);
+    }
+    const left = fitted.leftOut.join(" ");
+    if (left !== this.#leftOutLogged) {
+      this.#leftOutLogged = left;
+      if (left !== "") {
+        this.#deps.log(
+          `the draft record passes ${DRAFT_RECORD_MAX_CHARS} characters: the work of ${left} is not mirrored`,
+        );
+      }
+    }
+    this.#viewDraft = record;
+    this.#leftOutNow = fitted.leftOut;
+    this.#mirror.take(fitted.record);
     if (this.#restore !== undefined) {
       this.#restore = undefined;
       this.#updateView();
     }
-    return {};
+    return fitted.leftOut.length === 0 ? {} : { leftOut: fitted.leftOut };
   }
 
   #loadView(): void {
@@ -729,7 +772,7 @@ class BoardPageController implements BoardPage {
   // board-host's draft record restores the board when the page has none of its own: after a
   // reload, or in the tab that took the board over (AD-20, FR-25).
   #onDraft(record: DraftRecord): void {
-    if (this.#mirror.latest() !== undefined) return;
+    if (this.#viewDraft !== undefined) return;
     this.#restores += 1;
     this.#restore = { id: this.#restores, record };
     this.#updateView();
@@ -744,6 +787,18 @@ class BoardPageController implements BoardPage {
       this.#cancelRetry = undefined;
       this.#open();
     });
+  }
+
+  // The socket was closed as too large: what was sent on it is not sent again, and the view hears
+  // which commands those were (oversized-acts, design decision 3).
+  #dropCarried(): void {
+    const before = this.#outbox.held.length;
+    this.#outbox = refusedTooLarge(this.#outbox);
+    const dropped = before - this.#outbox.held.length;
+    if (dropped === 0) return;
+    this.#deps.log(
+      `board-host closed the socket as too large: ${dropped} command${dropped === 1 ? "" : "s"} sent on it will not be sent again`,
+    );
   }
 
   #onClose(): void {
@@ -766,7 +821,10 @@ class BoardPageController implements BoardPage {
       },
       onClose: (code) => {
         if (this.#socket !== current) return;
+        // Read before `#onClose` resets it: only a socket whose state came carried commands.
+        const carried = isTooBigClose(code) && this.#stateSeen;
         this.#onClose();
+        if (carried) this.#dropCarried();
         this.#transition({ type: "closed", code });
         this.#retry();
       },

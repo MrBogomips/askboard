@@ -44,7 +44,7 @@ describe("a single PickField's markup", () => {
   test("a result checks its option and shows Clear", () => {
     const { html } = pick({}, { result: "o1" });
     expect(html.match(/aria-checked="true"/g)).toHaveLength(1);
-    expect(html).toMatch(/aria-checked="true"[^>]*value="o1"|value="o1"[^>]*aria-checked="true"/);
+    expect(html).toMatch(/aria-checked="true"[^>]*aria-labelledby="atom:option:1:label"/);
     expect(html).toContain(">Clear<");
   });
 
@@ -64,7 +64,7 @@ describe("a single PickField's markup", () => {
     };
     const { html } = draw(componentFor("pick-field"), "pick-field", named, { result: "__proto__" });
     expect(html.match(/aria-checked="true"/g)).toHaveLength(1);
-    expect(html).toMatch(/value="__proto__"/);
+    expect(html).toMatch(/aria-checked="true"[^>]*aria-labelledby="atom:option:1:label"/);
   });
 
   test("read-only, as when answered: the pick checked, the controls disabled, no Clear, no filter", () => {
@@ -73,8 +73,47 @@ describe("a single PickField's markup", () => {
     expect(html.match(/disabled=""/g)?.length).toBeGreaterThanOrEqual(30);
     expect(html).not.toContain(">Clear<");
     expect(html).not.toContain("Filter the options");
-    // Radix draws a hidden input per radio in the server render only; no text input is the filter.
+    // No text input is the filter.
     expect(html).not.toMatch(/<input[^>]*type="text"/);
+  });
+});
+
+describe("a single PickField's radios (choice-documented-activation; view-and-widgets spec: Radios with manual activation)", () => {
+  const radios = (html: string) => html.match(/<button[^>]*role="radio"[^>]*>/g) ?? [];
+
+  test("the first radio is the tab stop while nothing is picked, and the group takes none", () => {
+    const { html } = pick();
+    const found = radios(html);
+    expect(found[0]).toContain('tabindex="0"');
+    for (const radio of found.slice(1)) expect(radio).toContain('tabindex="-1"');
+    expect(html.match(/<div[^>]*role="radiogroup"[^>]*>/)?.[0]).not.toContain("tabindex");
+  });
+
+  test("the picked radio is the tab stop", () => {
+    const found = radios(pick({}, { result: "o2" }).html);
+    expect(found[2]).toContain('tabindex="0"');
+    expect(found[2]).toContain('data-state="checked"');
+    expect(found[0]).toContain('tabindex="-1"');
+  });
+
+  test("each radio is a button named and described by its option", () => {
+    const found = radios(pick().html);
+    expect(found[0]).toContain('aria-labelledby="atom:option:0:label"');
+    expect(found[0]).toContain('aria-describedby="atom:option:0:description"');
+    expect(found[1]).not.toContain("aria-describedby");
+    for (const radio of found) expect(radio).toContain('type="button"');
+  });
+
+  test("no element carries a style attribute (AD-8)", () => {
+    expect(pick({}, { result: "o1" }).html).not.toContain("style=");
+    expect(pick({}, { result: "o1", disabled: true }).html).not.toContain("style=");
+  });
+
+  test("read-only, every radio is disabled and none is a tab stop", () => {
+    for (const radio of radios(pick({}, { result: "o1", disabled: true }).html)) {
+      expect(radio).toContain("disabled");
+      expect(radio).toContain('tabindex="-1"');
+    }
   });
 });
 
