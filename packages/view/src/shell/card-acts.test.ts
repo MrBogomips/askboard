@@ -464,6 +464,7 @@ describe("filling the draft from an answer (Start from my previous answer; a rev
         optionNotes: { "All at once": "Tuesday.", Gone: "x" },
         note: "Before the freeze.",
       },
+      "current",
       context,
     );
     expect(draft.valueOf("rollout")).toEqual(["All at once"]);
@@ -473,10 +474,207 @@ describe("filling the draft from an answer (Start from my previous answer; a rev
       note: "Before the freeze.",
     });
     board.edit("payment", 1, () => ({ rev: 1, note: "old", composer: "Why?" }));
-    fillFrom(payment, { other: "Mollie" }, context);
+    fillFrom(payment, { other: "Mollie" }, "current", context);
     expect(board.work("payment")).toEqual({ rev: 1, other: "Mollie", composer: "Why?" });
     expect(draft.valueOf("payment")).toBeUndefined();
     expect(sent).toEqual([]);
+  });
+});
+
+describe("an answer carried into the draft brings back widget values (reopen-start-from-answer, design decision 2)", () => {
+  const timeline: WidgetItem = { type: "timeline", id: "roadmap", props: {} };
+  const kanban: WidgetItem = { type: "kanban", id: "board", props: {} };
+  const sketch: WidgetItem = { type: "sketch", id: "free", props: {} };
+  const moved = { moved: true };
+  const cards = { cards: ["a"] };
+  const question = (...items: WidgetItem[]): ViewQuestion => ({
+    ...database,
+    props: { text: "Plan?", items },
+  });
+  // The facts the Timeline's and the Kanban's chunks would register: a value fits unless it says
+  // `refuse`. The sketch type registers no `valueFits`.
+  const facts = (type: string) => {
+    if (type === "timeline" || type === "kanban") {
+      return {
+        fits: () => true,
+        valueFits: (value: unknown) => (value as { refuse?: boolean }).refuse !== true,
+      };
+    }
+    return { fits: () => true };
+  };
+  const given = (context: ReturnType<typeof setUp>["context"]) => ({ ...context, facts });
+
+  test("both unchanged and both fitting: both values enter the draft, and all of the answer was carried", () => {
+    const { sent, draft, context } = setUp();
+    const carried = fillFrom(
+      question(timeline, kanban),
+      { values: { roadmap: moved, board: cards }, unchanged: ["roadmap", "board"] },
+      "previous",
+      given(context),
+    );
+    expect(draft.valueOf("roadmap")).toEqual(moved);
+    expect(draft.valueOf("board")).toEqual(cards);
+    expect(carried).toBe(true);
+    expect(sent).toEqual([]);
+  });
+
+  test("a current answer without the list: both enter the draft", () => {
+    const { draft, context } = setUp();
+    const carried = fillFrom(
+      question(timeline, kanban),
+      { values: { roadmap: moved, board: cards } },
+      "current",
+      given(context),
+    );
+    expect(draft.valueOf("roadmap")).toEqual(moved);
+    expect(draft.valueOf("board")).toEqual(cards);
+    expect(carried).toBe(true);
+  });
+
+  test("a previous answer without the list, or with an empty one: neither enters it, and not all was carried", () => {
+    for (const unchanged of [undefined, []]) {
+      const { draft, context } = setUp();
+      const carried = fillFrom(
+        question(timeline, kanban),
+        { values: { roadmap: moved, board: cards }, ...(unchanged ? { unchanged } : {}) },
+        "previous",
+        given(context),
+      );
+      expect(draft.record().size).toBe(0);
+      expect(carried).toBe(false);
+    }
+  });
+
+  test("the Kanban not in the list: the Timeline's value only", () => {
+    const { draft, context } = setUp();
+    const carried = fillFrom(
+      question(timeline, kanban),
+      { values: { roadmap: moved, board: cards }, unchanged: ["roadmap"] },
+      "previous",
+      given(context),
+    );
+    expect(draft.valueOf("roadmap")).toEqual(moved);
+    expect(draft.record().has("board")).toBe(false);
+    expect(carried).toBe(false);
+  });
+
+  test("a value the item's type refuses on its current props is not carried, and the other one is", () => {
+    const { draft, context } = setUp();
+    const carried = fillFrom(
+      question(timeline, kanban),
+      { values: { roadmap: { refuse: true }, board: cards }, unchanged: ["roadmap", "board"] },
+      "previous",
+      given(context),
+    );
+    expect(draft.record().has("roadmap")).toBe(false);
+    expect(draft.valueOf("board")).toEqual(cards);
+    expect(carried).toBe(false);
+  });
+
+  test("an item inside a Tabs layout is carried like a top-level one", () => {
+    const { draft, context } = setUp();
+    const tabs: WidgetItem = {
+      type: "tabs",
+      id: "tabs",
+      props: {
+        tabs: [
+          { id: "one", title: "One", items: [timeline] },
+          { id: "two", title: "Two", items: [kanban] },
+        ],
+      },
+    };
+    const carried = fillFrom(
+      question(tabs),
+      { values: { roadmap: moved, board: cards }, unchanged: ["roadmap"] },
+      "previous",
+      given(context),
+    );
+    expect(draft.valueOf("roadmap")).toEqual(moved);
+    expect(draft.record().has("board")).toBe(false);
+    expect(carried).toBe(false);
+  });
+
+  test("a type that registered no valueFits is carried when its ID is in the list", () => {
+    const { draft, context } = setUp();
+    const carried = fillFrom(
+      question(sketch),
+      { values: { free: { any: 1 } }, unchanged: ["free"] },
+      "previous",
+      given(context),
+    );
+    expect(draft.valueOf("free")).toEqual({ any: 1 });
+    expect(carried).toBe(true);
+  });
+
+  test("an item the revision no longer holds is no part that was carried", () => {
+    const { draft, context } = setUp();
+    const carried = fillFrom(
+      question(timeline),
+      { values: { roadmap: moved, gone: cards }, unchanged: ["roadmap", "gone"] },
+      "previous",
+      given(context),
+    );
+    expect(draft.valueOf("roadmap")).toEqual(moved);
+    expect(draft.record().has("gone")).toBe(false);
+    expect(carried).toBe(false);
+  });
+
+  test("the draft's own values are replaced: an item the answer does not carry shows as sent", () => {
+    const { draft, context } = setUp();
+    draft.set("board", { cards: ["mine"] });
+    draft.set("roadmap", { moved: "mine" });
+    fillFrom(
+      question(timeline, kanban),
+      { values: { roadmap: moved }, unchanged: ["roadmap"] },
+      "previous",
+      given(context),
+    );
+    expect(draft.valueOf("roadmap")).toEqual(moved);
+    expect(draft.record().has("board")).toBe(false);
+  });
+
+  test("values are read as own entries of the answer's: an inherited name seeds nothing", () => {
+    const { draft, context } = setUp();
+    const inherited: WidgetItem = { type: "timeline", id: "toString", props: {} };
+    fillFrom(
+      question(inherited),
+      { values: {}, unchanged: ["toString"] },
+      "previous",
+      given(context),
+    );
+    expect(draft.record().size).toBe(0);
+  });
+
+  test("all of the answer carried means every choice label, value and result: a label the revision lacks is not", () => {
+    const { context } = setUp();
+    const plain = question();
+    const withOptions: ViewQuestion = {
+      ...plain,
+      props: { ...plain.props, options: [{ label: "SQLite" }, { label: "Postgres" }] },
+    } as ViewQuestion;
+    expect(fillFrom(withOptions, { choice: ["SQLite"] }, "previous", given(context))).toBe(true);
+    expect(fillFrom(withOptions, { choice: ["SQLite", "Gone"] }, "previous", given(context))).toBe(
+      false,
+    );
+  });
+
+  test("a result the item refuses is no part that was carried", () => {
+    const { results, context } = setUp();
+    const verdict: WidgetItem = { type: "verdict", id: "verdict", props: {} };
+    const refusing = (type: string) => (type === "verdict" ? { fits: () => false } : facts(type));
+    const carried = fillFrom(
+      question(verdict),
+      { results: { verdict: { decision: "approve" } } },
+      "current",
+      { ...context, facts: refusing },
+    );
+    expect(results.record().size).toBe(0);
+    expect(carried).toBe(false);
+  });
+
+  test("an answer with no values, results or choice carries all of nothing", () => {
+    const { context } = setUp();
+    expect(fillFrom(question(timeline), {}, "previous", given(context))).toBe(true);
   });
 });
 
@@ -1019,37 +1217,37 @@ describe("a revision keeps the widgets' results (approval-scale-ranking, design 
 
   test("filling from an answer seeds its results for the items the revision holds", () => {
     const { sent, results, context } = setUp();
-    fillFrom(asked, { results: { verdict: rejected }, note: "No." }, context);
+    fillFrom(asked, { results: { verdict: rejected }, note: "No." }, "current", context);
     expect(results.valueOf("verdict")).toEqual(rejected);
     expect(sent).toEqual([]);
   });
 
   test("an item the current revision no longer holds gets none", () => {
     const { results, context } = setUp();
-    fillFrom(asked, { results: { verdict: rejected, gone: { pick: 1 } } }, context);
+    fillFrom(asked, { results: { verdict: rejected, gone: { pick: 1 } } }, "current", context);
     expect(results.record().has("gone")).toBe(false);
     expect([...results.record().keys()]).toEqual(["verdict"]);
   });
 
   test("the question's own ID is never a result's key", () => {
     const { results, context } = setUp();
-    fillFrom(asked, { results: { database: { pick: 1 } } }, context);
+    fillFrom(asked, { results: { database: { pick: 1 } } }, "current", context);
     expect(results.record().size).toBe(0);
   });
 
   test("an answer given without results seeds none, and drops the ones held in its place", () => {
     const { results, context } = setUp();
-    fillFrom(asked, { choice: ["SQLite"] }, context);
+    fillFrom(asked, { choice: ["SQLite"] }, "current", context);
     expect(results.record().size).toBe(0);
     results.set("verdict", picked);
-    fillFrom(asked, { choice: ["SQLite"] }, context);
+    fillFrom(asked, { choice: ["SQLite"] }, "current", context);
     expect(results.record().size).toBe(0);
   });
 
   test("each item takes its own result: one the answer lacks is cleared, none leaks across items", () => {
     const { results, context } = setUp();
     results.set("second", picked);
-    fillFrom(both, { results: { verdict: rejected } }, context);
+    fillFrom(both, { results: { verdict: rejected } }, "current", context);
     expect(results.valueOf("verdict")).toEqual(rejected);
     expect(results.record().has("second")).toBe(false);
   });
@@ -1062,7 +1260,7 @@ describe("a revision keeps the widgets' results (approval-scale-ranking, design 
       ...database,
       props: { text: "Q?", items: [constructorItem] },
     } as ViewQuestion;
-    fillFrom(question, proto, context);
+    fillFrom(question, proto, "current", context);
     expect(results.valueOf("constructor")).toBe(1);
     expect(Object.getPrototypeOf(results.record())).toBe(Map.prototype);
   });
@@ -1098,7 +1296,7 @@ describe("a revision keeps the widgets' results (approval-scale-ranking, design 
       ["speed", "comfort"],
     ]) {
       const { results, context } = setUpFits();
-      fillFrom(questionOf(ranking(...ids)), { results: { priorities: order } }, context);
+      fillFrom(questionOf(ranking(...ids)), { results: { priorities: order } }, "current", context);
       expect(results.record().has("priorities")).toBe(false);
     }
   });
@@ -1108,6 +1306,7 @@ describe("a revision keeps the widgets' results (approval-scale-ranking, design 
     fillFrom(
       questionOf(ranking("comfort", "speed", "cost")),
       { results: { priorities: order } },
+      "current",
       context,
     );
     expect(results.valueOf("priorities")).toEqual(order);
@@ -1120,7 +1319,7 @@ describe("a revision keeps the widgets' results (approval-scale-ranking, design 
       [{ min: 0, max: 100, step: 10 }, 35],
     ] as const) {
       const { results, context } = setUpFits();
-      fillFrom(questionOf(scale(props)), { results: { share: { value } } }, context);
+      fillFrom(questionOf(scale(props)), { results: { share: { value } } }, "current", context);
       expect(results.record().has("share")).toBe(false);
     }
   });
@@ -1136,6 +1335,7 @@ describe("a revision keeps the widgets' results (approval-scale-ranking, design 
     fillFrom(
       questionOf(approval, scaled),
       { results: { share: { value: 50 }, priorities: order } },
+      "current",
       context,
     );
     expect(results.record().size).toBe(0);
@@ -1143,6 +1343,7 @@ describe("a revision keeps the widgets' results (approval-scale-ranking, design 
     fillFrom(
       questionOf(ranking("speed", "comfort"), { ...approval, id: "other" }),
       { results: { priorities: { decision: "approve" }, other: { decision: "approve" } } },
+      "current",
       turned.context,
     );
     expect([...turned.results.record().keys()]).toEqual(["other"]);
@@ -1157,6 +1358,7 @@ describe("a revision keeps the widgets' results (approval-scale-ranking, design 
     fillFrom(
       questionOf(bare, unknown),
       { results: { share: { value: 50 }, priorities: { order: ["a", "b"] } } },
+      "current",
       { ...set.context, facts: noFits },
     );
     expect(set.results.record().size).toBe(0);
@@ -1167,6 +1369,7 @@ describe("a revision keeps the widgets' results (approval-scale-ranking, design 
     fillFrom(
       questionOf(scale({ min: 0, max: 100, step: 5 })),
       { results: { share: { value: 35 } } },
+      "current",
       context,
     );
     expect(results.valueOf("share")).toEqual({ value: 35 });
@@ -1176,7 +1379,7 @@ describe("a revision keeps the widgets' results (approval-scale-ranking, design 
     const { results, context } = setUpFits();
     results.set("priorities", { order: ["speed", "comfort", "risk"] });
     const question = questionOf(ranking("speed", "comfort"), verdict);
-    fillFrom(question, { results: { priorities: order, verdict: rejected } }, context);
+    fillFrom(question, { results: { priorities: order, verdict: rejected } }, "current", context);
     expect(results.record().has("priorities")).toBe(false);
     expect(results.valueOf("verdict")).toEqual(rejected);
   });
@@ -1266,7 +1469,7 @@ describe("a revision keeps the widgets' results (approval-scale-ranking, design 
     expect(
       hasUnsentWork(draftRecordOf(document, draft.record(), board.get(), results.record())),
     ).toBe(false);
-    fillFrom(asked, { results: { verdict: rejected } }, context);
+    fillFrom(asked, { results: { verdict: rejected } }, "current", context);
     expect(board.work("database")).toBeDefined();
     expect(
       hasUnsentWork(draftRecordOf(document, draft.record(), board.get(), results.record())),
@@ -1276,7 +1479,7 @@ describe("a revision keeps the widgets' results (approval-scale-ranking, design 
   test("a board with no results store seeds nothing and does not throw", () => {
     const { draft, board } = setUp();
     expect(() =>
-      fillFrom(asked, { results: { verdict: rejected } }, { draft, board }),
+      fillFrom(asked, { results: { verdict: rejected } }, "current", { draft, board }),
     ).not.toThrow();
   });
 });

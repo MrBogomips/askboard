@@ -68,7 +68,6 @@ import {
   type CardState,
   cardActions,
   cardState,
-  contentOf,
   shownFor,
   shownResultFor,
   statusOf,
@@ -450,7 +449,9 @@ export const QuestionCard = (props: CardProps) => {
     queueMicrotask(() => {
       seeding.current = false;
     });
-    fillFrom(shown, contentOf(status.answer), context);
+    // Still seeds no widget value: task 2.2 of reopen-start-from-answer gives it the answer's.
+    const { values: _values, ...answered } = status.answer;
+    fillFrom(shown, answered, "current", context);
   };
   const extras = extrasOf(shown, card, work, context.board, revise);
   const opened = context.opened !== undefined;
@@ -536,7 +537,7 @@ export const QuestionCard = (props: CardProps) => {
           disabled={readOnly || pending}
           onStart={() => {
             const previous = reopened.previous;
-            if (previous !== undefined) fillFrom(question, contentOf(previous), context);
+            if (previous !== undefined) fillFrom(question, previous, "previous", context);
           }}
         />
       )}

@@ -272,6 +272,11 @@ const VIEW_READS: readonly Read[] = [
     reason: HANDED,
   },
   {
+    file: "packages/view/src/shell/card-acts.ts",
+    text: "valueItemsOf(question.props.items)",
+    reason: HANDED,
+  },
+  {
     file: "packages/view/src/shell/cell-entries.ts",
     text: "valueItemsOf(question.props.items)",
     reason: HANDED,

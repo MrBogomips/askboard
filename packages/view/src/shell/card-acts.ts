@@ -23,7 +23,7 @@ import {
   type Locale,
   noteHoldsReason,
 } from "@askboard/contract";
-import { nestedItemById } from "../nested-items.ts";
+import { nestedItemById, valueItemsOf } from "../nested-items.ts";
 import { t } from "../strings/index.ts";
 import type { ViewQuestion } from "../view-document.ts";
 import {
@@ -43,6 +43,7 @@ import {
   resultFits,
   resultIdsOf,
   valueDropped,
+  valueFits,
 } from "./board-draft.ts";
 import {
   cellEntryIdsOf,
@@ -55,7 +56,13 @@ import type { DerivedStore } from "./derived-store.ts";
 import type { DraftStore } from "./draft-store.ts";
 import { entryIdsOf } from "./entries.ts";
 import { holdsBlock } from "./field-block.ts";
-import { answerOf } from "./question-state.ts";
+import {
+  type AnswerRole,
+  answerOf,
+  type CarriedAnswer,
+  contentOf,
+  unchangedOf,
+} from "./question-state.ts";
 import { type FactsOf, reasonOf } from "./reason.ts";
 import { asksFirst, press, type Waiting } from "./revision-confirm.ts";
 import type { SizeNotices } from "./size-notices.ts";
@@ -515,14 +522,19 @@ export const keepMine = (
 
 /**
  * Fills the question's draft from an answer, as far as the question's revision offers it: its
- * labels, "Other…" text where it is offered, the notes on its labels, the note, and the results of
- * the widget items it holds (approval-scale-ranking, design decision 6), in place of those of the
- * draft; the composer's text stays. Nothing is sent (AD-10): "Start from my previous answer", and
- * the start of a revision.
+ * labels, "Other…" text where it is offered, the notes on its labels, the note, the results of the
+ * widget items it holds (approval-scale-ranking, design decision 6) and, since reopen-start-from-
+ * answer (design decision 2), the edited value of each widget item the answer holds unchanged
+ * (`unchangedOf`, by the answer's `role`) and the item's type shows on its current props
+ * (`valueFits`), in place of those of the draft; every other widget item gets no value and shows as
+ * the agent sent it. The composer's text stays. Nothing is sent (AD-10): "Start from my previous
+ * answer", the start of a revision and the reopen prefill. Returns whether every part of the answer
+ * was carried: each chosen label, each value and each result.
  */
 export const fillFrom = (
   question: ViewQuestion,
-  content: AnswerContent,
+  answer: CarriedAnswer,
+  role: AnswerRole,
   {
     draft,
     results,
@@ -531,20 +543,39 @@ export const fillFrom = (
     board,
     facts,
   }: Pick<AnswerContext, "draft" | "results" | "entries" | "cellEntries" | "board" | "facts">,
-): void => {
+): boolean => {
+  const content = contentOf(answer);
+  const unchanged = unchangedOf(content, role);
   const labels = new Set((question.props.options ?? []).map((option) => option.label));
   const choice = (content.choice ?? []).filter((label) => labels.has(label));
   const notes = Object.entries(content.optionNotes ?? {}).filter(([label]) => labels.has(label));
   const other = question.props.allowOther === true ? content.other : undefined;
   draft.set(question.id, choice.length === 0 ? undefined : choice);
+  let whole = choice.length === (content.choice ?? []).length;
+  // Each widget item the revision holds takes the answer's value for it, as an own property, when
+  // the answer holds the item unchanged and its type shows the value; else none. A key that names no
+  // item the revision holds is no part that was carried.
+  const carriedValues = new Set<string>();
+  for (const { id } of valueItemsOf(question.props.items)) {
+    const given = content.values;
+    const value = given !== undefined && Object.hasOwn(given, id) ? given[id] : undefined;
+    const carried = value !== undefined && unchanged(id) && valueFits(question, id, value, facts);
+    if (carried) carriedValues.add(id);
+    draft.set(id, carried ? value : undefined);
+  }
+  whole = whole && Object.keys(content.values ?? {}).every((id) => carriedValues.has(id));
   // Each widget item the revision holds takes the answer's result for it, as an own property, or
   // none; an item the revision no longer holds, a key that names none and a result the item's type
   // refuses against its current props seed nothing, and the item shows as untouched.
+  const carriedResults = new Set<string>();
   for (const itemId of resultIdsOf(question)) {
     const given = content.results;
     const result = given !== undefined && Object.hasOwn(given, itemId) ? given[itemId] : undefined;
-    results?.set(itemId, resultFits(question, itemId, result, facts) ? result : undefined);
+    const fits = resultFits(question, itemId, result, facts);
+    if (fits && result !== undefined) carriedResults.add(itemId);
+    results?.set(itemId, fits ? result : undefined);
   }
+  whole = whole && Object.keys(content.results ?? {}).every((id) => carriedResults.has(id));
   // The start of a revision, or "Start from my previous answer", replaces the draft: text a field
   // could not read goes, as a result of the answer takes the item's place.
   for (const itemId of entryIdsOf(question)) entries?.set(itemId, undefined);
@@ -555,6 +586,7 @@ export const fillFrom = (
     ...(notes.length === 0 ? {} : { optionNotes: Object.fromEntries(notes) }),
     ...(content.note === undefined ? {} : { note: content.note }),
   }));
+  return whole;
 };
 
 /** The question's recommended option, if the agent marked one (FR-3). */
