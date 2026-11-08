@@ -586,16 +586,20 @@ export const restoreDraft = (
     // it; work on an earlier revision keeps it for "Keep mine" to settle.
     const takesValue = (itemId: string, value: unknown): boolean =>
       rest.rev !== question.rev || valueFits(question, itemId, value, factsOf);
+    const refused = new Set(
+      Object.entries(kept)
+        .filter(([itemId, value]) => widgets.has(itemId) && !takesValue(itemId, value))
+        .map(([itemId]) => itemId),
+    );
     const keptValues = Object.fromEntries(
-      Object.entries(kept).filter(
-        ([itemId, value]) => !widgets.has(itemId) || takesValue(itemId, value),
-      ),
+      Object.entries(kept).filter(([itemId]) => !refused.has(itemId)),
     );
     // The cell entries of a Table, each cut, then kept only for an input cell of the value the
     // Table holds: the restored value where it keeps one, else the props as the question shows them.
     const tables = new Set(cellEntryIdsOf(question));
     const typedCells = Object.entries(keptCells).flatMap(([itemId, texts]) => {
-      if (!tables.has(itemId)) return [];
+      // A value dropped here takes its cell entries with it (table-widget review S-1).
+      if (!tables.has(itemId) || refused.has(itemId)) return [];
       const cut = cutCellEntries(new Map(Object.entries(texts ?? {})));
       const held = Object.hasOwn(keptValues, itemId) ? keptValues[itemId] : undefined;
       const props = held ?? nestedItemById(question.props.items, itemId)?.props;

@@ -445,6 +445,7 @@ export const keepMine = (
   const work = context.board.work(question.id);
   if (work === undefined || work.rev >= question.rev) return;
   const { results, facts, draft, cellEntries } = context;
+  const dropped = new Set<string>();
   for (const itemId of resultIdsOf(shown)) {
     const held = results?.valueOf(itemId);
     if (held !== undefined && !resultFits(shown, itemId, held, facts))
@@ -452,14 +453,21 @@ export const keepMine = (
     // A widget's value the card does not show on the revision the work was made on is dropped too
     // (security review X-2): an answer sends what its widgets show.
     const value = draft.valueOf(itemId);
-    if (value !== undefined && valueDropped(shown, work.rev, itemId, value, facts))
+    if (value !== undefined && valueDropped(shown, work.rev, itemId, value, facts)) {
       draft.set(itemId, undefined);
+      dropped.add(itemId);
+    }
   }
-  // A Table's cell entries stay only for input cells of the value it now holds, the draft's where
-  // that was kept, else the props the card shows: none is left that no cell shows (review U-1).
+  // A Table's cell entries go with a value dropped (review S-1); otherwise they stay only for input
+  // cells of the value it holds, the draft's where that was kept, else the props the card shows:
+  // none is left that no cell shows (review U-1).
   for (const itemId of cellEntryIdsOf(shown)) {
     const held = cellEntries?.valueOf(itemId);
     if (!(held instanceof Map)) continue;
+    if (dropped.has(itemId)) {
+      cellEntries?.set(itemId, undefined);
+      continue;
+    }
     const props = draft.valueOf(itemId) ?? nestedItemById(shown.props.items, itemId)?.props;
     cellEntries?.set(itemId, fitCellEntries(held, props));
   }

@@ -419,6 +419,51 @@ describe("restoring cell entries after a reload (FR-25)", () => {
     expect([...(set.cells.valueOf("costs") as Map<string, string>)]).toEqual([["u-1.days", "x"]]);
   });
 
+  test("a value the shown props do not fit is dropped on restore with every cell entry of its item (review S-1)", () => {
+    const set = stores();
+    const changed = structuredClone(COSTS);
+    changed.props.columns = changed.props.columns.filter(
+      (c: { field: string }) => c.field !== "rate",
+    );
+    changed.props.rows = changed.props.rows.map(
+      ({ rate: _r, ...row }: Record<string, unknown>) => row,
+    );
+    const doc = documentOf([changed, ODD]);
+    const facts = (type: string) =>
+      type === "table"
+        ? {
+            valueFits: (value: unknown, props: unknown) =>
+              JSON.stringify((value as { columns: unknown }).columns) ===
+              JSON.stringify((props as { columns: unknown }).columns),
+          }
+        : undefined;
+    restoreDraft(
+      {
+        delivery: "immediate",
+        questions: {
+          [QUESTION]: {
+            rev: 1,
+            values: { costs: structuredClone(TABLE_EDITED_PROPS) },
+            cellEntries: { costs: { "pm.days": "x" }, odd: { "constructor.toString": "z" } },
+          },
+        },
+      },
+      doc,
+      openState(doc),
+      set.values,
+      set.board,
+      set.results,
+      facts,
+      set.entries,
+      set.cells,
+    );
+    expect(set.values.valueOf("costs")).toBeUndefined();
+    expect(set.cells.valueOf("costs")).toBeUndefined();
+    expect([...(set.cells.valueOf("odd") as Map<string, string>)]).toEqual([
+      ["constructor.toString", "z"],
+    ]);
+  });
+
   test("with every entry dropped and nothing else held, there is no work to restore", () => {
     const set = stores();
     restoreInto(set, {
@@ -561,13 +606,24 @@ describe("a cell entry goes with the item's value (design decision 8)", () => {
     held.set("costs", cells({ "pm.rate": "x", "pm.days": "y" }));
     held.set("odd", cells({ "constructor.toString": "z", "ghost.toString": "no row" }));
     keepMine(current, context, shown);
-    // The value had the rate column the shown revision lacks: it is dropped, and the item shows the
-    // shown revision's own props, which hold `pm.days` and not `pm.rate`.
+    // The value had the rate column the shown revision lacks: it is dropped, and with it every
+    // cell entry of the item (review S-1 of table-widget), so "Answer" is released; the Table
+    // stays untouched. A Table with no value keeps the entries its shown props still fit (U-1).
     expect(values.record().has("costs")).toBe(false);
-    expect([...(held.valueOf("costs") as Map<string, string>)]).toEqual([["pm.days", "y"]]);
+    expect(held.valueOf("costs")).toBeUndefined();
     expect([...(held.valueOf("odd") as Map<string, string>)]).toEqual([
       ["constructor.toString", "z"],
     ]);
+  });
+
+  test("a held value kept by Keep mine keeps the entries of its own input cells", () => {
+    const { values, cells: held, board, context } = setUp();
+    const current = { ...question, rev: 2 };
+    board.edit(QUESTION, 1, () => ({ rev: 1 }));
+    values.set("costs", structuredClone(TABLE_EDITED_PROPS));
+    held.set("costs", cells({ "u-1.days": "x" }));
+    keepMine(current, context, question);
+    expect([...(held.valueOf("costs") as Map<string, string>)]).toEqual([["u-1.days", "x"]]);
   });
 
   test("Keep mine on the revision the work was made on has nothing to settle and leaves the entries", () => {
