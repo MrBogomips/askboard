@@ -49,6 +49,8 @@ Shown and live, as the Issue expects (open question 3), on the page alone. The `
 
 The Snapshot data takes the next minor after `main`'s (askboard-contract-versioning): its constant moves when group 1 starts, its module's header comment gains one sentence naming this change, and the number is bound at task 4.2. Every other set keeps `main`'s; the view manifest gains no chunk (decision 1 only removes code from the shell chunk). Comments, schema descriptions and test titles say "since snapshot-toolbar", never a number. Earlier exact pins of the Snapshot data's version (`packages/contract/test/*-sets.test.ts`, `snapshot-data.test.ts`, and the others the Rule 2 grep finds) move at the binding.
 
+Bound on 2026-11-08, merged with origin/main a8f1d0a0 (the branch is pushed, so merged, not rebased): Snapshot data 1.2 (main 1.1). Every other set equals main's: input format 1.12, output format 1.11, tool envelopes 1.12, board document 1.11, board protocol 1.8, view manifest 1.1, configuration 1.0.
+
 ### 7. Strings
 
 None new: the toggles' `toggles.theme`, `toggles.system`, `toggles.light`, `toggles.dark`, `toggles.density`, `toggles.compact` and `toggles.comfortable` exist in en-US and it-IT.
