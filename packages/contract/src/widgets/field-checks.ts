@@ -47,6 +47,27 @@ export const fieldCheckMessage = (failure: FieldCheckFailure): string => {
 };
 
 /**
+ * The prop a failure is a check of, as the schemas name it: what `ask-core`'s refusal names beside
+ * the item, and what the board's wording of a failed field names. One table, exhaustive over the
+ * codes, so a code added to `FieldCheckFailure` without its prop does not compile. The pattern
+ * is a prop too, though `ask-core` never runs it.
+ */
+export const fieldCheckProp = (failure: FieldCheckFailure): string => {
+  switch (failure.code) {
+    case "required":
+      return "required";
+    case "min-length":
+      return "minLength";
+    case "pattern":
+      return "pattern";
+    case "min-items":
+      return "minItems";
+    case "max-items":
+      return "maxItems";
+  }
+};
+
+/**
  * What is wrong with the `required` prop of an input field: anything but a boolean. Each atom's
  * props check calls it, so that the five say the same.
  */

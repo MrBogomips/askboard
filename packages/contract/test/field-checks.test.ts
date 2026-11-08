@@ -8,6 +8,7 @@ import { describe, expect, test } from "bun:test";
 import {
   type FieldCheckFailure,
   fieldCheckMessage,
+  fieldCheckProp,
   PATTERN_TEXT_MAX_CHARS,
   requiredFailure,
   TEXT_FIELD_WIDGET,
@@ -270,6 +271,33 @@ describe("the wording of a failure", () => {
     expect(fieldCheckMessage({ code: "pattern" })).toContain("pattern");
     expect(fieldCheckMessage({ code: "min-items", min: 2 })).toContain("at least 2");
     expect(fieldCheckMessage({ code: "max-items", max: 4 })).toContain("at most 4");
+  });
+});
+
+describe("the prop each failure is a check of", () => {
+  test("every code maps to its prop, one table for core's refusal and the view's wording", () => {
+    const named: Record<FieldCheckFailure["code"], FieldCheckFailure> = {
+      required: { code: "required" },
+      "min-length": { code: "min-length", min: 3 },
+      pattern: { code: "pattern" },
+      "min-items": { code: "min-items", min: 2 },
+      "max-items": { code: "max-items", max: 4 },
+    };
+    const props: Record<FieldCheckFailure["code"], string> = {
+      required: "required",
+      "min-length": "minLength",
+      pattern: "pattern",
+      "min-items": "minItems",
+      "max-items": "maxItems",
+    };
+    for (const code of Object.keys(named) as FieldCheckFailure["code"][]) {
+      expect(fieldCheckProp(named[code]), code).toBe(props[code]);
+    }
+  });
+
+  test("the prop is one the schemas know, whatever the count in the failure", () => {
+    expect(fieldCheckProp({ code: "min-length", min: 1 })).toBe("minLength");
+    expect(fieldCheckProp({ code: "max-items", max: 50 })).toBe("maxItems");
   });
 });
 

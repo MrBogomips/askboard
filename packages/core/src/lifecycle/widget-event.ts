@@ -8,8 +8,8 @@ import {
   ANSWER_EVENT_MAX_CHARS,
   type AnswerEvent,
   type Change,
-  type FieldCheckFailure,
   fieldCheckMessage,
+  fieldCheckProp,
   type QuestionProps,
   WIDGET_TYPES,
   type WidgetType,
@@ -103,17 +103,6 @@ export const answerRequirementProblem = (
   return undefined;
 };
 
-// The prop each failure code is a check of, which a refusal names beside the item; a code with no
-// entry names itself. The pattern has none: core never reads it (see `fieldCheckProblem`).
-const CHECK_PROP: Readonly<Record<string, string>> = {
-  required: "required",
-  "min-length": "minLength",
-  "min-items": "minItems",
-  "max-items": "maxItems",
-};
-
-const checkName = ({ code }: FieldCheckFailure): string => CHECK_PROP[code] ?? code;
-
 /**
  * Why a field of the question fails its check against the answer's results, if one does (form-widget
  * design decisions 2 and 3): the first item, in document order and at any depth, whose type's
@@ -131,7 +120,7 @@ export const fieldCheckProblem = (
     const result = Object.hasOwn(content.results, item.id) ? content.results[item.id] : undefined;
     const failure = widgetFieldCheck(item, result, types);
     if (failure === undefined) continue;
-    return `item "${item.id}" ${fieldCheckMessage(failure)} (${checkName(failure)})`;
+    return `item "${item.id}" ${fieldCheckMessage(failure)} (${fieldCheckProp(failure)})`;
   }
   return undefined;
 };

@@ -997,6 +997,7 @@ export { dateFieldFieldCheck } from "./widgets/date-field/checks.ts";
 export {
   type FieldCheckFailure,
   fieldCheckMessage,
+  fieldCheckProp,
   requiredFailure,
   requiredPropProblems,
 } from "./widgets/field-checks.ts";
