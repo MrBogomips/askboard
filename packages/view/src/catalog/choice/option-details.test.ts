@@ -74,7 +74,7 @@ describe("an option's details", () => {
     return field;
   };
 
-  test("the add-note button opens the editor", () => {
+  test("the add-note button's handler runs without error (that it opens the editor is the browser cases')", () => {
     const button = details({}).find((each) => each.type === "button");
     if (button === undefined) throw new Error("no button");
     expect((button.props as { onClick: () => void }).onClick()).toBeUndefined();
