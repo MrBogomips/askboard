@@ -10,10 +10,16 @@
 // identity while none of them changes (cross-review H1).
 
 import type { LifecycleBoardState } from "@askboard/contract";
-import type { BoardContent, BoardWidgetItem } from "../catalog/port.ts";
+import {
+  type BoardContent,
+  type BoardWidgetItem,
+  type ComponentFacts,
+  componentFacts,
+} from "../catalog/port.ts";
 import { nestedWidgetItemsOf, valueItemsOf } from "../nested-items.ts";
 import { questionsOf, type ViewDocument } from "../view-document.ts";
 import type { AnswerContent } from "../view-protocol.ts";
+import { resultFits } from "./board-draft.ts";
 import type { DraftRecord } from "./draft-store.ts";
 import { type CheckFactsOf, itemCheckFailure } from "./field-block.ts";
 import { statusOf, unchangedOf } from "./question-state.ts";
@@ -94,9 +100,13 @@ const answeredOf = ({ document, state }: BoardSource): Answered => {
 /**
  * The result each widget item's question's latest answer holds for it, by item ID, read as an own
  * property of the answer's `results` and only for the items the question holds: what an item
- * shows of its result while the user holds none (widget-registry, design decision 9).
+ * shows of its result while the user holds none (widget-registry, design decision 9), where its
+ * type's `fits` takes it on the item's current props.
  */
-export const answeredResultsOf = ({ document, state }: BoardSource): Answered => {
+export const answeredResultsOf = (
+  { document, state }: BoardSource,
+  factsOf: (type: string) => ComponentFacts | undefined = componentFacts,
+): Answered => {
   const entries = questionsOf(document).flatMap((question) => {
     const status = statusOf(state, question.id);
     if (status === undefined || (status.state !== "answered" && status.state !== "declined")) {
@@ -104,8 +114,14 @@ export const answeredResultsOf = ({ document, state }: BoardSource): Answered =>
     }
     const { results }: AnswerContent = status.answer;
     if (results === undefined) return [];
+    // Only a result its item's type still takes on the item's current props is shown: one the
+    // agent's revision no longer takes is not (reopen-start-from-answer, decision 5).
     return valueItemsOf(question.props.items).flatMap(({ id }) =>
-      Object.hasOwn(results, id) && results[id] !== undefined ? [[id, results[id]] as const] : [],
+      Object.hasOwn(results, id) &&
+      results[id] !== undefined &&
+      resultFits(question, id, results[id], factsOf)
+        ? [[id, results[id]] as const]
+        : [],
     );
   });
   return entries.length === 0 ? NO_ANSWERS : new Map(entries);
@@ -117,12 +133,13 @@ export const answeredResultsOf = ({ document, state }: BoardSource): Answered =>
  */
 export const createAnsweredResults = (
   sourceOf: () => BoardSource,
+  factsOf?: (type: string) => ComponentFacts | undefined,
 ): ((itemId: string) => unknown) => {
   let last: { readonly source: BoardSource; readonly results: Answered } | undefined;
   return (itemId) => {
     const source = sourceOf();
     if (last?.source.document !== source.document || last.source.state !== source.state) {
-      last = { source, results: answeredResultsOf(source) };
+      last = { source, results: answeredResultsOf(source, factsOf) };
     }
     return last.results.get(itemId);
   };
