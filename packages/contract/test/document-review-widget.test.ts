@@ -531,3 +531,59 @@ describe("the Document review's result in the registry's own check", () => {
     expect(DOCUMENT_REVIEW_TYPES).toEqual([DOCUMENT_REVIEW_WIDGET]);
   });
 });
+
+// AskCore.ask reads the shipped registry alone, so it takes the example only once the type is
+// registered (task 6.3, with `skills-examples.test.ts`); until then the example goes through the
+// composed schemas and the entry's checks over `withWidgetTypes`, which is what `ask` runs.
+describe("the Document review's teaching text and example", () => {
+  const { skill, example } = DOCUMENT_REVIEW_WIDGET;
+  const notes = (skill?.notes ?? []).join(" ");
+
+  test("the text is within the bounds: a use of at most 70 characters, notes of at most 300", () => {
+    expect(skill).toBeDefined();
+    expect(skill?.use.length).toBeGreaterThanOrEqual(1);
+    expect(skill?.use.length).toBeLessThanOrEqual(70);
+    expect((skill?.notes ?? []).length).toBeGreaterThan(0);
+    for (const note of skill?.notes ?? []) {
+      expect(note.length).toBeGreaterThanOrEqual(1);
+      expect(note.length).toBeLessThanOrEqual(300);
+    }
+    expect(widgetRegistryProblems(TYPES)).toEqual([]);
+  });
+
+  test("it says when to use a Document review and what its result holds", () => {
+    expect(skill?.use).toContain("Markdown");
+    expect(skill?.use).toContain("comment");
+    expect(notes).toContain("markdown");
+    expect(notes).toContain("10,000");
+    expect(notes).toContain("one item per section");
+    expect(notes).toContain("annotations");
+    expect(notes).toContain("exact");
+    expect(notes).toContain("prefix");
+    expect(notes).toContain("replacement");
+    expect(notes).toContain("text");
+  });
+
+  test("it says what a quote is and what a replacement does", () => {
+    expect(notes).toContain("as the board shows it");
+    expect(notes).toContain("Markdown marks removed");
+    expect(notes).toContain("`replacement` replaces `exact`");
+    expect(notes).toContain("an empty one deletes");
+  });
+
+  test("it says to ask when a quote cannot be found, and that an untouched item gives no result", () => {
+    expect(notes).toContain("ask the user");
+    expect(notes).toContain("never guess");
+    expect(notes).toContain("no result");
+    // The Approval is not named: no module outside its folder names the type (approval-widget.test.ts).
+    expect(notes).toContain("options or another widget that answers");
+  });
+
+  test("the example is a Document review that an ask accepts, with a title", () => {
+    expect(example.item.type).toBe("document-review");
+    expect(askProblems(TYPES, example.item)).toEqual([]);
+    expect(askAccepted(TYPES, example.item)).toBe(true);
+    expect((example.item.props as { title?: string }).title).toBeDefined();
+    expect(DOCUMENT_REVIEW_WIDGET.propsProblems(example.item.props, "agent")).toEqual([]);
+  });
+});
