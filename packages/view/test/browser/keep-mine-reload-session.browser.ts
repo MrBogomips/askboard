@@ -41,7 +41,7 @@ import { readViewBuild } from "./harness/view-build.ts";
 
 const dist = await readViewBuild();
 
-const LINE_START = "Read-only after the reload:";
+const LINE_START = "Read-only: your work";
 const who = { type: "text-field", id: "who", props: { label: "Who" } };
 const group = (...items: unknown[]) => ({
   type: "group",

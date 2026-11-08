@@ -104,7 +104,7 @@ describe("the English table is the view's text on main, word for word", () => {
       "item.error": "This item could not be shown.",
       "item.loading": "Loading",
       "change.readOnlyAfterReload":
-        "Read-only after the reload: your work on this question keeps an earlier version, which the board can no longer show.",
+        "Read-only: your work on this question keeps an earlier version, which this tab can no longer show.",
     });
   });
 });
@@ -129,7 +129,7 @@ describe("the Italian table", () => {
       "receipt.sent": "inviata",
       "receipt.delivered": "consegnata all'agente",
       "change.readOnlyAfterReload":
-        "In sola lettura dopo il ricaricamento: il tuo lavoro su questa domanda mantiene una versione precedente, che la board non può più mostrare.",
+        "In sola lettura: il tuo lavoro su questa domanda mantiene una versione precedente, che questa scheda non può più mostrare.",
     });
   });
 });

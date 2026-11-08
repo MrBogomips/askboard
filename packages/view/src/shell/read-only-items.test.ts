@@ -105,9 +105,9 @@ const box = {
   props: { items: [stub("inner"), stub("inner-other")] },
 };
 const LINE =
-  "Read-only after the reload: your work on this question keeps an earlier version, which the board can no longer show.";
+  "Read-only: your work on this question keeps an earlier version, which this tab can no longer show.";
 const LINE_IT =
-  "In sola lettura dopo il ricaricamento: il tuo lavoro su questa domanda mantiene una versione precedente, che la board non può più mostrare.";
+  "In sola lettura: il tuo lavoro su questa domanda mantiene una versione precedente, che questa scheda non può più mostrare.";
 
 describe("an item in the read-only set, drawn through the renderer", () => {
   test("a top-level item is drawn disabled and shows the line under it", () => {
