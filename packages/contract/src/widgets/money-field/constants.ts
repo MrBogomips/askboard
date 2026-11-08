@@ -22,6 +22,8 @@ export type MoneyFieldProps = {
   readonly currencies?: readonly string[];
   readonly min?: string;
   readonly max?: string;
+  /** The user must give a value before "Answer" (form-widget): the field's check fails while it has none. */
+  readonly required?: boolean;
 };
 
 export type MoneyFieldItem = {

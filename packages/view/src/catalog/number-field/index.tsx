@@ -12,6 +12,7 @@ import {
   formatNumber,
   type NumberFieldProps,
   numberEcho,
+  numberFieldFieldCheck,
   numberFieldPropsProblems,
   numberFieldResultProblems,
   numberFieldResultShape,
@@ -85,7 +86,12 @@ const NumberField = ({
     remember,
   });
   return (
-    <Field itemId={item.id} label={props.label} description={props.description}>
+    <Field
+      itemId={item.id}
+      label={props.label}
+      description={props.description}
+      required={props.required === true}
+    >
       <EntryField
         itemId={item.id}
         text={shownNumber({ entry, result, typed, locale })}
@@ -95,6 +101,7 @@ const NumberField = ({
         echo={echo}
         error={refused?.error}
         hasDescription={props.description !== undefined}
+        required={props.required === true}
       />
     </Field>
   );
@@ -106,4 +113,5 @@ register(NUMBER_FIELD, NumberField, {
   name: "change.widgetNumberField",
   fits: (result, props) =>
     numberFieldResultShape(result) && numberFieldResultProblems(result, props).length === 0,
+  check: numberFieldFieldCheck,
 });

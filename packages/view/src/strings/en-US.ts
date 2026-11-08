@@ -395,4 +395,7 @@ export const EN_US = {
   "date.previous": "Previous month",
   "date.next": "Next month",
   "date.nav": "Month navigation",
+  "field.required": "(required)",
+  "field.minLength": "At least {min} characters.",
+  "field.pattern": "Not in the expected form.",
 } as const satisfies StringTable;

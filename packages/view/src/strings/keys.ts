@@ -373,6 +373,10 @@ export const STRING_KEYS = [
   "date.previous",
   "date.next",
   "date.nav",
+  // The Form's field checks (form-widget, task 3.2; ux-update-draft.md block 6; the Italian texts to review).
+  "field.required",
+  "field.minLength",
+  "field.pattern",
 ] as const;
 
 export type StringKey = (typeof STRING_KEYS)[number];

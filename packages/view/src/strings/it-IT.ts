@@ -410,4 +410,8 @@ export const IT_IT = {
   "date.previous": "Mese precedente",
   "date.next": "Mese successivo",
   "date.nav": "Navigazione tra i mesi",
+  // The Form's texts are provisional, to review (form-widget, task 3.2).
+  "field.required": "(obbligatorio)",
+  "field.minLength": "Almeno {min} caratteri.",
+  "field.pattern": "Non è nella forma attesa.",
 } as const satisfies StringTable;

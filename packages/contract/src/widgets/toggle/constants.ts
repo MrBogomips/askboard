@@ -9,6 +9,8 @@ export const TOGGLE_SCHEMA_IDS = /* @__PURE__ */ Object.freeze({
 export type ToggleProps = {
   readonly label: string;
   readonly description?: string;
+  /** The user must give a value before "Answer" (form-widget): the field's check fails while it has none. */
+  readonly required?: boolean;
 };
 
 export type ToggleItem = {

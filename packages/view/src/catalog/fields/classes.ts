@@ -9,6 +9,9 @@ export const FIELD = "flex min-w-0 flex-col gap-xs";
 /** The label, always visible, above the control; a run with no spaces breaks inside the card (5.7, 5.16). */
 export const LABEL = "min-w-0 break-words text-body font-semibold text-foreground";
 
+/** The "(required)" after a label: the label's own wrapping, in the regular weight and `muted-foreground`. */
+export const REQUIRED_MARK = "min-w-0 break-words font-normal text-muted-foreground";
+
 /** The description under the label, in `muted-foreground`. */
 export const DESCRIPTION = "m-0 min-w-0 break-words text-body text-muted-foreground";
 
