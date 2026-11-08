@@ -46,6 +46,7 @@ describe("Agent", () => {
       state: "waiting",
       cursor: `${epoch}.0`,
       board: link,
+      warnings: [{ code: "no-hooks", message: "..." }],
     });
     const methods = child.received.map((message) => ("method" in message ? message.method : ""));
     expect(methods).toEqual(["initialize", "notifications/initialized", "tools/call"]);

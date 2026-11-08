@@ -11,6 +11,8 @@ export type AskResult = {
   readonly state: string;
   readonly cursor: string;
   readonly board: string;
+  /** The `ask` result's warnings, when it has any (a formula the graph could not read). */
+  readonly warnings?: readonly unknown[];
 };
 
 export type CollectedEvent = { readonly type: string } & Readonly<Record<string, unknown>>;
@@ -65,7 +67,10 @@ export const askResultOf = (json: unknown): AskResult => {
         "and with BROWSER set, which it does (AD-18).",
     );
   }
-  return strings("the ask result", result, ["epoch", "askId", "state", "cursor", "board"]);
+  return {
+    ...strings("the ask result", result, ["epoch", "askId", "state", "cursor", "board"]),
+    ...(Array.isArray(result.warnings) ? { warnings: result.warnings as unknown[] } : {}),
+  };
 };
 
 /** The entry for one ask in a `collect` result. */

@@ -7,7 +7,7 @@ import type { Locale, TableColumn, TableProps, TableRow } from "@askboard/contra
 import { TABLE_FIXTURE_ITEM } from "@askboard/contract/fixtures";
 import type { ViewDocument } from "../../../src/view-document.ts";
 import type { WidgetHostRun } from "../harness/widget-host-test.ts";
-import { atomDocument } from "./atom-documents.ts";
+import { atomAsk, atomDocument } from "./atom-documents.ts";
 
 export const TABLE_ID = "costs";
 
@@ -24,6 +24,10 @@ export const tableItem = (props: TableProps = ROLES, id: string = TABLE_ID) => (
 /** The question `plan` holding `props` as the Table `costs`, in `language` (en-US by default). */
 export const tableDocument = (props: TableProps = ROLES, language?: Locale): ViewDocument =>
   atomDocument([tableItem(props)], language);
+
+/** The ask for the session process: the question `plan` holding the Table `costs`. */
+export const tableAsk = (props: TableProps = ROLES, more: Readonly<Record<string, unknown>> = {}) =>
+  atomAsk([tableItem(props)], { askId: "table-plan-t7k2", ...more });
 
 /** The Table of roles with `rows` or `columns` replaced. */
 export const rolesWith = (

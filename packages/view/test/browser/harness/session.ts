@@ -73,6 +73,8 @@ export type BoardSession = {
   readonly userConfigPath?: string;
   /** The link of the board the latest session process serves: the later ask after `restart`. */
   latestLink?(): string;
+  /** The warnings the `ask` result gave: the session process target only. */
+  askWarnings?(): readonly unknown[];
   /** The agent's `collect` returns the answer, so the board is told it was delivered. */
   collected(): Promise<void>;
   /** The agent's `collect` after the last cursor: every new event, with the ask's state. */

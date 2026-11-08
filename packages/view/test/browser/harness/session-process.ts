@@ -86,6 +86,8 @@ type Life = {
   readonly child: Child;
   readonly agent: Agent;
   readonly link: BoardLink;
+  /** The warnings the `ask` result gave. */
+  readonly warnings: readonly unknown[];
   /** The local API the asker's records go to; none without an asker. */
   readonly api?: LocalApi;
   cursor: string;
@@ -162,6 +164,10 @@ class ProcessSession implements BoardSession {
     this.#asker = parts.asker;
     this.link = linkThrough(parts.first.link, parts.proxy.port);
     this.userConfigPath = parts.userConfigPath;
+  }
+
+  askWarnings(): readonly unknown[] {
+    return this.#current.warnings;
   }
 
   latestLink(): string {
@@ -393,6 +399,7 @@ const launch = async (context: LaunchContext, n: number): Promise<Life> => {
       child,
       agent,
       link,
+      warnings: result.warnings ?? [],
       ...(api === undefined ? {} : { api }),
       cursor: result.cursor,
       stderr,
