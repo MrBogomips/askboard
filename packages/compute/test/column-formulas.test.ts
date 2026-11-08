@@ -204,3 +204,180 @@ describe("names that are object names", () => {
     expect(refusal(item)).toContain("constructor");
   });
 });
+
+// Task 2.3: single reads, one warning per column.
+
+const withTotal = (columns: Fields, total = "SUM([costs.*.amount])"): FieldsItem => ({
+  ...costs(columns),
+  fields: { amount: column(total) },
+});
+
+describe("column formulas read single fields", () => {
+  test("a column reads a total of its item: each row reads its share", () => {
+    const item = withTotal({
+      amount: column("[@days] * [@rate]"),
+      share: column("[@amount] / [costs.amount]"),
+    });
+    const values = evaluateGraph(buildGraph({ items: [item] }));
+    expect(values.read("costs.amount")).toBe(70_560);
+    expect(values.read("costs.pm.share")).toBeCloseTo(18_720 / 70_560, 12);
+    expect(values.read("costs.dev.share")).toBeCloseTo(51_840 / 70_560, 12);
+  });
+
+  test("a wildcard in a column formula is over-limit at every row, whatever else it holds", () => {
+    for (const text of [
+      "[@amount] / SUM([costs.*.amount])",
+      "SUM([costs.pm.*.amount])",
+      "[@amount] + [nowhere.x] + SUM([costs.*.amount])",
+      "[@amount] + [@rte] + SUM([costs.*.amount])",
+    ]) {
+      const item = withTotal({ amount: column("[@days]"), share: column(text) });
+      const values = evaluateGraph(buildGraph({ items: [item] }));
+      for (const row of ["pm", "dev"]) {
+        const error = errorOf(values.read(`costs.${row}.share`));
+        expect([text, error.error]).toEqual([text, "over-limit"]);
+        expect(error.detail).toContain("single fields");
+      }
+    }
+  });
+
+  test("a formula that does not parse stays a syntax problem, not over-limit", () => {
+    const item = costs({ share: column("SUM([costs.*.days]) *") });
+    expect(errorOf(read(item, "costs.pm.share")).error).toBe("syntax");
+  });
+
+  test("a cell reference reads a single node, a range is over-limit", () => {
+    const sheet: FieldsItem = { kind: "fields", id: "sheet", cells: { A1: num(5), B1: num(6) } };
+    const [first, ...rest] = [
+      costs({ one: column("[sheet.A1] + [@days]"), many: column("SUM([sheet.A1:B1])") }),
+    ];
+    const values = evaluateGraph(buildGraph({ items: [sheet, first as FieldsItem, ...rest] }));
+    expect(values.read("costs.pm.one")).toBe(23);
+    expect(errorOf(values.read("costs.pm.many")).error).toBe("over-limit");
+  });
+
+  test("a range or a wildcard in a field formula outside a column is as before", () => {
+    const item: FieldsItem = {
+      ...costs({}),
+      fields: { total: column("SUM([costs.*.days])") },
+    };
+    expect(read(item, "costs.total")).toBe(90);
+  });
+});
+
+describe("one warning per column", () => {
+  const rowsOf = (count: number): readonly GraphChild[] =>
+    Array.from({ length: count }, (_, index) => ({
+      id: `r${index + 1}`,
+      fields: { days: num(index) },
+    }));
+
+  test("a formula that does not parse, over 200 rows: one warning and 200 errors", () => {
+    const graph = buildGraph({ items: [costs({ amount: column("[@days] *") }, rowsOf(200))] });
+    expect(graph.warnings).toHaveLength(1);
+    expect(graph.warnings[0]).toMatchObject({ error: "syntax", address: "costs.*.amount" });
+    const values = evaluateGraph(graph);
+    for (let row = 1; row <= 200; row++) {
+      expect(errorOf(values.read(`costs.r${row}.amount`)).error).toBe("syntax");
+    }
+  });
+
+  test("a misspelt field: one missing-reference warning whose detail quotes the reference", () => {
+    const graph = buildGraph({ items: [costs({ amount: column("[@days] * [@rte]") })] });
+    expect(graph.warnings).toHaveLength(1);
+    expect(graph.warnings[0]).toMatchObject({
+      error: "missing-reference",
+      address: "costs.*.amount",
+    });
+    expect(graph.warnings[0]?.detail).toContain("[@rte]");
+  });
+
+  test("a cycle through a column is one warning", () => {
+    const graph = buildGraph({ items: [costs({ a: column("[@a] + 1") })] });
+    expect(graph.warnings).toEqual([{ error: "cycle", address: "costs.*.a" }]);
+  });
+
+  test("two columns in error give two warnings", () => {
+    const graph = buildGraph({
+      items: [costs({ a: column("[@days] *"), b: column("[@days] * [@rte]") })],
+    });
+    expect(graph.warnings.map(({ error, address }) => `${error}@${address}`)).toEqual([
+      "syntax@costs.*.a",
+      "missing-reference@costs.*.b",
+    ]);
+  });
+
+  test("a problem of another detail in the same column is another warning", () => {
+    const currency = (code: string): Fields[string] => ({
+      type: "money",
+      value: "1.00",
+      currency: code,
+    });
+    const item = costs({ amount: { type: "money", formula: "[@a] + [@b]", currency: "USD" } }, [
+      { id: "x", fields: { a: currency("EUR"), b: currency("USD") } },
+      { id: "y", fields: { a: currency("GBP"), b: currency("USD") } },
+      { id: "z", fields: { a: currency("EUR"), b: currency("USD") } },
+    ]);
+    const graph = buildGraph({ items: [item] });
+    expect(graph.warnings.map(({ error, address, detail }) => [error, address, detail])).toEqual([
+      ["mixed-currencies", "costs.*.amount", "amounts in EUR, USD"],
+      ["mixed-currencies", "costs.*.amount", "amounts in GBP, USD"],
+    ]);
+    const values = evaluateGraph(graph);
+    for (const row of ["x", "y", "z"]) {
+      expect(errorOf(values.read(`costs.${row}.amount`)).error).toBe("mixed-currencies");
+    }
+  });
+
+  test("a value error that depends on one row's values gives no warning", () => {
+    const item = costs({ ratio: column("[@days] / [@rate]") }, [
+      { id: "ok", fields: { days: num(4), rate: num(2) } },
+      { id: "zero", fields: { days: num(4), rate: num(0) } },
+    ]);
+    const graph = buildGraph({ items: [item] });
+    expect(graph.warnings).toEqual([]);
+    const values = evaluateGraph(graph);
+    expect(values.read("costs.ok.ratio")).toBe(2);
+    expect(isFormulaError(values.read("costs.zero.ratio"))).toBe(true);
+  });
+
+  test("a total's own error is a separate warning at item.field", () => {
+    const item = withTotal({ amount: column("[@days] *") }, "SUM([costs.*.zzz])");
+    const graph = buildGraph({ items: [item] });
+    expect(graph.warnings.map(({ error, address }) => `${error}@${address}`)).toEqual([
+      "missing-reference@costs.amount",
+      "syntax@costs.*.amount",
+    ]);
+  });
+
+  test("a total that reads the failing column inherits the error and adds no warning", () => {
+    const graph = buildGraph({ items: [withTotal({ amount: column("[@days] *") })] });
+    expect(graph.warnings.map(({ address }) => address)).toEqual(["costs.*.amount"]);
+    expect(errorOf(evaluateGraph(graph).read("costs.amount")).error).toBe("syntax");
+  });
+
+  test("a row's own field formula in error keeps its own address", () => {
+    const item = costs({}, [
+      { id: "pm", fields: { x: column("[@days] *") } },
+      { id: "dev", fields: { x: column("[@days] *") } },
+    ]);
+    expect(buildGraph({ items: [item] }).warnings.map(({ address }) => address)).toEqual([
+      "costs.pm.x",
+      "costs.dev.x",
+    ]);
+  });
+
+  test("the warnings come in one order over ten builds", () => {
+    const build = () =>
+      JSON.stringify(
+        buildGraph({
+          items: [
+            costs({ a: column("[@days] *"), b: column("[@zz]"), c: column("[@c]") }, rowsOf(30)),
+          ],
+        }).warnings,
+      );
+    const first = build();
+    for (let i = 0; i < 10; i++) expect(build()).toBe(first);
+    expect(JSON.parse(first)).toHaveLength(3);
+  });
+});
