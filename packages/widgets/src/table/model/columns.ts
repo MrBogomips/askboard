@@ -4,11 +4,13 @@
 // `Intl`): a number with its unit after a space, money at its currency's minor units, a date in the
 // locale's numeric form, a toggle as on, off or unset. Plain functions, tested without a DOM.
 
+import { roundNumber } from "@askboard/compute";
 import {
   formatDate,
   formatMoney,
   formatNumber,
   type Locale,
+  minorUnitsOf,
   type TableColumn,
   type TableColumnType,
 } from "@askboard/contract";
@@ -56,9 +58,20 @@ const TOGGLE_KEYS = {
 } as const;
 
 /**
+ * A money value the graph holds as a number, as the decimal string money travels as: rounded half
+ * away from zero to the currency's minor units, written with that many decimals. Undefined for a
+ * number that is no amount.
+ */
+export const moneyDecimal = (amount: number, currency: string): string | undefined => {
+  const rounded = roundNumber(amount, minorUnitsOf(currency));
+  return Number.isFinite(rounded) ? rounded.toFixed(minorUnitsOf(currency)) : undefined;
+};
+
+/**
  * The text a cell shows for `value` in the ask's locale and language. An empty cell shows nothing
- * (a toggle shows "Not set"); a value of the wrong kind for its column, which a graph in error can
- * hand a formula cell, shows as "—", never as a guess.
+ * (a toggle shows "Not set"); a money value may be a decimal string or, from the graph, a number; a
+ * value of the wrong kind for its column, which a graph in error can hand a formula cell, shows as
+ * "—", never as a guess.
  */
 export const shownCell = (
   column: TableColumn,
@@ -77,10 +90,14 @@ export const shownCell = (
       const figure = formatNumber(value, locale);
       return column.unit === undefined ? figure : `${figure} ${column.unit}`;
     }
-    case "money":
-      return typeof value === "string" && column.currency !== undefined
-        ? safely(() => formatMoney(value, column.currency as string, locale), wrong)
+    case "money": {
+      const { currency } = column;
+      if (currency === undefined) return wrong;
+      const amount = typeof value === "number" ? moneyDecimal(value, currency) : value;
+      return typeof amount === "string"
+        ? safely(() => formatMoney(amount, currency, locale), wrong)
         : wrong;
+    }
     case "date":
       return typeof value === "string" ? safely(() => formatDate(value, locale), wrong) : wrong;
   }

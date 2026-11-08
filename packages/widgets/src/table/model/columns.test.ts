@@ -52,6 +52,13 @@ describe("a cell shown in the ask's locale", () => {
     expect(shownCell(ROLE, "Project manager", locale, locale)).toBe("Project manager");
   });
 
+  test("a computed money value, which the graph gives as a number, shows at the currency's units", () => {
+    expect(shownCell(AMOUNT, 18720, "en-US", "en-US")).toBe("$18,720.00");
+    expect(shownCell(AMOUNT, 0.3333333, "it-IT", "it-IT")).toBe("$ 0,33");
+    expect(shownCell({ ...AMOUNT, currency: "JPY" }, 1200, "en-US", "en-US")).toBe("JPY 1,200");
+    expect(shownCell(AMOUNT, Number.POSITIVE_INFINITY, "en-US", "en-US")).toBe("—");
+  });
+
   test("a number's unit follows after a space", () => {
     expect(shownCell(UNIT, 12, "en-US", "en-US")).toBe("12 h");
     expect(shownCell(UNIT, 1200, "it-IT", "it-IT")).toBe("1.200 h");
@@ -75,7 +82,7 @@ describe("a cell shown in the ask's locale", () => {
     for (const [column, value] of [
       [DAYS, "12"],
       [DAYS, Number.NaN],
-      [RATE, 12],
+      [RATE, true],
       [RATE, "twelve"],
       [DATE, 20261027],
       [DATE, "2026-02-30"],
