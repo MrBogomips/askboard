@@ -420,7 +420,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
   - **The graph:**
     - `compute` builds a board's whole graph from the board document alone: `boardGraphSource` maps the board's items onto a graph source, which `buildGraph` reads. The view builds it from the board document with the draft record's values in place of the items the user edited, and after each edit builds it again or, where the edit changes only input values the graph already holds, recalculates it in place. The Gantt plan's baseline is the same graph built from the board document as sent.
     - Widgets read and write graph values and define no node. A node exists whether or not its widget is mounted.
-    - `ask-core`'s send-time check calls the same `buildGraph`. A missing reference, a wildcard that matches no node, or a cycle does not refuse the ask: the result lists it as a warning naming the item ID (AD-6), and the board shows that formula as an error (FR-14).
+    - `ask-core`'s send-time check calls the same `buildGraph`. A missing reference, a wildcard that matches no node, or a cycle does not refuse the ask: the result lists it as a warning naming the item ID (AD-6, within AD-6's result bound: past it, one closing warning counts the rest), and the board shows that formula as an error (FR-14).
   - **Formulas:**
     - Formulas are Excel-style expressions that use only the reference syntax and the function whitelist.
     - `contract` holds limits on a formula's length, its nesting depth and a range's size. The graph checks them, with the grammar and the whitelist, before any engine runs; a formula over a limit is a formula error.
