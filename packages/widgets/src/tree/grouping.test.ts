@@ -3,7 +3,7 @@ import { TREE_MAX_DEPTH, type TreeNode, type TreeProps } from "@askboard/contrac
 import { treeBoardDocument, uj2ExpandedBoardDocument } from "@askboard/contract/fixtures";
 import type { BoardContent } from "@askboard/view/catalog";
 import { chain } from "../../test/tree-model.ts";
-import { type GroupEdit, grouped, groupQuestionOf } from "./grouping.ts";
+import { type GroupEdit, grouped, groupKey, groupQuestionOf } from "./grouping.ts";
 import { linkedDependents } from "./linked.ts";
 import { dropOn } from "./model/drop.ts";
 
@@ -163,5 +163,43 @@ describe("the question an edit asks", () => {
     const context = { planned: true, countDependents: counted };
     expect(groupQuestionOf(PERT, addChild("design"), context)).toBeUndefined();
     expect(groupQuestionOf(PERT, addChild("nope"), context)).toBeUndefined();
+  });
+});
+
+// The question's key (design decision 3, X-2): a new key mounts a new question, and so an edit that
+// would group another leaf is never the same question re-worded in place.
+describe("the question's key", () => {
+  test("two indents of one node that name different leaves have different keys", () => {
+    const edit = indent("billing");
+    expect(groupKey(edit, "portal")).not.toBe(groupKey(edit, "reporting"));
+    expect(groupKey(edit, "portal")).toBe(groupKey(edit, "portal"));
+  });
+
+  test("an indent, an Add child and a drop of one node have keys of their own", () => {
+    const keys = [
+      groupKey(indent("billing"), "portal"),
+      groupKey(addChild("billing"), "portal"),
+      groupKey(into("billing", "portal"), "portal"),
+    ];
+    expect(new Set(keys).size).toBe(3);
+  });
+
+  test("a drop's key holds its node, its target and its leaf", () => {
+    const key = groupKey(into("billing", "portal"), "portal");
+    expect(key).toContain("billing");
+    expect(key).toContain("portal");
+    expect(groupKey(into("billing", "portal"), "portal")).not.toBe(
+      groupKey(into("billing", "reporting"), "reporting"),
+    );
+    expect(groupKey(into("billing", "portal"), "portal")).not.toBe(
+      groupKey(into("billing", "portal"), "reporting"),
+    );
+  });
+
+  test("a refused drop's key holds its node and its leaf", () => {
+    const refused = into("build", "portal");
+    expect(refused).toMatchObject({ drop: { kind: "refused" } });
+    expect(groupKey(refused, "portal")).toContain("build");
+    expect(groupKey(refused, "portal")).not.toBe(groupKey(refused, "reporting"));
   });
 });

@@ -54,7 +54,7 @@ import {
 import { NO_ROW_EVENTS, type RowDragEvents, type TreeDrag } from "./drag.ts";
 import { useCellEditing } from "./editing.tsx";
 import { TreeGrid } from "./grid.tsx";
-import { type GroupEdit, groupQuestionOf } from "./grouping.ts";
+import { type GroupEdit, grouped, groupKey, groupQuestionOf } from "./grouping.ts";
 import { treeKeyOf } from "./key-event.ts";
 import { applyAdjustment } from "./model/adjust.ts";
 import { anchorOf, type Current, canAct, currentIn } from "./model/current.ts";
@@ -97,12 +97,6 @@ import { type TreePart, useTreeFocus } from "./tree-focus.ts";
 
 const NO_COLUMNS: readonly TreeColumn[] = [];
 
-/** The question's key: its edit, its node and, for a drop, its target, so a new drop asks anew. */
-const groupKey = (edit: GroupEdit): string =>
-  edit.kind === "drop" && edit.drop.kind !== "refused"
-    ? `group:drop:${edit.nodeId}:${edit.drop.targetId}`
-    : `group:${edit.kind}:${edit.nodeId}`;
-
 /** A delete whose question is asked: its node, the part it was asked from, and its refusal. */
 type AskedDelete = {
   readonly kind: "delete";
@@ -111,8 +105,16 @@ type AskedDelete = {
   readonly refusal?: string;
 };
 
-/** An edit that would give a leaf its first child, asked first, and the part it came from. */
-type AskedGroup = { readonly kind: "group"; readonly edit: GroupEdit; readonly from: TreePart };
+/**
+ * An edit that would give a leaf its first child, asked first, the part it came from and the leaf
+ * the question named when it opened: it never names another (design decision 3).
+ */
+type AskedGroup = {
+  readonly kind: "group";
+  readonly edit: GroupEdit;
+  readonly from: TreePart;
+  readonly leafId: string;
+};
 
 /** The question the toolbar row shows, if any: one at a time. */
 type Asked = AskedDelete | AskedGroup;
@@ -357,9 +359,11 @@ export const TreeWidget = ({
   // The question that gives a leaf its first child asks first, and changes nothing until "Continue";
   // false when the edit is not one that asks.
   const askGroup = (edit: GroupEdit, from: TreePart): boolean => {
+    const leafId = grouped(value, edit);
+    if (leafId === undefined) return false;
     if (groupQuestionOf(value, edit, { planned, countDependents }) === undefined) return false;
     groupAsked.current = true;
-    setAsked({ kind: "group", edit, from });
+    setAsked({ kind: "group", edit, from, leafId });
     return true;
   };
   // An edit of the focused node, from a key or a tool, where it is possible.
@@ -451,8 +455,13 @@ export const TreeWidget = ({
     setAsked(undefined);
   };
   // "Continue": the edit the unasked path makes, on the value as it is, for the node it was asked of.
-  const confirmGroup = ({ edit, from }: AskedGroup): void => {
+  const confirmGroup = ({ edit, from, leafId }: AskedGroup): void => {
     setAsked(undefined);
+    // An edit that would now group another leaf is no longer the one asked: nothing is applied.
+    if (grouped(value, edit) !== leafId) {
+      focus.moveFocusTo(from);
+      return;
+    }
     if (edit.kind !== "drop") {
       if (disabled || !canAct(edit.kind, value, edit.nodeId)) focus.moveFocusTo(from);
       perform(edit.kind, edit.nodeId, from);
@@ -460,12 +469,15 @@ export const TreeWidget = ({
   };
   const askingOf = (open: Asked): Asking | undefined => {
     if (open.kind === "group") {
-      const question = groupQuestionOf(value, open.edit, { planned, countDependents });
+      const stands = grouped(value, open.edit) === open.leafId;
+      const question = stands
+        ? groupQuestionOf(value, open.edit, { planned, countDependents })
+        : undefined;
       return question === undefined
         ? undefined
         : {
             kind: "group",
-            key: groupKey(open.edit),
+            key: groupKey(open.edit, open.leafId),
             question,
             onConfirm: () => confirmGroup(open),
             onCancel: () => cancelAsked(open.from),

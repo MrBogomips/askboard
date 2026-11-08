@@ -25,9 +25,11 @@ import {
   portalUnderBillingDocument,
   portalWithChildDocument,
   railDocument,
+  reportingBeforeBillingDocument,
   rowDocument,
   rowPortalNamedDocument,
   totalRow,
+  uxNamedDocument,
   wbsPlan,
   wbsTree,
 } from "./fixtures/wbs-documents.ts";
@@ -430,6 +432,64 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect((await placeOf(tree, "billing"))[0]).toBe("2");
         expect(draftValues(run)).toEqual({});
         expect(await focusInTree(tree)).toBe(true);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    /** Opens the indent question on billing, which names the portal: the question and its tree. */
+    const askedToIndentBilling = async () => {
+      const opened_ = await opened();
+      const { run, tree } = opened_;
+      await focusPortal(run, tree);
+      expect(await pressIn(run.board, "ArrowDown")).toEqual({ nodeId: "billing" });
+      await run.board.page.keyboard.press("Alt+Shift+ArrowRight");
+      return { ...opened_, question: await askedGroup(run, PORTAL_GROUP) };
+    };
+
+    test(
+      "the agent moving reporting before billing while the indent question names the portal closes it with nothing applied: no question names Reporting, billing stays under build and the focus stays in the Tree",
+      async () => {
+        const { run, tree } = await askedToIndentBilling();
+        const next = reportingBeforeBillingDocument();
+        await run.update({ type: "state", state: openStateOf(next), document: next });
+        await eventually(
+          async () =>
+            (await shownIds(tree)).join() ===
+            "design,ux,architecture,prototype,build,portal,reporting,billing",
+          "the Tree to show the agent's order",
+        );
+        await groupQuestion(run.board).waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
+        expect(await groupQuestion(run.board, /Reporting/).count()).toBe(0);
+        expect(await placeOf(tree, "billing")).toEqual(["2", "3", "3"]);
+        expect(await tree.row("reporting").getAttribute("aria-expanded")).toBeNull();
+        expect(await placeOf(tree, "reporting")).toEqual(["2", "2", "3"]);
+        expect(draftValues(run)).toEqual({});
+        expect(await focusInTree(tree)).toBe(true);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "an agent update that leaves the leaf as it was, renaming another package, keeps the question open with its words, and Continue puts billing under the portal",
+      async () => {
+        const { run, tree } = await askedToIndentBilling();
+        const next = uxNamedDocument("UX and research");
+        await run.update({ type: "state", state: openStateOf(next), document: next });
+        await eventually(
+          async () =>
+            (await tree.cell("ux", 0).textContent())?.includes("UX and research") === true,
+          "the Tree to show the new name",
+        );
+        const question = await askedGroup(run, PORTAL_GROUP);
+        await question.getByRole("button", { name: "Continue", exact: true }).click({
+          timeout: STEP_TIMEOUT_MS,
+        });
+        await question.waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
+        await eventually(
+          async () => (await placeOf(tree, "billing"))[0] === "3",
+          "billing to indent",
+        );
+        expect(await placeOf(tree, "billing")).toEqual(["3", "1", "1"]);
       },
       TEST_TIMEOUT_MS,
     );

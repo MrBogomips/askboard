@@ -63,6 +63,16 @@ export const grouped = (value: TreeProps, edit: GroupEdit): string | undefined =
   }
 };
 
+/**
+ * The question's key: the edit, its node and, for a drop, its target, and always the leaf the
+ * question named when it opened. A new drop, or an edit that would group another leaf, is a new
+ * key, so a question is never re-worded in place (design decision 3).
+ */
+export const groupKey = (edit: GroupEdit, leaf: string): string =>
+  edit.kind === "drop" && edit.drop.kind !== "refused"
+    ? `group:drop:${edit.nodeId}:${edit.drop.targetId}:${leaf}`
+    : `group:${edit.kind}:${edit.nodeId}:${leaf}`;
+
 // Whether the leaf holds a value in any of the PERT estimate fields.
 const holdsEstimate = (value: TreeProps, id: string): boolean => {
   const node = locate(value.nodes, id)?.node;

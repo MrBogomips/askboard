@@ -94,6 +94,19 @@ export const portalWithChildDocument = (): ViewDocument =>
     nodes: withChild(wbsTree.props.nodes, "portal", NEW_CHILD),
   });
 
+/** The UJ-2 work breakdown after the agent moved reporting before billing, both under build. */
+export const reportingBeforeBillingDocument = (): ViewDocument => {
+  const reporting = find(wbsTree.props.nodes, "reporting");
+  if (reporting === undefined) throw new Error("the fixture has no reporting");
+  const moved = (nodes: readonly TreeNode[]): TreeNode[] =>
+    nodes.flatMap((node) => {
+      if (node.id === "reporting") return [];
+      if (node.id === "billing") return [reporting, node];
+      return [node.children === undefined ? node : { ...node, children: moved(node.children) }];
+    });
+  return wbsDocumentWith({ ...wbsTree.props, nodes: moved(wbsTree.props.nodes) });
+};
+
 /** The UJ-2 work breakdown after the agent moved the portal under billing. */
 export const portalUnderBillingDocument = (): ViewDocument => {
   const portal = find(wbsTree.props.nodes, "portal");
