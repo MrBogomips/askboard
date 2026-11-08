@@ -306,6 +306,13 @@ describe("the answers reference", () => {
     expect(answers).toContain("`fetch` the item");
   });
 
+  test("says an answer whose rev is earlier than the question's current one carries no derived values", () => {
+    expect(answers).toContain("An answer whose `rev` is earlier than the question's current one");
+    expect(answers).toContain(
+      "carries no derived values: the board computes them on the current revision only",
+    );
+  });
+
   test("holds one collect result example", () => {
     const results = taggedBlocks(answers).filter(({ kind }) => kind === "result");
     expect(results).toHaveLength(1);
