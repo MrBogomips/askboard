@@ -38,6 +38,20 @@ The question SHALL name the leaf, as text; say that its estimates leave the tota
 - **WHEN** the ask's language is `it-IT`
 - **THEN** the question, "Annulla" and "Continua" come from the Italian catalog
 
+### Requirement: The group question's layout
+The question's sentence SHALL wrap, the leaf's name first and whole, with "Cancel" and "Continue" under it, and the toolbar row SHALL grow to hold it. Neither the name nor the words SHALL run under a button or past the toolbar row's edge, down to the 1,280 px viewport floor, in a Row and beside the outline rail (DESIGN, Tree).
+
+#### Scenario: At the viewport floor
+- **WHEN** at a 1,280 px window the user drops `billing` into `portal`, with the UJ-2 Tree in a Row beside its plan, or on a board of several questions beside the outline rail, in en-US and in it-IT
+- **THEN** "Customer portal" shows whole, the words wrap without crossing "Cancel" or "Continue", and nothing passes the toolbar row's right edge
+
+### Requirement: The group question fixes its leaf
+The question SHALL fix the leaf it names when it opens. A change of the Tree after which the edit would make another leaf, or none, a group SHALL close the question with nothing applied, and the question SHALL never be re-worded in place (NFR-10).
+
+#### Scenario: The agent changes which leaf an indent would group
+- **WHEN** the user presses Alt+Shift+ArrowRight on `billing`, whose question names "Customer portal", and the agent's update then moves `reporting` before `billing`
+- **THEN** the question closes with nothing applied, no question names "Reporting", `billing` is still under `build` and `reporting` is still a leaf, and the focus is in the Tree's grid or toolbar
+
 ### Requirement: Answering the group question
 "Continue" SHALL make the edit the question was asked for, on the Tree as it is then, with the focus following the node, and SHALL leave the plans unchanged. The leaf's estimates SHALL stay on it and count again once it is a leaf again. "Cancel" or Escape SHALL change nothing and return the focus to the row or control the edit came from; an edit no longer possible SHALL change nothing.
 

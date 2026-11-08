@@ -10,7 +10,7 @@ Order:
 
 - Group 0 runs first.
 - Groups 1 (`compute` and `core`, Issue #74) and 2 (`widgets` and `view`, Issue #71) then run in either order. They share no file and no type; in this worktree they run one after the other.
-- Group 3 runs last.
+- Group 3 runs last. Its fixes from the pre-PR review (3.5 to 3.10) run after 3.3 and before 3.4: 3.5 then 3.6 (`compute`, then `core`, which reads 3.5's warning); 3.7 and 3.8 (`widgets` and `view`), in either order after 3.6 or beside it, one after the other in this worktree since both edit `tree/widget.tsx`'s neighbours and `wbs-linking.browser.ts`; then 3.9 and 3.10.
 
 Inside a group, tasks run in their order.
 
@@ -154,7 +154,115 @@ Inside a group, tasks run in their order.
 
   Record main's SHA and the counts in the note.
   - Note (Refs #71, #74): `origin/main` a8f1d0a0 (the archive of choice-documented-activation and oversized-acts) merged into the branch on 2026-11-08, not rebased: the branch was already pushed, and a rebase would need a force-push. The one conflict was CLAUDE.md's Status line: kept main's line byte-identical and re-inserted this change's sentence before "What the PO left to live runs" (removing the sentence gives main's line); the "In code since" paragraph and the strings, CHANGELOG and `chunk-sizes.json` merged with no conflict. Every borrowed name of 0.2 is found by `git grep` on the merged head, with `can` at `tree/model/edits.ts:107`. `git diff origin/main -- packages/contract/src` is empty and the 11 `*_VERSION` and `*_FORMAT` constants equal main's (input 1.12, output 1.11, tool envelopes 1.12, board document 1.11, board protocol 1.8, Snapshot data 1.1, view manifest 1.1, configuration 1.0, local API 1.0, session file 1.0, molecule format 1.0.0). `keyboard-shortcuts-help` has not merged (`worktree-feature-keyboard-help` is still 101a9498), so its inventory has no row to add; whichever merges second adds the question's Escape and the asking keys. Sizes re-recorded (bytes): `tree` 78,730 to 81,641, `shell` 188,069, `board-page` 979,729, `compute` 43,620 (main: 78,730, 187,378, 979,038, 43,227). `bun run build` then `GITHUB_TOKEN=$(gh auth token) bun run check`: pass, 12,201 pass, 3 skip, 0 fail in 703 files, `check:licences` with the archive step. `openspec validate --all --strict --no-interactive`: 18 passed, 0 failed. Browser suite on the session process (Bun), Chromium and WebKit only, run in four parts under the shared lock because one command cannot hold it all (`-t` patterns on the test name: `[A-Sa-s]` 245, `[Tt][A-Qa-q]` 525 pass and 3 skip, the rest 38 by a negative lookahead; 811 per engine, so the parts cover the suite): each engine 808 pass, 3 skip, 0 fail. Firefox not run (#86). Conformance, `--runtime bun` and `--runtime node` (Node 24.22.2): mod-and-hooks 35 pass, 0 fail; mod-disabled 64 pass, 1 skip, 0 fail; hooks-disabled 52 pass, 5 skip, 0 fail, on each runtime.
-- [ ] 3.3 Run the pre-PR review. Tests: none (review). askboard-spec-reviewer reviews `origin/main...HEAD`, with askboard-security-reviewer on the same range for the agent label in the new question (AD-8) and the warning text's content (askboard-review-protocol). Verify: findings recorded and fixed, tests first; the PR body cites "Issue: #71" and "Issue: #74" and closes both.
+- [x] 3.3 Run the pre-PR review. Tests: none (review). askboard-spec-reviewer reviews `origin/main...HEAD`, with askboard-security-reviewer on the same range for the agent label in the new question (AD-8) and the warning text's content (askboard-review-protocol). Verify: findings recorded and fixed, tests first; the PR body cites "Issue: #71" and "Issue: #74" and closes both.
+  - Note (Refs #71, #74): one pass, spec and security, over `origin/main...HEAD` = a8f1d0a0..f1848541 (39 files, +1,873/-81), in a `git archive` copy: `bun run build`; the full `bun test` (12,200 pass, 3 skip, 1 environmental fail: `tools/build/mod.test.ts` runs `git check-ignore` outside a repository); compute and core at the head and against main's `compute/src` (12 fail there, so the scenarios bite); three AskCore probes; two focused browser probes on the widget host, Chromium and WebKit. H 0, M 2, L 3:
+    - X-1 (M): one stray warning per distinct ID has no size bound. 150 replaced IDs give 37,784 characters, and the worst plan within the contract's limits gives 10.3 MB, against 237 KB on main. This passes AD-6's 30,000. Folded as 3.5 and 3.6; design decision 4, the compute and core deltas.
+    - S-1 (M): at the 1,280 px floor the group question shows no leaf name, and its words run under its buttons (`QUESTION_REST = "shrink-0"` beside a truncating name in a one-line toolbar). Folded as 3.7; decision 2, the view delta.
+    - X-2 (L): an open indent question re-derives its leaf on every render, so an agent update re-words it in place, and "Continue" then groups another leaf. Folded as 3.8; decision 3, the view delta.
+    - S-2 (L): the compute requirement, CHANGELOG and CLAUDE.md say every predecessor warns; the code warns only for the predecessors in a leaf's entry. The texts are narrowed to the code's reading, and 3.5 pins it with a test. The reason: decision 4 and gantt-widget open question 10 never read a stray entry, and the agent is already told to fix that entry. The compute delta now reads that way; CHANGELOG and CLAUDE.md follow in 3.9.
+    - S-3 (L): records. The proposal's `Issue:` lines now stand one per line (this `/opsx:update`); CLAUDE.md's "unchanged" for `core` goes in 3.9.
+  - Decisions on the findings (X-1's bound of one warning per plan, at most five IDs named and a detail of at most 500 characters, then the list capped at `FORMULA_WARNINGS_MAX_CHARS` = 10,000 with a closing count; S-1's wrapping layout; X-2's leaf fixed when the question opens; S-2's narrowed texts): proposed defaults accepted under the PO's unattended handoff.
+  - Unconfirmed in the review, and settled in the design's Open Questions with no probe: what the agent's host does with an oversized result (moot once 3.6 bounds it), and the real board page's width beside the outline rail (measured by 3.7).
+  - Kaizen candidates, each now seen in four changes, for the kaizen step before the pull request:
+    1. An in-flight act whose target the agent's update changes: approval-scale-ranking (seeded results), latex-kanban-timeline (Kanban and Timeline values), table-widget g6 and 7.5 (an open cell editor), and here X-2. Rule for askboard-threat-model §3.3: a question, dialog or editor fixes the target it names when it opens, and an agent change that alters it closes it with nothing applied; probe each one with an agent update mid-act.
+    2. Agent text laid out in a new inline element without a narrow-width probe: approval-scale-ranking 4b, atoms g5 (Value `shrink-0`), layouts g3 (Group title), and here S-1. Rule for §3.8 or askboard-implementation: measure every new element that holds agent text at the 1,280 px floor in a Row and beside the outline rail, with 200 unspaced characters; never `shrink-0` on a long catalog sentence beside a truncating agent label.
+    3. An input bound is not an output bound: latex-kanban-timeline (KaTeX), atoms (Markdown), form-widget (patterns), and here X-1. Rule for §3.4: for every new warning or result list, compute its worst size from the contract's input limits and compare it with `RESULT_MAX_CHARS`.
+  - Left for the PO in the pull request body: the Italian group strings ("esso"), task 3.4, the Firefox run (#86), `Closes #71` and `Closes #74`, the merge of a8f1d0a0 instead of a rebase, and `keyboard-shortcuts-help` (#81) adding the question's Escape and asking keys if it merges second.
+
+### Fixes from the pre-PR review (3.3)
+
+- [ ] 3.5 Fix X-1 in `compute` and pin S-2's reading. Sources: compute spec, Plan IDs that name no work package are warnings ("A stray entry's predecessors") and One warning per plan ("Several IDs in one plan", "A stale plan after the work packages were replaced", "The longest detail"); design decision 4, one warning per plan. Tests first, in `packages/compute/test/board-plan.test.ts`:
+  - "Adds nothing to the schedule" (1.1's rewrite of `:139`). Its strays `design`, `nope` and `build` now give one warning at `schedule.design`, whose detail names the three. `build`'s non-object entry is still neither read nor refused.
+  - Several IDs: entries `design` and `nope`, plus a predecessor `ghost` in a leaf's entry. One warning at `schedule.design`, detail "the plan names design, nope and ghost, which are no work packages of wbs".
+  - The stale plan: the Tree's leaves replaced by 150 new IDs, and the plan holding entries for the 150 old IDs. One warning, addressed by the first old ID; its detail names the first five old IDs and ends "and 145 more IDs, which are no work packages of wbs". No old entry is scheduled.
+  - S-2: an entry `old: {dependencies: ["ghost"]}`, neither a leaf. The detail names `old` and never `ghost`.
+  - One ID keeps the text as before; the existing single-ID tests stand unchanged.
+  - The longest detail: the most entries and predecessors the plan schema admits (`GANTT_MAX_TASKS`, `GANTT_MAX_PREDECESSORS`), every ID 64 characters and none a leaf. The detail is at most 500 characters, and the count in it equals the number of distinct IDs less five.
+  - Update the tests that count one cause warning per ID where a plan has several (`board-wbs.test.ts`, `cpm.test.ts`, per 1.1's note).
+
+  Then, in `cpm.ts`: `PLAN_STRAYS_NAMED` = 5, and `warnAboutStrays` collecting the IDs as now (strays, then the predecessors of scheduled tasks, each once) and pushing one warning per plan with decision 4's three detail forms; update the header comment. Verify: the new tests fail first on several warnings per plan, then pass; `bun test packages/compute` passes; coverage for `cpm.ts`; the check passes.
+- [ ] 3.6 Fix X-1 in `core`: bound the send-time warnings. Sources: core spec, The send-time graph check (MODIFIED: "Warnings past the bound", "The worst plan the contract admits", "Under the bound"); A plan that names no work package is warned on ask and update ("An update that replaces the work packages"); design decision 4, the bound; AD-6. Tests first:
+  - A new `packages/core/test/graph-check-bound.test.ts`, over `boundedFormulaWarnings(warnings, max)`:
+    - an empty list stays empty;
+    - a list within the bound is returned unchanged, same order;
+    - a list over the bound: the JSON text of the result is at most `max`; the last warning's message is "The formula at <address> is in error (<error>), and <N> more formula warnings are left out."; its `itemId`, `address` and `error` are the first left-out warning's; kept, plus one, plus N equals the input's length;
+    - a first warning that alone passes the budget gives the closing warning only, with N = length − 1;
+    - a message holding a `"` and a control character is measured as `JSON.stringify` escapes it.
+  - In `widget-graph.test.ts`, through `AskCore`:
+    - "Warnings past the bound": the 60 leaves × 5 unknown predecessors form on `ask`. Its warnings' JSON text is at most `FORMULA_WARNINGS_MAX_CHARS`, the plan's warning comes first, and the count adds up to the graph's warnings, read with `compute`'s `buildGraph`.
+    - "Under the bound": the existing one-predecessor test has no closing warning.
+    - "An update that replaces the work packages": 150 replaced leaves. One plan warning naming `schedule`, the first five old IDs and "145 more"; the outcome's JSON text is under `RESULT_MAX_CHARS`.
+    - "The worst plan the contract admits", on `ask` and on an `update` that sends the plan again: each outcome's JSON text is under `RESULT_MAX_CHARS`.
+  - In `packages/server/test/mcp-tools/ask.test.ts`: the `ask` tool's result text for the worst plan, with the `no-hooks` warning, is under `RESULT_MAX_CHARS`.
+
+  Then, in `core/src/graph-check.ts`:
+  - `FORMULA_WARNINGS_MAX_CHARS` = 10,000 and `FORMULA_WARNING_CLOSING_MAX_CHARS` = 1,000, exported;
+  - `boundedFormulaWarnings`, pure, applied at the end of `formulaWarnings`, so that `checkedFormulaWarnings`, `ask` and `update` share it;
+  - an updated header comment.
+
+  Verify: the over-bound tests fail first (the 60 × 5 form gives more than 10,000 characters), then pass. `bun test packages/core` and `bun test packages/server` pass. Coverage for `graph-check.ts`. The check passes.
+- [ ] 3.7 Fix S-1: the group question wraps. Sources: view spec, The group question's layout ("At the viewport floor"); design decision 2, Layout; DESIGN `viewport-floor` and `outline-rail`. Tests first, in `wbs-linking.browser.ts`, in Chromium and WebKit on the session-process target. Each case uses a 1,280 × 800 window and drops `billing` into `portal`:
+  - (a) the UJ-2 Tree and plan in a Row;
+  - (b) the UJ-2 question on a board of two questions, so the outline rail shows;
+  - (c) case (a) in `it-IT`;
+  - (d) case (a) with `portal`'s label 200 characters long with no space.
+
+  Each case asserts:
+  - the name is whole: every client rect of the name's element lies inside the question paragraph's box, and the paragraph's `scrollWidth` does not exceed its `clientWidth`;
+  - no client rect of the paragraph's text (a `Range` over it) intersects either button's box;
+  - the paragraph, both buttons and the change counter lie inside the toolbar row's box;
+  - the fieldset's accessible name and the focus on "Cancel" are as before.
+
+  Then, in `tree/classes.ts` and `group-question.tsx`:
+  - group-question classes of their own: the fieldset a column taking the row's width, the paragraph wrapping (`whitespace-normal`, `[overflow-wrap:anywhere]`), the name not truncated and with no `shrink-0` on the words, and the buttons on a line under the paragraph in the same order;
+  - `TOOLBAR`'s fixed height made a minimum, so the row grows for the question and returns to its floor once it closes.
+
+  The delete question's classes stay as they are, and no `style` attribute is added. Run `bun run build:view --record-sizes` if the `tree` chunk moves. Verify: (a) and (b) fail first on the current layout in both engines (no name shown, words under the buttons), then all four pass. `wbs-linking`, `tree-drag`, `tree-deleting` and `gantt-plan-tree` pass in Chromium and WebKit. The check passes. Record in the note the toolbar's width in (b), which settles the review's unconfirmed rail item.
+- [ ] 3.8 Fix X-2: the question fixes its leaf when it opens. Sources: view spec, The group question fixes its leaf ("The agent changes which leaf an indent would group"); design decision 3, its new paragraph; threat model §3.3. Tests first:
+  - In `grouping.test.ts`: `groupKey(edit, leafId)`, moved from `widget.tsx` to `grouping.ts`. Two indents of the same node that name different leaves give different keys, and a drop's key holds both its target and its leaf.
+  - In `wbs-linking.browser.ts` (Chromium and WebKit), the review's probe:
+    - The user focuses `billing` and presses Alt+Shift+ArrowRight; the question names "Customer portal" and the focus is on "Cancel".
+    - The agent's update then moves `reporting` before `billing`, with no draft held. Wait until the Tree shows the new order.
+    - Assert that the group question is gone, no question naming "Reporting" shows, `billing` is still under `build`, `reporting` is a leaf, neither item holds a draft value, and `focusInTree` holds.
+  - A guard: an agent update that leaves the leaf as it was, renaming another node, keeps the question open with its words, and "Continue" puts `billing` under `portal`.
+
+  Then:
+  - `AskedGroup` gains `leafId`, from `grouped(value, edit)` when the question opens;
+  - `askingOf` gives no question once `grouped(value, edit)` is not `leafId`, so the question closes through the existing close path;
+  - `confirmGroup` checks the same before it applies, and on a mismatch takes the "no longer possible" path (nothing applied, the focus as in 2.6);
+  - the question's key is `groupKey(edit, leafId)`.
+
+  Verify: the browser case fails first on the current widget in both engines (the question re-worded to "Reporting"), then passes. The guard and the existing `wbs-linking` cases pass in both engines. `bun test packages/widgets` passes. The check passes.
+- [ ] 3.9 Records for S-2, S-3, X-1 and S-1 (design decision 6), and the fix head's full run. Tests: none (documents). Edits:
+  - CHANGELOG, Unreleased, Fixed, the #74 line: the IDs a plan names "as a plan entry, or as a predecessor in the entry of a work package" (S-2), one warning per plan naming at most five of them, and the `ask` and `update` warnings kept within the result's limit, with a closing count (X-1).
+  - CLAUDE.md, Status: this change's sentence says "warn, once per plan, of the IDs a Gantt plan names that are no work package of its Tree".
+  - CLAUDE.md, "In code since `wbs-gantt-consistency`":
+    - the same narrowing (S-2);
+    - "passes it to `ask` and `update` unchanged" becomes "maps it to reference addressing, as for any graph warning" (S-3);
+    - `PLAN_STRAYS_NAMED` and the per-plan warning; `boundedFormulaWarnings`, `FORMULA_WARNINGS_MAX_CHARS` (10,000) and the closing warning (X-1);
+    - the group question's wrapping layout and its leaf fixed when it opens (S-1, X-2);
+    - the chunk sizes as 3.7 and 3.8 leave them.
+  - The spine, AD-13, The graph, amended in place: "the result lists it as a warning naming the item ID (AD-6)" gains "within AD-6's result bound: past it, one closing warning counts the rest".
+  - DESIGN, Components, Tree: one sentence on the group question. Its sentence wraps, the leaf's name whole, with "Cancel" and "Continue" under it, and the toolbar row grows to hold it. Set `updated:` to the apply date.
+
+  Then, at the fix head: `bun run build`; `GITHUB_TOKEN=$(gh auth token) bun run check`; the browser suite on the session process in Chromium and WebKit (in parts under the lock, as in 3.2); the conformance suite on Bun and on Node 24. Verify:
+  - each new text stands once (`grep -c -F`);
+  - `openspec validate --all --strict --no-interactive` passes;
+  - the note records the counts of every run, and Firefox as not run (#86).
+- [ ] 3.10 Fix re-review, spec and security in one pass (askboard-review-protocol, fix re-review), by askboard-spec-reviewer and askboard-security-reviewer, over f1848541..the head after 3.9. Spec:
+  - each new or modified scenario of the compute, core and view deltas has a test that fails without its fix;
+  - decisions 2, 3 and 4 hold as amended;
+  - S-2's texts agree in the compute delta, CHANGELOG and CLAUDE.md;
+  - no set moved;
+  - AD-13 and DESIGN read as decision 6 says.
+
+  Security:
+  - §3.4: recompute the worst size of the `formula` warnings from the contract's input limits against `FORMULA_WARNINGS_MAX_CHARS` and `RESULT_MAX_CHARS`;
+  - §3.3: X-2's fixed leaf against an agent update mid-question;
+  - AD-8: the leaf's label in the wrapped layout, with no `style` attribute and no markup;
+  - §3.7: no new regular expression in shipped code.
+
+  Verify: findings recorded under this task as S-n and X-n, each fixed tests first before the pull request; the pull request body carries 3.3's left-for-the-PO list.
 - [ ] 3.4 The PO checks Issue #71's steps by hand in Chrome and Safari: the `wbs-pert` and `gantt-plan` board, drop `portal` onto the estimated `backend`, read the question, then Cancel, then Continue; and Issue #74's: an `update` without a leaf named by the plan, and its warning. Tests: none (manual). Verify: the PO's result is recorded under this task. If the session cannot run a browser by hand, leave the check to the PO and say so in the PR body.
 
 ## Workflow follow-up
