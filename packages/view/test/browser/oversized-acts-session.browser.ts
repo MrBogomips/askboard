@@ -33,6 +33,7 @@ import { enginesFrom } from "./harness/engines.ts";
 import {
   actsDone,
   answerOf,
+  barButton,
   card,
   lifecycleScenario,
   mirrored,
@@ -85,6 +86,9 @@ const draftLine = (board: Board) =>
   card(board, BIG).getByText(/^Too large to keep across a reload/);
 const actLine = (board: Board, id: string) =>
   card(board, id).getByText(/^Not sent: this answer is too large/);
+const submitLine = (board: Board, id: string) =>
+  card(board, id).getByText(/^Not sent: Submit is too large to send at once/);
+const submittedAsk = { ...ask, askId: "oversized-submit-w4x6", delivery: "submitted" };
 const connectionLost = (board: Board) => board.banner("Connection lost, retrying");
 
 // Each field of the big question, filled to its bound.
@@ -101,11 +105,11 @@ const filledFields = (board: Board): Promise<number> =>
     );
 
 // Opens the board and fills the big question to its bound in every field.
-const filled = async (start: Start) => {
+const filled = async (start: Start, scenarioAsk: typeof ask = ask) => {
   // The fixtures pass the limits they are meant to pass, whatever the contract's values.
   expect(FIELDS * BYTES_PER_FIELD).toBeGreaterThan(BOARD_MESSAGE_MAX_BYTES);
   expect(FIELDS * UNITS_PER_FIELD).toBeGreaterThan(DRAFT_RECORD_MAX_CHARS);
-  const run = await start(lifecycleScenario(ask, dist));
+  const run = await start(lifecycleScenario(scenarioAsk, dist));
   const board = await openBoard(run, [BIG, SECOND, THIRD]);
   expect(await promptArmed(board)).toBe(false);
   await fillAll(board);
@@ -179,6 +183,37 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           note: "Reads are hot.",
         });
         expect(sentActs(run)).toHaveLength(1);
+        expectNoCspProblem(run);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "(d) Submit over the message limit: each held question shows the Submit line, nothing is sent or collected, and every act stays held",
+      async () => {
+        const { run, board } = await filled(start, submittedAsk);
+        await optionOf(board, SECOND, "Yes").click({ timeout: STEP_TIMEOUT_MS });
+        for (const id of [BIG, SECOND]) {
+          await answerOf(board, id).click({ timeout: STEP_TIMEOUT_MS });
+          await eventually(
+            async () => (await answerOf(board, id).getAttribute("aria-pressed")) === "true",
+            `${id} held`,
+          );
+        }
+        expect(sentActs(run)).toEqual([]);
+        await barButton(board, "Submit").click({ timeout: STEP_TIMEOUT_MS });
+        for (const id of [BIG, SECOND])
+          await submitLine(board, id).waitFor({ timeout: STEP_TIMEOUT_MS });
+        expect((await submitLine(board, BIG).textContent()) ?? "").toMatch(
+          /\(6\.\d MB, at most 6 MB\)/,
+        );
+        expect(sentActs(run)).toEqual([]);
+        expect(checkedEvents(await run.session.collectJson())).toEqual([]);
+        for (const id of [BIG, SECOND]) {
+          expect(await answerOf(board, id).getAttribute("aria-pressed")).toBe("true");
+        }
+        expect(await filledFields(board)).toBe(FIELDS);
+        expect(await connectionLost(board).count()).toBe(0);
         expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,
