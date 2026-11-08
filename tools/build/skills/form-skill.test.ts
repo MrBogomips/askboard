@@ -15,14 +15,18 @@ const FORM_SENTENCE =
 const widgets = withWidgetTypes(...FORM_TYPES);
 const { files, examples } = generateSkill({ widgets });
 const skill = files.get("SKILL.md") ?? "";
+const catalogue = files.get("references/items.md") ?? "";
 const reference = files.get("references/widgets/pick-field.md") ?? "";
 
 describe("the skill with the PickField registered", () => {
-  test("lists the PickField on one line, with the use of its entry", () => {
+  test("lists the PickField on one line of the catalogue, with the use of its entry, and links it from SKILL.md", () => {
     const [entry] = FORM_TYPES;
-    const line = skill.split("\n").find((each) => each.startsWith("- a PickField (`pick-field`)"));
+    const line = catalogue
+      .split("\n")
+      .find((each) => each.startsWith("- a PickField (`pick-field`)"));
     expect(line).toContain(entry?.skill?.use ?? "no use");
-    expect(line).toContain("references/widgets/pick-field.md");
+    expect(skill).toContain("[`pick-field`](references/widgets/pick-field.md)");
+    expect(skill).not.toContain("a PickField");
   });
 
   test("says how to build a form once, within 100 characters", () => {
@@ -57,9 +61,12 @@ describe("the skill with the PickField registered", () => {
 });
 
 describe("the shipped skill, with the PickField registered (task 3.3)", () => {
-  test("holds the PickField's line and the form sentence, as `bun run build:skills` writes them", () => {
-    const shipped = generateSkill().files.get("SKILL.md") ?? "";
-    expect(shipped).toContain("(`pick-field`)");
+  test("holds the PickField's link and line and the form sentence, as `bun run build:skills` writes them", () => {
+    const shippedFiles = generateSkill().files;
+    const shipped = shippedFiles.get("SKILL.md") ?? "";
+    expect(shipped).toContain("[`pick-field`]");
+    expect(shippedFiles.get("references/items.md")).toContain("(`pick-field`)");
+    expect(shippedFiles.get("references/items.md")).toBe(catalogue);
     expect(shipped.split("\n").filter((line) => line.startsWith("For a form,"))).toEqual([
       FORM_SENTENCE,
     ]);
@@ -68,8 +75,11 @@ describe("the shipped skill, with the PickField registered (task 3.3)", () => {
 
   test("a registry without the PickField holds no form sentence and no PickField line", () => {
     const without = WIDGET_TYPES.filter(({ type }) => type !== "pick-field");
-    const text = generateSkill({ widgets: without }).files.get("SKILL.md") ?? "";
+    const absent = generateSkill({ widgets: without }).files;
+    const text = absent.get("SKILL.md") ?? "";
     expect(text).not.toContain("For a form,");
-    expect(text).not.toContain("PickField");
+    expect(text).not.toContain("pick-field");
+    expect(absent.get("references/items.md")).not.toContain("PickField");
+    expect(absent.has("references/widgets/pick-field.md")).toBe(false);
   });
 });

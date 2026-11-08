@@ -91,11 +91,11 @@ A single PickField's result SHALL be one option ID; a multiple PickField's resul
 - **THEN** the first passes, the next three are refused naming the item, and the last fits but fails its field check
 
 ### Requirement: The PickField and forms in the registry and the skill
-The registry SHALL hold `pick-field` after the layouts, with its props, result, field check, wording, example and teaching text. The generated skill SHALL hold its line and one sentence on building a form from fields, a Group per section, and SHALL stay within its budgets (AD-6, SM-1).
+The registry SHALL hold `pick-field` after the layouts, with its props, result, field check, wording, example and teaching text. The generated skill SHALL hold its line in the catalogue (`references/items.md`), its link in `SKILL.md`, and one sentence on building a form from fields, a Group per section, and SHALL stay within its budgets (AD-6, SM-1).
 
 #### Scenario: The skill built
 - **WHEN** `bun run build:skills` runs with the PickField registered
-- **THEN** `SKILL.md` holds the PickField's line and the form sentence, its reference lists `required`, `multiple`, `minItems` and `maxItems`, and `bun run check:skills` passes
+- **THEN** `references/items.md` holds the PickField's line, `SKILL.md` links it and holds the form sentence, its reference lists `required`, `multiple`, `minItems` and `maxItems`, and `bun run check:skills` passes
 
 ### Requirement: Form fields in the schema sets
 The input format, the board document and the tool envelopes SHALL admit the field checks' props and the PickField item, and the output format its result, each at the next minor; a request, a board document or a result valid under the previous minor SHALL stay valid (AD-7).
