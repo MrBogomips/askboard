@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { type LifecycleQuestionStatus, widgetResultFits } from "@askboard/contract";
+import {
+  type LifecycleBoardState,
+  type LifecycleQuestionStatus,
+  widgetResultFits,
+} from "@askboard/contract";
 import {
   ganttBoardDocument,
   ganttEditedValue,
@@ -9,9 +13,10 @@ import {
   treeEditedValue,
 } from "@askboard/contract/fixtures";
 import { hasUnsentWork } from "../board-page/unsent-work.ts";
-import type { ViewArea, ViewQuestion, WidgetItem } from "../view-document.ts";
+import type { ViewArea, ViewDocument, ViewQuestion, WidgetItem } from "../view-document.ts";
 import type { ViewMessage } from "../view-protocol.ts";
 import { createAnswerActs } from "./answer-acts.ts";
+import { createBoardContent } from "./board-content.ts";
 import { connectDrafts, createBoardDraft, type Delivery, draftRecordOf } from "./board-draft.ts";
 import {
   acceptRecommended,
@@ -725,6 +730,32 @@ describe("the start of a revision seeds the answer's widget values (reopen-start
     );
     expect(draft.valueOf("roadmap")).toEqual(moved);
     expect(draft.record().has("board")).toBe(false);
+  });
+
+  test("after an answer kept on an earlier revision, the revision shows the agent's Tree and sends no value for it (X-1 of review 2.5)", () => {
+    const { sent, draft, context } = setUp();
+    const plan: ViewQuestion = {
+      ...database,
+      id: "plan",
+      props: {
+        text: "Plan?",
+        items: [
+          { type: "tree", id: "wbs", props: {} },
+          { type: "latex", id: "eq", props: {} },
+        ],
+      },
+    };
+    const logged = { values: { wbs: treeEditedValue, eq: "x" }, unchanged: ["eq"] };
+    const status = { itemId: "plan", rev: 2, state: "answered", answer: logged };
+    const document = { items: [plan], areas: [] } as unknown as ViewDocument;
+    const state = { ask: "waiting", questions: [status] } as unknown as LifecycleBoardState;
+    startRevision(plan, logged, { ...context, facts });
+    draft.set("eq", "y");
+    const shown = createBoardContent(() => ({ document, state }))(draft.record()).shown;
+    expect(shown.get("wbs")).toBeUndefined();
+    answer(plan, { ...context, facts });
+    expect(sent).toMatchObject([{ type: "answer", values: { eq: "y" } }]);
+    expect(Object.keys((sent[0] as { values: object }).values)).toEqual(["eq"]);
   });
 
   test("the UJ-2 revision, a Tree and a Gantt linked, seeds both edited values, the Tree's earlier edits kept", () => {

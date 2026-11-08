@@ -130,6 +130,17 @@ describe("which questions a reopen prefills (the pure function)", () => {
     expect(pure(stateOf({ state: "open" }))).toEqual([]);
   });
 
+  test("not on a closed ask, nor under a lock of closed, discarded or moved (X-2 of review 2.5)", () => {
+    const { board, draft, results, entries, pure } = setUp();
+    const closed = { ...stateOf(), ask: "closed" } as unknown as LifecycleBoardState;
+    expect(pure(closed)).toEqual([]);
+    expect(pure(stateOf())).toEqual([question]);
+    const held = { values: draft.record(), results: results.record(), entries: entries.record() };
+    for (const lock of ["closed", "discarded", "moved"] as const) {
+      expect(reopenPrefills(document, stateOf(), held, (id) => board.work(id), lock)).toEqual([]);
+    }
+  });
+
   test("a previous answer is read as the previous one: the current role never applies", () => {
     const { pure } = setUp();
     const { unchanged: _list, ...without } = previous;
@@ -183,6 +194,18 @@ describe("filling a reopened question once", () => {
     prefillReopened(document, stateOf({ state: "open", previous: gone }), run);
     expect(run.draft.record().size).toBe(0);
     expect(run.board.work("database")).toBeUndefined();
+  });
+
+  test("a closed ask, or a lock, fills nothing and sets no mark", () => {
+    const closedRun = setUp();
+    const closed = { ...stateOf(), ask: "closed" } as unknown as LifecycleBoardState;
+    prefillReopened(document, closed, closedRun);
+    expect(closedRun.draft.record().size).toBe(0);
+    expect(closedRun.board.work("database")).toBeUndefined();
+    const locked = setUp();
+    prefillReopened(document, stateOf(), locked, "closed");
+    expect(locked.draft.record().size).toBe(0);
+    expect(locked.board.work("database")).toBeUndefined();
   });
 
   test("a question not in the list is left as the agent sent it", () => {
@@ -298,6 +321,12 @@ describe("the shell's calls (design decisions 3, 4 and 9)", () => {
     // No call before the handler, so the boot data alone fills nothing (a Snapshot has only that).
     expect(text.slice(0, handler)).not.toContain("prefillReopened(");
     expect(text.slice(0, handler)).not.toContain("reopenPrefills(");
+  });
+
+  test("the update's lock goes to the prefill, so a read-only card is never filled (X-2 of review 2.5)", async () => {
+    const text = await source("./index.tsx");
+    const call = text.slice(text.indexOf("prefillReopened("));
+    expect(call.slice(0, call.indexOf(");"))).toContain("update.lock");
   });
 
   test("an answer or a decline that settles takes the mark with the rest of its work", async () => {

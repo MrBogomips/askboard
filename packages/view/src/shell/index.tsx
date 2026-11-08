@@ -307,7 +307,12 @@ const boot = (): void => {
     // A reopened question the agent left unchanged starts from the user's previous answer, once, and
     // only after this update's restore: the first update after a reload or a takeover carries the
     // restore whenever `board-host` held a record (design decisions 3 and 9). Never on the boot data.
-    prefillReopened(document, update.state, { draft, results, entries, cellEntries, board });
+    prefillReopened(
+      document,
+      update.state,
+      { draft, results, entries, cellEntries, board },
+      update.lock,
+    );
   });
   // The draft mirror: the whole record after each change of either store, once per task (AD-20).
   let mirroring = false;

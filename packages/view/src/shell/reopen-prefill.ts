@@ -6,6 +6,7 @@
 
 import type { LifecycleBoardState } from "@askboard/contract";
 import { questionsOf, type ViewDocument, type ViewQuestion } from "../view-document.ts";
+import type { ViewLock } from "../view-protocol.ts";
 import {
   type BoardDraft,
   createBoardDraft,
@@ -39,32 +40,36 @@ export type HeldValues = {
  * The questions to fill: those the state holds `open` or `postponed` with a previous answer that
  * is no decline and holds the question's own ID unchanged (`unchangedOf`, by the previous role, so
  * a previous answer without the list fills nothing), while the question holds no work on any
- * revision, the mark included. Pure.
+ * revision, the mark included, and only while the ask is not closed and the view is not locked
+ * (a read-only card is never filled, and the leave-page prompt is never armed for it). Pure.
  */
 export const reopenPrefills = (
   document: ViewDocument,
   state: LifecycleBoardState,
   held: HeldValues,
   workOf: (questionId: string) => QuestionWork | undefined,
+  lock?: ViewLock,
 ): readonly ViewQuestion[] =>
-  questionsOf(document).filter((question) => {
-    const status = state.questions.find((each) => each.itemId === question.id);
-    if (status?.state !== "open" && status?.state !== "postponed") return false;
-    const { previous } = status;
-    if (previous === undefined || previous.declined === true) return false;
-    if (!unchangedOf(previous, "previous")(question.id)) return false;
-    const work = workOf(question.id);
-    return (
-      work === undefined &&
-      !hasAnswerWork(
-        question,
-        held.values,
-        undefined,
-        held.results,
-        entriesWithCells(held.entries, undefined),
-      )
-    );
-  });
+  lock !== undefined || state.ask === "closed"
+    ? []
+    : questionsOf(document).filter((question) => {
+        const status = state.questions.find((each) => each.itemId === question.id);
+        if (status?.state !== "open" && status?.state !== "postponed") return false;
+        const { previous } = status;
+        if (previous === undefined || previous.declined === true) return false;
+        if (!unchangedOf(previous, "previous")(question.id)) return false;
+        const work = workOf(question.id);
+        return (
+          work === undefined &&
+          !hasAnswerWork(
+            question,
+            held.values,
+            undefined,
+            held.results,
+            entriesWithCells(held.entries, undefined),
+          )
+        );
+      });
 
 // The same carry against scratch stores: whether every part of the answer would be carried.
 const wouldCarry = (
@@ -91,13 +96,20 @@ export const prefillReopened = (
   document: ViewDocument,
   state: LifecycleBoardState,
   stores: PrefillStores,
+  lock?: ViewLock,
 ): void => {
   const held = {
     values: stores.draft.record(),
     results: stores.results.record(),
     entries: stores.entries.record(),
   };
-  for (const question of reopenPrefills(document, state, held, (id) => stores.board.work(id))) {
+  for (const question of reopenPrefills(
+    document,
+    state,
+    held,
+    (id) => stores.board.work(id),
+    lock,
+  )) {
     const previous = state.questions.find((each) => each.itemId === question.id)?.previous;
     if (previous === undefined || !wouldCarry(question, previous, stores)) continue;
     fillFrom(question, previous, "previous", stores);

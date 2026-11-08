@@ -16,7 +16,7 @@ import { questionsOf, type ViewDocument } from "../view-document.ts";
 import type { AnswerContent } from "../view-protocol.ts";
 import type { DraftRecord } from "./draft-store.ts";
 import { type CheckFactsOf, itemCheckFailure } from "./field-block.ts";
-import { statusOf } from "./question-state.ts";
+import { statusOf, unchangedOf } from "./question-state.ts";
 
 /** What the board is made from: the shell's latest board document and the board state. */
 export type BoardSource = {
@@ -79,8 +79,13 @@ const answeredOf = ({ document, state }: BoardSource): Answered => {
     }
     const { values }: AnswerContent = status.answer;
     if (values === undefined) return [];
+    // Only an item the answer lists as unchanged shows its value: an edit the agent's revision
+    // overtook shows as the agent sent it (reopen-start-from-answer, decision 5). Results go as before.
+    const unchanged = unchangedOf(status.answer, "current");
     return valueItemsOf(question.props.items).flatMap(({ id }) =>
-      Object.hasOwn(values, id) && values[id] !== undefined ? [[id, values[id]] as const] : [],
+      Object.hasOwn(values, id) && values[id] !== undefined && unchanged(id)
+        ? [[id, values[id]] as const]
+        : [],
     );
   });
   return entries.length === 0 ? NO_ANSWERS : new Map(entries);

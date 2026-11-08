@@ -206,6 +206,22 @@ describe("the board as the user sees it (molecules, design decision 11, option A
     expect(board.shown.get("schedule")).toBe(moved);
   });
 
+  test("an item the current answer leaves out of its unchanged list shows as the agent sent it (reopen-start-from-answer)", () => {
+    const [first] = bothAnswered;
+    const listed = (unchanged: readonly string[]) =>
+      [
+        {
+          ...first,
+          answer: { ...(first as { answer: object }).answer, unchanged },
+        },
+      ] as unknown as readonly LifecycleQuestionStatus[];
+    const board = boardOver(ganttPlanBoardDocument, listed(["schedule"]))(new Map());
+    expect(board.shown.get("wbs")).toBeUndefined();
+    expect(board.shown.get("schedule")).toBe(ganttPlanEditedValue);
+    const empty = boardOver(ganttPlanBoardDocument, listed([]))(new Map());
+    expect(empty.shown.size).toBe(0);
+  });
+
   test("the draft record gains nothing the user did not change", () => {
     const draft = createDraftStore();
     const record = draft.record();
