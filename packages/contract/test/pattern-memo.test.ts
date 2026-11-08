@@ -107,6 +107,19 @@ describe("the memo is bounded", () => {
     expect(patternRunCount() - before).toBe(1);
   });
 
+  test("a read served by the field's own entry keeps the bounded memo's entry in use (form-widget 5.8)", () => {
+    const filled = props("^[A-Z]+$");
+    const typed = props("^[A-Z]+$");
+    expect(textFieldPatternFailure("ABC", filled)).toBeUndefined();
+    for (let key = 0; key < PATTERN_OUTCOMES_MAX * 2; key += 1) {
+      textFieldPatternFailure(`T${key}`, typed);
+      expect(textFieldPatternFailure("ABC", filled)).toBeUndefined();
+    }
+    const before = patternRunCount();
+    expect(textFieldPatternFailure("ABC", props("^[A-Z]+$"))).toBeUndefined();
+    expect(patternRunCount() - before).toBe(0);
+  });
+
   test("a stream of distinct texts keeps the verdicts right", () => {
     const field = props("^x\\d+$");
     for (let at = 0; at < PATTERN_OUTCOMES_MAX * 3; at += 1) {

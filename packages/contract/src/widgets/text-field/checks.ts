@@ -244,6 +244,15 @@ export const clearPatternOutcomes = (): void => {
   outcomes.clear();
 };
 
+// A `WeakMap` hit refreshes the fallback memo's entry, if it holds one, so a field whose entry
+// serves the board is not evicted by another field's typing (review X-1, 5.8).
+const touchOutcome = (pattern: string, text: string, holds: boolean): void => {
+  const key = `${pattern.length}:${pattern}${text}`;
+  if (!outcomes.has(key)) return;
+  outcomes.delete(key);
+  outcomes.set(key, holds);
+};
+
 const runPattern = (pattern: string, regex: RegExp, text: string): boolean => {
   const key = `${pattern.length}:${pattern}${text}`;
   const known = outcomes.get(key);
@@ -274,7 +283,10 @@ const lastOf = (props: object, pattern: string): FieldLast => {
 const patternHolds = (props: object, pattern: string, text: string): boolean => {
   const last = lastOf(props, pattern);
   if (last.regex === null) return false;
-  if (last.text === text && last.holds !== undefined) return last.holds;
+  if (last.text === text && last.holds !== undefined) {
+    touchOutcome(pattern, text, last.holds);
+    return last.holds;
+  }
   const holds = runPattern(pattern, last.regex, text);
   last.text = text;
   last.holds = holds;
