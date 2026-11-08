@@ -36,6 +36,7 @@ None.
 - `mcp-adapter`: "Fetching an item", "Tool list" and "Server instructions for the tools listed" change; one new requirement, a deleted item in `fetch`.
 - `contract`: new requirements, the `fetch` outcome `deleted` and the amendments to the approved texts.
 - `skills`: new requirements, the reference for changing an ask, `update` examples that validate, the ask's language, and `deleted` in the answers reference.
+- `core`: one new requirement, expanded IDs held against items on `add` as on `change` (review 3.3 X-1), so `fetch`'s `deleted` reads one owner per ID.
 
 ## Impact
 
