@@ -32,7 +32,7 @@ import {
   type Theme,
 } from "../theme.ts";
 import { questionsOf, type ViewDocument } from "../view-document.ts";
-import type { ViewMessage } from "../view-protocol.ts";
+import { readDraftReply, type ViewMessage } from "../view-protocol.ts";
 import { createRevisions, type KeptChoices } from "./agent-change.ts";
 import { createAnswerActs, type Flight } from "./answer-acts.ts";
 import { createAttention } from "./attention.ts";
@@ -69,12 +69,14 @@ import { startPresentation } from "./presentation-extras.ts";
 import { startPushExtras } from "./push-extras.ts";
 import { createReadyTracker, questionItemsOf } from "./ready-tracker.ts";
 import type { ReasonRequest } from "./reason.ts";
+import { createSizeNotices } from "./size-notices.ts";
 import { createSnapshotControl } from "./snapshot-control.ts";
 import { createStore, type Store } from "./store.ts";
 import { shimStyleElements } from "./style-shim.ts";
 import type { ThemeChoice } from "./theme-control.tsx";
 import type { ThreadRequest } from "./thread.tsx";
 import { createChunkInstaller } from "./view-chunks.ts";
+import { workRefsOf } from "./work-refs.ts";
 
 /** The name component chunks import the port by; the view build maps it to this chunk's copy. */
 const CATALOG_PORT = "@askboard/view/catalog";
@@ -228,10 +230,24 @@ const boot = (): void => {
   const reasons = createStore<ReasonRequest | undefined>(undefined);
   const focus = createStore<HeadingRequest | undefined>(undefined);
   const removed = createStore(false);
+  // The lines for a message too large: a command refused or closed, a draft left out; an act
+  // line goes when its question's work changes (oversized-acts, design decisions 2 to 4).
+  const notices = createSizeNotices((questionId) => {
+    const question = questionsOf(view.get().document).find((each) => each.id === questionId);
+    return question === undefined ? [] : workRefsOf(question, { draft, results, entries, board });
+  });
+  for (const store of [draft, results, entries, board]) store.subscribe(notices.sync);
+  // The board page's reply to a draft names the questions it left out of the record it mirrors.
   const report = (message: ViewMessage): void => {
-    channel.send(message).catch((error: unknown) => {
-      console.error(`askboard: the board page did not take the view's ${message.type}:`, error);
-    });
+    channel
+      .send(message)
+      .then((reply) => {
+        const leftOut = message.type === "draft" ? readDraftReply(reply) : undefined;
+        if (leftOut !== undefined) notices.draftReply(leftOut);
+      })
+      .catch((error: unknown) => {
+        console.error(`askboard: the board page did not take the view's ${message.type}:`, error);
+      });
   };
   const tracker = createReadyTracker(questionItemsOf(data.document), {
     onVisible: (questionId) => report({ type: "ready", itemId: questionId }),
@@ -281,6 +297,11 @@ const boot = (): void => {
         cellEntries,
       );
     }
+    // Commands the board page dropped because their socket was closed as too large: said before
+    // `reconcile` settles them, which keeps the work in the draft as for any refusal.
+    for (const flight of acts.tooLarge(update.settled ?? [])) {
+      notices.closed([...new Set(flight.acts.map((act) => act.itemId))]);
+    }
     for (const flight of acts.reconcile(update.pending ?? [], update.settled ?? [])) {
       clearCarried(flight, document, draft, results, entries, cellEntries, board, kept);
     }
@@ -318,6 +339,7 @@ const boot = (): void => {
     tracker,
     channel,
     acts,
+    notices,
     board,
     attention,
     revisions,

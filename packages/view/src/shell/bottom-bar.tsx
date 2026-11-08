@@ -118,7 +118,7 @@ export const BottomBar = (props: BottomBarProps) => {
   // immediate delivery does.
   const sendActsOf = (acts: readonly ViewAct[], then?: () => void): void => {
     const [first, ...rest] = acts;
-    if (first !== undefined) sendActs(context, [first, ...rest]);
+    if (first !== undefined) sendActs(context, [first, ...rest], "submit");
     then?.();
   };
   const send = (then?: () => void): void => {

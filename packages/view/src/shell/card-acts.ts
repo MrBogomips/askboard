@@ -58,6 +58,7 @@ import { holdsBlock } from "./field-block.ts";
 import { answerOf } from "./question-state.ts";
 import { type FactsOf, reasonOf } from "./reason.ts";
 import { asksFirst, press, type Waiting } from "./revision-confirm.ts";
+import type { SizeNotices } from "./size-notices.ts";
 
 /** Explain's ready-made follow-up (EXPERIENCE.md, Voice and Tone: Question actions). */
 export const EXPLAIN = t("en-US", "question.explainText");
@@ -65,10 +66,24 @@ export const EXPLAIN = t("en-US", "question.explainText");
 export type Senders = {
   readonly channel: ViewChannel;
   readonly acts: AnswerActs;
+  /** The lines for a command the board page refused as too large (oversized-acts). */
+  readonly notices?: SizeNotices;
 };
 
-// Sends a view message for a command the acts hold; the board page's reply settles its start.
-const dispatch = ({ channel, acts }: Senders, held: readonly ViewAct[], message: ViewMessage) => {
+/** What sent a command: a card's own act, or the bottom bar's Submit (oversized-acts). */
+export type SentVia = "answer" | "submit";
+
+// Sends a view message for a command the acts hold; the board page's reply settles its start. A
+// command over the board's message limit comes back refused with its size: each question it named
+// shows that nothing was sent, and the work and the held acts stay (oversized-acts, decision 2).
+const dispatch = (
+  { channel, acts, notices }: Senders,
+  held: readonly ViewAct[],
+  message: ViewMessage,
+  via: SentVia = "answer",
+) => {
+  const questionIds = [...new Set(held.map((act) => act.itemId))];
+  notices?.clear(questionIds);
   const key = acts.start(held);
   channel.send(message).then(
     (reply) => {
@@ -76,6 +91,7 @@ const dispatch = ({ channel, acts }: Senders, held: readonly ViewAct[], message:
       acts.replied(key, read);
       if (read?.outcome === "refused") {
         console.error(`askboard: the board page did not send the ${message.type}: ${read.detail}`);
+        if (read.size !== undefined) notices?.refused(questionIds, read.size, via);
       }
     },
     (error: unknown) => {
@@ -85,9 +101,12 @@ const dispatch = ({ channel, acts }: Senders, held: readonly ViewAct[], message:
   );
 };
 
-/** Sends one command of acts at once, in either delivery mode. */
-export const sendActs = (senders: Senders, acts: readonly [ViewAct, ...ViewAct[]]): void =>
-  dispatch(senders, acts, { type: "act", acts });
+/** Sends one command of acts at once, in either delivery mode; `via` marks Submit's. */
+export const sendActs = (
+  senders: Senders,
+  acts: readonly [ViewAct, ...ViewAct[]],
+  via: SentVia = "answer",
+): void => dispatch(senders, acts, { type: "act", acts }, via);
 
 /** The order a newly held act takes: after every act held so far, undos beneath included (AD-20). */
 export const nextHeldOrder = (board: BoardDraft): number =>

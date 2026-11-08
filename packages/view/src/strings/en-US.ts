@@ -432,4 +432,13 @@ export const EN_US = {
   "table.problem.value": "{column}: a value of the wrong kind.",
   "table.problem.divisionByZero": "{column}: division by zero.",
   "change.widgetTable": "Table",
+
+  "send.tooLarge":
+    "Not sent: this answer is too large ({size} MB, at most {max} MB). Shorten your work on this question, then answer again.",
+  "send.tooLargeSubmit":
+    "Not sent: Submit is too large to send at once ({size} MB, at most {max} MB). Switch to Immediate and answer the questions one at a time, or shorten your work.",
+  "send.tooLargeClosed":
+    "Not sent: the board refused this answer as too large. Shorten your work on this question, then answer again.",
+  "draft.tooLarge":
+    "Too large to keep across a reload: answer this question before you reload, or shorten your work.",
 } as const satisfies StringTable;

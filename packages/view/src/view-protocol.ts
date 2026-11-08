@@ -753,6 +753,19 @@ export const readActReply = (content: unknown): ActReply | undefined => {
   return undefined;
 };
 
+/**
+ * The board page's reply to the view's draft: the questions whose work it left out of the record
+ * it mirrors, as IDs (oversized-acts, design decision 4); none when the whole record fits. A
+ * refusal or a malformed reply is `undefined`, so the latest good reply stands.
+ */
+export const readDraftReply = (content: unknown): readonly string[] | undefined => {
+  if (!isRecord(content) || content.outcome === "refused") return undefined;
+  const { leftOut } = content;
+  if (leftOut === undefined) return [];
+  if (!Array.isArray(leftOut)) return undefined;
+  return leftOut.every((id) => typeof id === "string" && ID.test(id)) ? leftOut : undefined;
+};
+
 // A size is two positive safe integers; anything else is dropped, never trusted for a line the
 // user reads.
 const readMessageSize = (value: unknown): MessageSize | undefined => {

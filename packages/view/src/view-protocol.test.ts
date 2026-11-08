@@ -18,6 +18,7 @@ import {
   REFERENCE_PATTERN,
   readActReply,
   readAnswerReply,
+  readDraftReply,
   readViewMessage,
   readViewUpdate,
   toolCallOf,
@@ -649,6 +650,29 @@ describe("the lifecycle's view messages (ask-lifecycle, design decision 6)", () 
       outcome: "sent",
       actionId: ACTION_ID,
     });
+  });
+});
+
+describe("the board page's reply to a draft (oversized-acts, design decision 4)", () => {
+  test("names the questions left out, as IDs", () => {
+    expect(readDraftReply({})).toEqual([]);
+    expect(readDraftReply({ leftOut: ["database", "cache"] })).toEqual(["database", "cache"]);
+  });
+
+  test("a refusal, a malformed list or anything else says nothing: the latest good reply stands", () => {
+    for (const reply of [
+      { outcome: "refused", detail: "no" },
+      { leftOut: "database" },
+      { leftOut: [1] },
+      { leftOut: ["not an id"] },
+      { leftOut: [""] },
+      { leftOut: [null] },
+      "x",
+      null,
+      undefined,
+    ]) {
+      expect(readDraftReply(reply)).toBeUndefined();
+    }
   });
 });
 
