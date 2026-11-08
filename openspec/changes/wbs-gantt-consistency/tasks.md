@@ -16,10 +16,11 @@ Inside a group, tasks run in their order.
 
 ## 0. Base
 
-- [ ] 0.1 Record the PO's decisions (proposal, open questions 1 to 5). Under this task, record each answer: the proposed default, accepted under the PO's unattended handoff, unless the PO answered otherwise on Issue #71 or #74. Tests: none. Verify: five answers are recorded. An answer other than the default stops the work for `/opsx:update` before groups 1 and 2 (note: the answers are pending on Issues #71 and #74; this task stays open):
+- [x] 0.1 Record the PO's decisions (proposal, open questions 1 to 5). Under this task, record each answer: the proposed default, accepted under the PO's unattended handoff, unless the PO answered otherwise on Issue #71 or #74. Tests: none. Verify: five answers are recorded. An answer other than the default stops the work for `/opsx:update` before groups 1 and 2:
   - question 1 answered (b) or (c) replaces group 2;
   - question 2 answered "moves only" drops the "Add child" scenarios and the two MODIFIED requirements;
   - question 4 answered "drop" or "refuse" replaces group 1 and amends AD-13.
+  - Note (Refs #71, #74): ticked 2026-11-08. The PO accepted every proposed default on 2026-11-08 (recorded on Issues #71 and #74): 1 ask first (a); 2 every edit that gives a carrying leaf its first child (drop, indent, "Add child"); 3 dependents keep the former leaf as a predecessor that names no task; 4 a warning on `ask` and `update`, the plan stays as sent; 5 the wording of open question 5, the Italian approved as it is. No answer differs from the default, so groups 1 and 2 stand as written.
 - [x] 0.2 Check names, versions and the baseline (askboard-contract-versioning, Rule 3; design.md, Context, Merge points and decision 5). Tests: none. Record each item under this task:
   - Every name design.md borrows, checked with `git grep -n` on `origin/main`, with its file and line: `indent`, `addChild`, `moveInto`, `relocationProblem`, `can`, `isPert`, `locate` (`tree/model/`), `afterDrop`, `afterMove` (`tree/moving.ts`), `dropOn`, `applyDrop`, `DeleteQuestion`, `deleteQuestionOf`, `deletedWith`, `keyAction`, `treeKeyOf`, `linkedPlans`, `linkedDependents`, `linkedAdd`, `GANTT_PLAN_ESTIMATES`, `planTasks`, `GanttPlanItem`, `expandGanttPlan`, `scheduleItem`, `checkedFormulaWarnings`, `referenceAddressing`, and the keys `tree.delete.dependsOnIt` and `tree.drag.moved`.
   - Every `*_VERSION` and `*_FORMAT` constant of `packages/contract/src`. This change moves none.
