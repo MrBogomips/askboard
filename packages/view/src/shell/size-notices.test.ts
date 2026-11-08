@@ -103,6 +103,17 @@ describe("the line of a question left out of the draft", () => {
     expect(notices.leftOut("b")).toBe(false);
   });
 
+  test("a reply of the same size naming other questions moves the line, and the listener hears it", () => {
+    const notices = createSizeNotices(() => []);
+    notices.draftReply(["a"]);
+    const heard = mock(() => {});
+    notices.subscribe(heard);
+    notices.draftReply(["b"]);
+    expect(notices.leftOut("a")).toBe(false);
+    expect(notices.leftOut("b")).toBe(true);
+    expect(heard).toHaveBeenCalledTimes(1);
+  });
+
   test("a reply that names the same questions changes nothing and is not heard", () => {
     const notices = createSizeNotices(() => []);
     const heard = mock(() => {});
