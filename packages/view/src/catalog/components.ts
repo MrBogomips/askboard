@@ -3,6 +3,7 @@
 // chunk's name, the folder under `catalog/`, or under `packages/widgets/src/` for a widget, that
 // holds it (E1's design decision 7; the Tree widget's design decisions 7 and 8).
 
+import { nestedWidgetItemsOf } from "../nested-items.ts";
 import {
   questionsOf,
   type ViewDocument,
@@ -29,6 +30,16 @@ export const renderedOf = (question: ViewQuestion): readonly Rendered[] => [
   ...(question.props.items ?? []).map((item) => ({ item, component: item.type })),
 ];
 
+/**
+ * What the question's items are at every depth of their layouts, in document order, layouts
+ * included (layouts, design decision 6): the card draws `renderedOf` and a layout draws its own
+ * items through the port, while the ready tracker and the chunk selection need every one.
+ */
+export const nestedRenderedOf = (question: ViewQuestion): readonly Rendered[] => [
+  ...(question.props.options === undefined ? [] : [{ item: question, component: CHOICE }]),
+  ...nestedWidgetItemsOf(question.props.items).map((item) => ({ item, component: item.type })),
+];
+
 /** The Text atom: plain text or Markdown, and the renderer of an option's Markdown preview. */
 export const TEXT = "text";
 
@@ -50,7 +61,7 @@ export const componentsOf = (document: ViewDocument): string[] =>
   [
     ...new Set(
       questionsOf(document).flatMap((question) => [
-        ...renderedOf(question).map(({ component }) => component),
+        ...nestedRenderedOf(question).map(({ component }) => component),
         ...(hasMarkdownPreview(question) ? [TEXT] : []),
       ]),
     ),

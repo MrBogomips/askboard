@@ -8,7 +8,13 @@
 // and `derived` in reference addressing, the fold the widening calls when it appends an answer.
 // Pure: nothing is changed in place. Plain ECMAScript (AD-1).
 
-import { type Change, elementChanges, WIDGET_TYPES, type WidgetType } from "@askboard/contract";
+import {
+  type Change,
+  elementChanges,
+  nestedItemsOf,
+  WIDGET_TYPES,
+  type WidgetType,
+} from "@askboard/contract";
 import { elementShapeOf } from "@askboard/contract/validate";
 import type { ExpansionMap } from "./map.ts";
 
@@ -86,9 +92,10 @@ type SentItem = { readonly type: string; readonly id: string; readonly props: un
 /** An answer's changes and derived values, in reference addressing. */
 export type AddressedAnswer = { readonly changes: readonly Change[]; readonly derived: Json };
 
+// The question's items at every depth of its layouts (layouts, design decision 5).
 const itemsOf = (question: { readonly props: object }): readonly SentItem[] => {
   const { items } = question.props as { readonly items?: readonly SentItem[] };
-  return items ?? [];
+  return nestedItemsOf(items ?? []).map(({ item }) => item as SentItem);
 };
 
 /**

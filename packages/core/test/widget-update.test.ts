@@ -209,3 +209,86 @@ describe("adding a question with references", () => {
     expect(JSON.stringify(warnings)).not.toContain("schedule__plan");
   });
 });
+
+// Item IDs unique across the ask on update (layouts, task 2.4, review X-1): a molecule reference's
+// ID is held by the question that sent it, whether or not the reference's question is still there.
+describe("a molecule reference's ID on update", () => {
+  const tree = () => ({ ...uj2ExpandedQuestion.props.items?.[0] });
+  const plainQuestion = (id: string, itemId: string) => ({
+    type: "question",
+    id,
+    props: { text: "A plain Tree?", items: [{ ...tree(), id: itemId }] },
+  });
+  const send = (core: AskCore, actions: unknown[]) =>
+    core.update({ askId: ASK_ID, actions } as unknown as Update);
+
+  test("adding a question with a plain item named like a reference is refused", async () => {
+    const { core, heard } = await setup();
+    const before = documents(heard).length;
+    const outcome = await send(core, [{ action: "add", item: plainQuestion("q2", "wbs") }]);
+    expect(outcome).toMatchObject({ kind: "refused", refusal: "in-use", itemId: "wbs" });
+    expect(core.board(ASK_ID)?.document.items).toHaveLength(2);
+    expect(documents(heard)).toHaveLength(before);
+  });
+
+  test("changing another question to hold the reference's ID is refused", async () => {
+    const { core } = await setup();
+    const added = await send(core, [{ action: "add", item: plainQuestion("q2", "tree-two") }]);
+    expect(added).toMatchObject({ kind: "updated" });
+    const outcome = await send(core, [
+      { action: "change", itemId: "q2", props: { items: [{ ...tree(), id: "schedule" }] } },
+    ]);
+    expect(outcome).toMatchObject({ kind: "refused", refusal: "in-use", itemId: "schedule" });
+  });
+
+  test("the ID stays refused after the reference's question is deleted", async () => {
+    const { core } = await setup();
+    const deleted = await send(core, [{ action: "delete", itemId: "plan" }]);
+    expect(deleted).toMatchObject({ kind: "updated" });
+    const outcome = await send(core, [{ action: "add", item: plainQuestion("q3", "wbs") }]);
+    expect(outcome).toMatchObject({ kind: "refused", refusal: "in-use", itemId: "wbs" });
+  });
+
+  test("an in-use refusal caused by an expanded ID names the reference's ID", async () => {
+    const { core } = await setup();
+    const outcome = await send(core, [{ action: "add", item: plainQuestion("q4", "wbs__tree") }]);
+    if (outcome.kind !== "refused") throw new Error(outcome.kind);
+    expect(outcome).toMatchObject({ refusal: "in-use", itemId: "wbs" });
+    expect(JSON.stringify(outcome)).not.toContain("wbs__tree");
+    expect(outcome.detail).toContain('held by the molecule reference "wbs" of the question "plan"');
+    const added = await send(core, [{ action: "add", item: plainQuestion("q5", "tree-five") }]);
+    expect(added).toMatchObject({ kind: "updated" });
+    const changed = await send(core, [
+      { action: "change", itemId: "q5", props: { items: [{ ...tree(), id: "schedule__plan" }] } },
+    ]);
+    if (changed.kind !== "refused") throw new Error(changed.kind);
+    expect(changed).toMatchObject({ refusal: "in-use", itemId: "schedule" });
+    expect(JSON.stringify(changed)).not.toContain("schedule__plan");
+  });
+
+  test("the question holding the references still changes", async () => {
+    const { core } = await setup();
+    const outcome = await change(core, "wbs", { data: dataOf(0) });
+    expect(outcome).toMatchObject({ kind: "updated" });
+    const plan = await send(core, [
+      { action: "change", itemId: "plan", props: { text: "Again?" } },
+    ]);
+    expect(plan).toMatchObject({ kind: "updated" });
+  });
+
+  test("the question holding a reference may not replace it with a plain item of its ID, and stays changeable", async () => {
+    const { core } = await setup();
+    const before = JSON.stringify(core.board(ASK_ID));
+    const outcome = await send(core, [
+      { action: "change", itemId: "plan", props: { items: [{ ...tree(), id: "wbs" }] } },
+    ]);
+    expect(outcome).toMatchObject({ kind: "refused", refusal: "in-use", itemId: "wbs" });
+    expect(JSON.stringify(core.board(ASK_ID))).toBe(before);
+    const again = await send(core, [
+      { action: "change", itemId: "plan", props: { text: "Again?" } },
+    ]);
+    expect(again).toMatchObject({ kind: "updated" });
+    const reference = await change(core, "wbs", { data: dataOf(0) });
+    expect(reference).toMatchObject({ kind: "updated" });
+  });
+});

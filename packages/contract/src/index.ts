@@ -914,3 +914,68 @@ export { type LocaleTable, tableOf } from "./locale/index.ts";
 // opening both call it.
 
 export { isLinkUrl, LINK_URL_MAX_CHARS } from "./link-url.ts";
+
+// The walker of layouts (layouts, design decision 2): which items a layout holds, and every item
+// of a question at every depth.
+
+export {
+  isLayoutType,
+  LAYOUT_MAX_DEPTH,
+  LAYOUT_TYPES,
+  type LayoutDepthProblem,
+  type LayoutList,
+  type LayoutType,
+  layoutDepthProblem,
+  layoutListsOf,
+  mapNestedItems,
+  type NestedItem,
+  nestedItemsOf,
+} from "./nested-items.ts";
+
+// The four layouts (layouts, design decisions 1 and 3), unregistered until their components exist:
+// each entry with its limits and checks, and the union their props hold.
+
+export {
+  GROUP_DESCRIPTION_MAX_CHARS,
+  GROUP_MIN_ITEMS,
+  GROUP_SCHEMA_IDS,
+  GROUP_TITLE_MAX_CHARS,
+  GROUP_WIDGET,
+  type GroupItem,
+  type GroupProps,
+} from "./widgets/group/index.ts";
+export { questionPropsOver } from "./widgets/registry-ajv.ts";
+export {
+  ROW_MAX_ITEMS,
+  ROW_MAX_WEIGHT,
+  ROW_MIN_ITEMS,
+  ROW_MIN_WEIGHT,
+  ROW_SCHEMA_IDS,
+  ROW_WIDGET,
+  type RowItem,
+  type RowProps,
+  rowPropsProblems,
+} from "./widgets/row/index.ts";
+export {
+  LAYOUT_ITEM_DEFINITION,
+  LAYOUT_ITEM_REF,
+  type LayoutChild,
+} from "./widgets/shared/layouts.ts";
+export {
+  STACK_MIN_ITEMS,
+  STACK_SCHEMA_IDS,
+  STACK_WIDGET,
+  type StackItem,
+  type StackProps,
+} from "./widgets/stack/index.ts";
+export {
+  TABS_MAX_TABS,
+  TABS_MIN_TABS,
+  TABS_SCHEMA_IDS,
+  TABS_TITLE_MAX_CHARS,
+  TABS_WIDGET,
+  type Tab,
+  type TabsItem,
+  type TabsProps,
+  tabsPropsProblems,
+} from "./widgets/tabs/index.ts";

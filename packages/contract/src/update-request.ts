@@ -10,6 +10,7 @@ import {
   isId,
   itemKey,
   labelProblems,
+  layoutDepthItemProblem,
   nestingProblems,
   placedIds,
   placedItem,
@@ -148,6 +149,19 @@ const addedWidgetProblems = (
  * that schema too.
  */
 export const validateUpdateRequest = (value: unknown): CheckedRequest<UpdateInput> => {
+  // An added item nested past the layouts' bound is refused first, and alone, before the schema or
+  // any item is walked (layouts, design decision 3). A change's props are an object whatever they
+  // hold: core checks the question they make, which this bound covers there.
+  const tooDeep = actionsOf(value).flatMap((action, index) => {
+    if (!isRecord(action) || action.action !== "add") return [];
+    const found = layoutDepthItemProblem(UPDATE, value, action.item, [
+      "actions",
+      String(index),
+      "item",
+    ]);
+    return found === undefined ? [] : [found];
+  });
+  if (tooDeep.length > 0) return { ok: false, reason: "schema", problems: tooDeep };
   const added = actionsOf(value).map((action, index) => addProblems(value, action, index));
   const nested = added.flatMap((entry) => entry.nested);
   const replaced = new Set(nested.map(({ path }) => path));

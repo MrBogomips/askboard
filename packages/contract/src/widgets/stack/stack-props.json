@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:input:stack-props",
+  "title": "Stack props",
+  "description": "A Stack item's props (FR-13, layouts design decision 1): at least one item, shown one under another, each an atom, a widget or a layout as the input format writes it. A Stack gives no result. In the input format since layouts.",
+  "type": "object",
+  "properties": {
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "urn:askboard:input:question-props#/$defs/layoutItem" }
+    }
+  },
+  "required": ["items"],
+  "additionalProperties": false
+}

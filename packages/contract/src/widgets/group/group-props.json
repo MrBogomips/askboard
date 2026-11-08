@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:askboard:input:group-props",
+  "title": "Group props",
+  "description": "A Group item's props (FR-13, layouts design decision 1): a title, an optional description and at least one item, shown as one titled group. Each item is an atom, a widget or a layout as the input format writes it. A Group gives no result. In the input format since layouts.",
+  "type": "object",
+  "properties": {
+    "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "description": { "type": "string", "minLength": 1, "maxLength": 1000 },
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "urn:askboard:input:question-props#/$defs/layoutItem" }
+    }
+  },
+  "required": ["title", "items"],
+  "additionalProperties": false
+}

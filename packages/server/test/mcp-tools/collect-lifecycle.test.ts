@@ -159,6 +159,28 @@ describe("paging keeps one command's events together", () => {
   });
 });
 
+// A Tabs of a Group of a NumberField, which q3 holds beside its Tree (layouts: a wait names a
+// question, however deep the item it names sits).
+const NESTED = {
+  type: "tabs",
+  id: "q3-tabs",
+  props: {
+    tabs: [
+      {
+        id: "t1",
+        title: "T",
+        items: [
+          {
+            type: "group",
+            id: "q3-group",
+            props: { title: "G", items: [{ type: "number-field", id: "q3-days", props: {} }] },
+          },
+        ],
+      },
+    ],
+  },
+};
+
 // A core with an ask of questions q1 to q3 in an area, whose log, states and subscription the test
 // drives, as ask-core would.
 const lifecycleCore = (options: { questionStates?: Record<string, QuestionState> } = {}) => {
@@ -177,7 +199,7 @@ const lifecycleCore = (options: { questionStates?: Record<string, QuestionState>
       props: {
         text: id,
         options: [{ label: "A" }],
-        ...(id === "q3" ? { items: [{ type: "tree", id: "q3-tree" }] } : {}),
+        ...(id === "q3" ? { items: [{ type: "tree", id: "q3-tree" }, NESTED] } : {}),
       },
     });
     return {
@@ -266,6 +288,18 @@ describe("waiting for a question", () => {
     expect(textOf(done)).toContain('"q3-tree" is an item inside the question "q3"');
     expect(live.core.calls).not.toContain("subscribe");
     await close();
+  });
+
+  test("an item inside a layout, at any depth, or a layout, is an error naming its question", async () => {
+    for (const id of ["q3-tabs", "q3-group", "q3-days"]) {
+      const live = lifecycleCore();
+      const { result, close } = await waiting(live, id);
+      const done = await result;
+      expect(done.isError).toBe(true);
+      expect(textOf(done)).toContain(`"${id}" is an item inside the question "q3"`);
+      expect(live.core.calls).not.toContain("subscribe");
+      await close();
+    }
   });
 
   test("an area is an error: a wait names a question", async () => {

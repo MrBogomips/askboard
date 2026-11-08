@@ -27,6 +27,10 @@ This is what each item type is for, to choose among them; `SKILL.md` links the r
 - a MoneyField (`money-field`): an amount of money the user types, in one currency or one picked from a list
 - a DateField (`date-field`): a calendar day the user types or picks, optionally within a range
 - a Toggle (`toggle`): an on or off choice the user sets, such as a switch or a yes or no
+- a Stack (`stack`): items one under another in a column, as one block of a question
+- a Row (`row`): 2 to 4 items side by side; a narrow board stacks them
+- a Group (`group`): a titled box around related items, read as one group
+- a Tabs layout (`tabs`): 2 to 8 titled tabs, each holding items
 
 ## Molecules
 

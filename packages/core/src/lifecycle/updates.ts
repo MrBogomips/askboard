@@ -3,18 +3,21 @@
 // refused action leaves the ask unchanged. The agent's own changes are reported in the result and
 // never logged (AD-3).
 
-import type {
-  AppliedAction,
-  AskState,
-  FormulaWarning,
-  UnresolvedPointerWarning,
-  UpdateAction,
+import {
+  type AppliedAction,
+  type AskState,
+  type FormulaWarning,
+  type UnresolvedPointerWarning,
+  type UpdateAction,
+  WIDGET_TYPES,
+  type WidgetType,
 } from "@askboard/contract";
-import { validateAskRequest } from "@askboard/contract/validate";
+import { validateAskRequestOver } from "@askboard/contract/validate";
+import { referencesIn } from "../molecules/references.ts";
 import { parseCursor } from "../text.ts";
 import { contentOf, contentProblem } from "./answers.ts";
 import type { EventLog } from "./log.ts";
-import type { BoardModel, QuestionRecord } from "./model.ts";
+import { type BoardModel, itemIdsOf, type QuestionRecord } from "./model.ts";
 import { type QuestionStatus, questionStatus } from "./states.ts";
 import { fullAnswer } from "./views.ts";
 import {
@@ -92,6 +95,8 @@ export type UpdateContext = {
   readonly log: EventLog;
   /** The ask's molecules, as copies the update changes and the aggregate keeps if all apply. */
   readonly widgets: WidgetUpdate;
+  /** The widget types the ask's items are checked against: the shipped registry unless a test passes another. */
+  readonly types?: readonly WidgetType[];
 };
 
 /** What an update changed, for the subscription: the board document, the board's state, closing. */
@@ -144,7 +149,10 @@ const answeredRefusal = (
 
 // The first problems the input format finds in an item, in a sentence.
 const itemProblems = (context: UpdateContext, item: unknown): string | undefined => {
-  const checked = validateAskRequest({ askId: context.askId, items: [item] });
+  const checked = validateAskRequestOver(
+    { askId: context.askId, items: [item] },
+    context.types ?? WIDGET_TYPES,
+  );
   if (checked.ok) return undefined;
   return checked.problems
     .slice(0, 3)
@@ -204,18 +212,61 @@ const placementProblem = (context: UpdateContext, action: Action<"add">): Refusa
   return undefined;
 };
 
+// Every ID an added item holds: its own, and for an area each question's, and for a question each
+// item's at every depth of its layouts (layouts, design decision 5).
+const idsHeldBy = (item: Action<"add">["item"]): string[] => {
+  if (item.type === "area") {
+    return [item.id, ...item.props.items.flatMap((question) => idsHeldBy(question))];
+  }
+  return [item.id, ...itemIdsOf(item.props)];
+};
+
+// Whether a molecule reference's ID is held: the update's references are never pruned, so one stays
+// held after its question is deleted, and no plain item takes it, its own question's included
+// (layouts, review X-1: a question that replaced its reference could neither change nor be fetched).
+const referenceHeld = ({ widgets }: UpdateContext, id: string): boolean =>
+  widgets.references.has(id);
+
+// The refusal of an ID the ask holds elsewhere or held: `except` names the question whose own items
+// do not count, for its change; `sending` names the references of the item being added, which its
+// expansion checks itself.
+const inUseRefusal = (
+  context: UpdateContext,
+  ids: readonly string[],
+  except?: string,
+  sending: ReadonlySet<string> = new Set(),
+): Refusal | undefined => {
+  const { model } = context;
+  const used = ids.find(
+    (id) => model.inUse(id, except) || (!sending.has(id) && referenceHeld(context, id)),
+  );
+  if (used === undefined) return undefined;
+  const holder = model.heldBy(used);
+  // An expanded ID is no item the agent can name: the refusal names its reference's ID instead.
+  const entry = context.widgets.expansion.get(used);
+  if (entry !== undefined) {
+    const by = holder === undefined ? "" : ` of the question "${holder}"`;
+    const detail = `the ID "${entry.reference}" is in use in the ask, held by the molecule reference "${entry.reference}"${by}; item IDs are unique`;
+    return refuse("in-use", detail, entry.reference);
+  }
+  const deleted = model.isDeleted(used) ? ", by an item deleted earlier" : "";
+  const by = holder === undefined ? "" : `, held by an item of the question "${holder}"`;
+  const reuse = holder === undefined ? "; item IDs are never reused" : "; item IDs are unique";
+  return refuse("in-use", `the ID "${used}" is in use in the ask${deleted}${by}${reuse}`, used);
+};
+
 const add = (context: UpdateContext, action: Action<"add">): Step => {
   const { item } = action;
-  const ids = [item.id, ...(item.type === "area" ? item.props.items.map(({ id }) => id) : [])];
-  const used = ids.find((id) => context.model.inUse(id));
-  if (used !== undefined) {
-    const deleted = context.model.isDeleted(used) ? ", by an item deleted earlier" : "";
-    const detail = `the ID "${used}" is in use in the ask${deleted}; item IDs are never reused`;
-    return refuse("in-use", detail, used);
-  }
+  const taken = inUseRefusal(
+    context,
+    idsHeldBy(item),
+    undefined,
+    new Set(referencesIn([item]).keys()),
+  );
+  if (taken !== undefined) return taken;
   const misplaced = placementProblem(context, action);
   if (misplaced !== undefined) return misplaced;
-  const expanded = expandAdded(context.model, context.widgets, item);
+  const expanded = expandAdded(context.model, context.widgets, item, context.types);
   if (!expanded.ok) return refuse("props", expanded.detail, expanded.itemId ?? item.id);
   const { parentId, after } = action;
   context.model.add(expanded.item, {
@@ -235,6 +286,8 @@ const change = (context: UpdateContext, action: Action<"change">): Step => {
   const merged = { ...context.model.propsOf(question), ...props };
   const problems = itemProblems(context, { type: "question", id: itemId, props: merged });
   if (problems !== undefined) return refuse("props", problems, itemId);
+  const taken = inUseRefusal(context, itemIdsOf(merged), itemId);
+  if (taken !== undefined) return taken;
   const rev = context.model.revise(question, merged as never);
   return { action: "change", itemId, rev };
 };
@@ -242,13 +295,15 @@ const change = (context: UpdateContext, action: Action<"change">): Step => {
 // A change naming a widget item or a reference of a question; any other ID names an area or nothing.
 const changeWidget = (context: UpdateContext, itemId: string, props: Record<string, unknown>) => {
   const { model, widgets } = context;
-  const holder = holderOf(model, widgets, itemId);
+  const holder = holderOf(model, widgets, itemId, context.types);
   if (holder === undefined) return changeArea(context, itemId, props);
   const { question } = holder;
   const stands = answeredRefusal(question, statusOf(context, question), "change");
   if (stands !== undefined) return { ...stands, itemId };
   const changed = widgetProps(context, holder, props);
   if (!changed.ok) return refuse("props", changed.detail, changed.itemId ?? itemId);
+  const taken = inUseRefusal(context, itemIdsOf(changed.props), question.id);
+  if (taken !== undefined) return taken;
   const rev = model.revise(question, changed.props);
   return { action: "change", itemId, rev } as const;
 };

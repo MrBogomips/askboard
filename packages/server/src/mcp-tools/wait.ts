@@ -11,6 +11,7 @@ import {
   COLLECT_PROGRESS_INTERVAL_MS,
   type CollectRequest,
   type CollectResult,
+  nestedItemsOf,
   type QuestionState,
 } from "@askboard/contract";
 import type { RequestProblem } from "@askboard/contract/validate";
@@ -38,9 +39,12 @@ const placeOf = (
     for (const question of questions) {
       if (question.id === wait.itemId) return { kind: "question" };
       const inner = (question.props as { readonly items?: unknown }).items;
+      // Every depth of the question's layouts (layouts, design decision 5).
       const held =
         Array.isArray(inner) &&
-        inner.some((entry: { readonly id?: unknown } | null) => entry?.id === wait.itemId);
+        nestedItemsOf(inner).some(
+          ({ item: entry }) => (entry as { readonly id?: unknown } | null)?.id === wait.itemId,
+        );
       if (held) return { kind: "inside", question: question.id };
     }
   }

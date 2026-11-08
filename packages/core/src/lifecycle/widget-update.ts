@@ -6,6 +6,8 @@
 
 import {
   type LifecycleAskInput,
+  mapNestedItems,
+  nestedItemsOf,
   type QuestionProps,
   WIDGET_TYPES,
   type WidgetType,
@@ -40,15 +42,24 @@ export type WidgetStep =
   | { readonly ok: true; readonly props: QuestionProps }
   | { readonly ok: false; readonly detail: string; readonly itemId?: string };
 
+// The question's own list: the walker's start, and the list a molecule reference lives in.
 const itemsOf = (props: unknown): readonly SentItem[] => {
   const { items } = props as { readonly items?: readonly SentItem[] };
   return items ?? [];
 };
 
+// Every item of the question at every depth of its layouts, document order (layouts, design
+// decision 5); a molecule reference stays at the top level, which `collapsed` reads.
+const allItemsOf = (props: unknown): readonly SentItem[] =>
+  nestedItemsOf(itemsOf(props)).map(({ item }) => item as SentItem);
+
 const sentWidget = ({ type }: SentItem, types: readonly WidgetType[]): boolean =>
   widgetTypeOf(type, types) !== undefined;
 
-/** The widget item or reference named `itemId` in the questions' current items; never an expanded ID. */
+/**
+ * The widget item, layout or reference named `itemId` in the questions' current items, at any depth
+ * of their layouts; never an expanded ID.
+ */
 export const holderOf = (
   model: BoardModel,
   widgets: WidgetUpdate,
@@ -56,7 +67,7 @@ export const holderOf = (
   types: readonly WidgetType[] = WIDGET_TYPES,
 ): WidgetHolder | undefined => {
   for (const question of model.questions()) {
-    for (const item of itemsOf(model.propsOf(question))) {
+    for (const item of allItemsOf(model.propsOf(question))) {
       if (!sentWidget(item, types)) continue;
       const entry = widgets.expansion.get(item.id);
       if (entry === undefined ? item.id === itemId : entry.reference === itemId) {
@@ -75,7 +86,7 @@ const widgetIdsOf = (
 ): Set<string> => {
   const ids = new Set(widgets.references.keys());
   for (const question of model.questions()) {
-    for (const item of itemsOf(model.propsOf(question))) {
+    for (const item of allItemsOf(model.propsOf(question))) {
       if (sentWidget(item, types)) ids.add(item.id);
     }
   }
@@ -183,15 +194,19 @@ export const changedReference = (
   return { ok: true, props: expanded.props };
 };
 
-/** The question's props with the plain widget item `holder` names holding `props` merged over its own. */
+/**
+ * The question's props with the plain widget item or layout `holder` names, at any depth, holding
+ * `props` merged over its own, key by key: a layout's `items` or `tabs` are replaced whole.
+ */
 export const mergedWidget = (
   model: BoardModel,
   holder: WidgetHolder,
   props: Json,
 ): QuestionProps => {
   const current = model.propsOf(holder.question);
-  const items = itemsOf(current).map((item) =>
-    item.id === holder.item.id ? { ...item, props: { ...item.props, ...props } } : item,
-  );
+  const items = mapNestedItems(itemsOf(current), (item) => {
+    const held = item as SentItem;
+    return held.id === holder.item.id ? { ...held, props: { ...held.props, ...props } } : item;
+  });
   return { ...current, items } as unknown as QuestionProps;
 };

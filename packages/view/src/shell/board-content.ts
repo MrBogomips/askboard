@@ -11,6 +11,7 @@
 
 import type { LifecycleBoardState } from "@askboard/contract";
 import type { BoardContent, BoardWidgetItem } from "../catalog/port.ts";
+import { nestedWidgetItemsOf, valueItemsOf } from "../nested-items.ts";
 import { questionsOf, type ViewDocument } from "../view-document.ts";
 import type { AnswerContent } from "../view-protocol.ts";
 import type { DraftRecord } from "./draft-store.ts";
@@ -32,7 +33,9 @@ const ITEMS = new WeakMap<ViewDocument, readonly BoardWidgetItem[]>();
 export const boardItemsOf = (document: ViewDocument): readonly BoardWidgetItem[] => {
   const known = ITEMS.get(document);
   if (known !== undefined) return known;
-  const items = Object.freeze(questionsOf(document).flatMap(({ props }) => props.items ?? []));
+  const items = Object.freeze(
+    questionsOf(document).flatMap(({ props }) => nestedWidgetItemsOf(props.items)),
+  );
   ITEMS.set(document, items);
   return items;
 };
@@ -52,7 +55,8 @@ export const widgetItemsByQuestion = (
   if (known !== undefined) return known;
   const byQuestion = new Map(
     questionsOf(document).map(
-      ({ id, props }) => [id, Object.freeze((props.items ?? []).map((item) => item.id))] as const,
+      ({ id, props }) =>
+        [id, Object.freeze(nestedWidgetItemsOf(props.items).map((item) => item.id))] as const,
     ),
   );
   QUESTION_ITEMS.set(document, byQuestion);
@@ -74,7 +78,7 @@ const answeredOf = ({ document, state }: BoardSource): Answered => {
     }
     const { values }: AnswerContent = status.answer;
     if (values === undefined) return [];
-    return (question.props.items ?? []).flatMap(({ id }) =>
+    return valueItemsOf(question.props.items).flatMap(({ id }) =>
       Object.hasOwn(values, id) && values[id] !== undefined ? [[id, values[id]] as const] : [],
     );
   });
@@ -94,7 +98,7 @@ export const answeredResultsOf = ({ document, state }: BoardSource): Answered =>
     }
     const { results }: AnswerContent = status.answer;
     if (results === undefined) return [];
-    return (question.props.items ?? []).flatMap(({ id }) =>
+    return valueItemsOf(question.props.items).flatMap(({ id }) =>
       Object.hasOwn(results, id) && results[id] !== undefined ? [[id, results[id]] as const] : [],
     );
   });
@@ -116,6 +120,26 @@ export const createAnsweredResults = (
     }
     return last.results.get(itemId);
   };
+};
+
+// The boards that hold entries: one per board and entries record, so a component may memoize.
+const WITH_ENTRIES = new WeakMap<BoardContent, WeakMap<DraftRecord, BoardContent>>();
+
+/**
+ * The board with the IDs of the items whose fields hold an entry (`BoardContent.entries`, layouts
+ * design decision 6): the same board while the record holds none, else one frozen board per board
+ * and record. The Tabs read it for the mark of a tab that holds a field to correct.
+ */
+export const withEntries = (board: BoardContent, entries: DraftRecord): BoardContent => {
+  const held = [...entries].filter(([, text]) => text !== undefined).map(([id]) => id);
+  if (held.length === 0) return board;
+  const byRecord = WITH_ENTRIES.get(board) ?? new WeakMap<DraftRecord, BoardContent>();
+  WITH_ENTRIES.set(board, byRecord);
+  const known = byRecord.get(entries);
+  if (known !== undefined) return known;
+  const marked: BoardContent = Object.freeze({ ...board, entries: new Set(held) });
+  byRecord.set(entries, marked);
+  return marked;
 };
 
 const sameAnswers = (a: Answered, b: Answered): boolean =>

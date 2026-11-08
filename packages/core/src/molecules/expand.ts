@@ -14,6 +14,7 @@ import {
   type MoleculeDefinition,
   type MoleculeItem,
   type MoleculeProps,
+  nestedItemsOf,
   pointerOf,
   pointerTokens,
 } from "@askboard/contract";
@@ -214,7 +215,10 @@ const takenIds = (items: readonly unknown[], references: readonly Resolved[]) =>
   for (const item of items) if (isObject(item)) take(item.id);
   for (const { place, question } of questionsOf(items)) {
     if (place.length > 1 && isObject(question)) take(question.id);
-    for (const child of childrenOf(question) ?? []) if (isObject(child)) take(child.id);
+    // Every item of the question at every depth of its layouts (review X-1).
+    for (const { item } of nestedItemsOf(childrenOf(question) ?? [])) {
+      if (isObject(item)) take(item.id);
+    }
   }
   for (const { expandedId } of references) take(expandedId);
   return taken;

@@ -1,6 +1,7 @@
 // A draft record checked against its ask's board document (contract spec, Draft record message):
 // what the board protocol's schema cannot see, since the record and the document come apart.
 
+import { isLayoutType, nestedItemsOf } from "./nested-items.ts";
 import { isRecord } from "./problems.ts";
 import type { BoardQuestion, LifecycleBoardDocument } from "./schemas/board-document/index.ts";
 import type { DraftRecord } from "./schemas/board-protocol/index.ts";
@@ -12,13 +13,13 @@ const pointerPart = (key: string) => key.replaceAll("~", "~0").replaceAll("/", "
 const boardQuestions = (document: LifecycleBoardDocument): readonly BoardQuestion[] =>
   document.items.flatMap((item) => (item.type === "area" ? item.props.items : [item]));
 
-// The items a question's draft values may name: the question itself, and its widget items once the
-// input format admits them.
+// The items a question's draft values may name: the question itself and its items at every depth
+// of its layouts, never a layout, which holds nothing in the draft (layouts, design decision 4).
 const draftItemsOf = (question: BoardQuestion): ReadonlySet<string> => {
-  const widgets = (question.props as { readonly items?: unknown }).items;
-  const ids = Array.isArray(widgets)
-    ? widgets.flatMap((item) => (isRecord(item) && typeof item.id === "string" ? [item.id] : []))
-    : [];
+  const items = (question.props as { readonly items?: unknown }).items;
+  const ids = nestedItemsOf(Array.isArray(items) ? items : []).flatMap(({ item }) =>
+    isRecord(item) && typeof item.id === "string" && !isLayoutType(item.type) ? [item.id] : [],
+  );
   return new Set([question.id, ...ids]);
 };
 

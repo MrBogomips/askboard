@@ -17,6 +17,7 @@ import type {
   SettingsMessage,
 } from "@askboard/contract";
 import { type BootData, bootFieldsOf } from "../boot-data.ts";
+import { valueItemsOf } from "../nested-items.ts";
 import { questionsOf, type ViewQuestion } from "../view-document.ts";
 import type {
   ViewAct,
@@ -251,7 +252,7 @@ const valuesProblem = (
   question: ViewQuestion,
 ): string | undefined => {
   if (answer.values === undefined || answer.rev !== question.rev) return undefined;
-  const widgets = new Set((question.props.items ?? []).map((item) => item.id));
+  const widgets = new Set(valueItemsOf(question.props.items).map((item) => item.id));
   const foreign = Object.keys(answer.values).find((itemId) => !widgets.has(itemId));
   return foreign === undefined
     ? undefined
@@ -266,7 +267,7 @@ const resultsProblem = (
   question: ViewQuestion,
 ): string | undefined => {
   if (answer.results === undefined || answer.rev !== question.rev) return undefined;
-  const widgets = new Set((question.props.items ?? []).map((item) => item.id));
+  const widgets = new Set(valueItemsOf(question.props.items).map((item) => item.id));
   const foreign = Object.keys(answer.results).find((itemId) => !widgets.has(itemId));
   return foreign === undefined
     ? undefined
