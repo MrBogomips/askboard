@@ -7,7 +7,8 @@
 // its title. While a delete asks first, its question takes the tools' place and the counter keeps
 // its own (`delete-question.tsx`). The counter truncates before it overprints a tool; when the row
 // cannot hold all the tools and the counter's minimum, the move tools go into a "More" menu, the
-// last stop of the toolbar (`model/overflow.ts`, review F-16).
+// last stop of the toolbar (`model/overflow.ts`, review F-16). A leaf about to become a group asks in
+// the same place, by the same pattern (`group-question.tsx`); the row shows one question at a time.
 
 import type { TreeProps } from "@askboard/contract";
 import type { StringKey } from "@askboard/view/catalog";
@@ -26,10 +27,13 @@ import {
   STATUS,
   TOOL,
   TOOLBAR,
+  TOOLBAR_GROUP,
   TOOLS,
 } from "./classes.ts";
 import { DeleteQuestion } from "./delete-question.tsx";
 import type { DeleteQuestion as Question } from "./deleting.ts";
+import { GroupQuestion } from "./group-question.tsx";
+import type { GroupQuestion as GroupQuestionWords } from "./grouping.ts";
 import { treeKeyOf } from "./key-event.ts";
 import type { TreeEdit } from "./model/edits.ts";
 import { TREE_TOOLS, type TreeTool, toolbarKey } from "./model/keys.ts";
@@ -56,14 +60,18 @@ const titleOf = ({ label, shortcut }: TreeTool, text: Say): string | undefined =
     ? undefined
     : `${text(label)} (${shortcut.split(" ").join(text("tree.keysSeparator"))})`;
 
-/** A delete's question, while it is asked, and its answers. */
-export type Asking = {
-  /** The node the question is about: a question about another node opens anew, on "Cancel". */
-  readonly nodeId: string;
-  readonly question: Question;
+/** The answers to a question, whichever it is. */
+type Answers = {
+  /** What the question is about: a question about another node or edit opens anew, on "Cancel". */
+  readonly key: string;
   readonly onConfirm: () => void;
   readonly onCancel: () => void;
 };
+
+/** The question the toolbar row shows in place of the tools: a delete's, or a leaf becoming a group. */
+export type Asking =
+  | (Answers & { readonly kind: "delete"; readonly question: Question })
+  | (Answers & { readonly kind: "group"; readonly question: GroupQuestionWords });
 
 /** The selection and bulk adjustment tools of the toolbar (spec, Tree row selection and bulk adjustment). */
 export type SelectionTools = {
@@ -200,6 +208,22 @@ const MoreMenu = ({
   );
 };
 
+// The one question, as its kind says.
+const AskedQuestion = ({ asking }: { readonly asking: Asking }) =>
+  asking.kind === "delete" ? (
+    <DeleteQuestion
+      question={asking.question}
+      onConfirm={asking.onConfirm}
+      onCancel={asking.onCancel}
+    />
+  ) : (
+    <GroupQuestion
+      question={asking.question}
+      onConfirm={asking.onConfirm}
+      onCancel={asking.onCancel}
+    />
+  );
+
 export const TreeToolbar = ({
   ref,
   enabled,
@@ -319,17 +343,8 @@ export const TreeToolbar = ({
     </div>
   );
   return (
-    <div ref={ref} className={TOOLBAR}>
-      {asking === undefined ? (
-        tools
-      ) : (
-        <DeleteQuestion
-          key={asking.nodeId}
-          question={asking.question}
-          onConfirm={asking.onConfirm}
-          onCancel={asking.onCancel}
-        />
-      )}
+    <div ref={ref} className={asking?.kind === "group" ? TOOLBAR_GROUP : TOOLBAR}>
+      {asking === undefined ? tools : <AskedQuestion key={asking.key} asking={asking} />}
       <div className={STATUS}>
         {count === 0 ? null : (
           <p className={SELECTION_COUNT}>{text("tree.select.count", { count })}</p>

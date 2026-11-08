@@ -60,6 +60,7 @@ import {
   treeGridOf,
 } from "./harness/tree-grid.ts";
 import {
+  continueGroup,
   expectNewNode,
   expectSteps,
   FIXTURE_IDS,
@@ -436,6 +437,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await shiftTabToAddNode(board)).toBe("Add node");
         expect(await pressTool(board, "ArrowRight")).toBe("Add child");
         await board.page.keyboard.press("Enter");
+        // The portal is an estimated task, so the group question asks first (wbs-gantt-consistency).
+        await continueGroup(run);
         await expectNewNode(tree, "u-1");
         await board.page.keyboard.type(DASHBOARDS.label);
         expect(await pressIn(board, "Enter")).toEqual({ nodeId: "u-1", cell: 0 });

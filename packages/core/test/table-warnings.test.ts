@@ -174,4 +174,31 @@ describe("an update that changes a column formula", () => {
     const fixed = update("[@days] * [@rate]");
     expect(fixed).toEqual({ ok: true, warnings: [] });
   });
+
+  // Re-review 3.13 X-2: a closing warning with nothing after it counts nothing.
+  test("two formula columns of escape-heavy errors: the closing warning has no count after the error", () => {
+    const formula = `[a.${"\u0001".repeat(496)}]`;
+    const table = {
+      type: "table",
+      id: "costs",
+      props: {
+        label: "Costs",
+        columns: [
+          { field: "a", label: "A", type: "number" },
+          { field: "f1", label: "F1", type: "number", formula },
+          { field: "f2", label: "F2", type: "number", formula },
+        ],
+        rows: [{ id: "r1", a: 1 }],
+      },
+    };
+    const checked = checkedFormulaWarnings([question([table])], new Map(), TYPES);
+    expect(checked.ok).toBe(true);
+    const warnings = checked.ok ? checked.warnings : [];
+    expect(warnings).toHaveLength(2);
+    const closing = warnings[1];
+    expect(closing?.address).toBe("costs.*.f2");
+    expect(closing?.message).toMatch(/^The formula at costs\.\*\.f2 is in error \(syntax\); /);
+    expect(closing?.message).not.toMatch(/more formula warning/);
+    expect(closing?.message).not.toMatch(/\b0\b/);
+  });
 });

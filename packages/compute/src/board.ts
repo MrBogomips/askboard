@@ -129,8 +129,9 @@ const wbsTrees = (items: readonly unknown[]): ReadonlyMap<unknown, WorkPackages>
 
 /**
  * A Gantt plan: each entry for a leaf of its Tree gives that task's requested start, requested
- * duration and predecessors; an entry for anything else adds nothing (proposal, open question 10). Without its
- * Tree there is no leaf, and `compute`'s expansion warns that the work packages name no WBS.
+ * duration and predecessors; an entry for anything else adds nothing to the schedule, is never read,
+ * and is recorded in `strays`, so that `compute`'s expansion warns of it (wbs-gantt-consistency).
+ * Without its Tree there is no leaf, and the expansion warns that the work packages name no WBS.
  */
 const planTasks = (
   id: string,
@@ -143,8 +144,12 @@ const planTasks = (
   const dependencies: [string, unknown][] = [];
   const starts: [string, unknown][] = [];
   const durations: [string, unknown][] = [];
+  const strays: string[] = [];
   for (const [task, entry] of Object.entries(tasks)) {
-    if (!leaves.has(task)) continue;
+    if (!leaves.has(task)) {
+      strays.push(task);
+      continue;
+    }
     if (!isRecord(entry)) return refuse(`${where}: the entry of ${task} is not an object`);
     if (entry.dependencies !== undefined) dependencies.push([task, settled(entry.dependencies)]);
     if (entry.start !== undefined) starts.push([task, entry.start]);
@@ -158,6 +163,7 @@ const planTasks = (
     dependencies: Object.freeze(Object.fromEntries(dependencies)) as GanttPlanItem["dependencies"],
     starts: Object.freeze(Object.fromEntries(starts)) as GanttPlanItem["starts"],
     durations: Object.freeze(Object.fromEntries(durations)) as GanttPlanItem["durations"],
+    ...(strays.length === 0 ? {} : { strays: Object.freeze(strays) }),
   });
 };
 

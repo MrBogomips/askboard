@@ -11,7 +11,8 @@
 // - the toolbar above the grid is the view's one `toolbar`, its tools `button`s named by their
 //   labels;
 // - the question before deleting a node with children replaces the tools in the toolbar row: a
-//   `group` named by its message, which ends "will be deleted.";
+//   `group` named by its message, which ends "will be deleted."; so does the question before an
+//   edit makes a leaf a group, whose message holds "becomes a group:";
 // - the counter at the toolbar row's right is found by its text, "No changes" or "Your changes: N"
 //   (in Italian "Nessuna modifica" or "Le tue modifiche: N");
 // - each change mark carries `data-change`: `renamed` on a renamed name's text, `field` on a
@@ -139,6 +140,17 @@ export const recordedKeys = async (board: Board): Promise<string[]> =>
 /** The question asked before deleting a node with children: `message`, or any such question. */
 export const deleteQuestion = (board: Board, message?: string | RegExp): Locator =>
   board.view.getByRole("group", { name: message ?? /will be deleted\.$/, exact: true });
+
+/**
+ * The question asked before an edit makes a leaf a group (wbs-gantt-consistency): `message`, or any
+ * such question. It replaces the tools in the toolbar row, a `group` named by its message, which
+ * reads "<name> becomes a group: ...".
+ */
+export const groupQuestion = (board: Board, message?: string | RegExp): Locator =>
+  board.view.getByRole("group", {
+    name: message ?? /becomes a group:|diventa un gruppo:/,
+    exact: true,
+  });
 
 /** The name of the toolbar's focused tool; `undefined` when no tool has the view's focus. */
 export const toolFocus = async (board: Board): Promise<string | undefined> =>
