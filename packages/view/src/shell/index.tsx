@@ -69,7 +69,7 @@ import { startPresentation } from "./presentation-extras.ts";
 import { startPushExtras } from "./push-extras.ts";
 import { createReadyTracker, questionItemsOf } from "./ready-tracker.ts";
 import type { ReasonRequest } from "./reason.ts";
-import { createSizeNotices, noticeTooLarge } from "./size-notices.ts";
+import { createSizeNotices, settle } from "./size-notices.ts";
 import { createSnapshotControl } from "./snapshot-control.ts";
 import { createStore, type Store } from "./store.ts";
 import { shimStyleElements } from "./style-shim.ts";
@@ -299,8 +299,7 @@ const boot = (): void => {
     }
     // Commands the board page dropped because their socket was closed as too large: said before
     // `reconcile` settles them, which keeps the work in the draft as for any refusal.
-    noticeTooLarge(acts, update.settled ?? [], notices);
-    for (const flight of acts.reconcile(update.pending ?? [], update.settled ?? [])) {
+    for (const flight of settle(acts, update.pending ?? [], update.settled ?? [], notices)) {
       clearCarried(flight, document, draft, results, entries, cellEntries, board, kept);
     }
   });

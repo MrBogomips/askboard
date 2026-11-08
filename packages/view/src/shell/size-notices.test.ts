@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test";
 import { createAnswerActs } from "./answer-acts.ts";
-import { createSizeNotices, noticeText, noticeTooLarge } from "./size-notices.ts";
+import { createSizeNotices, noticeText, noticeTooLarge, settle } from "./size-notices.ts";
 
 // The lines on the question cards for a message too large (oversized-acts, design decisions 2, 3
 // and 4; view spec, An answer too large to send, Work too large to keep across a reload).
@@ -197,5 +197,47 @@ describe("noticeTooLarge: the commands a socket closed as too large dropped", ()
       notices,
     );
     expect(notices.noticeOf("a")).toBeUndefined();
+  });
+});
+
+describe("settle: the notice step and `reconcile` as one, in that order", () => {
+  const when = "2026-10-30T10:00:00.250Z";
+  const noteOf = (itemId: string) => ({ type: "note", itemId, rev: 1, note: "n", when }) as const;
+  const ID = "AAAAAAAAAAAAAAAAAAAAAA";
+  const sentFlight = (acts: ReturnType<typeof createAnswerActs>, ids: readonly string[]) => {
+    const key = acts.start(ids.map(noteOf));
+    acts.replied(key, { outcome: "sent", actionId: ID });
+    return key;
+  };
+
+  test("a flight settled as too large gets its closed notice and is not returned as done", () => {
+    const acts = createAnswerActs();
+    const notices = createSizeNotices(() => []);
+    sentFlight(acts, ["a", "b"]);
+    const done = settle(acts, [], [{ actionId: ID, outcome: "refused", tooLarge: true }], notices);
+    expect(done).toEqual([]);
+    expect(notices.noticeOf("a")).toEqual({ kind: "closed" });
+    expect(notices.noticeOf("b")).toEqual({ kind: "closed" });
+    // `reconcile` ran: the flight is settled, so its questions are open again.
+    expect(acts.of("a")).toBeUndefined();
+  });
+
+  test("a flight settled as done is returned, with no notice", () => {
+    const acts = createAnswerActs();
+    const notices = createSizeNotices(() => []);
+    sentFlight(acts, ["a"]);
+    const done = settle(acts, [], [{ actionId: ID, outcome: "done" }], notices);
+    expect(done.map((flight) => flight.actionId)).toEqual([ID]);
+    expect(notices.noticeOf("a")).toBeUndefined();
+  });
+
+  test("a flight still pending is kept and returned by neither step", () => {
+    const acts = createAnswerActs();
+    const notices = createSizeNotices(() => []);
+    sentFlight(acts, ["a"]);
+    const done = settle(acts, [{ actionId: ID, outcome: "sent" }], [], notices);
+    expect(done).toEqual([]);
+    expect(notices.noticeOf("a")).toBeUndefined();
+    expect(acts.of("a")).toBeDefined();
   });
 });

@@ -8,8 +8,8 @@
 
 import { formatNumber, type Locale } from "@askboard/contract";
 import { t } from "../strings/index.ts";
-import type { MessageSize, SettledAct } from "../view-protocol.ts";
-import type { AnswerActs } from "./answer-acts.ts";
+import type { MessageSize, PendingAct, SettledAct } from "../view-protocol.ts";
+import type { AnswerActs, Flight } from "./answer-acts.ts";
 import { sameRefs } from "./work-refs.ts";
 
 /** What a card says of a command that did not go. */
@@ -119,4 +119,19 @@ export const noticeTooLarge = (
   for (const flight of acts.tooLarge(settled)) {
     notices.closed([...new Set(flight.acts.map((act) => act.itemId))]);
   }
+};
+
+/**
+ * An update's pending and settled commands, applied in the one order that works: the notice of
+ * each command a socket closed as too large first, then `reconcile`, which deletes every settled
+ * flight and so leaves `tooLarge` nothing to find. Returns the flights that are done.
+ */
+export const settle = (
+  acts: AnswerActs,
+  pending: readonly PendingAct[],
+  settled: readonly SettledAct[],
+  notices: SizeNotices,
+): readonly Flight[] => {
+  noticeTooLarge(acts, settled, notices);
+  return acts.reconcile(pending, settled);
 };
