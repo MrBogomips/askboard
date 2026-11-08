@@ -378,7 +378,21 @@ export class Ask {
     }
     const widget = widgetItemValue(model, itemId, (each) => this.#status(each), fetch);
     if (widget !== undefined) return this.#value(widget.item, widget.generation);
-    return { kind: model.isDeleted(itemId) ? "deleted" : "missing", askId, itemId };
+    return { kind: this.#wasDeleted(model, itemId) ? "deleted" : "missing", askId, itemId };
+  }
+
+  /**
+   * Whether the agent deleted `itemId`, in reference addressing (AD-9): the model holds the IDs of
+   * the stored, expanded props, so an expanded ID is never taken for one the agent sent, and a
+   * molecule reference is deleted when the items it expanded to were.
+   */
+  #wasDeleted(model: BoardModel, itemId: string): boolean {
+    if (this.#expansion.has(itemId)) return false;
+    if (model.isDeleted(itemId)) return true;
+    for (const [expanded, { reference }] of this.#expansion) {
+      if (reference === itemId && model.isDeleted(expanded)) return true;
+    }
+    return false;
   }
 
   /**

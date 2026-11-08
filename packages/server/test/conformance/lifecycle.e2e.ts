@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   BOARD_PROTOCOL_VERSION,
   BOARD_RESPONSES,
@@ -517,6 +519,47 @@ describe("fetch of a deleted item, through the session process", () => {
       const held = await session.call("fetch", { askId, itemId });
       expect(held.isError, itemId).toBe(false);
       expect(checkedFetch("fetchResult", held).outcome, itemId).toBeUndefined();
+    }
+    expect(await session.end()).toBe(0);
+  });
+
+  test("the UJ-2 references of a deleted question answer deleted; their expanded IDs, never sent, an error", async () => {
+    const session = await startSession();
+    const uj2 = JSON.parse(
+      readFileSync(
+        join(
+          import.meta.dir,
+          "..",
+          "..",
+          "..",
+          "contract",
+          "test",
+          "fixtures",
+          "asks",
+          "uj2-wbs-gantt.json",
+        ),
+        "utf8",
+      ),
+    ) as { askId: string };
+    const { askId } = uj2;
+    checked("askResult", await session.call("ask", uj2));
+    expect(
+      checkedFetch("fetchResult", await session.call("fetch", { askId, itemId: "wbs" })).item,
+    ).toMatchObject({ id: "wbs" });
+    checked(
+      "updateResult",
+      await session.call("update", { askId, actions: [{ action: "delete", itemId: "plan" }] }),
+    );
+    for (const itemId of ["plan", "wbs", "schedule"]) {
+      const gone = await session.call("fetch", { askId, itemId });
+      expect(gone.isError, itemId).toBe(false);
+      expect(checkedFetch("fetchOutcome", gone), itemId).toEqual(deletedOf(askId, itemId));
+    }
+    for (const itemId of ["wbs__tree", "schedule__plan"]) {
+      const result = await session.call("fetch", { askId, itemId });
+      expect(result.isError, itemId).toBe(true);
+      expect(result.text).toContain(`has no item "${itemId}"`);
+      expect(result.text).not.toContain("outcome");
     }
     expect(await session.end()).toBe(0);
   });
