@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   BOARD_MESSAGE_MAX_BYTES,
+  BOARD_PROTOCOL_VERSION,
   boardMessageBytes,
   CHOICE_LABELS_MAX_CHARS,
   DRAFT_RECORD_MAX_CHARS,
@@ -78,7 +79,7 @@ describe("the limit", () => {
     const frame = '{"n":""}'.length;
     const record = { n: "€".repeat(DRAFT_RECORD_MAX_CHARS - frame) };
     expect(draftRecordChars(record)).toBe(DRAFT_RECORD_MAX_CHARS);
-    const message = { version: "1.7", type: "draft", record };
+    const message = { version: BOARD_PROTOCOL_VERSION, type: "draft", record };
     expect(boardMessageBytes(message)).toBeLessThanOrEqual(BOARD_MESSAGE_MAX_BYTES);
     // Every unit at most three bytes, so no record within the draft limit can pass the message limit.
     expect(boardMessageBytes(message) - 3 * DRAFT_RECORD_MAX_CHARS).toBeLessThan(4 * 1024);
