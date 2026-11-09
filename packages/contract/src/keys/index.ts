@@ -6,7 +6,10 @@ export { type KeyTableProblem, keyTableProblems } from "./check.ts";
 export { effectiveKeys } from "./effective.ts";
 export { type KeyPress, keyActionOf, type Modifiers, type PressHold, pressHold } from "./match.ts";
 export {
+  KEY_ACTION_MAX_CHARS,
   KEY_COMBINATION_MAX_CHARS,
+  KEY_OVERRIDE_MAX_COMBINATIONS,
+  KEY_OVERRIDES_MAX_ACTIONS,
   type KeyCombinationRead,
   type KeyOverrides,
   keyCombinationText,

@@ -14,6 +14,19 @@ import { type KeyBinding, type KeyHold, keyBinding } from "./vocabulary.ts";
 /** The most characters a combination may have. */
 export const KEY_COMBINATION_MAX_CHARS = 32;
 
+// The other bounds of the configuration schema's `keys` (`schemas/configuration/config.json`),
+// which a reader that checks the shape without the schema holds too (the view's update; review
+// 10.5, S-44). `configuration.test.ts` ties each to the schema.
+
+/** The most actions `keys` may name. */
+export const KEY_OVERRIDES_MAX_ACTIONS = 64;
+
+/** The most characters an action's name may have. */
+export const KEY_ACTION_MAX_CHARS = 64;
+
+/** The most combinations one action may be given. */
+export const KEY_OVERRIDE_MAX_COMBINATIONS = 4;
+
 /** The user's key overrides: for an action, the combinations that replace its keys (`[]` removes them). */
 export type KeyOverrides = { readonly [action: string]: readonly string[] };
 

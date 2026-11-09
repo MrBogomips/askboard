@@ -12,6 +12,7 @@ import {
   KEY_VOCABULARY,
   type KeyOverrides,
   keyOverridesProblems,
+  SETTING_ROW_WARNINGS_MAX,
   type SettingWarning,
 } from "@askboard/contract";
 import { validateBoardMessage } from "@askboard/contract/validate";
@@ -221,45 +222,45 @@ describe("keys are never half-applied", () => {
   });
 });
 
-describe("the warnings of keys are at most eight", () => {
-  test("a keys with over a hundred problems gives a row of eight warnings", async () => {
+describe("the warnings of keys are at most the row's bound (eight)", () => {
+  test("a keys with over a hundred problems gives a row of the most warnings", async () => {
     expect(Object.keys(MANY)).toHaveLength(64);
     expect(keyOverridesProblems(MANY).length).toBeGreaterThan(100);
     const { settings } = await read({ version, keys: MANY }, undefined);
-    expect(settings.rows.keys?.warnings).toHaveLength(8);
+    expect(settings.rows.keys?.warnings).toHaveLength(SETTING_ROW_WARNINGS_MAX);
     expect(settings.rows.keys?.warnings?.every(({ code }) => code === "keys-not-applied")).toBe(
       true,
     );
     expect(settings.rows.keys?.from).toBe("default");
   });
 
-  test("with the project's warning, eight in all, that one first", async () => {
+  test("with the project's warning, the bound in all, that one first", async () => {
     const { settings } = await read({ version, keys: MANY }, { version, keys: {} });
     const warnings = settings.rows.keys?.warnings as readonly SettingWarning[];
-    expect(warnings).toHaveLength(8);
+    expect(warnings).toHaveLength(SETTING_ROW_WARNINGS_MAX);
     expect(warnings[0]?.code).toBe("project-keys-ignored");
     expect(warnings.slice(1).every(({ code }) => code === "keys-not-applied")).toBe(true);
   });
 
-  test("seven problems and the project's warning are eight; the first of the user's are kept in order", async () => {
+  test("the bound less one problem and the project's warning fill the row; the first of the user's are kept in order", async () => {
     const problems = keyOverridesProblems(MANY);
     const { settings } = await read({ version, keys: MANY }, { version, keys: {} });
     const kept = (settings.rows.keys?.warnings ?? []).slice(1);
     expect(kept.map(({ action }) => action)).toEqual(
-      problems.slice(0, 7).map(({ action }) => action),
+      problems.slice(0, SETTING_ROW_WARNINGS_MAX - 1).map(({ action }) => action),
     );
   });
 
-  test("stderr writes the row's warnings and no more: exactly eight lines about keys", async () => {
+  test("stderr writes the row's warnings and no more: exactly the bound's lines about keys", async () => {
     const { diagnosed } = await read({ version, keys: MANY }, undefined);
-    expect(keysLines(diagnosed)).toHaveLength(8);
-    expect(diagnosed).toHaveLength(8);
+    expect(keysLines(diagnosed)).toHaveLength(SETTING_ROW_WARNINGS_MAX);
+    expect(diagnosed).toHaveLength(SETTING_ROW_WARNINGS_MAX);
   });
 
-  test("with the project's warning too, eight lines in all, that one first, and no 'and more' line", async () => {
+  test("with the project's warning too, the bound's lines in all, that one first, and no 'and more' line", async () => {
     const { diagnosed } = await read({ version, keys: MANY }, { version, keys: {} });
-    expect(keysLines(diagnosed)).toHaveLength(8);
-    expect(diagnosed).toHaveLength(8);
+    expect(keysLines(diagnosed)).toHaveLength(SETTING_ROW_WARNINGS_MAX);
+    expect(diagnosed).toHaveLength(SETTING_ROW_WARNINGS_MAX);
     expect(diagnosed[0]).toContain("sets keys");
     expect(diagnosed.some((line) => /more/.test(line))).toBe(false);
   });

@@ -13,6 +13,7 @@ import {
   keyOverridesProblems,
   ownEntry,
   parseKeyCombination,
+  SETTING_ROW_WARNINGS_MAX,
   TOOL_DEFINITIONS,
   WIDGET_TYPES,
 } from "@askboard/contract";
@@ -402,6 +403,7 @@ describe("configure-keys.md's rules", () => {
     };
     const bound = schema.$defs.row.properties.warnings.maxItems;
     expect(rowWarningsBound()).toBe(bound);
+    expect(bound).toBe(SETTING_ROW_WARNINGS_MAX);
     const line = lineWith("refuses the whole `keys`");
     expect(line).toContain(`up to ${bound}`);
     expect(line).not.toContain("each problem");

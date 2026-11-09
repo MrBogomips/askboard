@@ -3,6 +3,10 @@ import {
   type BoardState,
   type DraftRecord,
   JSON_MAX_DEPTH,
+  KEY_ACTION_MAX_CHARS,
+  KEY_COMBINATION_MAX_CHARS,
+  KEY_OVERRIDE_MAX_COMBINATIONS,
+  KEY_OVERRIDES_MAX_ACTIONS,
   SCHEMA_IDS,
   SCHEMA_SETS,
 } from "@askboard/contract";
@@ -11,6 +15,7 @@ import {
   lifecycleBoardDocument,
   lifecycleDraftRecord,
 } from "@askboard/contract/fixtures";
+import { validateConfiguration } from "@askboard/contract/validate";
 import {
   fieldProblems,
   ITEM_ERROR_MAX_CHARS,
@@ -880,19 +885,44 @@ describe("the user's keys in an update (keyboard-shortcuts-help, task 10.1)", ()
     expect(updateWith({})).toEqual({ type: "state", state: waiting, keys: {} });
   });
 
-  test("at most 64 actions, each with at most 4 combinations of 1 to 32 characters", () => {
+  test("the contract's bounds, and one past each: the figures are the constants'", () => {
     const actions = (count: number) =>
       Object.fromEntries(Array.from({ length: count }, (_, at) => [`own.action${at}`, []]));
-    expect(updateWith(actions(64))).toBeDefined();
-    expect(updateWith(actions(65))).toBeUndefined();
-    expect(updateWith({ a: ["a", "b", "c", "d"] })).toBeDefined();
-    expect(updateWith({ a: ["a", "b", "c", "d", "e"] })).toBeUndefined();
-    expect(updateWith({ a: ["x".repeat(32)] })).toBeDefined();
-    expect(updateWith({ a: ["x".repeat(33)] })).toBeUndefined();
+    const many = (count: number) =>
+      Array.from({ length: count }, (_, at) => String.fromCharCode(97 + at));
+    expect(updateWith(actions(KEY_OVERRIDES_MAX_ACTIONS))).toBeDefined();
+    expect(updateWith(actions(KEY_OVERRIDES_MAX_ACTIONS + 1))).toBeUndefined();
+    expect(updateWith({ a: many(KEY_OVERRIDE_MAX_COMBINATIONS) })).toBeDefined();
+    expect(updateWith({ a: many(KEY_OVERRIDE_MAX_COMBINATIONS + 1) })).toBeUndefined();
+    expect(updateWith({ a: ["x".repeat(KEY_COMBINATION_MAX_CHARS)] })).toBeDefined();
+    expect(updateWith({ a: ["x".repeat(KEY_COMBINATION_MAX_CHARS + 1)] })).toBeUndefined();
     expect(updateWith({ a: [""] })).toBeUndefined();
-    expect(updateWith({ ["x".repeat(64)]: [] })).toBeDefined();
-    expect(updateWith({ ["x".repeat(65)]: [] })).toBeUndefined();
+    expect(updateWith({ ["x".repeat(KEY_ACTION_MAX_CHARS)]: [] })).toBeDefined();
+    expect(updateWith({ ["x".repeat(KEY_ACTION_MAX_CHARS + 1)]: [] })).toBeUndefined();
     expect(updateWith({ "": [] })).toBeUndefined();
+  });
+
+  test("it admits what the configuration schema admits at each bound and refuses what it refuses", () => {
+    // The oracle is the schema itself, so a bound changed in the constants alone fails here.
+    const actions = (count: number) =>
+      Object.fromEntries(Array.from({ length: count }, (_, at) => [`own.action${at}`, ["F2"]]));
+    const cases: readonly Record<string, readonly string[]>[] = [
+      actions(KEY_OVERRIDES_MAX_ACTIONS),
+      actions(KEY_OVERRIDES_MAX_ACTIONS + 1),
+      { ["x".repeat(KEY_ACTION_MAX_CHARS)]: ["F2"] },
+      { ["x".repeat(KEY_ACTION_MAX_CHARS + 1)]: ["F2"] },
+      { a: Array.from({ length: KEY_OVERRIDE_MAX_COMBINATIONS }, () => "F2") },
+      { a: Array.from({ length: KEY_OVERRIDE_MAX_COMBINATIONS + 1 }, () => "F2") },
+      { a: ["x".repeat(KEY_COMBINATION_MAX_CHARS)] },
+      { a: ["x".repeat(KEY_COMBINATION_MAX_CHARS + 1)] },
+    ];
+    for (const keys of cases) {
+      const schema = validateConfiguration({ version: "1.0", keys }).ok;
+      expect({
+        keys: Object.keys(keys).length,
+        viewAdmits: updateWith(keys) !== undefined,
+      }).toEqual({ keys: Object.keys(keys).length, viewAdmits: schema });
+    }
   });
 
   test("anything else is no update: a list, a number, a text, null, a list holding a non-string", () => {

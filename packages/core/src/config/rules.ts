@@ -11,6 +11,7 @@ import {
   type ConfigurationValues,
   type KeyOverrideProblem,
   keyOverridesProblems,
+  SETTING_ROW_WARNINGS_MAX,
   type SettingsFileName,
   type SettingWarning,
 } from "@askboard/contract";
@@ -30,9 +31,6 @@ const editorRule = (file: SettingsFileName, state: FileState): SettingWarning | 
     ? { code: "editor-file-writable-by-others", file, key: "editor" }
     : undefined;
 };
-
-/** The most warnings a row holds on the board protocol, and so the most `keys` can draw. */
-export const ROW_WARNINGS_MAX = 8;
 
 const keysNotApplied = ({
   rule,
@@ -58,7 +56,7 @@ const keysRule = (file: SettingsFileName, state: FileState): SettingWarning[] | 
   const problems = keyOverridesProblems(state.values.keys);
   return problems.length === 0
     ? undefined
-    : problems.slice(0, ROW_WARNINGS_MAX).map(keysNotApplied);
+    : problems.slice(0, SETTING_ROW_WARNINGS_MAX).map(keysNotApplied);
 };
 
 /**

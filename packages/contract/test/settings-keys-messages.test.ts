@@ -13,7 +13,12 @@ import {
   settingsWithEveryKey,
   settingsWithKeys,
 } from "../src/fixtures/index.ts";
-import { BOARD_PROTOCOL_VERSION, type SettingsMessage } from "../src/index.ts";
+import {
+  BOARD_PROTOCOL_VERSION,
+  SETTING_ROW_WARNINGS_MAX,
+  type SettingsMessage,
+} from "../src/index.ts";
+import settingsSchema from "../src/schemas/board-protocol/settings.json" with { type: "json" };
 import { type Checked, validateBoardMessage } from "../src/validate.ts";
 
 const version = BOARD_PROTOCOL_VERSION;
@@ -279,5 +284,28 @@ describe("the keys transcript", () => {
       });
       expect(step.message.version).toBe(version);
     }
+  });
+});
+
+// keyboard-shortcuts-help task 10.8 (review 10.5, S-46; design decision 19): the most warnings a row
+// holds is the contract's constant, tied to the schema, so `ask-core` and the generated skill read
+// one figure.
+describe("the most warnings of a row", () => {
+  test("SETTING_ROW_WARNINGS_MAX equals the row's maxItems in settings.json", () => {
+    const row = (
+      settingsSchema as unknown as {
+        $defs: { row: { properties: { warnings: { maxItems: number } } } };
+      }
+    ).$defs.row.properties.warnings;
+    expect(SETTING_ROW_WARNINGS_MAX).toBe(row.maxItems);
+  });
+
+  test("a row holds that many warnings and refuses one more", () => {
+    const warning = settingsKeysNotApplied.keys.keys?.warnings?.[0];
+    const warnings = (count: number) => Array.from({ length: count }, () => warning);
+    const holds = (count: number) =>
+      toPage(withRow({ from: "default", writable: false, warnings: warnings(count) }));
+    expect(holds(SETTING_ROW_WARNINGS_MAX).ok).toBe(true);
+    expect(holds(SETTING_ROW_WARNINGS_MAX + 1).ok).toBe(false);
   });
 });

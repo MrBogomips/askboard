@@ -23,7 +23,10 @@ import {
   FOLLOW_UP_MAX_CHARS,
   ID_PATTERN,
   JSON_MAX_DEPTH,
+  KEY_ACTION_MAX_CHARS,
   KEY_COMBINATION_MAX_CHARS,
+  KEY_OVERRIDE_MAX_COMBINATIONS,
+  KEY_OVERRIDES_MAX_ACTIONS,
   type KeyOverrides,
   LINK_URL_MAX_CHARS,
   type LifecycleBoardState,
@@ -609,14 +612,9 @@ const settingProblems = (args: Record<string, unknown>, at = "/arguments"): Prob
     : [{ path: `${at}/value`, message: `is not a value "${String(key)}" allows` }];
 };
 
-/** The bounds of the configuration schema's `keys` (keyboard-shortcuts-help, design decision 18). */
-const KEYS_MAX_ACTIONS = 64;
-const KEYS_NAME_MAX_CHARS = 64;
-const KEYS_MAX_COMBINATIONS = 4;
-
 const isCombinationList = (value: unknown): value is readonly string[] =>
   Array.isArray(value) &&
-  value.length <= KEYS_MAX_COMBINATIONS &&
+  value.length <= KEY_OVERRIDE_MAX_COMBINATIONS &&
   value.every(
     (text) =>
       typeof text === "string" && text.length >= 1 && text.length <= KEY_COMBINATION_MAX_CHARS,
@@ -632,11 +630,11 @@ export const isKeyOverrides = (value: unknown): value is KeyOverrides => {
   if (!isRecord(value)) return false;
   const actions = Object.keys(value);
   return (
-    actions.length <= KEYS_MAX_ACTIONS &&
+    actions.length <= KEY_OVERRIDES_MAX_ACTIONS &&
     actions.every(
       (action) =>
         action.length >= 1 &&
-        action.length <= KEYS_NAME_MAX_CHARS &&
+        action.length <= KEY_ACTION_MAX_CHARS &&
         isCombinationList(value[action]),
     )
   );

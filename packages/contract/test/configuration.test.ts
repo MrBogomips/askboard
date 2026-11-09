@@ -5,11 +5,16 @@ import {
   CONFIGURATION_KEYS,
   CONFIGURATION_VERSION,
   configurationSet,
+  KEY_ACTION_MAX_CHARS,
+  KEY_COMBINATION_MAX_CHARS,
+  KEY_OVERRIDE_MAX_COMBINATIONS,
+  KEY_OVERRIDES_MAX_ACTIONS,
   PRESENTATION_KEYS,
   SCHEMA_IDS,
   SCHEMA_SET_OWNERS,
   SCHEMA_SETS,
 } from "../src/index.ts";
+import config from "../src/schemas/configuration/config.json" with { type: "json" };
 import {
   configurationProblem,
   type Problem,
@@ -272,5 +277,45 @@ describe("configurationProblem", () => {
       pointer: "/editor/1",
       keyword: "type",
     });
+  });
+});
+
+// keyboard-shortcuts-help task 10.8 (review 10.5, S-44; design decisions 18 and 19): the bounds of
+// `keys` are the contract's constants, tied to the schema they describe, so a reader that checks
+// the shape without the schema (the view's update) holds the same figures.
+describe("the bounds of keys are constants tied to the schema", () => {
+  const keysSchema = (
+    config as unknown as {
+      properties: {
+        keys: {
+          maxProperties: number;
+          propertyNames: { maxLength: number };
+          additionalProperties: { maxItems: number; items: { maxLength: number } };
+        };
+      };
+    }
+  ).properties.keys;
+
+  test("each constant equals its figure in config.json", () => {
+    expect(KEY_OVERRIDES_MAX_ACTIONS).toBe(keysSchema.maxProperties);
+    expect(KEY_ACTION_MAX_CHARS).toBe(keysSchema.propertyNames.maxLength);
+    expect(KEY_OVERRIDE_MAX_COMBINATIONS).toBe(keysSchema.additionalProperties.maxItems);
+    expect(KEY_COMBINATION_MAX_CHARS).toBe(keysSchema.additionalProperties.items.maxLength);
+  });
+
+  test("the schema admits each bound and refuses one past it", () => {
+    const actions = (count: number) =>
+      Object.fromEntries(Array.from({ length: count }, (_, at) => [`a${at}`, ["F2"]]));
+    expect(problemsOf(file({ keys: actions(KEY_OVERRIDES_MAX_ACTIONS) }))).toEqual([]);
+    expect(problemsOf(file({ keys: actions(KEY_OVERRIDES_MAX_ACTIONS + 1) }))).not.toEqual([]);
+    const name = (length: number) => ({ keys: { ["n".repeat(length)]: ["F2"] } });
+    expect(problemsOf(file(name(KEY_ACTION_MAX_CHARS)))).toEqual([]);
+    expect(problemsOf(file(name(KEY_ACTION_MAX_CHARS + 1)))).not.toEqual([]);
+    const list = (count: number) => ({ keys: { a: Array.from({ length: count }, () => "F2") } });
+    expect(problemsOf(file(list(KEY_OVERRIDE_MAX_COMBINATIONS)))).toEqual([]);
+    expect(problemsOf(file(list(KEY_OVERRIDE_MAX_COMBINATIONS + 1)))).not.toEqual([]);
+    const text = (length: number) => ({ keys: { a: ["k".repeat(length)] } });
+    expect(problemsOf(file(text(KEY_COMBINATION_MAX_CHARS)))).toEqual([]);
+    expect(problemsOf(file(text(KEY_COMBINATION_MAX_CHARS + 1)))).not.toEqual([]);
   });
 });

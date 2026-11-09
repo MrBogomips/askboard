@@ -532,6 +532,13 @@ export type SettingWarning = {
   readonly with?: string;
 };
 
+/**
+ * The most warnings one settings row holds (`$defs.row.properties.warnings.maxItems` of
+ * `settings.json`; keyboard-shortcuts-help, review 10.5, S-46): the most problems of a refused
+ * `keys` that Settings lists, and the most lines `ask-core` writes about them.
+ */
+export const SETTING_ROW_WARNINGS_MAX = 8;
+
 /** One key in effect; `value` is absent only for `editor` and `defaultMinimumMargin`. */
 export type SettingRow<T> = {
   readonly value?: T;

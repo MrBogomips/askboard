@@ -8,6 +8,7 @@ import {
   type ConfigurationKey,
   type ConfigurationValues,
   PRESENTATION_KEYS,
+  SETTING_ROW_WARNINGS_MAX,
   type SettingRow,
   type SettingSource,
   type SettingsFile,
@@ -17,7 +18,7 @@ import {
 } from "@askboard/contract";
 import type { FileState } from "./file.ts";
 import type { Config } from "./ports.ts";
-import { ROW_WARNINGS_MAX, screened } from "./rules.ts";
+import { screened } from "./rules.ts";
 
 /** Each key's value in effect; `editor`, `defaultMinimumMargin` and `keys` only when one is. */
 export type EffectiveValues = {
@@ -91,7 +92,7 @@ export const mergeSettings = ({ user, project, paths }: FileStates): SettingsInE
   for (const key of CONFIGURATION_KEYS) {
     const row = withWarnings(
       rowOf(key, fromProject.values, fromUser.values),
-      dropped.filter((warning) => warning.key === key).slice(0, ROW_WARNINGS_MAX),
+      dropped.filter((warning) => warning.key === key).slice(0, SETTING_ROW_WARNINGS_MAX),
     );
     rows[key] = row;
     if (row.value !== undefined) values[key] = row.value;

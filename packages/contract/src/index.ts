@@ -1150,8 +1150,11 @@ export {
   ariaKeyShortcuts,
   effectiveKeys,
   isVocabularyAction,
+  KEY_ACTION_MAX_CHARS,
   KEY_COMBINATION_MAX_CHARS,
   KEY_HOLDS,
+  KEY_OVERRIDE_MAX_COMBINATIONS,
+  KEY_OVERRIDES_MAX_ACTIONS,
   KEY_SHOWS,
   KEY_TABLES_ON_BOARD,
   KEY_VOCABULARY,
@@ -1187,6 +1190,7 @@ export {
   vocabularyEntry,
   vocabularyLabel,
 } from "./keys/index.ts";
+export { SETTING_ROW_WARNINGS_MAX } from "./schemas/board-protocol/index.ts";
 export { escapeFileText, quoteFileText } from "./schemas/configuration/file-text.ts";
 export { CHART_KEYS, type ChartKeyAction } from "./widgets/chart/index.ts";
 export { GANTT_KEYS, type GanttKeyAction } from "./widgets/gantt/index.ts";

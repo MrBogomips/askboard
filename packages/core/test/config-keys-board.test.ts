@@ -10,6 +10,7 @@ import {
   CONFIGURATION_VERSION,
   KEY_VOCABULARY,
   type KeyOverrides,
+  SETTING_ROW_WARNINGS_MAX,
   type SettingWarning,
 } from "@askboard/contract";
 import { validateBoardMessage } from "@askboard/contract/validate";
@@ -160,7 +161,7 @@ describe("task 9.1's rules hold at every read", () => {
     setUser({ version, keys: MANY });
     const board = await core.settingsForBoard();
     const warnings = board.rows.keys?.warnings as readonly SettingWarning[];
-    expect(warnings).toHaveLength(8);
+    expect(warnings).toHaveLength(SETTING_ROW_WARNINGS_MAX);
     expect(warnings[0]?.code).toBe("project-keys-ignored");
     expect(board.rows.keys?.from).toBe("default");
     expect(board.rows.keys).not.toHaveProperty("value");
