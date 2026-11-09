@@ -60,7 +60,7 @@ The keys a widget's handler takes SHALL be those of its key table: for each part
 - **THEN** the table's keys move the current card as their entries say and the others do nothing
 
 ### Requirement: Keyboard shortcuts are discoverable
-In a widget with a key table, each control whose action has keys SHALL show on hover and on keyboard focus a tooltip with the action's name and its keys, and SHALL carry them in `aria-keyshortcuts`; the widget SHALL show a Keys button. The keys the tooltips show, `aria-keyshortcuts` announces and the keys panel lists SHALL be those in effect for the widget, which its key handler takes (NFR-12).
+In a widget with a key table, each control whose action has keys SHALL show on hover and on keyboard focus a tooltip with the action's name and its keys, or, for an item of a menu, show its keys at the item's end in place of a tooltip, and SHALL carry them in `aria-keyshortcuts`; the widget SHALL show a Keys button. The keys the tooltips show, `aria-keyshortcuts` announces and the keys panel lists SHALL be those in effect for the widget, which its key handler takes (NFR-12).
 
 #### Scenario: A tooltip on focus
 - **WHEN** the user tabs to a Ranking's toolbar and moves to "Move up" with the arrow keys
@@ -69,6 +69,10 @@ In a widget with a key table, each control whose action has keys SHALL show on h
 #### Scenario: A tooltip on hover
 - **WHEN** the pointer rests on a Ranking's "To top"
 - **THEN** a tooltip shows "To top" with Alt+Shift+Home and Cmd or Ctrl+Shift+ArrowUp as the platform writes them
+
+#### Scenario: A menu item's keys
+- **WHEN** a Ranking's toolbar is crowded on Linux and the user opens "More"
+- **THEN** the "To top" item reads Alt+Shift+Home and Ctrl+Shift+↑ at its end, and its `aria-keyshortcuts` names `Alt+Shift+Home`, `Control+Shift+ArrowUp` and `Meta+Shift+ArrowUp`
 
 #### Scenario: Every visible action in the table
 - **WHEN** a Ranking's toolbar and key table are compared
@@ -91,7 +95,7 @@ The Keys button, and `?`, or the keys the user's file gives that action instead,
 
 #### Scenario: A read-only Ranking
 - **WHEN** the question holding a Ranking is locked and the user opens its panel
-- **THEN** the panel lists the cursor keys and no move
+- **THEN** the panel lists the cursor keys and the toolbar's, and no move
 
 ### Requirement: Closing the keys panel
 Escape or the panel's "Close" SHALL close the keys panel and return the focus to where it was before the panel opened; a click or a focus move elsewhere SHALL close it and leave the focus where the user put it (NFR-12).
@@ -116,11 +120,15 @@ Tooltips and the keys panel SHALL write keys as the platform names them, in the 
 - **THEN** it reads Alt+Shift+Home and Ctrl+Shift+↑, and the tool's `aria-keyshortcuts` names `Control+Shift+ArrowUp` and `Meta+Shift+ArrowUp`
 
 ### Requirement: Ranking row selection
-The user SHALL select a Ranking's rows with a check box in a leading column, out of the Tab order, that a click toggles and Shift+click extends from the last row clicked; with Space on the current row and Shift with ArrowUp or ArrowDown from it; and clear them with "Select none" or Escape on the list. The toolbar SHALL read how many rows are selected. The selection SHALL be view state, in no draft and no answer (FR-11, AD-9, AD-10).
+The user SHALL select a Ranking's rows with a check box in a leading column, out of the Tab order, that a click toggles and Shift+click extends from the last row clicked; with Space on the current row and Shift with ArrowUp or ArrowDown from it; and clear them with "Select none" or Escape on the list. A range SHALL only add rows, from the row last toggled. The toolbar SHALL read how many rows are selected. The selection SHALL be view state, in no draft and no answer (FR-11, AD-9, AD-10).
 
 #### Scenario: A range by keyboard
 - **WHEN** the user makes the second row current, presses Space, then Shift+ArrowDown twice
 - **THEN** the second to fourth rows are selected, the fourth is current, and the toolbar reads "3 selected"
+
+#### Scenario: A range only grows
+- **WHEN** the user makes the second row current, presses Space, Shift+ArrowDown twice, then Shift+ArrowUp
+- **THEN** the second to fourth rows are still selected, the third is current, and the toolbar reads "3 selected"
 
 #### Scenario: A range by mouse
 - **WHEN** the user clicks the first row's check box, then Shift+clicks the third's

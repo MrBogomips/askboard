@@ -35,8 +35,12 @@ Each key table entry SHALL say whether its keys still act while the item takes n
 - **THEN** its column edge's keys act while the item takes no edits, and its cell editor's and predecessors panel's do not
 
 #### Scenario: A toolbar whose every tool is off
-- **WHEN** the Ranking's, the Kanban's and the Timeline's key tables are read
-- **THEN** their toolbars' arrow, Home and End keys do not act while the item takes no edits, since every tool of those toolbars is then off, and their cursor keys do
+- **WHEN** the Kanban's and the Timeline's key tables are read
+- **THEN** their toolbars' arrow, Home and End keys do not act while the item takes no edits, since every tool of those toolbars is then off and neither has a Keys button, and their cursor keys do
+
+#### Scenario: A toolbar with a Keys button
+- **WHEN** the Ranking's key table is read
+- **THEN** its toolbar's arrow, Home and End keys act while the item takes no edits, since its Keys button, and its "More" when crowded, stay on and hold the toolbar's Tab stop
 
 ### Requirement: Key tables list every tool
 A key table SHALL list every tool and menu of its widget's toolbar that acts on the content or the selection; one that no key takes SHALL be an entry of the type's own with no keys. The registry check SHALL refuse a vocabulary action with no keys (NFR-12).
