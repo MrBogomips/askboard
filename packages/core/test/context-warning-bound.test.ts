@@ -13,6 +13,7 @@ import {
 import { validateAgainst } from "@askboard/contract/validate";
 import {
   boundedUnresolvedWarnings,
+  boundedUnresolvedWith,
   closingUnresolvedWarning,
   UNRESOLVED_MESSAGES,
   UNRESOLVED_WARNINGS_MAX_CHARS,
@@ -198,6 +199,66 @@ describe("the closing warning's comma is budgeted (review 1.3, X-1)", () => {
       }
     }
     expect(cut).toBeGreaterThan(1_000);
+  });
+});
+
+describe("the room measures every closing warning the cut could write (re-review 1.5, X-1)", () => {
+  /** The closing warning with a singular 13 characters longer than the shipped one. */
+  const longerSingular = (
+    first: UnresolvedPointerWarning,
+    left: number,
+  ): UnresolvedPointerWarning => {
+    const closing = closingUnresolvedWarning(first, left);
+    return left === 1
+      ? { ...closing, message: `${closing.message.slice(0, -1)} (see fetch!).` }
+      : closing;
+  };
+
+  /** The review's list: one `not-found` warning of 3,487 characters of JSON, then two long `invalid-pointer` ones. */
+  const reviewList = () => {
+    const first = warning(0, "", "not-found");
+    const pointer = "x".repeat(3_487 - json([first]) + 2);
+    const control = String.fromCharCode(1).repeat(POINTER_MAX_CHARS);
+    return [
+      { ...first, pointer },
+      ...[1, 2].map((n) => ({
+        ...warning(n, control, "invalid-pointer"),
+        itemId: `${n}`.repeat(64),
+      })),
+    ];
+  };
+
+  test("the review's list stays within the bound with a singular 13 characters longer (10,001 before the fix)", () => {
+    const list = reviewList();
+    expect(JSON.stringify(list[0]).length).toBe(3_487);
+    expect(longerSingular(list[1] as never, 1).message.length).toBe(
+      closingUnresolvedWarning(list[1] as never, 1).message.length + 13,
+    );
+    const result = boundedUnresolvedWith(longerSingular, list, UNRESOLVED_WARNINGS_MAX_CHARS);
+    // The room now holds the longer singular, so the 3,487-character warning is no longer kept.
+    expect(result).toEqual([longerSingular(list[0] as never, 2)]);
+    expect(json(result)).toBeLessThanOrEqual(UNRESOLVED_WARNINGS_MAX_CHARS);
+  });
+
+  test("with the shipped words the same list comes out as it did, within the bound", () => {
+    const list = reviewList();
+    const result = boundedUnresolvedWarnings(list, UNRESOLVED_WARNINGS_MAX_CHARS);
+    expect(result).toHaveLength(2);
+    expect(result[0]).toBe(list[0] as never);
+    expect(result[1]).toEqual(closingUnresolvedWarning(list[1] as never, 1));
+    expect(json(result)).toBe(9_988);
+  });
+
+  test("on the existing 26 x 477 case the output is unchanged: 16 kept and the plural closing warning", () => {
+    const list = Array.from({ length: 26 }, (_, n) => {
+      const id = String(n).padStart(2, "0");
+      return { ...warning(n, `${id}${"m".repeat(472)}.md`, "not-found"), itemId: `ex-${id}` };
+    });
+    const result = boundedUnresolvedWarnings(list, UNRESOLVED_WARNINGS_MAX_CHARS);
+    expect(result.slice(0, -1)).toEqual(list.slice(0, result.length - 1));
+    expect(result.at(-1)).toEqual(
+      closingUnresolvedWarning(list[result.length - 1] as never, 26 - result.length),
+    );
   });
 });
 

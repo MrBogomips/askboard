@@ -51,14 +51,16 @@ export const closingUnresolvedWarning = (
 };
 
 /**
- * The warnings within `max` characters of JSON text, measured as `JSON.stringify` writes them. A
- * list within `max` is returned as it is. Past it, the warnings kept in order leave room for the
- * longest closing warning any warning of the list would give, measured with the list's length as
- * its count, and the comma before it; one closing warning stands for the first warning left out and
- * counts the rest, so that the kept, the closing one and the count make up the list. Pure, plain
- * ECMAScript.
+ * The warnings within `max` characters of JSON text, measured as `JSON.stringify` writes them,
+ * ended by the closing warning `closing` builds. A list within `max` is returned as it is. Past it,
+ * the warnings kept in order leave room for the longest closing warning any warning of the list
+ * could give and the comma before it: `closing` measured with the list's length as its count (the
+ * cut's largest) and with a count of 1 (its other words), whichever is longer, so the bound holds
+ * whatever the words. One closing warning stands for the first warning left out and counts the
+ * rest, so that the kept, the closing one and the count make up the list. Pure, plain ECMAScript.
  */
-export const boundedUnresolvedWarnings = (
+export const boundedUnresolvedWith = (
+  closing: (first: UnresolvedPointerWarning, left: number) => UnresolvedPointerWarning,
   warnings: readonly UnresolvedPointerWarning[],
   max: number,
 ): readonly UnresolvedPointerWarning[] =>
@@ -69,11 +71,22 @@ export const boundedUnresolvedWarnings = (
       1 +
       warnings.reduce(
         (most, warning) =>
-          Math.max(most, JSON.stringify(closingUnresolvedWarning(warning, warnings.length)).length),
+          Math.max(
+            most,
+            JSON.stringify(closing(warning, warnings.length)).length,
+            JSON.stringify(closing(warning, 1)).length,
+          ),
         0,
       ),
-    closing: closingUnresolvedWarning,
+    closing,
   });
+
+/** The warnings within `max` characters of JSON text, closed by `closingUnresolvedWarning`. */
+export const boundedUnresolvedWarnings = (
+  warnings: readonly UnresolvedPointerWarning[],
+  max: number,
+): readonly UnresolvedPointerWarning[] =>
+  boundedUnresolvedWith(closingUnresolvedWarning, warnings, max);
 
 /**
  * The warnings of these questions' resolved props, in board order then item order, within
