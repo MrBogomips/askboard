@@ -93,6 +93,17 @@ The Keys button, and `?`, or the keys the user's file gives that action instead,
 - **WHEN** the question holding a Ranking is locked and the user opens its panel
 - **THEN** the panel lists the cursor keys and no move
 
+### Requirement: Closing the keys panel
+Escape or the panel's "Close" SHALL close the keys panel and return the focus to where it was before the panel opened; a click or a focus move elsewhere SHALL close it and leave the focus where the user put it (NFR-12).
+
+#### Scenario: Closing with Close
+- **WHEN** the panel is open from a Ranking's row and the user activates "Close"
+- **THEN** the panel closes with the focus back on that row
+
+#### Scenario: Closing by a click elsewhere
+- **WHEN** the panel is open from a Ranking's row and the user clicks a text field of another question
+- **THEN** the panel closes and the focus stays in that text field
+
 ### Requirement: Key labels by platform
 Tooltips and the keys panel SHALL write keys as the platform names them, in the board's language: on macOS with ⌃, ⌥, ⇧, ⌘, ↩, ⌫ and ⌦, elsewhere with Ctrl, Alt, Shift and the key's name, and arrows as ↑, ↓, ← and → everywhere. `aria-keyshortcuts` SHALL use the WAI-ARIA names on every platform, naming both Control and Meta for Cmd or Ctrl (NFR-12, FR-34).
 
@@ -154,7 +165,7 @@ A widget with a Keys button SHALL take the keys in effect: its key table with th
 - **THEN** the Ranking takes its default keys, and the settings panel's Keys row shows a problem naming to the top, the combination and move up
 
 ### Requirement: The keys panel shows the user's changes
-The keys panel SHALL mark each action whose keys the user's file changed, and list an action whose keys it removed as having no key (NFR-12).
+The keys panel SHALL mark each action whose keys the user's file changed, and list an action whose keys it removed as having no key. A control whose action's keys the user's file removed SHALL keep its tooltip, with the action's name and no key, and SHALL carry no `aria-keyshortcuts`. When the user's file removes the keys panel's own keys, no key SHALL open the panel, and the Keys button SHALL still open it (NFR-12).
 
 #### Scenario: Changed and removed keys
 - **WHEN** the user file gives to the top `Mod+Alt+ArrowUp` and select none no key, and the user opens a Ranking's keys panel
@@ -163,6 +174,10 @@ The keys panel SHALL mark each action whose keys the user's file changed, and li
 #### Scenario: The keys panel's own key
 - **WHEN** the user file gives the keys panel `Mod+Alt+Enter`, and the focus is on a Ranking's row
 - **THEN** Ctrl+Alt+Enter on Linux, or Cmd+Option+Enter on macOS, opens the panel, and `?` opens nothing
+
+#### Scenario: No key for the keys panel
+- **WHEN** the user file gives the keys panel no key, and the focus is on a Ranking's row
+- **THEN** `?` opens nothing and keeps its default, the Keys button's tooltip shows its name and no key, it carries no `aria-keyshortcuts`, and clicking it opens the panel
 
 ## MODIFIED Requirements
 
