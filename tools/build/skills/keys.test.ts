@@ -127,9 +127,11 @@ describe("the keys panel only where the board shows it", () => {
     }
   });
 
-  test("the default list is the contract's, empty for now: no type claims the panel", () => {
-    expect(keysSection(widget("ranking"))).toContain("shows no keys panel for the Ranking yet");
-    expect(keysSection(widget("ranking"))).not.toContain(PANEL_NOTE);
+  test("the default list is the contract's: the Ranking claims the panel, no other type does", () => {
+    expect(keysSection(widget("ranking"))).toContain(PANEL_NOTE);
+    expect(keysSection(widget("ranking"))).not.toContain("shows no keys panel");
+    expect(keysSection(widget("gantt"))).toContain("shows no keys panel for the Gantt yet");
+    expect(keysSection(widget("gantt"))).not.toContain(PANEL_NOTE);
   });
 
   test("a widget reference takes the list as it takes the entry", () => {

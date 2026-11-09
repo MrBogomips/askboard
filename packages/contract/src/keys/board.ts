@@ -3,8 +3,8 @@
 // for these types only and takes the user's key changes there only. The tables of the other types
 // feed the generated skills as default keys and nothing else, so the skills claim the panel and the
 // user's keys for the listed types alone. A retrofit that registers its types' tables as
-// `ComponentFacts.keys` appends them here (task 4.4 appends the Ranking); the widgets' test
-// `component-facts.test.ts` ties this list to the chunks.
+// `ComponentFacts.keys` appends them here (the Ranking's chunk registered its table first); the
+// widgets' test `component-facts.test.ts` ties this list to the chunks.
 
 /** The registered type names whose chunk registers a key table with the board. Frozen. */
-export const KEY_TABLES_ON_BOARD: readonly string[] = Object.freeze([]);
+export const KEY_TABLES_ON_BOARD: readonly string[] = Object.freeze(["ranking"]);

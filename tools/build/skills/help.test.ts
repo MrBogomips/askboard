@@ -62,9 +62,8 @@ describe("the files", () => {
     expect(file("references/widgets/ranking.md")).toContain(
       "| Keep this order | list | Enter (↩) |",
     );
-    expect(file("references/widgets/ranking.md")).toContain(
-      "shows no keys panel for the Ranking yet",
-    );
+    expect(file("references/widgets/ranking.md")).toContain(PANEL_NOTE);
+    expect(file("references/widgets/gantt.md")).toContain("shows no keys panel for the Gantt yet");
     expect(file("references/widgets/approval.md")).not.toContain("## Keys");
     expect(file("references/widgets/approval.md")).toContain("no keys of its own");
   });
@@ -279,8 +278,17 @@ describe("the keys panel in the help skill", () => {
     expect(text).toContain("the Keys button");
   });
 
-  test("with an empty list, configure-keys.md says no widget takes the user's keys yet and claims no panel", () => {
+  // Skills spec, "Where the user's keys apply": the shipped file names the Ranking alone.
+  test("the shipped configure-keys.md names the Ranking as the widget the user's keys reach, and no other", () => {
     const text = file("references/configure-keys.md");
+    expect(text).toContain("only in the Ranking, the widgets the board gives a Keys button");
+    for (const other of ["Tree", "Gantt", "Kanban", "Timeline", "Chart"]) {
+      expect(text).not.toContain(`the ${other}`);
+    }
+  });
+
+  test("with an empty list, configure-keys.md says no widget takes the user's keys yet and claims no panel", () => {
+    const text = at(generateHelpSkill({ keyTablesOnBoard: [] }), "references/configure-keys.md");
     expect(text).toContain("no widget takes them yet");
     expect(text).not.toContain("every widget that has the action");
     expect(text).not.toMatch(/Keys button|keys panel shows/);

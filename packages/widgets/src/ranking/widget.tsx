@@ -139,7 +139,14 @@ export const RankingWidget = ({
 
   return (
     <div className={FRAME} data-ranking="">
-      <RankingToolbar tools={tools} table={table} held={held} moved={moved.size} onTool={onTool} />
+      <RankingToolbar
+        tools={tools}
+        table={table}
+        held={held}
+        moved={moved.size}
+        selected={selection.ids.size}
+        onTool={onTool}
+      />
       <div
         role="listbox"
         aria-labelledby={labelledBy}

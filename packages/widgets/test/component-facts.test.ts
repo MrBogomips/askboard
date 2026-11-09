@@ -448,6 +448,16 @@ describe("a chunk's fact `revisionBound`", () => {
 // the type in `KEY_TABLES_ON_BOARD` (keyboard-shortcuts-help, decisions 14 and 20; review 5.6,
 // S-31), and then the registry entry's table: the generated skills claim the keys panel for the
 // listed types only, so the list and the chunks cannot part.
+describe("the Ranking's chunk and the board's key tables", () => {
+  test("registers its registry entry's table as `keys`, and is the type KEY_TABLES_ON_BOARD lists", async () => {
+    const facts = await registered();
+    const at = WIDGET_TYPES.findIndex(({ type }) => type === "ranking");
+    expect(KEY_TABLES_ON_BOARD).toContain("ranking");
+    expect(facts[at]?.keys).toEqual(WIDGET_TYPES[at]?.keys);
+    expect(facts[at]?.keys).toBeDefined();
+  });
+});
+
 describe("a chunk's fact `keys`", () => {
   test("is registered exactly for the types KEY_TABLES_ON_BOARD lists, and is the entry's table", async () => {
     const facts = await registered();

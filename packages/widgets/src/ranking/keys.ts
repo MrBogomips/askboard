@@ -3,7 +3,7 @@
 // enabled only where their act is possible. The tools and their table actions are one list, so the
 // toolbar and the key table are compared in a test (spec: every visible action in the table). Pure.
 
-import type { RankingKeyAction } from "@askboard/contract";
+import { type KeyEntry, RANKING_KEYS, type RankingKeyAction } from "@askboard/contract";
 import { canMove, type MoveKind } from "./moves.ts";
 
 /** The tools of the toolbar, each enabled or not. */
@@ -60,6 +60,10 @@ export const RANKING_TOOLS: readonly RankingTool[] = [
   },
 ];
 
+/** The entry of the list part for an action: what a tool's hint shows. */
+export const entryOf = (action: RankingKeyAction): KeyEntry | undefined =>
+  RANKING_KEYS.find((entry) => entry.action === action && entry.part === "list");
+
 /** A cursor action of the list. */
 export type CursorMove = "up" | "down" | "first" | "last";
 
@@ -115,5 +119,37 @@ export const rankingTools = (
     toBottom: canMove(order, rows, "bottom"),
     keep: true,
     selectNone: hasSelection,
+  };
+};
+
+/** What a toolbar row draws, and where its stops fall. */
+export type ToolbarLayout = {
+  /** The tools drawn as buttons, in order. */
+  readonly shown: readonly RankingTool[];
+  /** The tools in the "More" menu, in order. */
+  readonly given: readonly RankingTool[];
+  /** The stop of "More", or none when the row is roomy. */
+  readonly moreAt: number | undefined;
+  /** The stop of the Keys button: the last, and never in "More". */
+  readonly keysAt: number;
+  /** How many stops the row has: the tools shown, "More" when crowded, the Keys button when drawn. */
+  readonly stops: number;
+};
+
+/**
+ * The row for a `crowded` measure (`shared/crowded.ts`): "To top", "To bottom" and "Select none"
+ * give way to "More" when the row cannot hold them and the counter's minimum. `hasKeysButton` says
+ * whether the item frame gives the Keys button, which draws nothing outside one.
+ */
+export const toolbarLayout = (crowded: boolean, hasKeysButton: boolean): ToolbarLayout => {
+  const shown = RANKING_TOOLS.filter((tool) => !(crowded && tool.overflow));
+  const given = RANKING_TOOLS.filter((tool) => crowded && tool.overflow);
+  const keysAt = shown.length + (crowded ? 1 : 0);
+  return {
+    shown,
+    given,
+    moreAt: crowded ? shown.length : undefined,
+    keysAt,
+    stops: keysAt + (hasKeysButton ? 1 : 0),
   };
 };

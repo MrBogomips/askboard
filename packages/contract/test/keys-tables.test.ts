@@ -565,7 +565,7 @@ describe("KEY_TABLES_ON_BOARD", () => {
     expect(new Set(KEY_TABLES_ON_BOARD).size).toBe(KEY_TABLES_ON_BOARD.length);
   });
 
-  test("is empty until a retrofit registers a table with the board (task 4.4 appends the Ranking)", () => {
-    expect(KEY_TABLES_ON_BOARD).toEqual([]);
+  test("lists the Ranking, the one type whose chunk registers its table so far; each retrofit appends its types", () => {
+    expect(KEY_TABLES_ON_BOARD).toEqual(["ranking"]);
   });
 });

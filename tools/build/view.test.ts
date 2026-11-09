@@ -163,10 +163,11 @@ describe("bun run build:view (design decision 7)", () => {
     // chunk has held since task 3.6 (design decision 9).
     expect(manifest.chunks.scale?.components).toEqual(["scale"]);
     expect(manifest.chunks.scale?.needs).toEqual(["radix", "react", "shell"]);
-    // The Ranking's drag comes from the dnd chunk; it needs no Radix control, no board graph and
-    // no compute (approval-scale-ranking, design decision 9).
+    // The Ranking's drag comes from the dnd chunk and its "More" menu from Radix's Dropdown Menu
+    // (keyboard-shortcuts-help, design decision 8); it needs no board graph and no compute
+    // (approval-scale-ranking, design decision 9).
     expect(manifest.chunks.ranking?.components).toEqual(["ranking"]);
-    expect(manifest.chunks.ranking?.needs).toEqual(["dnd", "react", "shell"]);
+    expect(manifest.chunks.ranking?.needs).toEqual(["dnd", "radix", "react", "shell"]);
     // The LaTeX draws with KaTeX, which its chunk bundles with its stylesheet: it needs no Radix
     // control, no drag, no board graph and no compute (latex-kanban-timeline, design decision 8).
     expect(manifest.chunks.latex?.components).toEqual(["latex"]);

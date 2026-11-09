@@ -16,6 +16,8 @@ import { PROBE_WIDGET } from "@askboard/contract/fixtures";
 import { MOLECULE_SKILLS, READY_MOLECULES } from "@askboard/molecules";
 import { taggedBlocks } from "./blocks.ts";
 import { generateSkill, TEMPLATES } from "./generate.ts";
+import { generateHelpSkill } from "./help.ts";
+import { PANEL_NOTE } from "./keys.ts";
 import { contextTypes } from "./references.ts";
 
 const { files, examples } = generateSkill();
@@ -379,5 +381,18 @@ describe("the pointer to the help skill", () => {
     expect(ranking).toContain("| Move up | list | Alt+Shift+↑ (⌥⇧↑) |");
     expect(ranking).toContain("| Keep this order | list | Enter (↩) |");
     expect(ranking).toContain("keys in effect");
+  });
+
+  // Skills spec, "The keys panel where the board shows it" and "A table the board does not show
+  // yet": the shipped registry with the contract's own list, nothing passed in.
+  test("on the shipped registry both Ranking references say the keys panel shows the keys in effect, and both Gantt references say there is none yet", () => {
+    for (const generated of [generateSkill(), generateHelpSkill()]) {
+      const ranking = generated.files.get("references/widgets/ranking.md") ?? "";
+      expect(ranking).toContain(PANEL_NOTE);
+      expect(ranking).not.toContain("shows no keys panel");
+      const gantt = generated.files.get("references/widgets/gantt.md") ?? "";
+      expect(gantt).toContain("The board shows no keys panel for the Gantt yet");
+      expect(gantt).not.toContain(PANEL_NOTE);
+    }
   });
 });

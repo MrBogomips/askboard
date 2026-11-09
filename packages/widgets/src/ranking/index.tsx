@@ -5,7 +5,7 @@
 // visible (AD-10). An untouched Ranking reports no result; a move, a drop or "Keep this order"
 // reports `{order}`, the IDs of every element in the user's order.
 
-import { rankingResultProblems, rankingResultShape } from "@askboard/contract";
+import { RANKING_KEYS, rankingResultProblems, rankingResultShape } from "@askboard/contract";
 import {
   type ItemProps,
   questionTextId,
@@ -52,10 +52,13 @@ const Ranking = ({
 
 // The facts the shell needs of the Ranking (widget-registry, design decision 8): its name in the
 // notice, and whether a result fits its props, by the contract's shape and props checks (`fits`),
-// the two `widgetResultFits` runs. It edits nothing
-// and asks for no reason or confirmation.
+// the two `widgetResultFits` runs. It edits nothing and asks for no reason or confirmation. It
+// registers its key table (`keys`), which gives it the item frame's Keys button and panel and has
+// it take the user's keys; `KEY_TABLES_ON_BOARD` lists it (keyboard-shortcuts-help, decisions 5, 19
+// and 20).
 register(RANKING, Ranking, {
   name: "change.widgetRanking",
   fits: (result, props) =>
     rankingResultShape(result) && rankingResultProblems(result, props).length === 0,
+  keys: RANKING_KEYS,
 });

@@ -16,6 +16,7 @@ import { type Say, useLanguage, useStrings } from "@askboard/view/catalog";
 import { DropdownMenu, Popover } from "radix-ui";
 import { type KeyboardEvent, type Ref, useRef, useState } from "react";
 import { toolbarFocus, toolbarStop } from "../shared/toolbar-focus.ts";
+import { useCrowded } from "../shared/use-crowded.ts";
 import { AdjustPanel, type Applied } from "./adjust-panel.tsx";
 import {
   CHANGE_DOT,
@@ -39,7 +40,6 @@ import type { TreeEdit } from "./model/edits.ts";
 import { TREE_TOOLS, type TreeTool, toolbarKey } from "./model/keys.ts";
 import { OVERFLOW_TOOLS } from "./model/overflow.ts";
 import { type Selection, selectAll } from "./model/selection.ts";
-import { useCrowded } from "./use-crowded.ts";
 
 // The counter: "No changes", then each node the user changed, once, after the change dot; cut with
 // an ellipsis, its whole text in the tooltip, before it overprints a tool.
