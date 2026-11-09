@@ -16,19 +16,26 @@
 - **THEN** the user's override is in effect, from the user file with no other file's value, the settings carry the project's warning, and the `settings` message built from them passes the board-protocol schema
 
 ### Requirement: Key overrides are never half-applied
-The user's `keys` SHALL apply only when it passes the key-override check against every registered key table. Otherwise none of it SHALL apply, every widget SHALL keep its default keys, the file's other keys SHALL still apply, and the settings and stderr SHALL name the problems' rules, actions and combinations in at most eight warnings for `keys`, the project's warning first, and one stderr line for each of those warnings, never one per problem past them (NFR-10, NFR-12, AD-14).
+The user's `keys` SHALL apply only when it passes the key-override check against every registered key table. Otherwise none of it SHALL apply, every widget SHALL keep its default keys, the file's other keys SHALL still apply, and the settings SHALL name the problems' rules, actions and combinations in at most eight warnings for `keys`, the project's warning first (NFR-10, NFR-12, AD-14).
 
 #### Scenario: One refused combination voids the overrides only
 - **WHEN** the user file sets `theme` to `dark` and gives to the top `Alt+Shift+ArrowUp`
 - **THEN** no override is in effect, `theme` is `dark`, the settings carry a warning naming the conflict, to the top, the combination and move up, and stderr names them, quoted
 
 #### Scenario: Many problems
-- **WHEN** the user file's `keys` names 64 actions, each with four combinations that do not parse
+- **WHEN** the user file's `keys` names 64 actions, each with four combinations that do not parse, at the session's first read
 - **THEN** no override is in effect, the settings carry eight warnings, and stderr writes eight lines about `keys`
 
 #### Scenario: Keys of another shape void the file
 - **WHEN** the user file sets `theme` to `dark` and `keys` to a list
 - **THEN** no key of that file applies, as for any file that fails the configuration schema
+
+### Requirement: Key problems on stderr at the first read
+At the session's first read, stderr SHALL write one line for each warning for `keys`, never one per problem past them. A `keys` refused when a later board opens SHALL show its warnings in that board's settings only, as a user file voided at a later read does (NFR-10, AD-14).
+
+#### Scenario: Keys refused at a later read
+- **WHEN** the user's `keys` applied at first use, and the user then gives to the top `Alt+Shift+ArrowUp` and the session opens a board
+- **THEN** that board takes the default keys, its settings carry the warning naming the conflict, and stderr writes no new line
 
 ### Requirement: File text on stderr is escaped
 Each diagnostic the session process writes about the configuration or the project's `.askboard/` folder SHALL be one line, and SHALL show any text a file chose (a JSON pointer, a key name, a value, an action, a combination) quoted, with its control characters (C0, DEL, C1), line and paragraph separators and bidirectional controls escaped, so that no file can colour, split, forge or reorder a line on the terminal; a path it names SHALL have the same characters escaped (NFR-5, AD-8, AD-14).

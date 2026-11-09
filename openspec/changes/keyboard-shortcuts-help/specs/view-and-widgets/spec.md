@@ -165,11 +165,15 @@ A widget with a Keys button SHALL take the keys in effect: its key table with th
 - **THEN** the Ranking takes its default keys, and the settings panel's Keys row shows a problem naming to the top, the combination and move up
 
 ### Requirement: The keys panel shows the user's changes
-The keys panel SHALL mark each action whose keys the user's file changed, and list an action whose keys it removed as having no key. A control whose action's keys the user's file removed SHALL keep its tooltip, with the action's name and no key, and SHALL carry no `aria-keyshortcuts`. When the user's file removes the keys panel's own keys, no key SHALL open the panel, and the Keys button SHALL still open it (NFR-12).
+The keys panel SHALL mark each action whose keys in effect differ from its table's, and list an action whose keys the user's file removed as having no key. A control whose action's keys the user's file removed SHALL keep its tooltip, with the action's name and no key, and SHALL carry no `aria-keyshortcuts`. When the user's file removes the keys panel's own keys, no key SHALL open the panel, and the Keys button SHALL still open it (NFR-12).
 
 #### Scenario: Changed and removed keys
 - **WHEN** the user file gives to the top `Mod+Alt+ArrowUp` and select none no key, and the user opens a Ranking's keys panel
 - **THEN** "To top" is marked as changed with its new keys, and "Select none" is listed with no key
+
+#### Scenario: Keys equal to the defaults
+- **WHEN** the user file gives to the top `Mod+Shift+ArrowUp` and `Alt+Shift+Home`, its default keys in another order, and the user opens a Ranking's keys panel
+- **THEN** "To top" is listed with its default keys and is not marked as changed
 
 #### Scenario: The keys panel's own key
 - **WHEN** the user file gives the keys panel `Mod+Alt+Enter`, and the focus is on a Ranking's row
@@ -223,10 +227,14 @@ Every board SHALL open a settings panel from "Settings" in the context header: a
 - **WHEN** the user file changes the keys of two actions
 - **THEN** the Keys row reads that two actions are changed, names the user file and the key `keys`, and offers no control to change them
 
+#### Scenario: No key changed
+- **WHEN** the user file sets `keys` to `{}`, or gives an action exactly its default keys
+- **THEN** the Keys row reads "Default keys"
+
 #### Scenario: Keys in the project file
 - **WHEN** the project file sets `keys`
 - **THEN** the Keys row shows a warning that the project's keys are ignored, and the keys in effect come from the user file or are the defaults
 
 #### Scenario: File text in the panel
-- **WHEN** a warning's action or combination, or a file problem's pointer, holds a line feed or a right-to-left override
+- **WHEN** a warning's action or combination, a file problem's pointer, a file's path or the project's Snapshot folder holds a line feed or a right-to-left override
 - **THEN** the panel shows that text with the character escaped and isolated from the sentence around it, which reads in its own order

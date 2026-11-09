@@ -109,6 +109,13 @@ The contract SHALL check the user's overrides against every registered key table
 - **WHEN** the overrides name `__proto__` or `ranking.teleport`
 - **THEN** the check reports a problem naming it, and the vocabulary's add after, which no shipped table binds yet, passes
 
+### Requirement: The override check's default tables
+Given no tables, the key-override check SHALL read exactly the key tables the registry holds, from a list of those tables alone, so that `ask-core` and the board page run one check on the same tables without loading the registry's other data (NFR-10, AD-1).
+
+#### Scenario: The check's own tables
+- **WHEN** the check runs with no tables given
+- **THEN** it reads each registered type that has a key table, with that table, and no other, and reports what it reports given the registry's types
+
 ### Requirement: Keys a system composes or an editor types
 The registry check and the key-override check SHALL refuse Alt with Shift on a key that types a character (a letter of any script, a digit, punctuation, a symbol or Space), which macOS composes into another character, and, in a part that edits text, a key that types a character. The key-override check SHALL also refuse giving the keys panel, which acts across the whole item, a key a native control takes or a key another action of any part takes (NFR-12).
 
