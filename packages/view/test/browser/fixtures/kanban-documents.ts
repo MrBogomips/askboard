@@ -53,6 +53,22 @@ const documentOf = (items: readonly unknown[], language?: Locale): ViewDocument 
 export const kanbanDocument = (language?: Locale): ViewDocument =>
   documentOf([kanbanItem(language)], language);
 
+/**
+ * A Kanban of three cards in `todo` (`a`, `c`, `d`) and one in `done` (`b`), for the order
+ * (kanban-order): the flat list interleaves them as an agent sends it, `a b c d`.
+ */
+export const orderItem = () => ({
+  ...kanbanItem(),
+  props: {
+    ...kanbanItem().props,
+    cards: [...kanbanItem().props.cards, { id: "d", label: "Review PR", column: "todo" }],
+  },
+});
+
+/** The question `plan` holding the Kanban of `orderItem`. */
+export const orderDocument = (language?: Locale): ViewDocument =>
+  documentOf([orderItem()], language);
+
 /** The question `plan` holding the Tree `wbs`, then the Kanban. */
 export const treeAndKanbanDocument: ViewDocument = documentOf([wbs, kanbanItem()]);
 
