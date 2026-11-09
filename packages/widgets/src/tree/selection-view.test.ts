@@ -10,7 +10,7 @@ describe("the selection column", () => {
     for (const file of ["./row.tsx", "./grid.tsx", "./total-row.tsx"]) {
       expect(await source(file)).toContain("SELECT_COLUMN");
     }
-    expect(await source("./select-box.tsx")).toContain("tabIndex={-1}");
+    expect(await source("../shared/select-box.tsx")).toContain("tabIndex={-1}");
   });
 
   test("selecting never touches the draft: the host holds it as state and clears it when read-only", async () => {

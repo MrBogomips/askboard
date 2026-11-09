@@ -5,51 +5,45 @@
 // `aria-disabled` rather than `disabled`, so that a tool that turns disabled under the focus, such
 // as "Move down" once its row is last, keeps the focus and the next Enter does nothing.
 
+import type { KeyEntry } from "@askboard/contract";
 import { keyPressOf, type Say, useStrings } from "@askboard/view/catalog";
 import { type KeyboardEvent, useRef, useState } from "react";
-import { toolbarFocus, toolbarPressMove, toolbarStop } from "../shared/toolbar-focus.ts";
+import { toolbarFocus, toolbarStop } from "../shared/toolbar-focus.ts";
 import { CHANGE_DOT, COUNTER, COUNTER_TEXT, TOOL, TOOLBAR, TOOLS } from "./classes.ts";
-import type { RankingTools } from "./keys.ts";
+import { RANKING_TOOLS, type RankingTools } from "./keys.ts";
+import { toolbarMoveOfPress } from "./list-keys.ts";
 import { counterText } from "./text.ts";
 
-type Tool = {
-  readonly key: "moveUp" | "moveDown" | "keep";
-  readonly label: "ranking.moveUp" | "ranking.moveDown" | "ranking.keep";
-  readonly run: () => void;
-};
-
-const toolsOf = (onMove: (delta: -1 | 1) => void, onKeep: () => void): readonly Tool[] => [
-  { key: "moveUp", label: "ranking.moveUp", run: () => onMove(-1) },
-  { key: "moveDown", label: "ranking.moveDown", run: () => onMove(1) },
-  { key: "keep", label: "ranking.keep", run: onKeep },
-];
+/** A tool of the toolbar, by its place in `RankingTools`. */
+export type ToolKey = keyof RankingTools;
 
 export const RankingToolbar = ({
   tools,
+  table,
   held,
   moved,
-  onMove,
-  onKeep,
+  onTool,
 }: {
   readonly tools: RankingTools;
+  /** The keys in effect, for the keys that move the focus among the tools. */
+  readonly table: readonly KeyEntry[];
   /** The Ranking holds an order, for the counter. */
   readonly held: boolean;
   /** How many rows are off the agent's place. */
   readonly moved: number;
-  readonly onMove: (delta: -1 | 1) => void;
-  readonly onKeep: () => void;
+  /** An enabled tool was chosen. */
+  readonly onTool: (tool: ToolKey) => void;
 }) => {
   const text = useStrings();
   const say: Say = text;
   const [at, setAt] = useState(0);
   const buttons = useRef<(HTMLButtonElement | null)[]>([]);
-  const list = toolsOf(onMove, onKeep);
-  const enabled = list.map(({ key }) => tools[key]);
+  const enabled = RANKING_TOOLS.map(({ key }) => tools[key]);
   const stop = toolbarStop(enabled, at);
   const words = counterText(held, moved, say);
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
-    const move = toolbarPressMove(keyPressOf(event));
+    const move = toolbarMoveOfPress(table, keyPressOf(event));
     if (move === undefined) return;
     event.preventDefault();
     buttons.current[toolbarFocus(enabled, at, move)]?.focus();
@@ -63,7 +57,7 @@ export const RankingToolbar = ({
         className={TOOLS}
         onKeyDown={onKeyDown}
       >
-        {list.map((tool, place) => (
+        {RANKING_TOOLS.map((tool, place) => (
           <button
             key={tool.key}
             ref={(node) => {
@@ -75,7 +69,7 @@ export const RankingToolbar = ({
             className={TOOL}
             onFocus={() => setAt(place)}
             onClick={() => {
-              if (enabled[place]) tool.run();
+              if (enabled[place]) onTool(tool.key);
             }}
           >
             {text(tool.label)}

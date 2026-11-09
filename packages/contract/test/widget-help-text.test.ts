@@ -89,6 +89,26 @@ describe("a drag is called off with Escape, and the help says so (decision 9)", 
   });
 });
 
+// The Ranking's mouse text states decision 8 (review 5.6, S-37): the check boxes, Shift+click for a
+// range, that the moves act on the selection, and still the drag and Escape.
+describe("the Ranking's mouse text", () => {
+  const mouse = WIDGET_TYPES.find(({ type }) => type === "ranking")?.help?.mouse ?? "";
+
+  test("names the check boxes, Shift+click for a range, and that the moves act on the selection", () => {
+    expect(mouse).toMatch(/check box/i);
+    expect(mouse).toMatch(/Shift\+click/);
+    expect(mouse).toMatch(/range/i);
+    expect(mouse).toMatch(/moves? (act|work|apply)[^.]*selected|selected rows?/i);
+    expect(mouse).toMatch(/Move up/);
+  });
+
+  test("still names the drag and Escape, within 300 characters", () => {
+    expect(mouse).toMatch(/\bdrag\b/i);
+    expect(mouse).toMatch(/\bEscape\b/);
+    expect(mouse.length).toBeLessThanOrEqual(300);
+  });
+});
+
 describe("the registry's help rule", () => {
   test("passes the probe type, which has no help text", () => {
     expect(PROBE_WIDGET.help).toBeUndefined();

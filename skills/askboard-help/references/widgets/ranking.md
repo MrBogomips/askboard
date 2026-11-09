@@ -4,7 +4,7 @@ Item type `ranking`. It is for an order of 2 to 50 items the user sets by draggi
 
 ## With the mouse
 
-Drag a row by its handle to a new place (Escape cancels the drag), or make a row current and use Move up and Move down. Keep this order accepts the agent's order as it is.
+Drag a row by its handle to a new place (Escape cancels the drag). Tick check boxes, or Shift+click for a range, to select rows: Move up, Move down, To top and To bottom then move the selected rows. Keep this order accepts the agent's order.
 
 ## What the agent receives
 

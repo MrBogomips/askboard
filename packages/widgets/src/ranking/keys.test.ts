@@ -1,60 +1,103 @@
 import { describe, expect, test } from "bun:test";
-import { currentAfterKey, rankingTools, toolbarMoveOf } from "./keys.ts";
+import { currentAfter, RANKING_TOOLS, rankingTools } from "./keys.ts";
 
 // The Ranking at the keyboard (view-and-widgets spec: Ranking at the keyboard; design decision 8):
-// the list's arrow keys move the current row, never the order, and the toolbar's tools are enabled
-// only where the move is possible.
+// the list's cursor actions move the current row, never the order, and the toolbar's tools are
+// enabled only where their act is possible.
 const order = ["a", "b", "c"];
 
-describe("currentAfterKey", () => {
-  test("the arrow keys move the current row by one, stopping at the ends", () => {
-    expect(currentAfterKey(order, "b", "ArrowDown")).toBe("c");
-    expect(currentAfterKey(order, "b", "ArrowUp")).toBe("a");
-    expect(currentAfterKey(order, "c", "ArrowDown")).toBe("c");
-    expect(currentAfterKey(order, "a", "ArrowUp")).toBe("a");
+describe("currentAfter", () => {
+  test("up and down move the current row by one, stopping at the ends", () => {
+    expect(currentAfter(order, "b", "down")).toBe("c");
+    expect(currentAfter(order, "b", "up")).toBe("a");
+    expect(currentAfter(order, "c", "down")).toBe("c");
+    expect(currentAfter(order, "a", "up")).toBe("a");
   });
 
-  test("Home and End go to the first and the last row", () => {
-    expect(currentAfterKey(order, "b", "Home")).toBe("a");
-    expect(currentAfterKey(order, "b", "End")).toBe("c");
+  test("first and last go to the ends", () => {
+    expect(currentAfter(order, "b", "first")).toBe("a");
+    expect(currentAfter(order, "b", "last")).toBe("c");
   });
 
-  test("another key gives none, and a current row the order lacks starts at the first", () => {
-    expect(currentAfterKey(order, "b", "x")).toBeUndefined();
-    expect(currentAfterKey(order, "b", "Enter")).toBeUndefined();
-    expect(currentAfterKey(order, "gone", "ArrowDown")).toBe("a");
-    expect(currentAfterKey([], "a", "Home")).toBeUndefined();
+  test("a current row the order lacks starts at the first row, and an empty order has none", () => {
+    expect(currentAfter(order, "gone", "down")).toBe("a");
+    expect(currentAfter([], "a", "first")).toBeUndefined();
   });
 });
 
 describe("rankingTools", () => {
-  test("Move up is off on the first row and Move down on the last, Keep this order always on", () => {
-    expect(rankingTools(order, "a", false)).toEqual({ moveUp: false, moveDown: true, keep: true });
-    expect(rankingTools(order, "b", false)).toEqual({ moveUp: true, moveDown: true, keep: true });
-    expect(rankingTools(order, "c", false)).toEqual({ moveUp: true, moveDown: false, keep: true });
+  const none = new Set<string>();
+
+  test("Move up and To top are off on the first row, Move down and To bottom on the last", () => {
+    expect(rankingTools(order, ["a"], false, false)).toEqual({
+      moveUp: false,
+      moveDown: true,
+      toTop: false,
+      toBottom: true,
+      keep: true,
+      selectNone: false,
+    });
+    expect(rankingTools(order, ["c"], false, false)).toEqual({
+      moveUp: true,
+      moveDown: false,
+      toTop: true,
+      toBottom: false,
+      keep: true,
+      selectNone: false,
+    });
+    expect(rankingTools(order, ["b"], false, false)).toMatchObject({
+      moveUp: true,
+      moveDown: true,
+      toTop: true,
+      toBottom: true,
+    });
   });
 
-  test("every tool is off in a read-only Ranking, and a current row the order lacks moves nothing", () => {
-    expect(rankingTools(order, "b", true)).toEqual({ moveUp: false, moveDown: false, keep: false });
-    expect(rankingTools(order, "gone", false)).toEqual({
+  test("they follow the rows that act: two selected rows packed at the top cannot move up", () => {
+    expect(rankingTools(order, ["a", "b"], true, false)).toMatchObject({
+      moveUp: false,
+      toTop: false,
+      moveDown: true,
+      toBottom: true,
+      selectNone: true,
+    });
+    expect(none.size).toBe(0);
+  });
+
+  test("Select none is on exactly while rows are selected", () => {
+    expect(rankingTools(order, ["b"], false, false).selectNone).toBe(false);
+    expect(rankingTools(order, ["b"], true, false).selectNone).toBe(true);
+  });
+
+  test("every tool is off in a read-only Ranking, and no acting row moves nothing", () => {
+    expect(rankingTools(order, ["b"], true, true)).toEqual({
       moveUp: false,
       moveDown: false,
+      toTop: false,
+      toBottom: false,
+      keep: false,
+      selectNone: false,
+    });
+    expect(rankingTools(order, [], false, false)).toEqual({
+      moveUp: false,
+      moveDown: false,
+      toTop: false,
+      toBottom: false,
       keep: true,
+      selectNone: false,
     });
   });
 });
 
-describe("toolbarMoveOf", () => {
-  test("maps the arrow keys, Home and End to a move among the tools", () => {
-    expect(toolbarMoveOf("ArrowLeft")).toBe("previous");
-    expect(toolbarMoveOf("ArrowRight")).toBe("next");
-    expect(toolbarMoveOf("Home")).toBe("first");
-    expect(toolbarMoveOf("End")).toBe("last");
-  });
-
-  test("gives none for any other key, the vertical arrows included", () => {
-    for (const key of ["ArrowUp", "ArrowDown", "Enter", " ", "Tab", "x"]) {
-      expect(toolbarMoveOf(key)).toBeUndefined();
-    }
+describe("RANKING_TOOLS", () => {
+  test("lists the six tools in the toolbar's order, each with its table action", () => {
+    expect(RANKING_TOOLS.map(({ key, action }) => [key, action])).toEqual([
+      ["moveUp", "move.up"],
+      ["moveDown", "move.down"],
+      ["toTop", "move.top"],
+      ["toBottom", "move.bottom"],
+      ["keep", "ranking.keep"],
+      ["selectNone", "select.none"],
+    ]);
   });
 });

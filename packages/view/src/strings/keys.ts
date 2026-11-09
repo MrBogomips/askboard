@@ -541,6 +541,7 @@ export const STRING_KEYS = [
   "ranking.toBottom",
   "ranking.selectNone",
   "ranking.selected",
+  "ranking.select",
 ] as const;
 
 export type StringKey = (typeof STRING_KEYS)[number];

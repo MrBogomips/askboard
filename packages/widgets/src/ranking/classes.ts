@@ -38,7 +38,7 @@ export const LIST = "flex flex-col";
  */
 export const ROW =
   "group/row flex items-start gap-2 border-t border-border px-2 py-[6px] text-body text-foreground " +
-  "first:border-t-0 aria-[current=true]:bg-primary-subtle " +
+  "first:border-t-0 aria-selected:bg-accent aria-[current=true]:bg-primary-subtle " +
   "aria-[current=true]:shadow-[inset_2px_0_0_0_var(--primary)] focus-visible:outline-2 " +
   "focus-visible:-outline-offset-2 focus-visible:outline-ring";
 

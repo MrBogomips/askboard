@@ -593,4 +593,5 @@ export const IT_IT = {
   "ranking.toBottom": "In fondo",
   "ranking.selectNone": "Deseleziona tutto",
   "ranking.selected": { one: "{count} selezionata", other: "{count} selezionate" },
+  "ranking.select": "Seleziona {name}",
 } as const satisfies StringTable;
