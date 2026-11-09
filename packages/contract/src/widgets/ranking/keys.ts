@@ -1,11 +1,12 @@
 // The Ranking's key table (keyboard-shortcuts-help, design decision 8): the keys of its list and of
 // its toolbar, built from the vocabulary. Enter keeps the order, which is the Ranking's own action
 // (`ranking.keep`, a key the PO approved with question 1), and Escape selects none while rows are
-// selected. A read-only Ranking keeps its cursor and `?`; its toolbar's navigation is off with its
-// tools: every tool is off (`rankingTools(..., disabled=true)`, `widgets/src/ranking/keys.ts:46`),
-// so `toolbarStop` (`widgets/src/shared/toolbar-focus.ts:48`) gives the toolbar no Tab stop and
-// its keys have nothing to move: `toolbar.*` is `readOnly: false`, like the moves, the selection,
-// `ranking.keep` and `select.none` (`ranking/widget.tsx`: `editable={!disabled}`).
+// selected. A read-only Ranking keeps its cursor, `?` and its toolbar's navigation (the default,
+// `readOnly: true`): every tool is off, but the toolbar keeps a Tab stop since the Keys button, and
+// "More" when the row is crowded, are always on (`ranking/toolbar.tsx`'s `stops`; `toolbarStop` in
+// `widgets/src/shared/toolbar-focus.ts`), so `toolbar.*` has stops to move among (review 4.6, S-48).
+// The moves, the selection, `ranking.keep` and `select.none` are `readOnly: false`: a read-only list
+// takes no edits (`ranking/widget.tsx`: `editable={!disabled}`).
 // Plain data, no DOM (AD-1).
 
 import { keyBinding, ownEntry, vocabularyEntry } from "../../keys/vocabulary.ts";
@@ -31,10 +32,10 @@ export const RANKING_KEYS = [
   }),
   vocabularyEntry("select.none", LIST, "tool", { label: "ranking.selectNone" }),
   vocabularyEntry("keys.open", LIST, "panel"),
-  vocabularyEntry("toolbar.previous", TOOLBAR, "navigation", { readOnly: false }),
-  vocabularyEntry("toolbar.next", TOOLBAR, "navigation", { readOnly: false }),
-  vocabularyEntry("toolbar.first", TOOLBAR, "navigation", { readOnly: false }),
-  vocabularyEntry("toolbar.last", TOOLBAR, "navigation", { readOnly: false }),
+  vocabularyEntry("toolbar.previous", TOOLBAR, "navigation"),
+  vocabularyEntry("toolbar.next", TOOLBAR, "navigation"),
+  vocabularyEntry("toolbar.first", TOOLBAR, "navigation"),
+  vocabularyEntry("toolbar.last", TOOLBAR, "navigation"),
 ] as const;
 
 /** The actions of the Ranking's table: a handler maps each through a typed record. */

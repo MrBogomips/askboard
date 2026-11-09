@@ -155,13 +155,57 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           async () => (await rowOf(board, "d").getAttribute("aria-current")) === "true",
           "the cursor to move",
         );
+        // Every tool is off, but the Keys button is always on and holds the toolbar's Tab stop,
+        // before the list: Shift+Tab reaches it (review 4.6, S-48).
+        await board.page.keyboard.press("Shift+Tab");
+        await eventually(() => isFocused(tool(board, "Keys")), "focus on the Keys button");
+        await rowOf(board, "d").focus();
         await board.page.keyboard.press("?");
         await panel(board).waitFor({ timeout: STEP_TIMEOUT_MS });
         const text = (await panel(board).textContent()) ?? "";
-        for (const listed of ["Go up", "Go down", "Show the keys"]) expect(text).toContain(listed);
+        const listing = [
+          "Go up",
+          "Go down",
+          "Show the keys",
+          "Previous tool",
+          "Next tool",
+          "First tool",
+          "Last tool",
+        ];
+        for (const listed of listing) expect(text).toContain(listed);
         for (const unlisted of ["Move up", "To top", "Keep this order", "Select none"]) {
           expect(text).not.toContain(unlisted);
         }
+        expect(await orderShown(board)).toEqual(FIVE_ORDER);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "once the ask closes and the toolbar is crowded, ArrowLeft from the Keys button reaches More",
+      async () => {
+        const run = await start(scenario("ranking-keys-r1a5"), { userAgent: LINUX_UA });
+        const board = await openBoard(run, ["plan"]);
+        await board.page.setViewportSize({ width: 520, height: 800 });
+        await tool(board, "More").waitFor({ timeout: STEP_TIMEOUT_MS });
+        await run.session.update([{ action: "close" }]);
+        await board
+          .banner(/closed/i)
+          .first()
+          .waitFor({ timeout: STEP_TIMEOUT_MS });
+        await eventually(
+          async () => (await board.view.locator("[data-select]").count()) === 0,
+          "the check boxes to go",
+        );
+        // The tools are off: More, which is on, holds the Tab stop; the keys of the toolbar move
+        // the focus on a read-only Ranking as on an open one (review 4.6, S-48).
+        await rowOf(board, "c").focus();
+        await board.page.keyboard.press("Shift+Tab");
+        await eventually(() => isFocused(tool(board, "More")), "focus on More");
+        await board.page.keyboard.press("End");
+        await eventually(() => isFocused(tool(board, "Keys")), "focus on the Keys button");
+        await board.page.keyboard.press("ArrowLeft");
+        await eventually(() => isFocused(tool(board, "More")), "focus on More");
       },
       TEST_TIMEOUT_MS,
     );

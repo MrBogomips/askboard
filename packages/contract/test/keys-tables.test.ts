@@ -256,7 +256,7 @@ const split = (table: KeyTable): ReadOnlySplit => {
 const NAV_TOOLBAR = ["toolbar.previous", "toolbar.next", "toolbar.first", "toolbar.last"];
 
 describe("each table's readOnly, part by part (decision 2, review 1.6 S-3)", () => {
-  test("the Ranking: the cursor, `?` and the toolbar's roving focus act; the moves, the selection, keep and select none do not", () => {
+  test("the Ranking: the cursor, `?` and the toolbar's roving focus act (the Keys button keeps the Tab stop, review 4.6 S-48); the moves, the selection, keep and select none do not", () => {
     expect(split(RANKING_KEYS)).toEqual({
       list: {
         readOnly: ["cursor.up", "cursor.down", "cursor.first", "cursor.last", "keys.open"],
@@ -272,7 +272,7 @@ describe("each table's readOnly, part by part (decision 2, review 1.6 S-3)", () 
           "select.none",
         ],
       },
-      toolbar: { readOnly: [], edits: NAV_TOOLBAR },
+      toolbar: { readOnly: NAV_TOOLBAR, edits: [] },
     });
   });
 
