@@ -226,11 +226,16 @@ describe("Kanban changes", () => {
   });
 
   test("cards moved to different columns give their sets column by column, the flat diff's operations in another order", () => {
-    const [fixLogin, writeDocs, releaseNotes] = ITEM.props.cards;
     // Each card keeps its index, so each stands where the sent order puts it in its new column.
     const edited = {
       ...ITEM.props,
-      cards: [{ ...fixLogin, column: "done" }, writeDocs, { ...releaseNotes, column: "doing" }],
+      cards: ITEM.props.cards.map((one) =>
+        one.id === "fix-login"
+          ? { ...one, column: "done" }
+          : one.id === "release-notes"
+            ? { ...one, column: "doing" }
+            : one,
+      ),
     };
     const changes = elementChanges("board", ITEM.props, edited, KANBAN_SHAPE);
     // The groups in code-unit order of their IDs: `doing` before `done`, not the cards' order.
