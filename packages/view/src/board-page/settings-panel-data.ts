@@ -17,6 +17,13 @@ import {
 import { t } from "../strings/index.ts";
 import type { StringKey } from "../strings/keys.ts";
 import type { ViewPresentation } from "../view-protocol.ts";
+import {
+  isolated,
+  keysRowOf,
+  keysWarningText,
+  otherWarningsOf,
+  type PanelKeysRow,
+} from "./settings-keys-data.ts";
 
 /** One choice of a segmented control. */
 export type PanelSegment = { readonly value: string; readonly label: string };
@@ -45,10 +52,14 @@ export type PanelRow = {
   readonly warnings: readonly string[];
 };
 
+export type { PanelKeysRow };
+
 export type PanelData = {
   readonly title: string;
   readonly closeLabel: string;
   readonly controls: readonly PanelControl[];
+  /** The user's key overrides, read-only, at the end of the presentation group. */
+  readonly keys: PanelKeysRow;
   readonly languageLabel: string;
   readonly language: string;
   /** Files that were not applied, shown once above the behaviour group. */
@@ -103,9 +114,10 @@ const WARNINGS = {
   "project-editor-ignored": "settings.warningProjectEditor",
   "editor-file-writable-by-others": "settings.warningWritableByOthers",
   "snapshot-folder-replaced": "settings.warningSnapshotFolder",
-  "project-keys-ignored": "settings.warningProjectKeys",
-  "keys-not-applied": "settings.warningKeysNotApplied",
-} as const satisfies Record<SettingWarning["code"], StringKey>;
+} as const satisfies Partial<Record<SettingWarning["code"], StringKey>>;
+
+const isOther = (code: SettingWarning["code"]): code is keyof typeof WARNINGS =>
+  Object.hasOwn(WARNINGS, code);
 
 const pathOf = (message: SettingsMessage, file: SettingsFileName): string =>
   message.files[file].path ?? (file === "user" ? USER_PATH : PROJECT_PATH);
@@ -145,14 +157,23 @@ const controlOf = (
   };
 };
 
+// The warnings of the keys are the Keys row's (`settings-keys-data.ts`); a row or the message's own
+// list holds the other codes, and one of the keys' that strayed there is worded as the row words it.
 const warningText = (warning: SettingWarning, language: Locale, message: SettingsMessage) =>
-  t(language, WARNINGS[warning.code], {
-    key: warning.key,
+  isOther(warning.code)
+    ? otherWarningText(warning.code, warning, language, message)
+    : keysWarningText(warning, language, pathOf(message, warning.file));
+
+const otherWarningText = (
+  code: keyof typeof WARNINGS,
+  warning: SettingWarning,
+  language: Locale,
+  message: SettingsMessage,
+) =>
+  t(language, WARNINGS[code], {
+    key: isolated(warning.key),
     file: pathOf(message, warning.file),
-    value: warning.value ?? "",
-    detail: [warning.rule, warning.action, warning.binding, warning.with]
-      .filter((part) => part !== undefined)
-      .join(" · "),
+    value: isolated(warning.value ?? ""),
   });
 
 const rowOf = (
@@ -189,7 +210,10 @@ const notAppliedOf = (message: SettingsMessage, language: Locale): string[] =>
     const file = message.files[name];
     if (file.status !== "not-applied") return [];
     const { code, pointer, error } = file.problem;
-    const problem = t(language, PROBLEMS[code], { pointer: pointer ?? "/", error: error ?? "?" });
+    const problem = t(language, PROBLEMS[code], {
+      pointer: isolated(pointer ?? "/"),
+      error: error ?? "?",
+    });
     return [t(language, "settings.notApplied", { file: pathOf(message, name), problem })];
   });
 
@@ -203,6 +227,7 @@ export const panelData = (
   title: t(language, "settings.title"),
   closeLabel: t(language, "settings.close"),
   controls: PRESENTATION_KEYS.map((key) => controlOf(key, presentation, language, message)),
+  keys: keysRowOf(message, language, pathOf(message, "user"), pathOf(message, "project")),
   languageLabel: t(language, "settings.language"),
   language: languageIndicator(language, locale),
   notApplied: notAppliedOf(message, language),
@@ -210,5 +235,5 @@ export const panelData = (
   rows: ROWS.map(([key, label]) =>
     rowOf(key, t(language, label), message.keys[key], language, message),
   ),
-  warnings: message.warnings.map((warning) => warningText(warning, language, message)),
+  warnings: otherWarningsOf(message).map((warning) => warningText(warning, language, message)),
 });

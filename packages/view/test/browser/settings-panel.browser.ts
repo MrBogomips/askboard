@@ -153,7 +153,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(text.indexOf("is not applied")).toBeLessThan(
           text.indexOf("Applies from the next session"),
         );
-        expect(text).toContain("fontSize is not a known key");
+        // File text is isolated from the sentence (U+2068 and U+2069), which a reader does not see.
+        expect(text.replace(/[\u2068\u2069]/g, "")).toContain("fontSize is not a known key");
         // The project's editor is ignored: the row carries the warning.
         expect(await textOf(rowOf(board, "editor"))).toContain("The project's editor is ignored");
       },
