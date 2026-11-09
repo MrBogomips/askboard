@@ -3,8 +3,9 @@
 // opening it on `?` only where the key was not taken, keeping panel keys inside it and giving the
 // focus back where it was. Pure over refs and setters, so that a test reaches each without a DOM.
 
+import type { KeyEntry } from "@askboard/contract";
 import type { KeyboardEvent as ReactKeyEvent } from "react";
-import { opensKeysPanel } from "../catalog/keys/hint.ts";
+import { KEYS_OPEN_ENTRY, opensKeysPanel } from "../catalog/keys/hint.ts";
 import type { KeysPanelControl } from "../catalog/keys/keys-button.ts";
 import { type KeyEventFields, keyPressOf } from "../catalog/keys/press.ts";
 
@@ -52,14 +53,17 @@ export const controlOf = (
 });
 
 /**
- * The frame's key handler: `?` opens the panel unless the key was already prevented (a widget took
+ * The frame's key handler: the keys of `keys.open` in effect (`keysOpen`: `?` unless the user's file
+ * gives the panel others or none) open the panel unless the key was already prevented (a widget took
  * it, or a nested frame did, which is how the nearest frame wins), an input method composes or the
- * target is a text field; it then prevents the key.
+ * target is a text field; it then prevents the key. A key that is not `keys.open`'s is left alone.
  */
 export const keyDownOf =
-  (open: (from: HTMLElement | null) => void) =>
+  (open: (from: HTMLElement | null) => void, keysOpen: KeyEntry = KEYS_OPEN_ENTRY) =>
   (event: ReactKeyEvent<HTMLElement>): void => {
-    if (event.defaultPrevented || !opensKeysPanel(keyPressOf(event as KeyEventFields))) return;
+    if (event.defaultPrevented || !opensKeysPanel(keyPressOf(event as KeyEventFields), keysOpen)) {
+      return;
+    }
     event.preventDefault();
     open(isFocusable(event.target) ? event.target : null);
   };

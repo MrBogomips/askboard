@@ -325,3 +325,27 @@ describe("the panel shows the user's changes", () => {
     for (const name of ["__proto__", "toString", "constructor"]) expect(html).toContain(name);
   });
 });
+
+describe("the keys panel's own key in effect (task 10.6)", () => {
+  test("the panel lists keys.open with its new keys, marked", () => {
+    const html = panelOf({ "keys.open": ["Mod+Alt+Enter"] }, true);
+    expect(html).toContain("Ctrl+Alt+Enter");
+    expect(html).toContain("Show the keys");
+    expect(html).toContain("customised");
+  });
+
+  test("given no key it is listed with no key, and the Keys button is still drawn, with no attribute", () => {
+    expect(panelOf({ "keys.open": [] }, true)).toContain("no key");
+    const html = drawWith({ "keys.open": [] }, "keys-with-hint");
+    expect(html).toContain(">Keys</button>");
+    const button = /<button[^>]*aria-haspopup="dialog"[^>]*>/.exec(html)?.[0] ?? "";
+    expect(button).not.toContain("aria-keyshortcuts");
+  });
+
+  test("the Keys button of every frame on the board shows the same keys", () => {
+    const html =
+      drawWith({ "keys.open": ["Mod+Alt+Enter"] }, "keys-with-hint") +
+      drawWith({ "keys.open": ["Mod+Alt+Enter"] }, "keys-with-table");
+    expect(html.match(/aria-keyshortcuts="Control\+Alt\+Enter Meta\+Alt\+Enter"/g)).toHaveLength(2);
+  });
+});

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { keysOpenEntryOf } from "../catalog/keys/effective.ts";
 import {
   controlOf,
   type FrameElements,
@@ -173,5 +174,85 @@ describe("stopKey and restoreFocus", () => {
   test("a Measurable is anything that has a rectangle", () => {
     const measurable: Measurable = { getBoundingClientRect: () => ({}) as DOMRect };
     expect(typeof measurable.getBoundingClientRect).toBe("function");
+  });
+});
+
+// The panel's own key in effect (keyboard-shortcuts-help, task 10.6; spec: The keys panel's own key,
+// No key for the keys panel): the frame reads `keys.open` with the user's overrides applied.
+describe("keyDownOf with the keys of keys.open in effect", () => {
+  const bound = keysOpenEntryOf({ "keys.open": ["Mod+Alt+Enter"] });
+  const removed = keysOpenEntryOf({ "keys.open": [] });
+  const press = (event: ReturnType<typeof keyEvent>, entry: typeof bound) => {
+    const opened: (HTMLElement | null)[] = [];
+    keyDownOf((from) => opened.push(from), entry)(event as never);
+    return opened;
+  };
+
+  test("given Mod+Alt+Enter, Ctrl+Alt+Enter and Cmd+Alt+Enter open the panel and prevent the key", () => {
+    for (const fields of [
+      { ctrlKey: true, altKey: true },
+      { metaKey: true, altKey: true },
+    ]) {
+      const event = keyEvent("Enter", fields);
+      expect(press(event, bound)).toEqual([event.target]);
+      expect(event.defaultPrevented).toBe(true);
+    }
+  });
+
+  test("given Mod+Alt+Enter, `?` opens nothing and its default is kept", () => {
+    const event = keyEvent("?");
+    expect(press(event, bound)).toEqual([]);
+    expect(event.defaultPrevented).toBe(false);
+  });
+
+  test("given no key, none opens the panel, `?` keeps its default, and the rebound key is not taken", () => {
+    for (const event of [
+      keyEvent("?"),
+      keyEvent("?", { shiftKey: true }),
+      keyEvent("Enter", { ctrlKey: true, altKey: true }),
+    ]) {
+      expect(press(event, removed)).toEqual([]);
+      expect(event.defaultPrevented).toBe(false);
+    }
+  });
+
+  test("the text-field, composing and already-prevented rules hold for a rebound key", () => {
+    const hold = { ctrlKey: true, altKey: true };
+    expect(press(keyEvent("Enter", { ...hold, target: { tagName: "TEXTAREA" } }), bound)).toEqual(
+      [],
+    );
+    expect(
+      press(keyEvent("Enter", { ...hold, nativeEvent: { isComposing: true } }), bound),
+    ).toEqual([]);
+    expect(press(keyEvent("Enter", { ...hold, keyCode: 229 }), bound)).toEqual([]);
+    expect(press(keyEvent("Enter", { ...hold, defaultPrevented: true }), bound)).toEqual([]);
+  });
+
+  test("another modifier on the rebound key opens nothing", () => {
+    expect(press(keyEvent("Enter", { ctrlKey: true }), bound)).toEqual([]);
+    expect(press(keyEvent("Enter", { altKey: true, shiftKey: true }), bound)).toEqual([]);
+    expect(
+      press(keyEvent("Enter", { ctrlKey: true, altKey: true, shiftKey: true }), bound),
+    ).toEqual([]);
+  });
+
+  test("a panel a rebound key opened closes under the close rule: Escape gives the focus back, a click elsewhere leaves it", () => {
+    const row = spot("row");
+    for (const [reason, focused] of [
+      ["escape", 1],
+      ["close", 1],
+      ["outside", 0],
+    ] as const) {
+      const elements = frame();
+      keyDownOf(
+        openFrom(elements, () => {}),
+        bound,
+      )(keyEvent("Enter", { ctrlKey: true, altKey: true, target: row }) as never);
+      expect(elements.opener.current as unknown).toBe(row);
+      row.focused = 0;
+      noteClose(elements, reason)();
+      restoreFocus(elements)({ preventDefault: () => {} });
+      expect(row.focused).toBe(focused);
+    }
   });
 });

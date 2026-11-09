@@ -11,7 +11,7 @@ import { Popover } from "radix-ui";
 import { type ReactNode, type RefObject, useMemo, useRef, useState } from "react";
 import type { KeyInEffect } from "../catalog/keys/effective.ts";
 import { KeysPanelContext } from "../catalog/keys/key-help.tsx";
-import { KeyTableContext } from "../catalog/keys/key-table.tsx";
+import { KeyTableContext, useKeysOpenEntry } from "../catalog/keys/key-table.tsx";
 import type { StringKey } from "../catalog/port.ts";
 import { useStrings } from "../catalog/port.ts";
 import {
@@ -60,7 +60,9 @@ export const KeysFrame = ({
   }).current;
   const opening = useMemo(() => openFrom(elements, setOpen), [elements]);
   const control = useMemo(() => controlOf(elements, opening), [elements, opening]);
-  const onKeyDown = useMemo(() => keyDownOf(opening), [opening]);
+  // `keys.open` in effect: the same in every frame, `?` unless the user's file gives the panel others.
+  const keysOpen = useKeysOpenEntry();
+  const onKeyDown = useMemo(() => keyDownOf(opening, keysOpen), [opening, keysOpen]);
   const title =
     name === undefined ? text("keys.button") : text("keys.panel.title", { widget: text(name) });
   return (
