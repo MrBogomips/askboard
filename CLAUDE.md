@@ -63,6 +63,7 @@ What each change built is in `docs/as-built/`, one file per OpenSpec change name
 | `openspec/changes/archive/` | Completed changes | Archive | committed |
 | `docs/` | Design documents: PRD, architecture, UX. Owned by this repository since 2026-10-27 (UX since 2026-10-28), transferred from the planning repository, which removed its copies on 2026-10-28 | Authoritative | committed |
 | `docs/as-built/` | One note per OpenSpec change, `<change-id>.md`, written in the change's own branch by its documents task: what it built, where the code lives, the names and seams it added, the versions it bound. No status (merged, awaiting, dates): that is in git, the pull requests and the Issues. A later change that makes a sentence of an earlier note wrong corrects that sentence and says so in its own note | Record; never overrides `openspec/specs/` or the code | committed |
+| `ROADMAP.md` | The summary roadmap: what is done and what is left for 1.0.0, linked to the Issues; updated at each release, never by a change, so parallel changes do not conflict on it | Summary; never overrides the Issues, `openspec/` or the PRD | committed |
 | `drafts/` | Working documents that later sessions need, such as spike research awaiting a decision before it becomes an OpenSpec change | Draft; never overrides `docs/` or `openspec/` | committed |
 | GitHub Issues (MrBogomips/askboard) | The backlog: requests, defects, PO questions | Authoritative | remote |
 | `issue-assets` branch | Images the Issues show (screenshots), uploaded through the Contents API and linked from the Issues; never merged into `main` | Evidence | remote only |
@@ -78,7 +79,7 @@ What each change built is in `docs/as-built/`, one file per OpenSpec change name
 | `dist/` | Build output of `bun run build`: `askboard.mjs` (the session process) and `view/` (the board page, the chunks and their manifest), which the plugin and the end-to-end tests run | Generated | gitignored |
 
 - OpenSpec conventions prevail: create, change and archive its artifacts only through its workflow.
-- Recorded on: 2026-10-27; `drafts/`, `packages/` and `tools/` added on 2026-10-29; `tools/build/` and `dist/` on 2026-10-31; `hooks/` on 2026-11-01; `scripts/` and the `release` branch on 2026-11-07; the agent harness on 2026-11-06; `skills/` on 2026-11-07; GitHub Issues as the backlog and the `issue-assets` branch on 2026-11-08; `docs/as-built/` on 2026-11-08, replacing the Status and "In code since" paragraphs of this file.
+- Recorded on: 2026-10-27; `drafts/`, `packages/` and `tools/` added on 2026-10-29; `tools/build/` and `dist/` on 2026-10-31; `hooks/` on 2026-11-01; `scripts/` and the `release` branch on 2026-11-07; the agent harness on 2026-11-06; `skills/` on 2026-11-07; GitHub Issues as the backlog and the `issue-assets` branch on 2026-11-08; `docs/as-built/` on 2026-11-08, replacing the Status and "In code since" paragraphs of this file; `ROADMAP.md` on 2026-11-09.
 
 ## OpenSpec workflow and commands
 
@@ -138,7 +139,7 @@ node tools/release/smoke.ts <tree> --tools <file>    # the tree on plain Node (t
 bun tools/release/package.ts --tree <tree> --out <dir> # notes.md, askboard-<version>.mjs and .zip, SHA256SUMS
 ```
 
-- A release is the manual workflow `.github/workflows/release.yml`, dispatched on `main`: preflight (versions agree, tag `v<version>` free, a `## <version>` section in `CHANGELOG.md`, Claude Code's `stable` at or above `CLAUDE_CODE_MINIMUM`), the check, the build, the assembly, the smoke on macOS and on Linux, then `publish` (the only job with write access) commits the tree to `release`, tags it and creates the GitHub release. To release: `bun tools/release/version.ts <x.y.z>`, a CHANGELOG section naming only what has merged, merge, dispatch.
+- A release is the manual workflow `.github/workflows/release.yml`, dispatched on `main`: preflight (versions agree, tag `v<version>` free, a `## <version>` section in `CHANGELOG.md`, Claude Code's `stable` at or above `CLAUDE_CODE_MINIMUM`), the check, the build, the assembly, the smoke on macOS and on Linux, then `publish` (the only job with write access) commits the tree to `release`, tags it and creates the GitHub release. To release: `bun tools/release/version.ts <x.y.z>`, a CHANGELOG section naming only what has merged, `ROADMAP.md` brought up to the release, merge, dispatch.
 
 - `test:e2e` needs Playwright's engines: `node_modules/.bin/playwright install chromium firefox webkit`. The same suites on Node 24, as CI runs them: `bun packages/server/test/conformance/run.ts --runtime node` and `bun packages/view/test/browser/run.ts --no-build --target session-process --runtime node --engines chromium`. The browser runner also takes `--engines a,b`, `--serial` and `-- <bun test arguments>` after another option, since Bun drops a leading `--`.
 - The mod build bundles `packages/mod/src/index.ts` with standalone validators in place of `src/validators.ts`, and fails on an `import`, `require` or `import.meta` in its output, which the mod environment cannot load; it exports `register(on)` alone.
