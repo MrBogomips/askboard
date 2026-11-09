@@ -10,11 +10,14 @@ import { describe, expect, test } from "bun:test";
 import type { Frame } from "playwright";
 import { BAR_PROPS, chartDocument } from "./fixtures/chart-documents.ts";
 import { reviewDocument } from "./fixtures/document-review-documents.ts";
+import { focusedBox, keysTo } from "./fixtures/gantt-input.ts";
+import { barDates, ganttOf, panelFacts, panelOf } from "./fixtures/gantt-view.ts";
 import { kanbanDocument } from "./fixtures/kanban-documents.ts";
 import { rankingDocument } from "./fixtures/ranking-documents.ts";
 import { plan } from "./fixtures/tree-documents.ts";
 import { eventually, isFocused, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
 import { enginesFrom } from "./harness/engines.ts";
+import { openerFor } from "./harness/gantt-steps.ts";
 import { cardOf } from "./harness/kanban-drag.ts";
 import { tool as reviewTool } from "./harness/review-steps.ts";
 import { tabIntoGroup } from "./harness/tab-stops.ts";
@@ -55,6 +58,7 @@ const press = async (run: WidgetHostRun, frame: Frame, combo: string): Promise<L
 for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
   describe(`${engine}: keys left to the browser`, () => {
     const { host } = useWidgetHost(engine);
+    const opened = openerFor(host, dist);
 
     test(
       "Alt with an arrow on a Kanban card changes nothing and is not prevented; the arrow alone moves the current card and is",
@@ -148,6 +152,36 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         }
         expect((await press(run, frame, "ArrowRight")).prevented).toBe(true);
         await eventually(() => isFocused(suggest), "focus on Suggest edit");
+        expect(run.browser.violations).toEqual([]);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "Delete and Backspace in the Gantt's predecessors panel change nothing, are prevented, and leave the page and the focus where they were",
+      async () => {
+        const run = await opened();
+        const { board } = run;
+        const gantt = ganttOf(board);
+        const panel = panelOf(gantt, "billing");
+        const frame = await listen(run);
+        await keysTo(board, "billing", "dependencies");
+        await board.page.keyboard.press("Enter");
+        await panel.waitFor();
+        const boxes = await panelFacts(panel);
+        const dates = await barDates(gantt);
+        const url = board.page.url();
+        expect(await focusedBox(board)).toBe("UX design");
+        for (const key of ["Delete", "Backspace"]) {
+          expect(await press(run, frame, key)).toMatchObject({ key, alt: false, prevented: true });
+          expect(await panelFacts(panel)).toEqual(boxes);
+          expect(await barDates(gantt)).toEqual(dates);
+          expect(await focusedBox(board)).toBe("UX design");
+          expect(board.page.url()).toBe(url);
+          // The log lives in the view's document: a navigation would have dropped it.
+          expect((await logged(frame)).map((entry) => entry.key)).toContain(key);
+        }
+        expect(await panel.count()).toBe(1);
         expect(run.browser.violations).toEqual([]);
       },
       TEST_TIMEOUT_MS,
