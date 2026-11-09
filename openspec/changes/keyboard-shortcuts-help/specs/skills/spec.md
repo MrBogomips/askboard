@@ -81,7 +81,7 @@ The benchmark report SHALL list the skills each arm's sessions started with and 
 - **THEN** it holds the molecule's help text and names the widget types it expands into, without a link
 
 ### Requirement: Keys from the key tables
-For each widget type with a key table, `askboard`'s widget reference and `askboard-help`'s SHALL list its keys from the table, each action by its English board string and each key as on Linux, with the macOS form beside it, so that a table changed without regenerating fails the skill check (NFR-12, AD-6).
+For each widget type with a key table, `askboard`'s widget reference and `askboard-help`'s SHALL list its default keys from the table, each action by its English board string and each key as on Linux, with the macOS form beside it, and SHALL say that the board's keys panel shows the keys in effect, so that a table changed without regenerating fails the skill check (NFR-12, AD-6).
 
 #### Scenario: The Ranking's keys
 - **WHEN** the generator runs on the shipped registry
@@ -97,3 +97,21 @@ For each widget type with a key table, `askboard`'s widget reference and `askboa
 #### Scenario: A usage question
 - **WHEN** `askboard`'s `SKILL.md` is read
 - **THEN** it names `askboard-help` for questions on using the board
+
+### Requirement: The help skill teaches the key configuration
+`askboard-help` SHALL explain where the user's key overrides go, how they are written, the rules they meet, what a refused file does, that a project file's overrides are ignored, and where and when they apply. It SHALL list every action an override may name with its default keys, generated from the key tables, and each of its examples SHALL pass the key-override check (NFR-12, FR-29, AD-14).
+
+#### Scenario: Every action
+- **WHEN** the generator runs on the shipped registry
+- **THEN** `askboard-help` lists every vocabulary action and every own action a key table binds, each with its default keys in the Linux and the macOS form
+
+#### Scenario: Examples the check accepts
+- **WHEN** the generator runs with an example of overrides that the key-override check refuses
+- **THEN** it fails naming the example and the problem
+
+### Requirement: The help skill writes only the user file
+`askboard-help` SHALL tell the agent to write key overrides into the user file only when the user asks, keeping the file's other keys, and never into the project file (AD-14, NFR-5).
+
+#### Scenario: The user file, on the user's request
+- **WHEN** `askboard-help`'s `SKILL.md` is read
+- **THEN** it tells the agent to write key overrides only into the user file, only when the user asks, keeping the file's other keys, and never into the project file

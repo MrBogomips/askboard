@@ -1,12 +1,12 @@
 # Proposal
 
-Input: the PO's change request `drafts/proposta-scorciatoie-tastiera-1.1.0.md` (Italian; sections 3 to 8 and 12 decided by the PO), which supersedes `drafts/proposta-scorciatoie-tastiera-1.0.0.md`. Corrections to its inventory (section 3) are in design.md, "Review of the existing widgets".
+Input: the PO's change request `drafts/proposta-scorciatoie-tastiera-1.1.0.md` (Italian; sections 3 to 8 and 12 decided by the PO), which supersedes `drafts/proposta-scorciatoie-tastiera-1.0.0.md`. Corrections to its inventory (section 3) are in design.md, "Review of the existing widgets". Second input, 2026-11-09: `drafts/proposta-scorciatoie-configurabili-1.1.0.md` (Italian; its section 10 holds the PO's decisions D1 to D5 and wins over the rest of it), summarised in the last comment on Issue #81.
 
 ## Why
 
 Issue: #81
 
-In the PO's end-to-end test on `main` 433b4d29 (test 2.4, the Ranking) the PO had to ask which keys to press: most widgets have keys, but the board never says which, and the list widgets lack the moves users expect (select a row or a range, move it up, down, to the top or the bottom). NFR-12's keyboard core is met in code and invisible on the board.
+In the PO's end-to-end test on `main` 433b4d29 (test 2.4, the Ranking) the PO had to ask which keys to press: most widgets have keys, but the board never says which, and the list widgets lack the moves users expect (select a row or a range, move it up, down, to the top or the bottom). NFR-12's keyboard core is met in code and invisible on the board. Task 0.5 probed the vocabulary in the page only: on a real Mac or Linux desktop the system may take some keys first (Mission Control, a layout switch on Alt+Shift), and users bring other habits, so the PO wants each user able to change them.
 
 ## What Changes
 
@@ -20,7 +20,8 @@ This change is the foundation and the pilot. The retrofit of the other widgets f
 - **The Ranking, to the full standard** (PO, sections 4 and 4.1): selection by Space, Shift+↑/↓, a click on a row's check box and Shift+click; moves of the selection, or of the current row, up, down, to the top and to the bottom, by key and by the new "To top" and "To bottom" tools; "Select none", also by Escape; "Keep this order", also by Enter on the list; the "More" menu when the toolbar is crowded.
 - **`askboard-help`** (PO, section 7): a second plugin skill, `askboard:askboard-help`, generated like `askboard` and covered by its drift check. It answers the user's questions on using the board in the terminal, in the user's language, and never calls AskBoard's tools. `askboard` points to it. Each widget type gains user-facing help text (mouse and answer) beside its teaching text. The `askboard` reference of each type with a key table gains a Keys section.
 - **The keyboard step in the harness** (PO, section 8): `openspec/config.yaml` (`rules.design`, `rules.tasks`), the architect, the implementation skill, the review protocol, the spec reviewer and CLAUDE.md's Agent harness history. The change's record goes in `docs/as-built/keyboard-shortcuts-help.md`.
-- **No version moves**: no schema set changes (design.md, decision 12).
+- **The user's own keys** (PO, 2026-11-09, decisions D1 to D5 below): in the user configuration file only, key `keys`, the user replaces or removes the keys of an action, of the vocabulary or a type's own, in every widget that has it (`{"move.top": ["Mod+Alt+ArrowUp"], "select.all": []}`; `Mod` is Cmd on macOS and Ctrl elsewhere; Mod+Alt is admitted there only). The result is checked as the tables are (the allowed holds, no browser or system key, no two actions of one part on one key, no exit left without a key); any problem keeps every default key and shows in the settings panel and on stderr. A project file's `keys` is ignored with a warning (NFR-5, AD-8), and the ask carries none. No board editor, key capture or presets: `askboard-help` explains the file and helps write it. Tooltips, `aria-keyshortcuts` and the keys panel show the keys in effect.
+- **Two versions move**: the configuration (`keys`) and the board protocol (the `settings` message's `keys` row and warnings), each the next minor after main's, bound at the rebase (design.md, decision 12, amended by D1).
 
 ## Capabilities
 
@@ -30,19 +31,21 @@ None.
 
 ### Modified Capabilities
 
-- `view-and-widgets`: the key vocabulary and the approved keys outside it, keys left to the browser, discoverable shortcuts, the keys panel, key labels by platform; the Ranking's selection, moves and keyboard.
-- `contract`: key tables in the registry and their check; the types without a table; help text of a widget type.
-- `skills`: two shipped skills, both generated; the help skill and its references one level deep; Keys sections from the key tables; budgets; the benchmark's expected skills.
+- `view-and-widgets`: the key vocabulary and the approved keys outside it, keys left to the browser, discoverable shortcuts, the keys panel, key labels by platform; the Ranking's selection, moves and keyboard; the user's keys on the board; the settings panel's Keys row.
+- `contract`: key tables in the registry and their check; the types without a table; help text of a widget type; the key-override notation, the effective table and the overrides check; the configuration's `keys`; the `settings` message's `keys` row and warnings.
+- `core`: `keys` read from the user file only, checked, never half-applied, and read again when a board opens.
+- `board-host`: `settings` carries the `keys` row; a board never writes `keys`.
+- `skills`: two shipped skills, both generated; the help skill and its references one level deep; Keys sections from the key tables; the help skill's key configuration; budgets; the benchmark's expected skills.
 - `packaging`: the plugin and the release tree carry both skill folders.
 
 ## Impact
 
-- Code: `packages/contract` (`src/keys/`, the registry entries' `keys` and `help`, `registry-check.ts`), `packages/widgets` (`ranking/`, `kanban/keys.ts`, `timeline/keys.ts`, `chart/`, `document-review/frame-handlers.ts`, `shared/toolbar-focus.ts`, `shared/move-toolbar.tsx`, `tree/use-crowded.ts` and `tree/select-box.tsx` moved to `shared/`, parity tests of today's tables), `packages/view` (`catalog/port.ts` and `catalog/keys/`, `catalog/fields/roving.ts`, `catalog/choice/multiple-choice.tsx`, `shell/renderer.tsx`'s item frame, `strings/`, a `./strings` package export), `packages/molecules` (`skill.json` help), `packages/bench` (`report.ts`), `tools/build/skills/` and `tools/build/skills.ts`, `tools/build/shared-modules.ts` (Radix Tooltip), `tools/release/assemble.ts`, `skills/askboard/` and `skills/askboard-help/` (generated), `packages/view/chunk-sizes.json`.
+- Code: `packages/contract` (`src/keys/`, the registry entries' `keys` and `help`, `registry-check.ts`, `schemas/configuration/`, `schemas/board-protocol/settings.json`), `packages/core` (`src/config/`), `packages/server` (board-host tests), `packages/widgets` (`ranking/`, `kanban/keys.ts`, `timeline/keys.ts`, `chart/`, `document-review/frame-handlers.ts`, `shared/toolbar-focus.ts`, `shared/move-toolbar.tsx`, `tree/use-crowded.ts` and `tree/select-box.tsx` moved to `shared/`, parity tests of today's tables), `packages/view` (`catalog/port.ts` and `catalog/keys/`, `catalog/fields/roving.ts`, `catalog/choice/multiple-choice.tsx`, `shell/renderer.tsx`'s item frame, `view-protocol.ts`, `board-page/` (the keys passed on, the settings panel's Keys row), `strings/`, a `./strings` package export), `packages/molecules` (`skill.json` help), `packages/bench` (`report.ts`), `tools/build/skills/` and `tools/build/skills.ts`, `tools/build/shared-modules.ts` (Radix Tooltip), `tools/release/assemble.ts`, `skills/askboard/` and `skills/askboard-help/` (generated), `packages/view/chunk-sizes.json`.
 - Harness: `openspec/config.yaml`, `.claude/agents/askboard-architect.md`, `.claude/agents/askboard-spec-reviewer.md`, `.claude/skills/askboard-implementation/SKILL.md`, `.claude/skills/askboard-review-protocol/SKILL.md`, `CLAUDE.md` (the Agent harness history row and the `skills/` row). Never `.claude/skills/openspec-*` or `.claude/commands/opsx/`.
-- Documents: PRD FR-29 (one consequence) and NFR-12 (one sentence), amended in place; EXPERIENCE (Accessibility Floor, Widgets: Ranking) and DESIGN (tooltip, key caps, keys panel, the Ranking's selection and tools); the as-built note `docs/as-built/keyboard-shortcuts-help.md`. No spine change.
+- Documents: PRD FR-29 (one consequence), FR-35 (one consequence) and NFR-12 (one sentence), amended in place; the spine's AD-14, amended in place (`keys` from the user file only, read again when a board opens, never written by a board); EXPERIENCE (Accessibility Floor, Widgets: Ranking, Preferences and Settings) and DESIGN (tooltip, key caps, keys panel, the Ranking's selection and tools, the settings panel's Keys row); the as-built note `docs/as-built/keyboard-shortcuts-help.md`.
 - Dependencies: none new; Radix Tooltip comes from the pinned `radix-ui` and joins the `radix` library chunk.
-- Merge points: `kanban-order` (Issue #79, in flight), `image-annotation`, `graph-widget`, `diff-review`, `diagram-widget`, `spreadsheet-widget`, `early-benchmark`, and the undo of Issue #80, not yet proposed (design.md, Merge points).
-- IDs served: FR-11, FR-29, FR-34; NFR-1, NFR-5, NFR-11, NFR-12; SM-1; R5. ADs: AD-1, AD-6, AD-8, AD-9, AD-17, AD-18, AD-19. UX: EXPERIENCE Accessibility Floor (Keyboard core, Shortcuts, Tab order, Focus), Interaction Primitives (Hover and focus feedback, Drag), Component Patterns (Widget frame; Widgets: Ranking), Localization; DESIGN Components (Agent-written labels' tooltip, Ranking).
+- Merge points: `kanban-order` (Issue #79, in flight), `image-annotation`, `graph-widget`, `diff-review`, `diagram-widget` (it also widens the board protocol), `spreadsheet-widget`, `early-benchmark`, `codex-porting` (PR #139, the harness files), and the undo of Issue #80, not yet proposed (design.md, Merge points).
+- IDs served: FR-11, FR-29, FR-34, FR-35; NFR-1, NFR-5, NFR-10, NFR-11, NFR-12; SM-1; R5. ADs: AD-1, AD-6, AD-7, AD-8, AD-9, AD-14, AD-17, AD-18, AD-19. UX: EXPERIENCE Accessibility Floor (Keyboard core, Shortcuts, Tab order, Focus), Interaction Primitives (Hover and focus feedback, Drag), Component Patterns (Widget frame; Widgets: Ranking), Preferences and Settings, Localization; DESIGN Components (Agent-written labels' tooltip, Ranking, Settings panel).
 
 ## Open questions for the PO
 
@@ -95,3 +98,13 @@ Each carried a proposed default. The PO answered all eleven on 2026-11-09, in th
 11. **The split** (section 9). *Default*: this change, then `keyboard-retrofit-lists` (Tree, Kanban, Timeline) and `keyboard-retrofit-grids` (Gantt and its molecules, Chart, LaTeX, Table, the DateField's calendar, Choice and PickField after `choice-documented-activation`), each proposed once this one merges, the two in parallel. *Alternative*: one retrofit change in groups.
 
     Answer (2026-11-09): the proposed default, accepted by the PO. Since the proposal, `choice-documented-activation` (#87), the Table (#68) and the Document review (#115) have merged: the PickField's help text comes here, and the grids retrofit takes the Table's and the Document review's key tables (design.md, decision 14).
+
+## Decisions on user-configurable keys
+
+The PO's request of 2026-11-09 (Issue #81, last comment; `drafts/proposta-scorciatoie-configurabili-1.1.0.md`, section 10). Each was a question with a proposed default; task 0.6 recorded the decisions.
+
+- **D1, the plan.** Decision (2026-11-09): everything in this change, as further groups (8 to 10, and additions to groups 0 and 4 to 7); design decision 12 is amended, since two versions move. The draft's default had been a seam here and a later change.
+- **D2, Mod+Alt.** Decision (2026-11-09): admitted, Ctrl+Alt on macOS included, in the user's overrides only, never in the registry's tables (design decision 17).
+- **D3, the board.** Decision (2026-11-09): the file only. No Keys section in Settings, no key capture, no board write path; `askboard-help` explains the format, lists the actions with their default keys and helps the user write `keys` in the user file; the keys panel, the tooltips and `aria-keyshortcuts` show the keys in effect (decisions 19 and 20). The draft's default had been the file and a Settings section together.
+- **D4, presets.** Decision (2026-11-09): none; to be weighed after the live checks on macOS and Linux (task 7.5).
+- **D5, the scope.** Decision (2026-11-09): vocabulary actions and a type's own actions, under the same rules (decision 18).

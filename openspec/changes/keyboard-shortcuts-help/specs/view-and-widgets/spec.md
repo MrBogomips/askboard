@@ -50,7 +50,7 @@ A widget MAY take, beside its table's keys, a key its change's design names as t
 
 #### Scenario: Delete in the Gantt's predecessors panel
 - **WHEN** the Gantt's predecessors panel has the focus and the user presses Delete, then Backspace
-- **THEN** nothing in the panel or the plan changes, neither key's default action is performed, and the Gantt's key table lists neither key
+- **THEN** nothing in the panel or the plan changes, neither key's default action is performed, and the Gantt's key table binds neither key in the predecessors panel
 
 ### Requirement: Key tables match the handlers
 The keys a widget's handler takes SHALL be those of its key table: for each part of the widget, a key the table binds SHALL do its action and a key it does not bind SHALL do nothing, so that the tooltips, the keys panel and the skills describe what the board does (NFR-12).
@@ -60,7 +60,7 @@ The keys a widget's handler takes SHALL be those of its key table: for each part
 - **THEN** the table's keys move the current card as their entries say and the others do nothing
 
 ### Requirement: Keyboard shortcuts are discoverable
-In a widget with a key table, each control whose action has keys SHALL show on hover and on keyboard focus a tooltip with the action's name and its keys, and SHALL carry them in `aria-keyshortcuts`; the widget SHALL show a Keys button. The keys the tooltips show, `aria-keyshortcuts` announces and the keys panel lists SHALL be those of the widget's key table, which its key handler takes (NFR-12).
+In a widget with a key table, each control whose action has keys SHALL show on hover and on keyboard focus a tooltip with the action's name and its keys, and SHALL carry them in `aria-keyshortcuts`; the widget SHALL show a Keys button. The keys the tooltips show, `aria-keyshortcuts` announces and the keys panel lists SHALL be those in effect for the widget, which its key handler takes (NFR-12).
 
 #### Scenario: A tooltip on focus
 - **WHEN** the user tabs to a Ranking's toolbar and moves to "Move up" with the arrow keys
@@ -75,7 +75,7 @@ In a widget with a key table, each control whose action has keys SHALL show on h
 - **THEN** each tool has an entry, and each entry other than a cursor move or the panel's has a tool, a check box or a click that does the same
 
 ### Requirement: The keys panel
-The Keys button, and `?` pressed while the focus is in the widget but not in a text field or an editor, SHALL open a panel listing the widget's keys by group, each with its action's name, from board strings only. A read-only widget's panel SHALL list only the keys that still act. Escape SHALL close it and return the focus where it was. In a text field `?` SHALL type a question mark (NFR-12, AD-8).
+The Keys button, and `?`, or the keys the user's file gives that action instead, pressed while the focus is in the widget but not in a text field or an editor, SHALL open a panel listing the widget's keys in effect by group, each with its action's name, from board strings only. A read-only widget's panel SHALL list only the keys that still act. Escape SHALL close it and return the focus where it was. In a text field `?` SHALL type a question mark (NFR-12, AD-8).
 
 #### Scenario: Opening with the question mark
 - **WHEN** the focus is on a Ranking's row and the user presses `?`, then Escape
@@ -142,6 +142,28 @@ The user SHALL select a Ranking's rows with a check box in a leading column, out
 - **WHEN** no row is selected, the third row is current, and the user presses Alt+Shift+End
 - **THEN** that row is last and still current
 
+### Requirement: The user's keys on the board
+A widget with a Keys button SHALL take the keys in effect: its key table with the user's key overrides applied, or its default keys when the user file sets none or they were not applied. A key the overrides took away SHALL be left to the browser. A Snapshot SHALL use the default keys, and nothing on the board SHALL change the user's keys (NFR-12, AD-14).
+
+#### Scenario: The user's keys on a Ranking
+- **WHEN** the user file gives to the top `Mod+Alt+ArrowUp` and select none no key, and on Linux the user makes the third row current, presses Alt+Shift+Home, then Ctrl+Alt+ArrowUp, then selects two rows and presses Escape
+- **THEN** Alt+Shift+Home moves nothing and its default is not prevented, Ctrl+Alt+ArrowUp moves the row to the top, Escape leaves both rows selected, and "To top"'s tooltip shows Ctrl+Alt+↑ and its `aria-keyshortcuts` is `Control+Alt+ArrowUp Meta+Alt+ArrowUp`
+
+#### Scenario: Keys not applied
+- **WHEN** the user file gives to the top `Alt+Shift+ArrowUp`
+- **THEN** the Ranking takes its default keys, and the settings panel's Keys row shows a problem naming to the top, the combination and move up
+
+### Requirement: The keys panel shows the user's changes
+The keys panel SHALL mark each action whose keys the user's file changed, and list an action whose keys it removed as having no key (NFR-12).
+
+#### Scenario: Changed and removed keys
+- **WHEN** the user file gives to the top `Mod+Alt+ArrowUp` and select none no key, and the user opens a Ranking's keys panel
+- **THEN** "To top" is marked as changed with its new keys, and "Select none" is listed with no key
+
+#### Scenario: The keys panel's own key
+- **WHEN** the user file gives the keys panel `Mod+Alt+Enter`, and the focus is on a Ranking's row
+- **THEN** Ctrl+Alt+Enter on Linux, or Cmd+Option+Enter on macOS, opens the panel, and `?` opens nothing
+
 ## MODIFIED Requirements
 
 ### Requirement: Ranking at the keyboard
@@ -166,3 +188,26 @@ A Ranking's list SHALL be one Tab stop whose ArrowUp, ArrowDown, Home and End mo
 #### Scenario: A crowded toolbar
 - **WHEN** the Ranking's frame is too narrow for all its tools
 - **THEN** "To top", "To bottom" and "Select none" are in a "More" menu, and the Keys button stays the toolbar's last stop
+
+### Requirement: The settings panel
+Every board SHALL open a settings panel from "Settings" in the context header: a non-modal side sheet on the board page, closed with Esc or its close control, holding the presentation keys as controls and, after them, the user's key overrides read-only with their file, key and problems and a note that they apply to the next board opened, the ask's language read-only, and each behaviour key read-only with its value, file and key (FR-35, AD-14; EXPERIENCE, Preferences and Settings; DESIGN, Settings panel).
+
+#### Scenario: The panel's three groups
+- **WHEN** the user presses "Settings"
+- **THEN** the panel shows Theme, Density and Context placement as segmented controls and Keys read-only, then the Language indicator, then default language, asking rules, Snapshot folder and editor under "Applies from the next session"
+
+#### Scenario: The board stays usable
+- **WHEN** the panel is open and the user answers a question
+- **THEN** the answer is sent, and the panel stays open
+
+#### Scenario: From the keyboard
+- **WHEN** the user opens the panel with the keyboard, moves through a segmented control with the arrow keys and presses Esc
+- **THEN** the setting changes, the panel closes, and focus returns to "Settings"
+
+#### Scenario: The user's keys
+- **WHEN** the user file changes the keys of two actions
+- **THEN** the Keys row reads that two actions are changed, names the user file and the key `keys`, and offers no control to change them
+
+#### Scenario: Keys in the project file
+- **WHEN** the project file sets `keys`
+- **THEN** the Keys row shows a warning that the project's keys are ignored, and the keys in effect come from the user file or are the defaults

@@ -70,3 +70,88 @@ A widget type's registry entry MAY carry help text for the user: how the widget 
 #### Scenario: Help text too long
 - **WHEN** the registry check runs on an entry whose mouse help has 301 characters
 - **THEN** it reports a problem naming the type
+
+### Requirement: The key-override notation
+The contract SHALL read a key combination written as `Mod`, `Alt` and `Shift`, each at most once, joined by `+` to a key name, `Mod` standing for Cmd or Ctrl. `Mod` with `Alt` SHALL be admitted in the user's overrides only, on ArrowUp, ArrowDown, Home, End and Enter, and the registry check SHALL refuse it in a key table (NFR-12).
+
+#### Scenario: Mod with Alt in a table
+- **WHEN** the registry check runs on an entry whose table binds `Mod+Alt+ArrowUp`
+- **THEN** it reports a problem naming the type and the key
+
+#### Scenario: A modifier the notation lacks
+- **WHEN** the combination `Ctrl+Alt+ArrowUp` is read
+- **THEN** it is refused, naming `Ctrl`
+
+### Requirement: User key overrides and their check
+The contract SHALL check the user's overrides against every registered key table once applied: each action known and not taken by a Radix or browser control, each combination admitted by the tables or the notation, no two actions of one part on one key, and no exit left without a key. Each problem SHALL name the action and the combination, and a conflict both actions (NFR-12, NFR-10).
+
+#### Scenario: The PO's example
+- **WHEN** the overrides give to the top `Mod+Alt+ArrowUp`, to the bottom `Mod+Alt+ArrowDown`, and select all no key
+- **THEN** the check reports no problem
+
+#### Scenario: Two actions on one key
+- **WHEN** the overrides give to the top `Alt+Shift+ArrowUp`
+- **THEN** the check reports a conflict naming to the top, the combination and move up
+
+#### Scenario: A key the browser needs
+- **WHEN** the overrides give the keys panel `F1`, or undo `Mod+w`
+- **THEN** the check reports a problem naming the action and the combination
+
+#### Scenario: An exit without a key
+- **WHEN** the overrides give cancel an edit no key
+- **THEN** the check reports a problem naming cancel an edit
+
+#### Scenario: An action nobody binds
+- **WHEN** the overrides name `__proto__` or `ranking.teleport`
+- **THEN** the check reports a problem naming it, and the vocabulary's add after, which no shipped table binds yet, passes
+
+### Requirement: The effective key table
+Applying the user's overrides to a key table SHALL replace the keys of each entry whose action they name with the override's, remove them for an empty list, and change nothing else of the entry; an override for an action the table lacks, for keys a Radix or browser control takes, or holding a combination that does not parse SHALL change nothing (NFR-12).
+
+#### Scenario: Replacing and removing
+- **WHEN** the overrides give to the top `Mod+Alt+ArrowUp` and select none no key, and are applied to the Ranking's table
+- **THEN** to the top has only that key, select none has none, and every other entry, and every other member of those two, is unchanged
+
+## MODIFIED Requirements
+
+### Requirement: The configuration schema set
+The contract SHALL hold the `configuration` schema set, owned by `ask-core`, starting at `1.0`, for both configuration files (AD-7, AD-14). A file SHALL name its `version` as `major.minor`. It SHALL allow `theme` (`system`, `light`, `dark`), `density` (`compact`, `comfortable`), `contextPlacement` (`beside`, `inline`), `defaultLanguage` (`en-US`, `it-IT`), `askingRule` (`none`, `always`, `with-references`), `snapshotFolder`, `editor`, `defaultMinimumMargin` and `keys`, each optional. `keys` SHALL map at most 64 actions to at most 4 combinations each; the schema SHALL bound its shape, and the key-override check its meaning.
+
+#### Scenario: A file with every key validates
+- **WHEN** the fixture holding `version` `1.0` and one valid value for each of the nine keys is validated against the configuration schema
+- **THEN** it passes
+
+#### Scenario: A value outside a key's set is refused, naming the key
+- **WHEN** a file sets `theme` to `"sepia"` or `askingRule` to `"sometimes"`
+- **THEN** validation fails with a problem whose path names that key
+
+#### Scenario: A file without its version is refused
+- **WHEN** a file holds `{"theme": "dark"}`
+- **THEN** validation fails, naming `version`
+
+#### Scenario: An unknown key passes the schema
+- **WHEN** a file holds `version` `1.0` and a key `fontSize`
+- **THEN** the schema passes it, and the contract's list of configuration keys does not hold `fontSize`
+
+#### Scenario: Keys of another shape
+- **WHEN** a file sets `keys` to a list, or gives an action a combination that is not a string
+- **THEN** validation fails with a problem whose path names `keys`
+
+#### Scenario: A key the check refuses passes the schema
+- **WHEN** a file sets `keys` to give the keys panel `F1`
+- **THEN** the schema passes it, and the key-override check refuses it
+
+### Requirement: Settings messages on the board protocol
+The board protocol SHALL add the message `settings`, host to page, carrying the presentation and behaviour settings in effect and the user's key overrides, each with its value and the file and key that set it, and with warnings that name, for overrides not applied, the rule, the action and the combination; and `setting`, page to host, carrying one key and one value. The schema of `setting` SHALL admit only the presentation keys, each with a value the configuration schema allows (AD-14).
+
+#### Scenario: A presentation write validates
+- **WHEN** the page sends `setting` with `key` `density` and `value` `comfortable`
+- **THEN** the message passes the board-protocol schema
+
+#### Scenario: Any other key fails the schema
+- **WHEN** the page sends `setting` with `key` `editor`, `askingRule`, `snapshotFolder` or `keys`, or with `theme` set to `"sepia"`
+- **THEN** the message fails the board-protocol schema
+
+#### Scenario: The user's keys in the settings
+- **WHEN** `settings` carries the user's key overrides from the user file, or none with a warning naming a conflict's rule, action, combination and other action
+- **THEN** the message passes the board-protocol schema, and a settings message of the previous minor, without them, passes too
