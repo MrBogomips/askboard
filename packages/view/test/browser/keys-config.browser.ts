@@ -246,10 +246,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       TEST_TIMEOUT_MS,
     );
 
-    // Needs task 9.1 of this change: `ask-core` runs the check and sends the `keys-not-applied`
-    // warning and a row with no value. Before it, the session process sends the refused keys as the
-    // row's value and the row reads "1 action changed". Un-skip when group 9 lands.
-    test.skip(
+    test(
       "the settings panel's Keys row names the problem of a refused user file",
       async () => {
         const run = await start(
@@ -262,19 +259,31 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const board = await openBoard(run, ["plan"]);
         await openSettings(board);
         const keysRow = settingsPanel(board).locator('[data-askboard-setting="keys"]');
-        const text = ((await keysRow.textContent()) ?? "").replace(/[\u2068\u2069]/g, "");
+        const shown = (await keysRow.textContent()) ?? "";
+        const text = shown.replace(/[\u2068\u2069]/g, "");
         expect(text).toContain("Default keys");
-        expect(text).toContain("move.top");
-        expect(text).toContain("Alt+Shift+ArrowUp");
-        expect(text).toContain("move.up");
+        expect(text).toContain("are not applied");
+        expect(text).toContain("is already the key of");
+        // The rule's action and combination, and the action it clashes with, are file text: each
+        // sits between one isolate pair.
+        for (const part of ["move.top", "Alt+Shift+ArrowUp", "move.up"]) {
+          expect(shown).toContain(`\u2068${part}\u2069`);
+        }
+        expect(await keysRow.getByRole("radio").count()).toBe(0);
+        // The keys in effect are the defaults.
+        await ariaOf(
+          tool(board, "first", "Probe up"),
+          "Alt+Shift+ArrowUp",
+          "Move up to keep its default",
+        );
+        expect(await aria(tool(board, "first", "Probe top"))).toBe(
+          "Alt+Shift+Home Control+Shift+ArrowUp Meta+Shift+ArrowUp",
+        );
       },
       TEST_TIMEOUT_MS,
     );
 
-    // Needs task 9.1 of this change: `ask-core` drops a project file's `keys` with the
-    // `project-keys-ignored` warning. Before it, the project's keys become the row's value, which the
-    // board protocol refuses, and the board page has no settings. Un-skip when group 9 lands.
-    test.skip(
+    test(
       "a project file's keys are ignored, with their warning on the Keys row",
       async () => {
         const run = await start(
@@ -295,10 +304,11 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         );
         await openSettings(board);
         const keysRow = settingsPanel(board).locator('[data-askboard-setting="keys"]');
-        const text = (await keysRow.textContent()) ?? "";
+        const text = ((await keysRow.textContent()) ?? "").replace(/[\u2068\u2069]/g, "");
         expect(text).toContain("1 action changed");
-        expect(text).toContain("The project's keys");
-        expect(text).toContain("are ignored");
+        expect(text).toMatch(
+          /The project's keys in .*config\.json are ignored: only the user file sets them/,
+        );
         expect(await keysRow.getByRole("radio").count()).toBe(0);
       },
       TEST_TIMEOUT_MS,
