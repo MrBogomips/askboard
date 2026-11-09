@@ -181,6 +181,32 @@ describe("the diff of a grouped list", () => {
     ]);
   });
 
+  test("a tie left after the kept-group rule goes to the run ending last: a swap beside a card that arrives", () => {
+    // `a` and `b` swap in `X` and `c` arrives in `X` at its sent place: the runs {a, c} and {b, c}
+    // are equal in length and in kept cards, the run ending last is taken, and `b` moves.
+    const sent = list("a:X", "b:X", "c:Y");
+    const edited = list("b:X", "a:X", "c:X");
+    const changes = diff(sent, edited);
+    expect(changes).toEqual([
+      { op: "move", target: "probe.b" },
+      { op: "set", target: "probe.c.column", value: "X" },
+    ]);
+    expect(apply(sent, changes)).toEqual(edited);
+  });
+
+  test("a tie left after the kept-group rule goes to the run ending last: the arriving card sent first", () => {
+    // The column change on the card sent first: `c` arrives in `X` above `b` and `a`, which are
+    // swapped; the runs {c, a} and {c, b} tie in the same way, the one ending last is taken, so `b` moves.
+    const first = list("c:Y", "a:X", "b:X");
+    const reversed = list("c:X", "b:X", "a:X");
+    const other = diff(first, reversed);
+    expect(other).toEqual([
+      { op: "set", target: "probe.c.column", value: "X" },
+      { op: "move", target: "probe.b", after: "c" },
+    ]);
+    expect(apply(first, other)).toEqual(reversed);
+  });
+
   test("the sets of a card come before its move, a field's set among them", () => {
     const sent: Value = {
       cards: [

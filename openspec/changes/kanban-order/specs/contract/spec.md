@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Grouped lists in the generic diff
-The generic diff SHALL take a flat list whose elements name their group in a declared field, order counting per group. Group by group, in code-unit order of group values, each element in edited order SHALL give an `add`, or its `set`s then a `move` when outside its group's longest run in sent order, a tie going to the run keeping most elements whose group is unchanged; then the `remove`s. An `add` or `move` SHALL name as `after` its group's preceding element, never a `parent` (AD-20, FR-20).
+The generic diff SHALL take a flat list whose elements name their group in a field, order counting per group. Group by group, in code-unit order of group values, each element in edited order gives an `add`, or its `set`s then a `move` when outside its group's longest run in sent order, a tie going to the run keeping most elements of unchanged group; then the `remove`s. An `add` or `move` SHALL name as `after` its group's preceding element, omitted for the first, no `parent` (AD-20, FR-20).
 
 #### Scenario: A card reordered in its column
 - **WHEN** the diff runs over a grouped list whose group `todo` held `a`, `b`, `c` and now holds `c`, `a`, `b`
