@@ -304,6 +304,70 @@ describe("movedOf", () => {
   });
 });
 
+describe("moveTo after moves within the card's column (review 5.3, S-1)", () => {
+  // As the widget does: each edit's value is what the draft holds, the next edit starts from it.
+  const held = (sent: KanbanProps, edited: KanbanProps) => model.valueFor(sent, edited) ?? sent;
+
+  test("the card lands where the agent's order puts it, one `set`, in a list that mixes columns", () => {
+    const sent: KanbanProps = {
+      columns: [
+        { id: "todo", label: "To do" },
+        { id: "doing", label: "Doing" },
+      ],
+      cards: [
+        { id: "c0", label: "C0", column: "todo" },
+        { id: "c1", label: "C1", column: "doing" },
+        { id: "c2", label: "C2", column: "todo" },
+      ],
+    };
+    const top = held(sent, model.moveWithin(sent, "c2", "top"));
+    const next = held(sent, model.moveTo(top, "c2", "doing", sent));
+    expect(idsIn(next, "doing")).toEqual(["c1", "c2"]);
+    expect(idsIn(next, "todo")).toEqual(["c0"]);
+    expect(changesOf(sent, next)).toEqual([
+      { op: "set", target: "board.c2.column", value: "doing" },
+    ]);
+    expect(model.movedOf(sent, next)).toEqual(["c2"]);
+    expect(valueFits(next, sent)).toBe(true);
+  });
+
+  test("a card moved into a column the user has not reordered gives only its `set`, after any moves in its own column", () => {
+    for (let seed = 1; seed <= 300; seed++) {
+      const random = generator(seed);
+      const columns = Array.from({ length: 3 }, (_, at) => ({ id: `c${at}`, label: `C${at}` }));
+      const cards = Array.from({ length: 3 + random.int(8) }, (_, at) => ({
+        id: `k${at}`,
+        label: `Card ${at}`,
+        column: random.pick(columns).id,
+      }));
+      const sent: KanbanProps = { columns, cards };
+      const card = random.pick(cards);
+      const target = random.pick(columns.filter(({ id }) => id !== card.column)).id;
+      let shown = sent;
+      for (let step = 0; step < 1 + random.int(3); step++) {
+        const mover = random.pick(cards.filter((held) => held.column === card.column));
+        const how = random.pick(["up", "down", "top", "bottom"] as const);
+        shown = held(sent, model.moveWithin(shown, mover.id, how));
+      }
+      const next = held(sent, model.moveTo(shown, card.id, target, sent));
+      const where = { seed, card: card.id, target };
+      const list = changesOf(sent, next);
+      expect({ ...where, column: next.cards.find(({ id }) => id === card.id)?.column }).toEqual({
+        ...where,
+        column: target,
+      });
+      // The card's own place in the source column may still differ from the sent one, by the
+      // earlier moves of the others; its change is the `set` and no `move` names it.
+      expect({
+        ...where,
+        own: list.filter(({ target: at }) => at.split(".")[1] === card.id).map(({ op }) => op),
+      }).toEqual({ ...where, own: ["set"] });
+      expect(valueFits(next, sent)).toBe(true);
+      expect(model.arranged(sent, next)).toEqual(next);
+    }
+  });
+});
+
 describe("any sequence of order edits", () => {
   const kanbanOf = (random: ReturnType<typeof generator>): KanbanProps => {
     const columns = Array.from({ length: 2 + random.int(4) }, (_, at) => ({

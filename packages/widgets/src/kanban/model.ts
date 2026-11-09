@@ -50,21 +50,6 @@ export const arranged = (sent: KanbanProps, raw: KanbanProps): KanbanProps =>
   applyElementChanges(ITEM, sent, changesOf(sent, raw), KANBAN_SHAPE);
 
 /**
- * The props with the card in `columnId`, every card at its index in `cards`. The same props, by
- * identity, when the card or the column is not the item's or the card is already there.
- */
-export const moveTo = (props: KanbanProps, cardId: string, columnId: string): KanbanProps => {
-  const index = props.cards.findIndex((card) => card.id === cardId);
-  const card = props.cards[index];
-  const holds = props.columns.some((column) => column.id === columnId);
-  if (card === undefined || !holds || card.column === columnId) return props;
-  const cards = props.cards.map((held, at) =>
-    at === index ? Object.freeze({ ...held, column: columnId }) : held,
-  );
-  return Object.freeze({ ...props, cards: Object.freeze(cards) });
-};
-
-/**
  * The props with the card in `columnId` at `slot` among that column's other cards (0 to their
  * count, clamped): in the list, right after the card before the slot, or right before the first
  * card of the column; into a column with no other card, the card keeps its index. The one edit of
@@ -93,6 +78,38 @@ export const placeIn = (
     anchor === undefined
       ? props.cards.map((held) => (held === card ? placed : held))
       : [...rest.slice(0, where), placed, ...rest.slice(where)];
+  return Object.freeze({ ...props, cards: Object.freeze(cards) });
+};
+
+/**
+ * The props with the card in `columnId`. With `sent`, the agent's props, the card stands at the
+ * place the agent's order gives it among that column's other cards (the cards the column holds
+ * that `sent` lists before the card stand above it), so that its move to another column is one
+ * `set` whatever moves the user made before: the board's "Move to…". Without `sent`, every card
+ * keeps its index in `cards`. The same props, by identity, when the card or the column is not the
+ * item's or the card is already there. A raw value: `valueFor` arranges.
+ */
+export const moveTo = (
+  props: KanbanProps,
+  cardId: string,
+  columnId: string,
+  sent?: KanbanProps,
+): KanbanProps => {
+  const index = props.cards.findIndex((card) => card.id === cardId);
+  const card = props.cards[index];
+  const holds = props.columns.some((column) => column.id === columnId);
+  if (card === undefined || !holds || card.column === columnId) return props;
+  if (sent !== undefined) {
+    const rank = new Map(sent.cards.map(({ id }, at) => [id, at]));
+    const mine = rank.get(cardId) ?? index;
+    const above = props.cards.filter(
+      (held, at) => held.column === columnId && (rank.get(held.id) ?? at) < mine,
+    );
+    return placeIn(props, cardId, columnId, above.length);
+  }
+  const cards = props.cards.map((held, at) =>
+    at === index ? Object.freeze({ ...held, column: columnId }) : held,
+  );
   return Object.freeze({ ...props, cards: Object.freeze(cards) });
 };
 

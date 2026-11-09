@@ -278,6 +278,40 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
+      "after To top, Move to… puts the card where the agent's order does in the other column: the draft is one column change, with the counter reading 1 moved",
+      async () => {
+        const run = await host(dist, orderDocument());
+        await readyIn(run);
+        const { board } = run;
+        await cardOf(board, "c").focus();
+        await board.page.keyboard.press("Alt+Shift+Home");
+        await expectCards(board, "todo", ["c", "a", "d"]);
+        await tool(board, "To top").waitFor({ timeout: STEP_TIMEOUT_MS });
+        await moveTo(board).click();
+        await board.view
+          .getByRole("menuitem", { name: "Done", exact: true })
+          .click({ timeout: STEP_TIMEOUT_MS });
+        // `b` is in `done`, and the agent's order puts `c` after it.
+        await expectCards(board, "done", ["b", "c"]);
+        await expectCards(board, "todo", ["a", "d"]);
+        await draftIs(
+          run,
+          {
+            ...orderItem().props,
+            cards: orderItem().props.cards.map((card) =>
+              card.id === "c" ? { ...card, column: "done" } : card,
+            ),
+          },
+          "the draft to hold the props with c in done, in the agent's order",
+        );
+        expect(await counterText(board)).toBe("Your changes: 1 moved");
+        expect(await board.view.locator('[data-change="moved"]').count()).toBe(1);
+        expect(run.browser.violations).toEqual([]);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
       "with no card current Move to… is disabled and keeps the focus, and Enter on it opens nothing",
       async () => {
         const run = await host(dist, kanbanDocument());

@@ -92,7 +92,7 @@ export const KanbanWidget = ({
 
   const onMoveTo = (columnId: string): void => {
     if (current === undefined) return;
-    const next = moveTo(shown, current, columnId);
+    const next = moveTo(shown, current, columnId, sent);
     if (next !== shown) onChange(next);
   };
 
