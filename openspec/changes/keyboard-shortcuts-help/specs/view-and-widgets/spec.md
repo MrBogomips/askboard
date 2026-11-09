@@ -226,3 +226,7 @@ Every board SHALL open a settings panel from "Settings" in the context header: a
 #### Scenario: Keys in the project file
 - **WHEN** the project file sets `keys`
 - **THEN** the Keys row shows a warning that the project's keys are ignored, and the keys in effect come from the user file or are the defaults
+
+#### Scenario: File text in the panel
+- **WHEN** a warning's action or combination, or a file problem's pointer, holds a line feed or a right-to-left override
+- **THEN** the panel shows that text with the character escaped and isolated from the sentence around it, which reads in its own order

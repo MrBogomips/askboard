@@ -83,7 +83,7 @@ The contract SHALL read a key combination written as `Mod`, `Alt` and `Shift`, e
 - **THEN** it is refused, naming `Ctrl`
 
 ### Requirement: User key overrides and their check
-The contract SHALL check the user's overrides against every registered key table once applied: each action known and not taken by a Radix or browser control, each combination admitted by the tables or the notation, no two actions of one part on one key, and no exit left without a key. Each problem SHALL name the action and the combination, and a conflict both actions (NFR-12, NFR-10).
+The contract SHALL check the user's overrides against every registered key table once applied: each action known and not taken by a Radix or browser control, each combination admitted by the tables or the notation, no two actions of one part on one key, and no exit left without a key. A combination written twice for one action SHALL count once. Each problem SHALL name the action and the combination, and a conflict both actions (NFR-12, NFR-10).
 
 #### Scenario: The PO's example
 - **WHEN** the overrides give to the top `Mod+Alt+ArrowUp`, to the bottom `Mod+Alt+ArrowDown`, and select all no key
@@ -97,6 +97,10 @@ The contract SHALL check the user's overrides against every registered key table
 - **WHEN** the overrides give the keys panel `F1`, or undo `Mod+w`
 - **THEN** the check reports a problem naming the action and the combination
 
+#### Scenario: A combination written twice
+- **WHEN** the overrides give to the top `Mod+Alt+ArrowUp` twice
+- **THEN** the check reports no problem, and the effective table holds that key once
+
 #### Scenario: An exit without a key
 - **WHEN** the overrides give cancel an edit no key
 - **THEN** the check reports a problem naming cancel an edit
@@ -104,6 +108,25 @@ The contract SHALL check the user's overrides against every registered key table
 #### Scenario: An action nobody binds
 - **WHEN** the overrides name `__proto__` or `ranking.teleport`
 - **THEN** the check reports a problem naming it, and the vocabulary's add after, which no shipped table binds yet, passes
+
+### Requirement: Keys a system composes or an editor types
+The registry check and the key-override check SHALL refuse Alt with Shift on a letter or Space, which macOS composes into another character, and, in a part that edits text, a key that types a character. The key-override check SHALL also refuse giving the keys panel, which acts across the whole item, a key a native control takes or a key another action of any part takes (NFR-12).
+
+#### Scenario: In a key table
+- **WHEN** the registry check runs on an entry whose table binds Alt+Shift+K or Alt+Shift+Space, or whose editor part binds E with no modifier
+- **THEN** it reports a problem naming the type and the key
+
+#### Scenario: A combination macOS composes
+- **WHEN** the overrides give select all `Alt+Shift+a`, or keep this order `Alt+Shift+Space`
+- **THEN** the check reports a problem naming the action and the combination
+
+#### Scenario: A letter in an editor
+- **WHEN** the overrides give commit an edit `e`
+- **THEN** the check reports a problem naming commit an edit and the combination
+
+#### Scenario: The keys panel on a key a control takes
+- **WHEN** the overrides give the keys panel `Enter`, or `Mod+z`
+- **THEN** the check reports a problem naming the keys panel and the combination, and for `Mod+z` a conflict naming undo, though undo acts in another part
 
 ### Requirement: The effective key table
 Applying the user's overrides to a key table SHALL replace the keys of each entry whose action they name with the override's, remove them for an empty list, and change nothing else of the entry; an override for an action the table lacks, for keys a Radix or browser control takes, or holding a combination that does not parse SHALL change nothing (NFR-12).
@@ -118,7 +141,7 @@ Applying the user's overrides to a key table SHALL replace the keys of each entr
 The contract SHALL hold the `configuration` schema set, owned by `ask-core`, starting at `1.0`, for both configuration files (AD-7, AD-14). A file SHALL name its `version` as `major.minor`. It SHALL allow `theme` (`system`, `light`, `dark`), `density` (`compact`, `comfortable`), `contextPlacement` (`beside`, `inline`), `defaultLanguage` (`en-US`, `it-IT`), `askingRule` (`none`, `always`, `with-references`), `snapshotFolder`, `editor`, `defaultMinimumMargin` and `keys`, each optional. `keys` SHALL map at most 64 actions to at most 4 combinations each; the schema SHALL bound its shape, and the key-override check its meaning.
 
 #### Scenario: A file with every key validates
-- **WHEN** the fixture holding `version` `1.0` and one valid value for each of the nine keys is validated against the configuration schema
+- **WHEN** the fixture holding the set's current version and one valid value for each of the nine keys is validated against the configuration schema
 - **THEN** it passes
 
 #### Scenario: A value outside a key's set is refused, naming the key
@@ -155,3 +178,7 @@ The board protocol SHALL add the message `settings`, host to page, carrying the 
 #### Scenario: The user's keys in the settings
 - **WHEN** `settings` carries the user's key overrides from the user file, or none with a warning naming a conflict's rule, action, combination and other action
 - **THEN** the message passes the board-protocol schema, and a settings message of the previous minor, without them, passes too
+
+#### Scenario: Keys that no board may receive
+- **WHEN** `settings` carries a `keys` row with the other file's value, or a row from the default with a value, or a row from the user file with no value
+- **THEN** the message fails the board-protocol schema

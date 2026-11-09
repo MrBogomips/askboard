@@ -11,6 +11,10 @@
 - **WHEN** the user file gives to the top `Mod+Alt+ArrowUp`
 - **THEN** the settings carry that override from the user file, which no board may write
 
+#### Scenario: Both files set keys
+- **WHEN** the project file sets `keys`, even `{}`, and the user file gives to the top `Mod+Alt+ArrowUp`
+- **THEN** the user's override is in effect, from the user file with no other file's value, the settings carry the project's warning, and the `settings` message built from them passes the board-protocol schema
+
 ### Requirement: Key overrides are never half-applied
 The user's `keys` SHALL apply only when it passes the key-override check against every registered key table. Otherwise none of it SHALL apply, every widget SHALL keep its default keys, the file's other keys SHALL still apply, and the settings and stderr SHALL name each problem's rule, action and combination (NFR-10, NFR-12, AD-14).
 
@@ -21,6 +25,17 @@ The user's `keys` SHALL apply only when it passes the key-override check against
 #### Scenario: Keys of another shape void the file
 - **WHEN** the user file sets `theme` to `dark` and `keys` to a list
 - **THEN** no key of that file applies, as for any file that fails the configuration schema
+
+### Requirement: File text on stderr is escaped
+Each diagnostic the session process writes about the configuration SHALL be one line, and SHALL show any text a file chose (a JSON pointer, a key name, a value, an action, a combination) quoted, with its control characters (C0, DEL, C1), line and paragraph separators and bidirectional controls escaped, so that no file can colour, split, forge or reorder a line on the terminal (NFR-5, AD-8, AD-14).
+
+#### Scenario: A key name with controls in an invalid file
+- **WHEN** the project file sets `keys` with an action name holding an escape, a carriage return, a line feed, U+0085, U+009B, U+2028 and U+202E, and gives it a value the schema refuses
+- **THEN** the file is not applied, and stderr says so in one line that holds none of those characters raw and names the pointer escaped
+
+#### Scenario: An unknown key or a Snapshot folder with controls
+- **WHEN** a file holds an unknown key, or a Snapshot folder outside the project, whose text holds a line feed and U+202E
+- **THEN** the warning on stderr is one line and holds neither character raw
 
 ## MODIFIED Requirements
 
