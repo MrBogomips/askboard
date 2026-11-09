@@ -252,3 +252,30 @@ describe("what a Snapshot never holds", () => {
     }
   });
 });
+
+describe("the presentation a Snapshot records, in the gathering (snapshot-toolbar)", () => {
+  test("a presentation source is put in the record, beside the taker's own fields", async () => {
+    const { core } = await lifecycleSnapshotCore();
+    const presentation = { theme: "light", density: "comfortable" } as const;
+    expect(gather(core, { presentation }).snapshot).toEqual({
+      takenAt: TAKEN_AT,
+      takenBy: "agent",
+      presentation,
+    });
+    const user = { takenBy: "user", who: "Sara Conti", unsentWork: true } as const;
+    expect(gather(core, { taker: user, presentation }).snapshot).toEqual({
+      takenAt: TAKEN_AT,
+      takenBy: "user",
+      who: "Sara Conti",
+      unsentWork: true,
+      presentation,
+    });
+    valid(gather(core, { taker: user, presentation }));
+  });
+
+  test("with no presentation source the record holds none", async () => {
+    const { core } = await lifecycleSnapshotCore();
+    expect(gather(core).snapshot).not.toHaveProperty("presentation");
+    expect(gather(core).snapshot).toEqual({ takenAt: TAKEN_AT, takenBy: "agent" });
+  });
+});

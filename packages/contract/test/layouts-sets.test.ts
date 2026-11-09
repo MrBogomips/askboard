@@ -41,12 +41,13 @@ describe("the minors layouts binds", () => {
     expect(setOf("board-document").version).toBe(BOARD_DOCUMENT_VERSION);
   });
 
-  test("the Snapshot data, the view manifest and the standalone sets keep their minor; the output format and the board protocol stand at atoms' minor or a later one", () => {
+  test("the view manifest and the standalone sets keep their minor; the Snapshot data, the output format and the board protocol stand at the minor of the change that moved them or a later one", () => {
     // Form-widget's output minor moved with the PickField's registration (task 3.3).
     expect(Number(OUTPUT_FORMAT_VERSION.split(".")[1])).toBeGreaterThanOrEqual(9);
     // The board protocol took 1.7 with atoms and moves on with the Table's cell entries.
     expect(Number(BOARD_PROTOCOL_VERSION.split(".")[1])).toBeGreaterThanOrEqual(7);
     expect({
+      // The Snapshot data: widget-registry's minor or a later one; reopen-start-sets.test.ts pins the latest.
       snapshot: Number(SNAPSHOT_DATA_VERSION.split(".")[1]) >= 1,
       manifest: VIEW_MANIFEST_VERSION,
       configuration: CONFIGURATION_VERSION,

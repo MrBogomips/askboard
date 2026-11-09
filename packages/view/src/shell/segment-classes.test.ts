@@ -8,7 +8,6 @@ const text = (path: string): Promise<string> => Bun.file(new URL(path, import.me
 /** Every file that draws a segmented control, with the track and segment names it must carry. */
 const CONTROLS = [
   "./segmented.tsx",
-  "./theme-control.tsx",
   "./bottom-bar.tsx",
   "./context-column.tsx",
   "../board-page/settings-panel.ts",

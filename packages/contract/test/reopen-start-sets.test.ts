@@ -32,7 +32,7 @@ describe("the sets reopen-start-from-answer widens", () => {
   test("the board protocol and the Snapshot data hold the minors bound for this change", () => {
     expect({ protocol: BOARD_PROTOCOL_VERSION, snapshot: SNAPSHOT_DATA_VERSION }).toEqual({
       protocol: "1.9",
-      snapshot: "1.2",
+      snapshot: "1.3",
     });
     expect(setOf("board-protocol").version).toBe(BOARD_PROTOCOL_VERSION);
     expect(setOf("snapshot-data").version).toBe(SNAPSHOT_DATA_VERSION);
@@ -64,7 +64,7 @@ describe("the sets reopen-start-from-answer widens", () => {
   test("a receiver at the new minor accepts the previous minor and refuses another major", () => {
     for (const [name, previous] of [
       ["board-protocol", "1.8"],
-      ["snapshot-data", "1.1"],
+      ["snapshot-data", "1.2"],
     ] as const) {
       expect(unsupportedVersion(setOf(name), previous), name).toBeUndefined();
       expect(unsupportedVersion(setOf(name), "2.0"), name).toBeDefined();

@@ -55,7 +55,6 @@ import { SnapshotTopLine } from "./snapshot-top-line.tsx";
 import type { Store } from "./store.ts";
 import { FOCUS_RING, INFO_BADGE } from "./styles.ts";
 import { hasRecommendation, selectRecommended, submitStateOf } from "./submit.ts";
-import type { ThemeChoice } from "./theme-control.tsx";
 
 /** What the board page last told the view, with the latest board document. */
 export type BoardView = {
@@ -94,8 +93,6 @@ export type BoardExtras = {
   readonly presentation: PresentationControls;
   /** The bottom action bar's Snapshot (snapshot task 7.1). */
   readonly snapshot: SnapshotControl;
-  /** An opened Snapshot's Theme control: the choice, saved nowhere (snapshot task 8.3). */
-  readonly theme?: Store<ThemeChoice>;
 };
 
 // Questions the agent changed under the user's work, made on an earlier revision, that wait for
@@ -415,7 +412,6 @@ export const Board = ({
         ended={endedOf(lock)}
         header={extras.header}
         controls={extras.presentation}
-        theme={extras.theme}
       />
       {body}
       {context.opened !== undefined ? null : (

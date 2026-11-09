@@ -288,3 +288,7 @@ export {
 // S-3 of review-table-g6).
 
 export { UNREGISTERED_TYPE } from "./unregistered-type.ts";
+
+// An agent's Snapshot recording the board's presentation (snapshot-toolbar, design decision 2).
+
+export { snapshotToolbarData } from "./snapshot-toolbar.ts";

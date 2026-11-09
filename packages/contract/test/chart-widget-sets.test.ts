@@ -60,6 +60,7 @@ describe("the versions of the four widened sets", () => {
   test("every other set equals main's, the protocol at it or a later change's minor", () => {
     expect({
       protocol: Number(BOARD_PROTOCOL_VERSION.split(".")[1]) >= 6,
+      // The Snapshot data: widget-registry's minor or a later one; reopen-start-sets.test.ts pins the latest.
       snapshot: Number(SNAPSHOT_DATA_VERSION.split(".")[1]) >= 1,
       manifest: VIEW_MANIFEST_VERSION,
       configuration: CONFIGURATION_VERSION,

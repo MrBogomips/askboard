@@ -69,21 +69,56 @@ describe("the quick toggles' presentation in a hosted view", () => {
 });
 
 describe("the quick toggles' presentation in a Snapshot", () => {
+  const snapshotControls = (initial?: ViewPresentation) => {
+    const { channel } = channelOf();
+    const reported: ViewMessage[] = [];
+    const followedTheme: string[] = [];
+    const followedDensity: string[] = [];
+    const controls = startPresentation(data(), channel, {
+      hosted: false,
+      report: (message) => reported.push(message),
+      followTheme: (preference) => followedTheme.push(preference),
+      followDensity: (density) => followedDensity.push(density),
+      ...(initial === undefined ? {} : { initial }),
+    });
+    return { controls, reported, followedTheme, followedDensity };
+  };
+
   test("the Theme toggle acts on the view alone, and nothing is reported", () => {
+    const { controls, reported, followedTheme } = snapshotControls();
+    expect(controls.hosted).toBe(false);
+    controls.set({ key: "theme", value: "dark" });
+    controls.openSettings();
+    expect(followedTheme).toEqual(["dark"]);
+    expect(reported).toEqual([]);
+    expect(controls.presentation.get()).toEqual({ ...DEFAULT_PRESENTATION, theme: "dark" });
+  });
+
+  test("the density toggle follows the density on the page and sets the store, reporting nothing", () => {
+    const { controls, reported, followedTheme, followedDensity } = snapshotControls();
+    controls.set({ key: "density", value: "comfortable" });
+    expect(followedDensity).toEqual(["comfortable"]);
+    expect(followedTheme).toEqual([]);
+    expect(reported).toEqual([]);
+    expect(controls.presentation.get().density).toBe("comfortable");
+  });
+
+  test("starts from the initial presentation a Snapshot's record gave, not the block's", () => {
+    const initial = { ...DEFAULT_PRESENTATION, theme: "light", density: "comfortable" } as const;
+    expect(snapshotControls(initial).controls.presentation.get()).toEqual(initial);
+  });
+
+  test("a hosted density toggle is reported and followed by nothing", () => {
     const { channel } = channelOf();
     const reported: ViewMessage[] = [];
     const followed: string[] = [];
     const controls = startPresentation(data(), channel, {
-      hosted: false,
+      hosted: true,
       report: (message) => reported.push(message),
-      followTheme: (preference) => followed.push(preference),
+      followDensity: (density) => followed.push(density),
     });
-    expect(controls.hosted).toBe(false);
-    controls.set({ key: "theme", value: "dark" });
     controls.set({ key: "density", value: "comfortable" });
-    controls.openSettings();
-    expect(followed).toEqual(["dark"]);
-    expect(reported).toEqual([]);
-    expect(controls.presentation.get()).toEqual({ ...DEFAULT_PRESENTATION, theme: "dark" });
+    expect(reported).toEqual([{ type: "setting", key: "density", value: "comfortable" }]);
+    expect(followed).toEqual([]);
   });
 });

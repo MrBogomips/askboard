@@ -71,6 +71,7 @@ describe("the minors the Table binds", () => {
   test("every other set keeps its minor: the board protocol task 1.5 gave it or a later one, the rest main's", () => {
     expect(Number(BOARD_PROTOCOL_VERSION.split(".")[1])).toBeGreaterThanOrEqual(8);
     expect({
+      // The Snapshot data: widget-registry's minor or a later one; reopen-start-sets.test.ts pins the latest.
       snapshot: Number(SNAPSHOT_DATA_VERSION.split(".")[1]) >= 1,
       manifest: VIEW_MANIFEST_VERSION,
       configuration: CONFIGURATION_VERSION,

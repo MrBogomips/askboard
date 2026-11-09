@@ -2,17 +2,20 @@
 // `askboard-data` block, which the view boots from with no host and an agent reads without
 // rendering. A Snapshot outlives the versions that wrote it, so the data names each one.
 // Widget-registry's minor adds the results kept for an answer logged too large (design decision 6).
+// Snapshot-toolbar's minor adds the record's optional presentation, the theme and density a board
+// would open with (design decision 2).
 // Reopen-start-from-answer's minor admits the board state's `unchanged` (design decision 7).
 
 import type { OriginMessage } from "../../push/messages.ts";
 import type { SchemaSet } from "../../versions.ts";
 import type { LifecycleBoardDocument } from "../board-document/index.ts";
 import type { LifecycleBoardState } from "../board-protocol/index.ts";
+import type { ConfigurationValues } from "../configuration/index.ts";
 import type { QuestionProps } from "../input/index.ts";
 import type { DiscardedEvent, OutputEvent } from "../output/index.ts";
 import snapshotData from "./snapshot-data.json" with { type: "json" };
 
-export const SNAPSHOT_DATA_VERSION = "1.2";
+export const SNAPSHOT_DATA_VERSION = "1.3";
 
 export const SNAPSHOT_DATA_ID = "urn:askboard:snapshot-data:snapshot-data";
 
@@ -24,15 +27,26 @@ export const snapshotDataSet: SchemaSet = {
   schemas: [snapshotData],
 };
 
-/** When the Snapshot was taken, and by whom (FR-19 for the user's). */
+/** Since snapshot-toolbar: the theme and density a board would open with (AD-14). */
+export type SnapshotPresentation = Pick<ConfigurationValues, "theme" | "density">;
+
+/**
+ * When the Snapshot was taken, and by whom (FR-19 for the user's); since snapshot-toolbar also the
+ * presentation, when it could be read.
+ */
 export type SnapshotRecord =
-  | { readonly takenAt: string; readonly takenBy: "agent" }
+  | {
+      readonly takenAt: string;
+      readonly takenBy: "agent";
+      readonly presentation?: SnapshotPresentation;
+    }
   | {
       readonly takenAt: string;
       readonly takenBy: "user";
       readonly who: string;
       /** The board held unsent work, as its request said; never read from the draft record. */
       readonly unsentWork?: true;
+      readonly presentation?: SnapshotPresentation;
     };
 
 /** An earlier revision of a question that an event names. */

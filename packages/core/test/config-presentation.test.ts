@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { PresentationSetting } from "@askboard/contract";
+import { Configuration } from "../src/config/configuration.ts";
 import { coreWith, type FakeConfigOptions, fakeConfig } from "./fakes.ts";
 
 // settings-languages, design decision 6 (core spec: Presentation keys read again when a board opens;
@@ -287,5 +288,76 @@ describe("writing a presentation key", () => {
       outcome: "failed",
       reason: "no-user-file",
     });
+  });
+});
+
+// snapshot-toolbar (design decision 3; core spec: The presentation a Snapshot records): the theme
+// and density a board would open with now, after the writes already requested.
+describe("the presentation now", () => {
+  const configuration = (options: FakeConfigOptions) => {
+    const fakes = fakeConfig(options);
+    const reported: unknown[] = [];
+    const settings = new Configuration({ config: fakes.config, report: (e) => reported.push(e) });
+    return { settings, reported, ...fakes };
+  };
+
+  test("with no file is the defaults", async () => {
+    const { settings } = configuration({});
+    expect(await settings.presentationNow()).toEqual({ theme: "system", density: "compact" });
+  });
+
+  test("with no port is none: there are no settings to read", async () => {
+    const settings = new Configuration({ report: () => undefined });
+    expect(await settings.presentationNow()).toBeUndefined();
+  });
+
+  test("is the user file's theme and density", async () => {
+    const { settings } = configuration({
+      user: { version: v, theme: "light", density: "comfortable" },
+    });
+    expect(await settings.presentationNow()).toEqual({ theme: "light", density: "comfortable" });
+  });
+
+  test("takes the project file's theme over the user's", async () => {
+    const { settings } = configuration({
+      user: { version: v, theme: "dark", density: "comfortable" },
+      project: { version: v, theme: "light" },
+    });
+    expect(await settings.presentationNow()).toEqual({ theme: "light", density: "comfortable" });
+  });
+
+  test("follows a user file changed after the first read", async () => {
+    const { settings, setUser } = configuration({ user: { version: v, theme: "light" } });
+    expect((await settings.presentationNow())?.theme).toBe("light");
+    setUser({ version: v, theme: "dark", density: "comfortable" });
+    expect(await settings.presentationNow()).toEqual({ theme: "dark", density: "comfortable" });
+  });
+
+  test("includes a write started and not awaited, even when the file takes time to replace", async () => {
+    const fakes = fakeConfig({ user: { version: v, theme: "light" } });
+    let proceed: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      proceed = resolve;
+    });
+    const settings = new Configuration({
+      config: {
+        ...fakes.config,
+        replaceUserFile: async (change) => {
+          await gate;
+          return fakes.config.replaceUserFile(change);
+        },
+      },
+      report: () => undefined,
+    });
+    const writing = settings.write({ key: "theme", value: "dark" });
+    const reading = settings.presentationNow();
+    proceed();
+    expect(await reading).toEqual({ theme: "dark", density: "compact" });
+    expect((await writing).outcome).toBe("saved");
+  });
+
+  test("with a user file that fails its check is the defaults", async () => {
+    const { settings } = configuration({ user: "{ not json" });
+    expect(await settings.presentationNow()).toEqual({ theme: "system", density: "compact" });
   });
 });

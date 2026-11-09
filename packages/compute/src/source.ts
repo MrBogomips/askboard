@@ -71,6 +71,11 @@ export type GanttPlanItem = {
   readonly starts?: Readonly<Record<string, string>>;
   /** The duration the user asked for, by task ID, in whole working days: it wins over the effort. */
   readonly durations?: Readonly<Record<string, number>>;
+  /**
+   * The keys of the plan's entries that name no leaf of the Tree, in entry order, left out of the
+   * schedule and never read (wbs-gantt-consistency); absent when there is none.
+   */
+  readonly strays?: readonly string[];
 };
 
 /** A task of a Gantt with its own tasks: its duration in working days, a whole number from 1. */

@@ -128,7 +128,7 @@ Main holds board protocol 1.8 and Snapshot data 1.1 (read at 8e2e1247; task 0.1 
 
 Every other set keeps main's value. Decision 9 changes the order of the opening, not a schema: the draft message keeps its shape, takes no minor of its own, and only `draft.json`'s `description` says the new order. The numbers are bound at the rebase task, with the binding line here.
 
-Binding: (filled at task 4.2) "Bound on <date>, rebased onto origin/main <sha>: board protocol <n> (main <m>), Snapshot data <n> (main <m>)."
+Bound on 2026-11-09, merged origin/main ac9f891f: board protocol 1.9 (main 1.8), Snapshot data 1.3 (main 1.2). Every other set equals main's.
 
 ### 8. Documents
 

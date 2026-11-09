@@ -8,7 +8,8 @@
 // chunk, the one build the plan on its board reads too, and reports the derived values its answer
 // carries (molecules, design decisions 13 and 14). A Tree a plan names, a work breakdown or not,
 // puts an added package's predecessors in the plan in the same draft update, and a deleted
-// package's in its dependents' (design decision 12).
+// package's in its dependents' (design decision 12). It tells the widget whether a plan names it,
+// which makes each leaf a task of it (`grouping.ts`).
 
 import {
   TREE_SHAPE,
@@ -27,7 +28,7 @@ import {
   useStrings,
 } from "@askboard/view/catalog";
 import { useCallback, useEffect, useMemo } from "react";
-import { type BoardGraph, liveGraph, sentGraph } from "../board-graph/index.ts";
+import { type BoardGraph, linkedPlans, liveGraph, sentGraph } from "../board-graph/index.ts";
 import { linkedAdd, linkedDelete, linkedDependents } from "./linked.ts";
 import { pertDerived } from "./model/pert.ts";
 import { TreeWidget } from "./widget.tsx";
@@ -142,6 +143,7 @@ const Tree = ({
       onLinkedAdd={onLinkedAdd}
       countDependents={countDependents}
       onLinkedDelete={onLinkedDelete}
+      planned={linkedPlans(board, item.id).length > 0}
     />
   );
 };

@@ -236,8 +236,9 @@ describe("adding a question with references", () => {
     };
     const outcome = await change(core, "schedule", { data });
     const warnings = outcome.kind === "updated" ? (outcome.warnings ?? []) : [];
-    expect(warnings).toHaveLength(1);
-    expect(warnings[0]).toMatchObject({ code: "formula", itemId: "schedule" });
+    expect(warnings).toHaveLength(2);
+    for (const warning of warnings)
+      expect(warning).toMatchObject({ code: "formula", itemId: "schedule" });
     expect(JSON.stringify(warnings)).not.toContain("schedule__plan");
   });
 });

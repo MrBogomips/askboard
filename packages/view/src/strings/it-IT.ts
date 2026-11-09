@@ -292,6 +292,13 @@ export const IT_IT = {
     other: "Modificati {count} valori del {percent}. Annulla",
   },
   "tree.adjust.undone": "Modifica annullata.",
+  "tree.group.becomes": "diventa un gruppo:",
+  "tree.group.estimates": "le sue stime escono dai totali finché ha figli.",
+  "tree.group.task": "la sua attività esce dal piano.",
+  "tree.group.estimatesAndTask":
+    "le sue stime escono dai totali finché ha figli, e la sua attività esce dal piano.",
+  "tree.group.cancel": "Annulla",
+  "tree.group.continue": "Continua",
   "gantt.column.task": "Attività",
   "gantt.column.start": "Inizio",
   "gantt.column.duration": "Durata",
