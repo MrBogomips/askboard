@@ -36,3 +36,29 @@ export const rankingAsk = {
     },
   ],
 } as const;
+
+/** A Ranking of five rows, as the keyboard tests need them (selection, ranges, moves of a selection). */
+const FIVE_ITEM = {
+  type: "ranking",
+  id: "priorities",
+  props: {
+    items: ["Alpha", "Bravo", "Charlie", "Delta", "Echo"].map((label) => ({
+      id: label.charAt(0).toLowerCase(),
+      label,
+    })),
+  },
+} as const;
+
+/** The five rows' IDs, in the order the agent sent them. */
+export const FIVE_ORDER = FIVE_ITEM.props.items.map(({ id }) => id);
+
+/** The question `plan` holding the five-row Ranking alone. */
+export const rankingFiveDocument = (): ViewDocument => documentOf([FIVE_ITEM]);
+
+/** The ask for the session process: the question `plan` with the five-row Ranking. */
+export const rankingFiveAsk = (askId: string) =>
+  ({
+    askId,
+    title: "Customer portal SOW plan",
+    items: [{ type: "question", id: "plan", props: { ...plan.props, items: [FIVE_ITEM] } }],
+  }) as const;
