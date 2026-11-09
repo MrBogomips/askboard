@@ -9,6 +9,8 @@ export type Templates = {
   readonly skill: string;
   readonly answers: string;
   readonly updates: string;
+  /** The help skill's `SKILL.md` (keyboard-shortcuts-help, design decision 10). */
+  readonly help: string;
 };
 
 const read = (name: string): string =>
@@ -19,4 +21,5 @@ export const DISK_TEMPLATES: Templates = {
   skill: read("SKILL.md"),
   answers: read("answers.md"),
   updates: read("updates.md"),
+  help: read("help/SKILL.md"),
 };

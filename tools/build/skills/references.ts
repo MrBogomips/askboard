@@ -14,6 +14,7 @@ import {
   moleculeExampleItem,
 } from "./context-examples.ts";
 import { fieldLines, type Resolve, type Schema, stripCitations } from "./fields.ts";
+import { keysSection } from "./keys.ts";
 
 /** A rendered reference file and the examples its text holds, in order. */
 export type Rendered = { readonly text: string; readonly examples: readonly ExampleBody[] };
@@ -119,6 +120,7 @@ export const renderWidgetReference = (entry: WidgetType, resolve: Resolve): Rend
   const shape = entry.wording.expected[`${entry.type}.props`];
   const example: ExampleBody = { kind: "item", value: item };
   const fields = fieldLines(entry.props as Schema, resolve);
+  const keys = keysSection(entry);
   // The sections, each after one blank line: a type whose props have no fields (the Approval's
   // `{}`) has no Fields section.
   const sections = [
@@ -127,6 +129,7 @@ export const renderWidgetReference = (entry: WidgetType, resolve: Resolve): Rend
       ? []
       : [["## Notes", "", ...entry.skill.notes.map((note) => `- ${note}`)]]),
     ["## In the answer", "", ...answerLines(entry, resolve)],
+    ...(keys === "" ? [] : [[keys]]),
     ["## Example", "", exampleBlock(example)],
   ];
   const text = [

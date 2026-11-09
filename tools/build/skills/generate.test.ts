@@ -363,3 +363,19 @@ describe("generateSkill's inputs", () => {
     expect(more.files.get("SKILL.md")).toContain("[`probe`](references/widgets/probe.md)");
   });
 });
+
+describe("the pointer to the help skill", () => {
+  test("SKILL.md names askboard-help for questions on using the board, within 9,000 characters", () => {
+    const skill = generateSkill().files.get("SKILL.md") ?? "";
+    expect(skill).toContain("`askboard-help` skill");
+    expect(skill).toContain("never put the question in an ask");
+    expect(skill.length).toBeLessThanOrEqual(9000);
+  });
+
+  test("the Ranking's reference lists its keys and says the keys panel shows the keys in effect", () => {
+    const ranking = generateSkill().files.get("references/widgets/ranking.md") ?? "";
+    expect(ranking).toContain("| Move up | list | Alt+Shift+↑ (⌥⇧↑) |");
+    expect(ranking).toContain("| Keep this order | list | Enter (↩) |");
+    expect(ranking).toContain("keys in effect");
+  });
+});

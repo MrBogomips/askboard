@@ -3,7 +3,14 @@
 // skill held against them.
 
 import { describe, expect, test } from "bun:test";
-import { BUDGETS, budgetReport, parseFrontmatter } from "./budgets.ts";
+import {
+  BUDGETS,
+  budgetReport,
+  HELP_BUDGETS,
+  HELP_SKILL,
+  headOf,
+  parseFrontmatter,
+} from "./budgets.ts";
 import { generateSkill } from "./generate.ts";
 
 const skillFile = (description: string, body = "Body.", name = "askboard") =>
@@ -145,5 +152,126 @@ describe("the shipped skill", () => {
     const report = budgetReport(generateSkill().files);
     expect(report.problems).toEqual([]);
     expect(report.figures.length).toBeGreaterThan(5);
+  });
+});
+
+// The help skill (keyboard-shortcuts-help, design decision 10; skills spec: the skill's token budget).
+const helpFile = (description: string, body = "Body.", name = "askboard-help", extra = "") =>
+  `---\nname: ${name}\ndescription: ${description}\n${extra}---\n\n${body}\n`;
+
+const helpProblems = (
+  entries: Record<string, string>,
+  directory = "askboard-help",
+  always = small,
+): readonly string[] => budgetReport(files(entries), always, directory, HELP_SKILL).problems;
+
+describe("the help skill's budgets", () => {
+  test("are the design's", () => {
+    expect(HELP_BUDGETS).toEqual({
+      description: 400,
+      skill: 6000,
+      skillLines: 150,
+      reference: 4000,
+    });
+  });
+
+  test("a description of 401 characters fails, and of 400 passes", () => {
+    expect(helpProblems({ "SKILL.md": helpFile("d".repeat(400)) })).toEqual([]);
+    const problems = helpProblems({ "SKILL.md": helpFile("d".repeat(401)) });
+    expect(problems).toEqual([
+      "askboard-help: description has 401 characters, over its budget of 400",
+    ]);
+  });
+
+  test("a SKILL.md of 6,001 characters fails, naming the file, its size and the budget", () => {
+    const head = helpFile("Use.", "");
+    const problems = helpProblems({ "SKILL.md": `${head}${"x".repeat(6001 - head.length)}` });
+    expect(problems).toEqual([
+      "askboard-help: SKILL.md has 6,001 characters, over its budget of 6,000",
+    ]);
+  });
+
+  test("a SKILL.md of 151 lines fails, and of 150 passes", () => {
+    const head = helpFile("Use.", "");
+    const lines = (count: number) => `${head}${"x\n".repeat(count - head.split("\n").length + 1)}`;
+    expect(helpProblems({ "SKILL.md": lines(150) })).toEqual([]);
+    expect(helpProblems({ "SKILL.md": lines(151) })).toEqual([
+      "askboard-help: SKILL.md has 151 lines, over its budget of 150",
+    ]);
+  });
+
+  test("a reference of 4,001 characters fails, and a 4,000 one passes where askboard's allows 6,000", () => {
+    const entries = (size: number) => ({
+      "SKILL.md": helpFile("Use."),
+      "references/widgets/big.md": "x".repeat(size),
+    });
+    expect(helpProblems(entries(4000))).toEqual([]);
+    expect(helpProblems(entries(4001))).toEqual([
+      "askboard-help: references/widgets/big.md has 4,001 characters, over its budget of 4,000",
+    ]);
+    expect(problemsOf(entries(4001), small, "askboard")).toEqual([
+      expect.stringContaining('name "askboard-help"'),
+    ]);
+  });
+
+  test("prints each figure with its folder's name and no total of its own when asked", () => {
+    const report = budgetReport(
+      files({ "SKILL.md": helpFile("Use."), "references/a.md": "x" }),
+      small,
+      "askboard-help",
+      HELP_SKILL,
+      false,
+    );
+    const text = report.figures.join("\n");
+    expect(text).toContain("askboard-help: description: 4 of 400 characters");
+    expect(text).toContain("askboard-help: references/a.md: 1 of 4,000 characters");
+    expect(text).not.toContain("always-loaded");
+  });
+
+  test("the always-loaded total counts the other skill's name and description", () => {
+    const entries = { "SKILL.md": skillFile("Use.") };
+    const others = "o".repeat(50);
+    const fixed = "askboard".length + "Use.".length + small.instructions.length + others.length;
+    const total = (size: number) => ({ ...small, others, tools: "t".repeat(size - fixed) });
+    expect(problemsOf(entries, total(8400))).toEqual([]);
+    expect(problemsOf(entries, total(8401))[0]).toContain("8,401");
+  });
+});
+
+describe("the name of each skill", () => {
+  test("askboard-help must be askboard-help, matching its directory", () => {
+    expect(helpProblems({ "SKILL.md": helpFile("Use.", "x", "askboard") })).toEqual([
+      expect.stringContaining('name "askboard" must be "askboard-help"'),
+    ]);
+    expect(helpProblems({ "SKILL.md": helpFile("Use.") }, "askboard")[0]).toContain("directory");
+    expect(
+      helpProblems({ "SKILL.md": helpFile("Use.", "x", "Askboard_Help") }).join("\n"),
+    ).toContain("Agent Skills");
+  });
+
+  test("the help skill may hold disallowed-tools and no key that grants a tool", () => {
+    expect(
+      helpProblems({
+        "SKILL.md": helpFile("Use.", "x", "askboard-help", "disallowed-tools: a b\n"),
+      }),
+    ).toEqual([]);
+    const granted = helpProblems({
+      "SKILL.md": helpFile("Use.", "x", "askboard-help", "allowed-tools: Bash\n"),
+    });
+    expect(granted).toHaveLength(1);
+    expect(granted[0]).toContain("allowed-tools");
+    // askboard itself may not hold disallowed-tools.
+    expect(
+      problemsOf({
+        "SKILL.md": "---\nname: askboard\ndescription: Use.\ndisallowed-tools: a\n---\n",
+      })[0],
+    ).toContain("disallowed-tools");
+  });
+});
+
+describe("headOf", () => {
+  test("is the name and the description, and empty without a SKILL.md", () => {
+    expect(headOf(files({ "SKILL.md": helpFile("Use.") }))).toBe("askboard-helpUse.");
+    expect(headOf(files({}))).toBe("");
   });
 });

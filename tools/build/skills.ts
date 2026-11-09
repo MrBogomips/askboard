@@ -1,12 +1,13 @@
-// `bun run build:skills` and `bun run check:skills` (askboard-skills, design decision 2): the
-// command that writes `skills/askboard/` from the generator, and the check that fails when a shipped
-// file differs from its generated form, a generated file is missing, or a file nobody generates is
-// there. The folder is committed source: `build` does not run this, so that a build never rewrites it.
+// `bun run build:skills` and `bun run check:skills` (askboard-skills, design decision 2; keyboard-
+// shortcuts-help, decision 10): the command that writes `skills/askboard/` and `skills/askboard-help/`
+// from the generators, and the check that fails when a shipped file differs from its generated form,
+// a generated file is missing, or a file nobody generates is there. The folders are committed source:
+// `build` does not run this, so that a build never rewrites them.
 //
-// The command writes and removes files, so it confines itself to `skills/askboard/`: it follows no
-// symlink (not `skills`, not the skill folder, nothing under it), refuses before it writes anything
-// when it finds one, resolves every path it writes or removes against the skill folder, and removes
-// only regular files, and the folders left empty under it.
+// The command writes and removes files, so it confines itself to the two skill folders: it follows
+// no symlink (not `skills`, not a skill folder, nothing under one), refuses before it writes anything
+// when it finds one in either, resolves every path it writes or removes against its skill folder,
+// and removes only regular files, and the folders left empty under them.
 //
 // Usage: bun tools/build/skills.ts [--check]
 
@@ -21,11 +22,15 @@ import {
 } from "node:fs";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { ROOT } from "./paths.ts";
-import { budgetReport } from "./skills/budgets.ts";
+import { budgetReport, defaultAlwaysLoaded, HELP_SKILL, headOf } from "./skills/budgets.ts";
 import { type GeneratedSkill, generateSkill } from "./skills/generate.ts";
+import { type GeneratedHelp, generateHelpSkill } from "./skills/help.ts";
 
 /** The plugin's skill folder: Claude Code finds it as `askboard:askboard` (packaging spec). */
 export const SKILL_DIR = join(ROOT, "skills", "askboard");
+
+/** The help skill's folder, `askboard:askboard-help`. */
+export const HELP_DIR = join(ROOT, "skills", "askboard-help");
 
 const CHECK_FLAG = "--check";
 
@@ -81,6 +86,9 @@ const walk = (dir: string, base: string, files: string[], folders: string[]): vo
   }
 };
 
+/** What a generator gives: the files by path under the skill folder. */
+type Generated = Pick<GeneratedSkill, "files"> | GeneratedHelp;
+
 type Scan = { readonly files: readonly string[]; readonly folders: readonly string[] };
 
 const scan = (dir: string): Scan => {
@@ -92,18 +100,19 @@ const scan = (dir: string): Scan => {
 };
 
 /** Why the folder differs from the generated files: each missing, extra or different file. */
-export const driftProblems = (dir: string, generated: GeneratedSkill, found: Scan): string[] => {
+export const driftProblems = (dir: string, generated: Generated, found: Scan): string[] => {
   const problems: string[] = [];
+  const at = `skills/${basename(dir)}`;
   for (const [name, text] of generated.files) {
     if (!found.files.includes(name)) {
-      problems.push(`missing: skills/askboard/${name} is generated and not there`);
+      problems.push(`missing: ${at}/${name} is generated and not there`);
     } else if (readFileSync(insideOf(dir, name), "utf8") !== text) {
-      problems.push(`differs: skills/askboard/${name} is not what the generator writes`);
+      problems.push(`differs: ${at}/${name} is not what the generator writes`);
     }
   }
   for (const name of found.files) {
     if (!generated.files.has(name)) {
-      problems.push(`extra: skills/askboard/${name} is a file the generator does not write`);
+      problems.push(`extra: ${at}/${name} is a file the generator does not write`);
     }
   }
   return problems;
@@ -116,13 +125,12 @@ export const driftProblems = (dir: string, generated: GeneratedSkill, found: Sca
 // same file as a generated `SKILL.md`, and a `References/` folder is the generated `references/`;
 // removed after the writes, they would delete the file just written or leave it in the wrong-case
 // folder.
-const writeAll = (dir: string, generated: GeneratedSkill, found: Scan, log: Log): void => {
-  for (const name of generated.files.keys()) insideOf(dir, name);
+const writeAll = (dir: string, generated: Generated, found: Scan, log: Log): void => {
   for (const name of found.files.filter((file) => !generated.files.has(file))) {
     const target = insideOf(dir, name);
     if (lstat(target)?.isFile()) {
       unlinkSync(target);
-      log(`removed skills/askboard/${name}`);
+      log(`removed skills/${basename(dir)}/${name}`);
     }
   }
   for (const name of [...found.folders].sort().reverse()) {
@@ -147,20 +155,24 @@ const finish = (problems: readonly string[], ok: string, log: Log): number => {
   }
   const count = `${problems.length} problem${problems.length === 1 ? "" : "s"}`;
   log(
-    `skills: ${count}; fix the teaching text, run "bun run build:skills" and commit skills/askboard/`,
+    `skills: ${count}; fix the teaching text, run "bun run build:skills" and commit skills/askboard/ and skills/askboard-help/`,
   );
   return 1;
 };
 
 /**
- * Runs the command: writes the skill folder, or with `--check` compares it. Returns the exit code.
- * `dir` and `generated` default to the repository's.
+ * Runs the command: writes the two skill folders, or with `--check` compares them. Returns the exit
+ * code. The folders and the generated files default to the repository's; the help folder defaults
+ * to `askboard-help` beside `dir`. Everything is scanned and every generated name checked before the
+ * first file is removed or written, so a refusal in either folder leaves both as they were.
  */
 export const main = async (
   args: readonly string[],
   log: Log = console.log,
   dir: string = SKILL_DIR,
   generated: GeneratedSkill = generateSkill(),
+  helpDir: string = dir === SKILL_DIR ? HELP_DIR : join(dirname(dir), "askboard-help"),
+  help: GeneratedHelp = generateHelpSkill(),
 ): Promise<number> => {
   const unknown = args.filter((arg) => arg !== CHECK_FLAG);
   if (unknown.length > 0) {
@@ -168,21 +180,42 @@ export const main = async (
     return 1;
   }
   try {
-    const found = scan(dir);
-    const budgets = budgetReport(generated.files, undefined, basename(dir));
+    const targets = [
+      { dir, generated },
+      { dir: helpDir, generated: help },
+    ];
+    const found = targets.map((target) => scan(target.dir));
+    for (const target of targets) {
+      for (const name of target.generated.files.keys()) insideOf(target.dir, name);
+    }
+    const reports = [
+      budgetReport(
+        generated.files,
+        { ...defaultAlwaysLoaded(), others: headOf(help.files) },
+        basename(dir),
+      ),
+      budgetReport(help.files, undefined, basename(helpDir), HELP_SKILL, false),
+    ];
+    const problems = reports.flatMap((report) => report.problems);
+    const figures = reports.flatMap((report) => report.figures);
+    const count = targets.reduce((sum, target) => sum + target.generated.files.size, 0);
     if (args.includes(CHECK_FLAG)) {
-      const problems = [...driftProblems(dir, generated, found), ...budgets.problems];
-      for (const figure of budgets.figures) log(figure);
+      const drift = targets.flatMap((target, at) =>
+        driftProblems(target.dir, target.generated, found[at] as Scan),
+      );
+      for (const figure of figures) log(figure);
       return finish(
-        problems,
-        `check:skills: ${generated.files.size} files under skills/askboard/, none drifted, within budget`,
+        [...drift, ...problems],
+        `check:skills: ${count} files under skills/askboard/ and skills/askboard-help/, none drifted, within budget`,
         log,
       );
     }
-    writeAll(dir, generated, found, log);
-    log(`build:skills: ${generated.files.size} files written under skills/askboard/`);
-    for (const figure of budgets.figures) log(figure);
-    return finish(budgets.problems, "build:skills: within budget", log);
+    for (const [at, target] of targets.entries()) {
+      writeAll(target.dir, target.generated, found[at] as Scan, log);
+    }
+    log(`build:skills: ${count} files written under skills/askboard/ and skills/askboard-help/`);
+    for (const figure of figures) log(figure);
+    return finish(problems, "build:skills: within budget", log);
   } catch (error) {
     log(`skills: ${error instanceof Error ? error.message : String(error)}`);
     return 1;

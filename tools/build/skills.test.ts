@@ -19,6 +19,7 @@ import { dirname, join } from "node:path";
 import { WIDGET_TYPES } from "@askboard/contract";
 import { PROBE_WIDGET } from "@askboard/contract/fixtures";
 import { generateSkill } from "./skills/generate.ts";
+import { generateHelpSkill } from "./skills/help.ts";
 import { main } from "./skills.ts";
 
 // Whether the temporary volume treats `probe.txt` and `PROBE.TXT` as one file.
@@ -52,6 +53,7 @@ const listing = (folder: string, prefix = ""): Record<string, string> =>
     ),
   );
 
+const helpDir = () => join(dirname(dir), "askboard-help");
 const run = (...args: string[]) => main(args, (line) => log.push(line), dir);
 const said = () => log.join("\n");
 
@@ -70,6 +72,7 @@ beforeEach(() => {
 afterEach(() => rmSync(dirname(root), { recursive: true, force: true }));
 
 const generated = (): Record<string, string> => Object.fromEntries(generateSkill().files);
+const generatedHelp = (): Record<string, string> => Object.fromEntries(generateHelpSkill().files);
 
 describe("write mode", () => {
   test("writes every generated file, byte for byte, and nothing else", async () => {
@@ -141,10 +144,13 @@ describe("write mode", () => {
     expect(after.mtimeMs).toBe(before.mtimeMs);
   });
 
-  test("touches nothing outside skills/askboard/", async () => {
+  test("touches nothing outside the two skill folders", async () => {
     const outsideOwn = (folder: string) =>
       Object.fromEntries(
-        Object.entries(listing(folder)).filter(([path]) => !path.startsWith("skills/askboard/")),
+        Object.entries(listing(folder)).filter(
+          ([path]) =>
+            !path.startsWith("skills/askboard/") && !path.startsWith("skills/askboard-help/"),
+        ),
       );
     const before = outsideOwn(root);
     await run();
@@ -276,5 +282,144 @@ describe("symlinks", () => {
     log = [];
     expect(await run()).toBe(1);
     expect(listing(outside)).toEqual({ "secret.txt": "keep" });
+  });
+});
+
+describe("the help skill's folder", () => {
+  test("write mode writes both folders, byte for byte", async () => {
+    expect(await run()).toBe(0);
+    expect(listing(dir)).toEqual(generated());
+    expect(listing(helpDir())).toEqual(generatedHelp());
+    expect(said()).toContain("askboard-help: description:");
+  });
+
+  test("overwrites a hand-edited help file and removes an extra one", async () => {
+    await run();
+    write(join(helpDir(), "SKILL.md"), "edited");
+    write(join(helpDir(), "references", "stray.md"), "extra");
+    log = [];
+    expect(await run()).toBe(0);
+    expect(listing(helpDir())).toEqual(generatedHelp());
+    expect(said()).toContain("removed skills/askboard-help/references/stray.md");
+  });
+
+  test("--check passes on both, and fails naming a hand-edited, missing or extra help file", async () => {
+    await run();
+    expect(await run("--check")).toBe(0);
+    write(join(helpDir(), "references", "widgets", "ranking.md"), "edited by hand");
+    rmSync(join(helpDir(), "references", "key-actions.md"));
+    write(join(helpDir(), "references", "stray.md"), "extra");
+    log = [];
+    expect(await run("--check")).toBe(1);
+    expect(said()).toContain("differs: skills/askboard-help/references/widgets/ranking.md");
+    expect(said()).toContain("missing: skills/askboard-help/references/key-actions.md");
+    expect(said()).toContain("extra: skills/askboard-help/references/stray.md");
+    expect(existsSync(join(helpDir(), "references", "stray.md"))).toBe(true);
+  });
+
+  test("--check fails on a folder not generated yet, naming its SKILL.md", async () => {
+    await run();
+    rmSync(helpDir(), { recursive: true });
+    log = [];
+    expect(await run("--check")).toBe(1);
+    expect(said()).toContain("missing: skills/askboard-help/SKILL.md");
+  });
+
+  test("a symlink at the help folder is refused in both modes before anything is written", async () => {
+    write(join(dir, "keep.md"), "extra");
+    symlinkSync(outside, helpDir());
+    for (const args of [[], ["--check"]]) {
+      log = [];
+      expect(await run(...args)).toBe(1);
+      expect(said()).toContain("askboard-help");
+      expect(said()).toContain("symlink");
+    }
+    expect(existsSync(join(dir, "keep.md"))).toBe(true);
+    expect(existsSync(join(dir, "SKILL.md"))).toBe(false);
+    expect(listing(outside)).toEqual({ "secret.txt": "keep" });
+  });
+
+  test("a symlink under the help folder is refused before the other folder is written", async () => {
+    mkdirSync(helpDir(), { recursive: true });
+    symlinkSync(outside, join(helpDir(), "linked"));
+    expect(await run()).toBe(1);
+    expect(said()).toContain("linked");
+    expect(existsSync(join(dir, "SKILL.md"))).toBe(false);
+    expect(listing(outside)).toEqual({ "secret.txt": "keep" });
+  });
+
+  test("a symlink where the skills folder should be is refused", async () => {
+    const other = join(dirname(root), "elsewhere");
+    mkdirSync(other);
+    rmSync(join(root, "skills"), { recursive: true });
+    symlinkSync(other, join(root, "skills"));
+    expect(await run()).toBe(1);
+    expect(said()).toContain("symlink");
+    expect(readdirSync(other)).toEqual([]);
+  });
+
+  test("refuses a generated help name outside the folder before it removes or writes anything", async () => {
+    write(join(dir, "keep-me.md"), "extra");
+    const good = generateHelpSkill();
+    const bad = { files: new Map([...good.files, ["../../escape.md", "x"]]) };
+    const code = await main([], (line) => log.push(line), dir, generateSkill(), helpDir(), bad);
+    expect(code).toBe(1);
+    expect(said()).toContain("escape.md");
+    expect(existsSync(join(dir, "keep-me.md"))).toBe(true);
+    expect(existsSync(join(dir, "SKILL.md"))).toBe(false);
+    expect(existsSync(join(root, "escape.md"))).toBe(false);
+  });
+
+  test("a help reference over its 4,000-character budget fails the command", async () => {
+    const good = generateHelpSkill();
+    const big = { files: new Map(good.files).set("references/widgets/tree.md", "x".repeat(4001)) };
+    const code = await main([], (line) => log.push(line), dir, generateSkill(), helpDir(), big);
+    expect(code).toBe(1);
+    expect(said()).toContain(
+      "askboard-help: references/widgets/tree.md has 4,001 characters, over its budget of 4,000",
+    );
+  });
+
+  test("the always-loaded total is printed once and counts both skills", async () => {
+    await run();
+    log = [];
+    expect(await run("--check")).toBe(0);
+    expect(log.filter((line) => line.includes("always-loaded total"))).toHaveLength(1);
+  });
+
+  test("touches nothing but the two skill folders", async () => {
+    const outsideOwn = Object.entries(listing(root)).filter(
+      ([path]) => !path.startsWith("skills/askboard/") && !path.startsWith("skills/askboard-help/"),
+    );
+    await run();
+    expect(
+      Object.entries(listing(root)).filter(
+        ([path]) =>
+          !path.startsWith("skills/askboard/") && !path.startsWith("skills/askboard-help/"),
+      ),
+    ).toEqual(outsideOwn);
+  });
+});
+
+describe("a key table changed without regenerating", () => {
+  test("fails the check naming the type's two references", async () => {
+    await run();
+    const widgets = WIDGET_TYPES.map((entry) =>
+      entry.type === "ranking"
+        ? { ...entry, keys: (entry.keys ?? []).filter(({ action }) => action !== "ranking.keep") }
+        : entry,
+    );
+    log = [];
+    const code = await main(
+      ["--check"],
+      (line) => log.push(line),
+      dir,
+      generateSkill({ widgets }),
+      helpDir(),
+      generateHelpSkill({ widgets }),
+    );
+    expect(code).toBe(1);
+    expect(said()).toContain("differs: skills/askboard/references/widgets/ranking.md");
+    expect(said()).toContain("differs: skills/askboard-help/references/widgets/ranking.md");
   });
 });
