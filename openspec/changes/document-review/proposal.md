@@ -8,6 +8,8 @@ Its detached check is the first field check whose outcome follows the agent's co
 
 Issue: #92
 Issue: #93
+Issue: #100
+Issue: #103
 
 ## What Changes
 

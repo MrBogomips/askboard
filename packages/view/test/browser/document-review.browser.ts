@@ -525,7 +525,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
-      "a reload under kept work gives the annotations back with their marks and pins, and an untouched review none",
+      "a reload under kept work gives the annotations back with their marks, pins and counter, and Answer enabled",
       async () => {
         const document = reviewDocument();
         const run = await host(dist, document);

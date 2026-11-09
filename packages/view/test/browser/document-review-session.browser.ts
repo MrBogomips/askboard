@@ -38,7 +38,7 @@ import type { FrameLocator } from "playwright";
 import { atomAsk } from "./fixtures/atom-documents.ts";
 import { HUNDRED_WORDS, NOTES, reviewItem } from "./fixtures/document-review-documents.ts";
 import { database, plain } from "./fixtures/lifecycle-asks.ts";
-import { checkedEvents, checkedFetchItem } from "./harness/approval-board.ts";
+import { checkedEvents, checkedFetchItem, decisionOf } from "./harness/approval-board.ts";
 import {
   eventually,
   expectNoCspProblem,
@@ -315,6 +315,38 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(rest).toEqual([]);
         expect(Object.keys((answer?.results ?? {}) as object)).toEqual(["review"]);
         expect(annotationsOf(answer).map((each) => each.body.text)).toEqual(["Nested."]);
+        expectNoCspProblem(run);
+      },
+      TEST_TIMEOUT_MS,
+    );
+  });
+
+  describe(`${engine}: a Document review beside an Approval, on the session process`, () => {
+    const { start } = useEngine(engine);
+
+    test(
+      "the user approves without annotating: the answer's results hold the Approval's result and no key for the untouched review, and ask-core logs the answer",
+      async () => {
+        const verdict = { type: "approval", id: "verdict", props: {} };
+        const run = await start(lifecycleScenario(atomAsk([review(), verdict]), dist));
+        const board = await openBoard(run, ["plan"]);
+        await documentShown(board);
+        await decisionOf(board, "plan", "Approve").click({ timeout: STEP_TIMEOUT_MS });
+        await eventually(() => answerOf(board, "plan").isEnabled(), "Answer to be enabled");
+        await answerOf(board, "plan").click({ timeout: STEP_TIMEOUT_MS });
+        await actsDone(run, 1);
+        const commands = sentActs(run);
+        expect(commands).toHaveLength(1);
+        const acts = (commands[0] as unknown as { acts: { results?: Record<string, unknown> }[] })
+          .acts;
+        expect(acts).toHaveLength(1);
+        const sent = acts[0]?.results;
+        expect(sent).toEqual({ verdict: { decision: "approve" } });
+        expect(Object.keys(sent ?? {})).not.toContain("review");
+        const [answer, ...rest] = answersOf(await run.session.collectJson());
+        expect(rest).toEqual([]);
+        expect(answer).toMatchObject({ type: "answer", itemId: "plan", rev: 1 });
+        expect(answer?.results).toEqual({ verdict: { decision: "approve" } });
         expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,
