@@ -341,6 +341,46 @@ describe("a key a system composes or an editor types (decision 2; review 8.6, S-
     },
   );
 
+  // Review 8.13, S-41: every key that types a character, not the ASCII letters alone.
+  test.each([
+    ["é", "none", "é"],
+    ["1", "none", "1"],
+    ["-", "shift", "Shift+-"],
+    ["ß", "none", "ß"],
+    ["字", "shift", "Shift+字"],
+    ["😀", "none", "😀"],
+  ] as const)(
+    "in an editor part the typing key %j with %s is refused naming the type, the action and the key, and on a grid it passes",
+    (key, hold, text) => {
+      const found = messages([own("probe.type", "editor", [b(key, hold)])]);
+      expect(found).toHaveLength(1);
+      expect(found[0]).toContain('"probe"');
+      expect(found[0]).toContain("probe.type");
+      expect(found[0]).toContain(text);
+      expect(messages([own("probe.type", "grid", [b(key, hold)])])).toEqual([]);
+    },
+  );
+
+  test.each(["é", "1", "-", "ß", "字", "😀", "."])(
+    "Alt+Shift with the typing key %j is refused in any part, naming the type, the action and the key",
+    (key) => {
+      for (const part of ["list", "grid", "editor"]) {
+        const found = messages([own("probe.k", part, [b(key, "alt+shift")])]);
+        expect({ key, part, count: found.length }).toEqual({ key, part, count: 1 });
+        expect(found[0]).toContain('"probe"');
+        expect(found[0]).toContain("probe.k");
+        expect(found[0]).toContain(`Alt+Shift+${key}`);
+      }
+    },
+  );
+
+  test("a named key of two or more characters is no typing key, in an editor or with Alt+Shift", () => {
+    for (const key of ["Enter", "Escape", "F2", "Delete", "Backspace", "Home", "End", "ArrowUp"]) {
+      expect(messages([own("probe.k", "editor", [b(key)])])).toEqual([]);
+    }
+    expect(messages([own("probe.k", "editor", [b("Enter", "alt+shift")])])).toEqual([]);
+  });
+
   test("an editor's other keys pass: Enter, Escape, F2, Mod+z, Alt+Shift+Enter", () => {
     const keys = [
       b("Enter"),
