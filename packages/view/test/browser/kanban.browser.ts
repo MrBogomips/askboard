@@ -150,8 +150,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await board.answer.isEnabled()).toBe(true);
         expect([await countOf(board, "todo"), await countOf(board, "doing")]).toEqual(["1", "1"]);
 
+        // Back above `c`, where the agent put it: nothing is left to send.
         await beginDrag(board, cardOf(board, "a"));
-        await dragOver(board, columnOf(board, "todo"));
+        await dragOverCard(board, cardOf(board, "c"), "upper");
         await expectDrop(board, "todo", "into");
         await release(board);
         await expectCards(board, "todo", ["a", "c"]);
@@ -170,9 +171,11 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const run = await host(dist, kanbanDocument());
         await readyIn(run);
         const { board } = run;
+        // Over its own place: the pointer on `a`, above the middle of `c`.
         await beginDrag(board, cardOf(board, "a"));
-        await dragOver(board, columnOf(board, "todo"));
+        await dragOverCard(board, cardOf(board, "c"), "upper");
         expect(await columnOf(board, "todo").getAttribute("data-drop")).toBeNull();
+        expect(await lineCount(board)).toBe(0);
         await release(board);
         await Bun.sleep(QUIET_MS / 3);
         expect(await cardsIn(board, "todo")).toEqual(["a", "c"]);
@@ -342,7 +345,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         } & Window;
         frame.pressed = [];
         frame.addEventListener("keydown", (event) => {
-          frame.pressed.push([event.key, event.defaultPrevented]);
+          if (!["Shift", "Alt", "Control", "Meta"].includes(event.key)) {
+            frame.pressed.push([event.key, event.defaultPrevented]);
+          }
         });
       });
     const pressed = (board: Board) =>

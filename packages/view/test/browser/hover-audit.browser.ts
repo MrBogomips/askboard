@@ -302,26 +302,36 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
 
     for (const scheme of ["light", "dark"] as const) {
       test(
-        `in the ${scheme} scheme, the Kanban's tool is inert until a card is current, then responds; a card grabs, takes the ring from the keyboard, and a locked board's show nothing`,
+        `in the ${scheme} scheme, the Kanban's tools are inert until a card is current, then those that can act respond; a card grabs, takes the ring from the keyboard, and a locked board's show nothing`,
         async () => {
           const document = kanbanDocument();
           const run = await host(dist, document, { colorScheme: scheme });
           await readyIn(run);
           const { board } = run;
-          const tool = board.view
-            .getByRole("toolbar", { name: "Kanban tools" })
-            .getByRole("button", { name: "Move to…", exact: true });
-          // No card is current: the tool is disabled and inert.
-          await expectInert(run, tool);
+          const tools = (...names: string[]) =>
+            names.map((name) =>
+              board.view
+                .getByRole("toolbar", { name: "Kanban tools" })
+                .getByRole("button", { name, exact: true }),
+            );
+          const all = tools("Move up", "Move down", "To top", "To bottom", "Move to…");
+          const [moveUp, , toTop, , tool] = all as [Locator, Locator, Locator, Locator, Locator];
+          // No card is current: every tool is disabled and inert.
+          for (const control of all) await expectInert(run, control);
           expect((await hovered(cardOf(board, "a"))).cursor).toBe("grab");
           await cardOf(board, "a").click();
           await eventually(
             async () => (await tool.getAttribute("aria-disabled")) === null,
             "Move to… to turn on",
           );
+          // `a` is the first card of `todo`: what moves it down or elsewhere responds, what moves
+          // it up is inert.
           await board.page.mouse.move(0, 0);
-          await expectResponds(tool, scheme);
-          await board.page.mouse.move(0, 0);
+          for (const control of tools("Move down", "To bottom", "Move to…")) {
+            await expectResponds(control, scheme);
+            await board.page.mouse.move(0, 0);
+          }
+          for (const control of [moveUp, toTop]) await expectInert(run, control);
           await cardOf(board, "c").focus();
           await board.page.keyboard.press("ArrowUp");
           await expectRing(cardOf(board, "a"));
@@ -330,7 +340,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
             async () => (await tool.getAttribute("aria-disabled")) === "true",
             "the tool to turn off",
           );
-          await expectInert(run, tool);
+          for (const control of all) await expectInert(run, control);
           expect((await hovered(cardOf(board, "a"))).cursor).not.toBe("grab");
           expect(run.browser.errors).toEqual([]);
         },
