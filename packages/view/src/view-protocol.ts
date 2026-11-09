@@ -621,8 +621,9 @@ const isCombinationList = (value: unknown): value is readonly string[] =>
   );
 
 /**
- * Whether the view can read this as the user's key overrides: an object of at most 64 own actions,
- * each named by 1 to 64 characters, each a list of at most 4 combinations of 1 to 32 characters. The
+ * Whether the view can read this as the user's key overrides: an object of at most `KEY_OVERRIDES_MAX_ACTIONS` own
+ * actions, each named by 1 to `KEY_ACTION_MAX_CHARS` characters, each a list of at most
+ * `KEY_OVERRIDE_MAX_COMBINATIONS` combinations of 1 to `KEY_COMBINATION_MAX_CHARS` characters. The
  * shape only: that the keys are admissible is the board page's check, which passes on all of the
  * overrides or none (`keyOverridesProblems`), and an action's meaning is the contract's.
  */
