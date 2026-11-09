@@ -9,7 +9,7 @@
 // and nothing reaches the draft before the drop. Nothing here holds the props (AD-9).
 
 import type { TimelineProps } from "@askboard/contract";
-import { useLocale, useStrings } from "@askboard/view/catalog";
+import { keyPressOf, useLocale, useStrings } from "@askboard/view/catalog";
 import {
   type KeyboardEvent,
   type PointerEvent,
@@ -20,7 +20,6 @@ import {
   useState,
 } from "react";
 import { useElementWidth } from "../gantt/use-element-width.ts";
-import { pressOfEvent } from "../shared/key-press.ts";
 import { FRAME } from "../shared/move-classes.ts";
 import { MoveToolbar } from "../shared/move-toolbar.tsx";
 import { usePointerDrag } from "../shared/pointer-drag.ts";
@@ -132,7 +131,7 @@ export const TimelineWidget = ({
   };
 
   const onKeyDown = (event: KeyboardEvent<SVGSVGElement>): void => {
-    const key = timelineKeyOf(pressOfEvent(event));
+    const key = timelineKeyOf(keyPressOf(event));
     const from = current ?? stop;
     if (key === undefined || from === undefined) return;
     const next = neighbour(order, from, key);

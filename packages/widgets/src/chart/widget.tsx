@@ -5,7 +5,7 @@
 // highlights a point (AD-10). A chart to read or a disabled one highlights nothing and still reads.
 
 import type { ChartPoint, ChartProps, Locale } from "@askboard/contract";
-import { type Say, useReadyAfterLayout, useTheme } from "@askboard/view/catalog";
+import { keyPressOf, type Say, useReadyAfterLayout, useTheme } from "@askboard/view/catalog";
 import {
   type KeyboardEvent,
   useCallback,
@@ -15,7 +15,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { pressOfEvent } from "../shared/key-press.ts";
 import { useCanvas } from "./canvas.ts";
 import { CHART, COUNTER, HIDDEN, PLOT, TITLE } from "./classes.ts";
 import { PLOT_HEIGHT } from "./layout.ts";
@@ -153,7 +152,7 @@ export const ChartWidget = ({
   };
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     // A key with a modifier, or one the chart does not take, keeps its default.
-    const action = chartKeyAction(pressOfEvent(event));
+    const action = chartKeyAction(keyPressOf(event));
     if (action === undefined) return;
     event.preventDefault();
     if (action.kind === "move") arrive(move(current, action.key, props));

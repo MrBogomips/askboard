@@ -42,7 +42,14 @@ describe("toolbarKeys", () => {
       enabled,
       at,
       buttons,
-    )({ key, ...NO_MODIFIER, ...held, preventDefault: () => (prevented = true) });
+    )({
+      key,
+      keyCode: 0,
+      target: null,
+      ...NO_MODIFIER,
+      ...held,
+      preventDefault: () => (prevented = true),
+    });
     return { log, prevented };
   };
 
@@ -72,6 +79,8 @@ describe("toolbarKeys", () => {
     let prevented = false;
     toolbarKeys([true, true], 0, { current: [node("comment"), node("suggestion")] })({
       key: "ArrowRight",
+      keyCode: 0,
+      target: null,
       ...NO_MODIFIER,
       nativeEvent: { isComposing: true },
       preventDefault: () => (prevented = true),

@@ -1,7 +1,7 @@
 // The toolbar's handlers (document-review, design decision 9), as plain functions over structural
 // parts so that they are tested without a DOM: the elements only hand them to React.
 
-import { type PressFields, pressOfEvent } from "../shared/key-press.ts";
+import { type KeyEventFields, keyPressOf } from "@askboard/view/catalog";
 import { toolbarFocus, toolbarPressMove } from "../shared/toolbar-focus.ts";
 
 type Ref<T> = { current: T };
@@ -20,8 +20,8 @@ export const recordTool =
  */
 export const toolbarKeys =
   (enabled: readonly boolean[], at: number, buttons: Ref<(Focusable | null)[]>) =>
-  (event: PressFields & { preventDefault(): void }): void => {
-    const move = toolbarPressMove(pressOfEvent(event));
+  (event: KeyEventFields & { preventDefault(): void }): void => {
+    const move = toolbarPressMove(keyPressOf(event));
     if (move === undefined) return;
     event.preventDefault();
     buttons.current[toolbarFocus(enabled, at, move)]?.focus();

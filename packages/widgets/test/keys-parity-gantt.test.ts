@@ -13,6 +13,8 @@ import {
 } from "../src/gantt/model/keys.ts";
 import {
   expectedActions,
+  FLAG_SETS,
+  keysOfPart,
   NO_MODIFIER,
   parityMismatches,
   reachedActions,
@@ -64,9 +66,12 @@ const gridId = (action: GridAction | undefined): string | undefined => {
 const NAVIGATING = { mode: "navigate", column: "start", editable: true, clearable: true } as const;
 const EDITING = { ...NAVIGATING, mode: "edit" } as const;
 
+// `swallow` is no table action and not "nothing": the panel prevents the key and runs no action.
+const SWALLOW = "swallow";
 const PANEL_IDS = { done: "edit.commit", cancel: "edit.cancel" } as const;
 const panelId = (action: PanelAction | undefined): string | undefined => {
-  if (action === undefined || action.kind === "swallow") return undefined;
+  if (action === undefined) return undefined;
+  if (action.kind === "swallow") return SWALLOW;
   if (action.kind === "move") return action.step === 1 ? "cursor.down" : "cursor.up";
   return PANEL_IDS[action.kind];
 };
@@ -101,7 +106,13 @@ const PARTS: readonly (readonly [string, Taken])[] = [
       return action.kind === "fit" ? "gantt.fit" : EDGE_WIDTHS[action.width];
     },
   ],
-  ["panel", (key, flags) => panelId(panelKeyAction(press(key, flags)))],
+  [
+    "panel",
+    (key, flags) => {
+      const id = panelId(panelKeyAction(press(key, flags)));
+      return id === SWALLOW ? undefined : id; // the table's view: a swallowed key is no action
+    },
+  ],
   [
     "switch",
     (key, flags) => {
@@ -147,7 +158,7 @@ describe("the Gantt's table matches its handlers", () => {
     for (const key of ["Delete", "Backspace"]) {
       // `panel.tsx` prevents the default of every action it gets, `swallow` included, and runs none.
       expect(panelKeyAction(press(key, {}))).toEqual({ kind: "swallow" });
-      expect(panelId(panelKeyAction(press(key, {})))).toBeUndefined();
+      expect(panelId(panelKeyAction(press(key, {})))).toBe(SWALLOW);
       expect(panelKeyAction(press(key, { shiftKey: true }))).toBeUndefined();
       expect(panelKeyAction(press(key, { altKey: true, shiftKey: true }))).toBeUndefined();
     }
@@ -157,5 +168,19 @@ describe("the Gantt's table matches its handlers", () => {
     expect(
       GANTT_KEYS.filter((entry) => entry.part === "panel").flatMap((e) => e.keys.map((k) => k.key)),
     ).not.toContain("Backspace");
+  });
+
+  test("the presses that give `swallow` are exactly Delete and Backspace with no modifier", () => {
+    const swallowed: string[] = [];
+    for (const key of [...keysOfPart(GANTT_KEYS, "panel"), "Tab", "a", "PageDown"]) {
+      for (const flags of FLAG_SETS) {
+        if (panelId(panelKeyAction(press(key, flags))) === SWALLOW) {
+          swallowed.push(`${key} ${JSON.stringify(flags)}`);
+        }
+      }
+    }
+    expect(swallowed.sort()).toEqual(
+      ["Backspace", "Delete"].map((key) => `${key} ${JSON.stringify(NO_MODIFIER)}`),
+    );
   });
 });

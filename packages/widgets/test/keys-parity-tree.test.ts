@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { TREE_KEYS } from "@askboard/contract";
 import type { KeyboardEvent } from "react";
-import { questionKeyDown } from "../src/tree/group-question.tsx";
 import { treeKeyOf } from "../src/tree/key-event.ts";
 import { type KeyAction, keyAction, toolbarKey } from "../src/tree/model/keys.ts";
+import { questionKeyDown } from "../src/tree/question-keys.ts";
 import { expectedActions, parityMismatches, reachedActions, type Taken } from "./key-presses.ts";
 
 // The Tree's key table against its handlers (keyboard-shortcuts-help, design decision 9; spec: Key
@@ -49,16 +49,8 @@ const idOf = (action: KeyAction | undefined): string | undefined => {
   }
 };
 
-// The delete question's own handler is inline in the component (`delete-question.tsx`): Escape,
-// read as the editor reads it, is "Cancel".
-const deleteQuestion: Taken = (key, flags) =>
-  keyAction(treeKeyOf({ key, ...flags, keyCode: 0, nativeEvent: { isComposing: false } }), "edit")
-    ?.kind === "cancel"
-    ? "tree.cancelDelete"
-    : undefined;
-
-// The group question's handler is exported: it prevents the default and cancels on Escape.
-const groupQuestion: Taken = (key, flags) => {
+// The handler both questions call (`question-keys.ts`): it prevents the default and cancels on Escape.
+const questionHandler: Taken = (key, flags) => {
   let cancelled = false;
   questionKeyDown(() => {
     cancelled = true;
@@ -94,8 +86,11 @@ const PARTS: readonly (readonly [string, Taken])[] = [
       return move === undefined ? undefined : `toolbar.${move}`;
     },
   ],
-  ["delete-question", deleteQuestion],
-  ["group-question", groupQuestion],
+  [
+    "delete-question",
+    (key, flags, press) => questionHandler(key, flags, press) && "tree.cancelDelete",
+  ],
+  ["group-question", questionHandler],
 ];
 
 describe("the Tree's table matches its handlers", () => {

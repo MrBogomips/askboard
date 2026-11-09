@@ -5,9 +5,8 @@
 // `aria-disabled` rather than `disabled`, so that a tool that turns disabled under the focus, such
 // as "Move down" once its row is last, keeps the focus and the next Enter does nothing.
 
-import { type Say, useStrings } from "@askboard/view/catalog";
+import { keyPressOf, type Say, useStrings } from "@askboard/view/catalog";
 import { type KeyboardEvent, useRef, useState } from "react";
-import { pressOfEvent } from "../shared/key-press.ts";
 import { toolbarFocus, toolbarPressMove, toolbarStop } from "../shared/toolbar-focus.ts";
 import { CHANGE_DOT, COUNTER, COUNTER_TEXT, TOOL, TOOLBAR, TOOLS } from "./classes.ts";
 import type { RankingTools } from "./keys.ts";
@@ -50,7 +49,7 @@ export const RankingToolbar = ({
   const words = counterText(held, moved, say);
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
-    const move = toolbarPressMove(pressOfEvent(event));
+    const move = toolbarPressMove(keyPressOf(event));
     if (move === undefined) return;
     event.preventDefault();
     buttons.current[toolbarFocus(enabled, at, move)]?.focus();

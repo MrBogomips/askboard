@@ -55,6 +55,13 @@ describe("keyPressOf", () => {
     expect(keyPressOf(event("Enter", { keyCode: 13 })).composing).toBe(false);
   });
 
+  test("composing: a raw DOM event carries isComposing itself, with another keyCode", () => {
+    const { nativeEvent: _react, ...dom } = event("Enter", { keyCode: 13, isComposing: true });
+    expect(keyPressOf(dom).composing).toBe(true);
+    const { nativeEvent: _again, ...plain } = event("Enter", { keyCode: 13, isComposing: false });
+    expect(keyPressOf(plain).composing).toBe(false);
+  });
+
   test("inText from the target", () => {
     expect(keyPressOf(event("?", { target: target({ tagName: "TEXTAREA" }) })).inText).toBe(true);
     expect(keyPressOf(event("?")).inText).toBe(false);
