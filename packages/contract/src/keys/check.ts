@@ -4,7 +4,6 @@
 // never hide another's. Plain ECMAScript over data, so a table of another shape is a problem and
 // never a throw.
 
-import type { RegistryProblem } from "../widgets/registry.ts";
 import {
   isVocabularyAction,
   KEY_HOLDS,
@@ -274,6 +273,16 @@ const isEntry = (value: unknown): value is Parsed => {
 };
 
 /**
+ * What the table check found: the shape of the registry's problem for `rule: "keys"`, declared
+ * here so no module of `keys/` imports the registry (design decision 13, review 10.5, S-43).
+ */
+export type KeyTableProblem = {
+  readonly type: string;
+  readonly rule: "keys";
+  readonly message: string;
+};
+
+/**
  * What is wrong with `table`, the key table of the type `type`: an action neither in the
  * vocabulary nor `<type>.<name>`; a vocabulary action whose keys differ from the vocabulary's by a
  * key added or left out, or whose `when` differs (`delete` is the plain pair, with or without the
@@ -287,8 +296,8 @@ const isEntry = (value: unknown): value is Parsed => {
  * `delete`, `edit.*`, `undo`, `adjust.percent`). Each
  * problem is `rule: "keys"` and names the type and the action or the key.
  */
-export const keyTableProblems = (type: string, table: KeyTable): readonly RegistryProblem[] => {
-  const problem = (message: string): RegistryProblem => ({ type, rule: "keys", message });
+export const keyTableProblems = (type: string, table: KeyTable): readonly KeyTableProblem[] => {
+  const problem = (message: string): KeyTableProblem => ({ type, rule: "keys", message });
   if (!Array.isArray(table)) return [problem(`the key table of "${type}" is no list of entries`)];
   // The other entries a check reads hold only bindings that are whole.
   const entries = (table as readonly unknown[])

@@ -4,15 +4,16 @@
 // bounds the shape of `keys` and this check gives it its meaning (AD-14), and one problem never
 // hides another. A file with any problem applies no `keys` at all (`ask-core`, NFR-10).
 
-import { WIDGET_TYPES, type WidgetType } from "../widgets/registry.ts";
 import { editorKeyProblem, reads, reservedProblem } from "./check.ts";
 import { bindingsOf, effectiveKeys } from "./effective.ts";
 import { type KeyOverrides, keyCombinationText, parseKeyCombination } from "./notation.ts";
+import { REGISTERED_KEY_TABLES } from "./tables.ts";
 import {
   isVocabularyAction,
   KEY_VOCABULARY,
   type KeyBinding,
   type KeyEntry,
+  type KeyTable,
 } from "./vocabulary.ts";
 
 /** The rules an override can break. */
@@ -64,6 +65,13 @@ export const KEYS_OPEN_RESERVED_KEYS: ReadonlySet<string> = new Set([
 const takenByControls = ({ key, hold }: KeyBinding): boolean =>
   (hold === "none" || hold === "shift") && KEYS_OPEN_RESERVED_KEYS.has(key);
 
+/**
+ * What the check reads of a registry entry: its type and, when it has one, its key table. The
+ * registry's `WidgetType` fits, and so does a probe registry; the default is the registered tables
+ * alone (`REGISTERED_KEY_TABLES`), so the check loads no registry.
+ */
+export type KeyTypes = readonly { readonly type: string; readonly keys?: KeyTable }[];
+
 // A registered table's entries that are whole, by type.
 type Registered = { readonly type: string; readonly table: readonly KeyEntry[] };
 
@@ -73,7 +81,7 @@ const isEntry = (value: unknown): value is KeyEntry => {
   return typeof action === "string" && typeof part === "string" && Array.isArray(keys);
 };
 
-const registered = (types: readonly WidgetType[]): readonly Registered[] =>
+const registered = (types: KeyTypes): readonly Registered[] =>
   (Array.isArray(types) ? (types as readonly unknown[]) : []).flatMap((value) => {
     const { type, keys } = (value ?? {}) as { type?: unknown; keys?: unknown };
     if (typeof type !== "string" || !Array.isArray(keys)) return [];
@@ -112,7 +120,7 @@ const escapeActions = (tables: readonly Registered[]): readonly string[] =>
  * keys hold Escape in some registered table, sorted, frozen. The set `keyOverridesProblems` reports
  * an `exit` problem for; the generated key configuration reference reads it (review 5.6, S-36).
  */
-export const keyExitActions = (types: readonly WidgetType[] = WIDGET_TYPES): readonly string[] =>
+export const keyExitActions = (types: KeyTypes = REGISTERED_KEY_TABLES): readonly string[] =>
   Object.freeze([...new Set(["edit.cancel", ...escapeActions(registered(types))])].sort());
 
 // The problems of one action's override on its own: known, not native, each combination judged,
@@ -285,7 +293,7 @@ const same = (a: KeyOverrideProblem, b: KeyOverrideProblem): boolean =>
  */
 export const keyOverridesProblems = (
   overrides: KeyOverrides,
-  types: readonly WidgetType[] = WIDGET_TYPES,
+  types: KeyTypes = REGISTERED_KEY_TABLES,
 ): readonly KeyOverrideProblem[] => {
   if (typeof overrides !== "object" || overrides === null || Array.isArray(overrides)) {
     return [{ rule: "notation", action: "keys", binding: shownText(overrides) }];

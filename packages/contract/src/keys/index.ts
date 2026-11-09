@@ -2,7 +2,7 @@
 
 export { ariaKeyShortcuts } from "./aria.ts";
 export { KEY_TABLES_ON_BOARD } from "./board.ts";
-export { keyTableProblems } from "./check.ts";
+export { type KeyTableProblem, keyTableProblems } from "./check.ts";
 export { effectiveKeys } from "./effective.ts";
 export { type KeyPress, keyActionOf, type Modifiers, type PressHold, pressHold } from "./match.ts";
 export {
@@ -16,9 +16,11 @@ export {
   KEYS_OPEN_RESERVED_KEYS,
   type KeyOverrideProblem,
   type KeyOverrideRule,
+  type KeyTypes,
   keyExitActions,
   keyOverridesProblems,
 } from "./overrides.ts";
+export { REGISTERED_KEY_TABLES, type RegisteredKeyTable } from "./tables.ts";
 export {
   isVocabularyAction,
   KEY_HOLDS,
