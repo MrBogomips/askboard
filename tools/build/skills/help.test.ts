@@ -2,6 +2,8 @@
 // help skill, its references one level deep, the key configuration, the user file only).
 
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   CONFIGURATION_VERSION,
   KEY_VOCABULARY,
@@ -191,6 +193,33 @@ describe("SKILL.md", () => {
 
   test("holds no leftover slot", () => {
     expect(skill).not.toContain("{{");
+  });
+});
+
+// The prefix is Claude Code's name for a plugin's tool (probe, task 0.4): `mcp__plugin_<plugin>_<server>__`,
+// so it is tied to the manifest the plugin ships (review 5.6, X-5): a rename of the plugin or its
+// server fails here, instead of leaving `disallowed-tools` naming tools that do not exist.
+describe("the session's tool prefix", () => {
+  const manifest = JSON.parse(
+    readFileSync(join(import.meta.dir, "../../../.claude-plugin/plugin.json"), "utf8"),
+  ) as { name: string; mcpServers: Record<string, unknown> };
+
+  test("is mcp__plugin_<name>_<server>__ from the manifest's name and its one MCP server", () => {
+    const servers = Object.keys(manifest.mcpServers);
+    expect(servers).toHaveLength(1);
+    expect(SESSION_TOOL_PREFIX).toBe(`mcp__plugin_${manifest.name}_${servers[0]}__`);
+  });
+
+  test("disallowed-tools holds the five tool names of TOOL_DEFINITIONS with that prefix and nothing else", () => {
+    const [, , disallowed] = parseFrontmatter(skill) ?? [];
+    const names = (disallowed?.[1] ?? "").split(" ");
+    const servers = Object.keys(manifest.mcpServers);
+    expect(names).toHaveLength(5);
+    expect([...names].sort()).toEqual(
+      TOOL_DEFINITIONS.map(
+        ({ name }) => `mcp__plugin_${manifest.name}_${servers[0]}__${name}`,
+      ).sort(),
+    );
   });
 });
 
