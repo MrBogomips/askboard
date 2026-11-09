@@ -15,7 +15,16 @@
 import type { Change } from "../schemas/output/index.ts";
 
 /** The props key holding the elements in a list, and for a tree the element key holding children. */
-type ListShape = { readonly elements: string; readonly children?: string; readonly keyed?: false };
+type ListShape = {
+  readonly elements: string;
+  readonly children?: string;
+  readonly keyed?: false;
+  /**
+   * A grouped flat list (kanban-order, design decision 1): the field each element holds naming its
+   * group, order counting within a group only. A grouped list is flat, so no `children`.
+   */
+  readonly group?: string;
+};
 
 /**
  * The props key holding an object from element ID to the element's fields. Its changes are only
@@ -266,6 +275,70 @@ const placeOf = ({ parent, after }: Position) => ({
   ...(after === null ? {} : { after }),
 });
 
+const FLAT_ONLY = "a grouped list is flat: its shape names no children";
+
+// The group of each edited element of a grouped list, refusing one whose group is no string, and
+// its members by group in edited order.
+const groupsOf = (after: Map<string, Placed>, shape: ListShape & { readonly group: string }) => {
+  const members = new Map<string, string[]>();
+  for (const [id, { element }] of after) {
+    const group = element[shape.group];
+    if (typeof group !== "string") {
+      throw new Error(`the element "${id}" of the edited value has no string "${shape.group}"`);
+    }
+    members.set(group, [...(members.get(group) ?? []), id]);
+  }
+  return { members };
+};
+
+// The elements of a grouped list that stay: in each edited group, those, new ones apart, that form
+// a longest run in their sent order of the whole list, whatever group they were in.
+const groupStayers = (sent: Map<string, Placed>, members: Map<string, string[]>): Set<string> => {
+  const stay = new Set<string>();
+  for (const ids of members.values()) {
+    const old = ids.filter((id) => sent.has(id));
+    const kept = longestIncreasing(old.map((id) => sent.get(id)?.at ?? 0));
+    old.forEach((id, at) => {
+      if (kept.has(at)) stay.add(id);
+    });
+  }
+  return stay;
+};
+
+// A grouped list's operations: for each group, each of its elements in edited order, its `add`, or
+// its `set`s then its `move` when it is outside its group's longest run; `after` is the preceding
+// element of the element's group, and there is never a `parent`.
+const groupedChanges = (itemId: string, sent: object, edited: object, shape: ListShape) => {
+  if (shape.children !== undefined) throw new Error(FLAT_ONLY);
+  const before = indexOf(sent, shape, "sent");
+  const after = indexOf(edited, shape, "edited");
+  const { members } = groupsOf(after, shape as ListShape & { readonly group: string });
+  const stay = groupStayers(before, members);
+  const changes: Change[] = [];
+  // Group by group, in the order of the groups' names, so that the changes depend only on each
+  // group's members and order: the value they rebuild gives the same changes again.
+  for (const group of [...members.keys()].sort()) {
+    const ids = members.get(group) as string[];
+    ids.forEach((id, at) => {
+      const { element } = after.get(id) as Placed;
+      const target = `${itemId}.${id}`;
+      const place = placeOf({ parent: null, after: ids[at - 1] ?? null });
+      const was = before.get(id);
+      if (was === undefined) {
+        const value = Object.fromEntries(fieldsOf(element, shape).map((k) => [k, element[k]]));
+        changes.push({ op: "add", target, ...place, value });
+        return;
+      }
+      changes.push(...fieldSets(target, was.element, element, (kept) => fieldsOf(kept, shape)));
+      if (!stay.has(id)) changes.push({ op: "move", target, ...place });
+    });
+  }
+  for (const [id] of before) {
+    if (!after.has(id)) changes.push({ op: "remove", target: `${itemId}.${id}` });
+  }
+  return changes;
+};
+
 /**
  * The operations that, applied in order to `sent`, give `edited`. In a list: for each edited
  * element in document order, its `add` or `move`, then a kept element's `set`s; then one `remove`
@@ -284,6 +357,7 @@ export const elementChanges = (
     return frozenCopy(fieldsChanges(itemId, sent as Json, edited as Json, shape));
   }
   if (shape.keyed === true) return frozenCopy(keyedChanges(itemId, sent, edited, shape));
+  if (shape.group !== undefined) return frozenCopy(groupedChanges(itemId, sent, edited, shape));
   const before = indexOf(sent, shape, "sent");
   const after = indexOf(edited, shape, "edited");
   const stay = stayers(before, after);
@@ -355,9 +429,23 @@ class Placement {
     if (at === 0 && after !== null) {
       throw new Error(`"${after}" is not a child of ${quoted(parent)}`);
     }
+    this.checkGroup(id, element, list, after);
     list.splice(at, 0, element);
     this.elements.set(id, element);
     this.parents.set(id, parent);
+  }
+
+  // A grouped list's element holds a string group, and its `after` is an element of that group.
+  private checkGroup(id: string, element: Json, list: Json[], after: string | null): void {
+    const field = this.shape.group;
+    if (field === undefined) return;
+    const group = element[field];
+    if (typeof group !== "string") throw new Error(`"${id}" has no string "${field}"`);
+    if (after === null) return;
+    const previous = list.find((sibling) => sibling.id === after) as Json;
+    if (previous.id === id || previous[field] !== group) {
+      throw new Error(`"${after}" is not in the group "${group}" of "${id}"`);
+    }
   }
 
   /** Takes an element and its subtree out; a list left empty goes with it. */
@@ -450,6 +538,7 @@ const applyOne = (placement: Placement, itemId: string, change: Json, shape: Lis
 type Applier = (itemId: string, change: Json) => void;
 
 const listApplier = (props: Json, shape: ListShape): Applier => {
+  if (shape.group !== undefined && shape.children !== undefined) throw new Error(FLAT_ONLY);
   const top = props[shape.elements];
   if (!Array.isArray(top)) throw new Error(`the sent props hold no list "${shape.elements}"`);
   const placement = new Placement(top, shape);

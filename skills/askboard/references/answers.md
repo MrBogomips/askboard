@@ -14,7 +14,7 @@
 {
   "versions": {
     "result": "1.12",
-    "output": "1.11"
+    "output": "1.12"
   },
   "epoch": "k3x9",
   "asks": [

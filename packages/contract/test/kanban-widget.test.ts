@@ -6,9 +6,16 @@ import { describe, expect, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
 import {
   EDIT_WIDGETS_SESSION,
+  KANBAN_BOTH_CHANGES,
+  KANBAN_BOTH_PROPS,
   KANBAN_CHANGES,
   KANBAN_EDITED_PROPS,
   KANBAN_FIXTURE_ITEM,
+  KANBAN_ORDER_ITEM,
+  KANBAN_PLACED_CHANGES,
+  KANBAN_PLACED_PROPS,
+  KANBAN_REORDER_CHANGES,
+  KANBAN_REORDERED_PROPS,
   kanbanAct,
   kanbanAnswerEvent,
   kanbanFetchItemResult,
@@ -188,8 +195,8 @@ describe("Kanban changes", () => {
   const item = { type: "kanban", id: "board" };
   const check = (changes: unknown) => widgetChangesProblems(item, changes, TYPES);
 
-  test("the shape is the flat list of the cards, and the entry's shape is that one", () => {
-    expect(KANBAN_SHAPE).toEqual({ elements: "cards" });
+  test("the shape is the flat list of the cards grouped by column, and the entry's shape is that one", () => {
+    expect(KANBAN_SHAPE).toEqual({ elements: "cards", group: "column" });
     expect(Object.isFrozen(KANBAN_SHAPE)).toBe(true);
     expect(elementShapeOf(ITEM, TYPES)).toEqual(KANBAN_SHAPE);
     expect(KANBAN_WIDGET.edits?.changes.$id).toBe(KANBAN_SCHEMA_IDS.changes);
@@ -218,16 +225,96 @@ describe("Kanban changes", () => {
     expect(check(changes)).toEqual([]);
   });
 
-  test("a reorder is a move, which the check refuses, naming the item, the operation and the card", () => {
-    const [first, second, third] = ITEM.props.cards;
-    const edited = { ...ITEM.props, cards: [third, first, second] };
-    const changes = elementChanges("board", ITEM.props, edited, KANBAN_SHAPE);
-    expect(changes.map(({ op }) => op)).toEqual(["move"]);
-    const [problem] = check(changes);
-    expect(problem?.message).toContain("item board");
-    expect(problem?.message).toContain("operation 0");
-    expect(problem?.message).toContain("move");
-    expect(problem?.message).toContain("board.release-notes");
+  test("the reversal of a Kanban with one card per column gives no change, and an in-column reorder a move the check passes", () => {
+    const reversed = { ...ITEM.props, cards: [...ITEM.props.cards].reverse() };
+    expect(elementChanges("board", ITEM.props, reversed, KANBAN_SHAPE)).toEqual([]);
+    const [first, second, third] = KANBAN_ORDER_ITEM.props.cards.filter(
+      ({ column }) => column === "todo",
+    );
+    const todo = [third, first, second];
+    const edited = {
+      ...KANBAN_ORDER_ITEM.props,
+      cards: [...todo, ...KANBAN_ORDER_ITEM.props.cards.filter(({ column }) => column !== "todo")],
+    };
+    const changes = elementChanges("board", KANBAN_ORDER_ITEM.props, edited, KANBAN_SHAPE);
+    expect(changes).toEqual([{ op: "move", target: `board.${third?.id}` }]);
+    expect(check(changes)).toEqual([]);
+  });
+
+  test("a card placed first in its column is one move with no after", () => {
+    expect(KANBAN_REORDER_CHANGES).toEqual([{ op: "move", target: "board.add-sso" }]);
+    const changes = elementChanges(
+      "board",
+      KANBAN_ORDER_ITEM.props,
+      KANBAN_REORDERED_PROPS,
+      KANBAN_SHAPE,
+    );
+    expect(changes).toEqual(KANBAN_REORDER_CHANGES);
+    expect(check(changes)).toEqual([]);
+  });
+
+  test("a card placed after another in another column is its set, then its move", () => {
+    expect(KANBAN_PLACED_CHANGES).toEqual([
+      { op: "set", target: "board.audit.column", value: "doing" },
+      { op: "move", target: "board.audit", after: "write-docs" },
+    ]);
+    const changes = elementChanges(
+      "board",
+      KANBAN_ORDER_ITEM.props,
+      KANBAN_PLACED_PROPS,
+      KANBAN_SHAPE,
+    );
+    expect(changes).toEqual(KANBAN_PLACED_CHANGES);
+    expect(check(changes)).toEqual([]);
+  });
+
+  test("each fixture's edited props are the normal form of its changes, which the check passes", () => {
+    for (const [edited, expected] of [
+      [KANBAN_REORDERED_PROPS, KANBAN_REORDER_CHANGES],
+      [KANBAN_PLACED_PROPS, KANBAN_PLACED_CHANGES],
+      [KANBAN_BOTH_PROPS, KANBAN_BOTH_CHANGES],
+    ] as const) {
+      const changes = elementChanges("board", KANBAN_ORDER_ITEM.props, edited, KANBAN_SHAPE);
+      expect(changes).toEqual(expected);
+      expect(check(changes)).toEqual([]);
+      expect(applyElementChanges("board", KANBAN_ORDER_ITEM.props, changes, KANBAN_SHAPE)).toEqual(
+        edited,
+      );
+    }
+    expect(KANBAN_BOTH_CHANGES.map(({ op }) => op)).toEqual(["set", "move", "move"]);
+  });
+
+  test("a column the user kept gets no change, in the fixture's interleaved cards", () => {
+    const named = new Set(
+      [...KANBAN_REORDER_CHANGES, ...KANBAN_PLACED_CHANGES, ...KANBAN_BOTH_CHANGES].map(
+        ({ target }) => target.split(".")[1],
+      ),
+    );
+    const done = KANBAN_ORDER_ITEM.props.cards.filter(({ column }) => column === "done");
+    for (const card of done) expect(named.has(card.id)).toBe(false);
+  });
+
+  test("the changes schema refuses a move with a parent, an add, a remove, a set of a label and a move naming a field", () => {
+    const refused: [unknown, string][] = [
+      [{ op: "move", target: "board.fix-login", parent: "add-sso" }, "move"],
+      [{ op: "move", target: "board.fix-login.column", after: "add-sso" }, "move"],
+      [{ op: "move", target: "board.fix-login", after: "not an id" }, "move"],
+      [{ op: "move", target: "board.fix-login", after: null }, "move"],
+      [{ op: "add", target: "board.n", value: { column: "todo" } }, "add"],
+      [{ op: "remove", target: "board.fix-login" }, "remove"],
+      [{ op: "set", target: "board.fix-login.label", value: "x" }, "set"],
+    ];
+    for (const [change, op] of refused) {
+      const [problem] = check([change]);
+      expect(problem?.message, JSON.stringify(change)).toContain("item board");
+      expect(problem?.message, JSON.stringify(change)).toContain(op);
+    }
+    expect(check([{ op: "move", target: "board.fix-login", after: "add-sso" }])).toEqual([]);
+    expect(check([{ op: "move", target: "board.fix-login" }])).toEqual([]);
+  });
+
+  test("the changes schema's description names kanban-order and still ends with its first minor", () => {
+    expect(KANBAN_WIDGET.edits?.changes.description).toContain("kanban-order");
   });
 
   test("an edited label, a description, an added or a removed card each give changes it refuses", () => {
@@ -314,7 +401,10 @@ describe("the registry's other modules", () => {
       if (entry.name === "registry.ts") continue;
       const text = readFileSync(`${entry.parentPath}/${entry.name}`, "utf8");
       // The change's own name is how comments cite it; the type's name is what must not appear.
-      if (/kanban/i.test(text.replaceAll("latex-kanban-timeline", ""))) named.push(entry.name);
+      if (
+        /kanban/i.test(text.replaceAll("latex-kanban-timeline", "").replaceAll("kanban-order", ""))
+      )
+        named.push(entry.name);
     }
     expect(named).toEqual([]);
   });

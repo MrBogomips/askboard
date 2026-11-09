@@ -2,22 +2,65 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:askboard:output:kanban-changes",
   "title": "Kanban changes",
-  "description": "A Kanban's changes (AD-20, FR-20, latex-kanban-timeline design decision 4): set operations of the one generic diff on a card's column, addressed as item.card.column (AD-13's reference syntax without brackets), the value the ID of the column the card moved to. A Kanban never adds, removes or moves a card, edits a label or a description, or changes a column, so a card's place within a column is no change. In the output format since latex-kanban-timeline.",
+  "description": "A Kanban's changes (AD-20, FR-20, latex-kanban-timeline design decision 4, kanban-order design decision 3): the output format's changes narrowed to two operations of the one generic diff on the flat list of cards grouped by column, addressed as AD-13's reference syntax without brackets: set of a card's column, item.card.column, the value the ID of the column the card moved to; move of a card, item.card, with an optional after naming the card of the same column it follows (none when first in its column), never a parent. A card moved to another column gives its set, then a move only when it stands elsewhere than the sent order puts it. A Kanban never adds or removes a card, edits a label or a description, or changes a column. The move of a card within its column is in the output format since kanban-order. In the output format since latex-kanban-timeline.",
   "type": "array",
-  "items": { "$ref": "#/$defs/set" },
-  "$defs": {
-    "set": {
-      "type": "object",
-      "properties": {
-        "op": { "const": "set" },
-        "target": {
-          "type": "string",
-          "pattern": "^[A-Za-z0-9_-]{1,64}\\.[A-Za-z0-9_-]{1,64}\\.column$"
-        },
-        "value": { "$ref": "urn:askboard:input:id" }
+  "items": {
+    "allOf": [
+      {
+        "$ref": "urn:askboard:output:answer-event#/$defs/change"
       },
-      "required": ["op", "target", "value"],
-      "additionalProperties": false
-    }
+      {
+        "type": "object",
+        "properties": {
+          "op": {
+            "enum": ["set", "move"]
+          }
+        }
+      },
+      {
+        "if": {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "set"
+            }
+          },
+          "required": ["op"]
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "target": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,64}\\.[A-Za-z0-9_-]{1,64}\\.column$"
+            },
+            "value": {
+              "$ref": "urn:askboard:input:id"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "move"
+            }
+          },
+          "required": ["op"]
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "target": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,64}\\.[A-Za-z0-9_-]{1,64}$"
+            },
+            "parent": false
+          }
+        }
+      }
+    ]
   }
 }

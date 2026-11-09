@@ -16,7 +16,7 @@ This is what each item type is for, to choose among them; `SKILL.md` links the r
 - a Scale (`scale`): a number on a slider (the Slider), a range between two numbers, or a rating of up to 11 values
 - a Ranking (`ranking`): an order of 2 to 50 items the user sets by dragging or with Move up and Move down
 - a LaTeX (`latex`): one mathematical expression in LaTeX that the user reads and corrects, with a live preview
-- a Kanban (`kanban`): cards the user moves between 2 to 12 columns, such as statuses, priorities or owners
+- a Kanban (`kanban`): cards the user moves between 2 to 12 columns and orders within them, such as statuses, priorities or owners
 - a Timeline (`timeline`): milestones and date ranges the user moves in time and across lanes, as in a roadmap
 - a Chart (`chart`): a bar, line or pie chart the user reads and may highlight points on
 - a Text (`text`): a passage of plain text or Markdown the user reads; it gives no answer

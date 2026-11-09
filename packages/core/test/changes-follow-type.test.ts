@@ -151,11 +151,12 @@ describe("types with no shape", () => {
 });
 
 describe("Kanban changes follow the Kanban's changes schema", () => {
-  test("a reorder, each card in its sent column, is refused naming the item and a move", () => {
+  test("the reversal of a Kanban with one card per column is refused by the round trip, naming the item", () => {
+    // Each column's order is unchanged, so its changes are none and do not rebuild the reversed list.
     const cards = [...(kanban.props as { cards: unknown[] }).cards].reverse();
     const problem = refusal([kanban], { values: cardsOf(cards) });
-    expect(problem.detail).toContain("item board");
-    expect(problem.detail).toContain("(move of board.");
+    expect(problem.detail).toContain('item "board"');
+    expect(problem.detail).toContain("changes more than elements");
   });
 
   test("a renamed card is refused naming the item and the set of its label", () => {

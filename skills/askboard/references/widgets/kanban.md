@@ -1,6 +1,6 @@
 # Kanban
 
-Use for cards the user moves between 2 to 12 columns, such as statuses, priorities or owners.
+Use for cards the user moves between 2 to 12 columns and orders within them, such as statuses, priorities or owners.
 Item type `kanban`: props are a Kanban's props {columns, cards}.
 
 ## Fields
@@ -16,7 +16,9 @@ Item type `kanban`: props are a Kanban's props {columns, cards}.
 
 ## Notes
 
-- Each card names its `column` by ID; the answer's changes are `set`s of `<id>.<card>.column`. The user only moves cards: their order, labels and the columns stay.
+- Each card names its `column` by ID. The order of `cards` is each column's order, top to bottom. The user changes only the cards' columns and places.
+- The answer's changes are `set`s of `<id>.<card>.column` and `move`s of `<id>.<card>`, applied in order to the `cards` list: a `move` puts the card right after `after` (a card of the same column), or first in the list without it.
+- A column the user did not reorder gets no `move`. Labels and the columns themselves stay.
 
 ## In the answer
 

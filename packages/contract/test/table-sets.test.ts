@@ -54,10 +54,11 @@ describe("the minors the Table binds", () => {
     // Form-widget's were input 1.11, output 1.10, tool envelopes 1.11 and board document 1.10.
     expect({
       input: INPUT_FORMAT_VERSION,
-      output: OUTPUT_FORMAT_VERSION,
+      // The output format: the Table's minor or a later one; kanban-order-sets.test.ts pins the latest.
+      output: Number(OUTPUT_FORMAT_VERSION.split(".")[1]) >= 11,
       envelopes: TOOL_ENVELOPES_VERSION,
       document: BOARD_DOCUMENT_VERSION,
-    }).toEqual({ input: "1.12", output: "1.11", envelopes: "1.12", document: "1.11" });
+    }).toEqual({ input: "1.12", output: true, envelopes: "1.12", document: "1.11" });
     for (const [name, version] of [
       ["input", INPUT_FORMAT_VERSION],
       ["output", OUTPUT_FORMAT_VERSION],

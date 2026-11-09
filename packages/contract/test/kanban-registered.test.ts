@@ -5,7 +5,7 @@
 
 import { describe, expect, test } from "bun:test";
 import type { AnySchemaObject } from "ajv/dist/2020";
-import { KANBAN_WIDGET, SCHEMA_SETS, WIDGET_TYPES } from "../src/index.ts";
+import { KANBAN_WIDGET, SCHEMA_SETS, WIDGET_TYPES, widgetRegistryProblems } from "../src/index.ts";
 import { widgetItemProblems } from "../src/validate.ts";
 import { askAccepted, question } from "./result-widgets-support.ts";
 
@@ -82,5 +82,36 @@ describe("the Kanban's schema descriptions", () => {
     expect(KANBAN_WIDGET.edits?.changes.description).toEndWith(
       "In the output format since latex-kanban-timeline.",
     );
+  });
+});
+
+describe("the Kanban's teaching text of its order (kanban-order, design decision 9)", () => {
+  const { skill } = KANBAN_WIDGET;
+  const notes = (skill?.notes ?? []).join(" ");
+
+  test("the use names the order within the columns, and each note is within the registry's bound", () => {
+    expect(skill?.use).toContain("orders");
+    expect(skill?.use.length).toBeLessThanOrEqual(200);
+    for (const note of skill?.notes ?? []) {
+      expect(note.length).toBeGreaterThanOrEqual(1);
+      expect(note.length).toBeLessThanOrEqual(300);
+    }
+  });
+
+  test("the notes say what the order of cards is and how to apply a set and a move", () => {
+    expect(notes).toContain("`cards`");
+    expect(notes).toContain("column's order, top to bottom");
+    expect(notes).toContain("`move`");
+    expect(notes).toContain("`after`");
+    expect(notes).toContain("`set`");
+    expect(notes).toContain("<id>.<card>.column");
+    expect(notes).toContain("<id>.<card>`");
+    expect(notes).toContain("in order");
+    expect(notes).toContain("first in the list");
+    expect(notes).toContain("did not reorder");
+  });
+
+  test("the registry still holds together", () => {
+    expect(widgetRegistryProblems(WIDGET_TYPES)).toEqual([]);
   });
 });

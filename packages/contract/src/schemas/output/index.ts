@@ -12,7 +12,8 @@
 // result schemas of the TextField, the NumberField, the MoneyField, the DateField and the Toggle as
 // their chunks land (design decision 11); form-widget's minor adds the PickField's result schema,
 // an option ID or a list of them, as its chunk lands (design decision 4); table-widget's minor adds
-// the Table's changes schema (design decisions 6 and 16). It holds no AXFX term (FR-18).
+// the Table's changes schema (design decisions 6 and 16); kanban-order's minor admits the Kanban's `move`
+// in its changes schema (design decision 3). It holds no AXFX term (FR-18).
 
 import type { UnresolvedReason } from "../../context/resolution.ts";
 import type { FormulaErrorKind } from "../../formula/errors.ts";
@@ -36,7 +37,7 @@ import time from "./time.json" with { type: "json" };
 import unavailableReason from "./unavailable-reason.json" with { type: "json" };
 import warning from "./warning.json" with { type: "json" };
 
-export const OUTPUT_FORMAT_VERSION = "1.11";
+export const OUTPUT_FORMAT_VERSION = "1.12";
 
 export const outputFormat: SchemaSet = {
   name: "output",
