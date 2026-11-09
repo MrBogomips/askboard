@@ -2,7 +2,7 @@
 title: "PRD: AskBoard"
 status: final
 created: 2026-10-25
-updated: 2026-11-08
+updated: 2026-11-10
 ---
 
 # PRD: AskBoard
@@ -499,6 +499,7 @@ AskBoard ships skills, and agents where a task needs one of its own, that teach 
 - A subagent, which cannot use AskUserQuestion, asks every question through AskBoard.
 - When AskBoard refuses a subagent's ask because it cannot show a board (NFR-8), the subagent ends its turn and returns the question to the agent that started it.
 - An agent that follows the shipped skills does not ask again, within the same task, a question the user declined (FR-4).
+- A skill, `askboard-help`, answers the user's questions about using the board (the keys and gestures of each widget, Answer, Postpone, Snapshots, how to change a key) from the same tables the board reads, so its answers match what the board does, and never calls AskBoard's tools or opens a board.
 
 #### FR-30: Beside AskUserQuestion, with asking rules
 
@@ -569,6 +570,7 @@ Every board has a settings panel that shows AskBoard's settings at user level an
 - Switching the theme, the density or the default context placement on a board applies it at once and saves it as the user-level setting; a board opened later opens with it.
 - The default language, the asking rules, the Snapshot folder and the editor show read-only, each with its file and key; a change made in that file applies from the next session.
 - Clearing the browser's storage changes no setting.
+- The user's own keys for a widget's actions are read from the user-level configuration file only, shown read-only in the settings panel, and applied to boards opened afterwards; a project-level file's keys are ignored with a warning, and a board never writes them.
 
 **Notes:** The settings' values and defaults, and the panel itself, are designed in `ux-askboard-2026-10-27/EXPERIENCE.md` (Preferences and Settings).
 
@@ -585,7 +587,7 @@ Every board has a settings panel that shows AskBoard's settings at user level an
 - **NFR-9. No telemetry.** AskBoard sends no telemetry. Nothing leaves the user's machine except what Claude Code itself sends to its model provider; benchmark results stay on the machine.
 - **NFR-10. Fail closed.** AskBoard never returns an answer the user did not give: no default, recommended or pre-filled value comes back as an answer. An answer is given only by an explicit act of the user: "Answer" or "Accept recommended" on its question, or Submit in submitted delivery (FR-3, FR-22). When AskBoard fails, restarts or discards an ask, it tells the agent, so that a missing answer is never taken as given, and the board tells the user: while its connection is lost it says so and retries, and it resumes only if the ask is still open (FR-25).
 - **NFR-11. Standards.** AskBoard's MCP server follows an MCP specification version that Claude Code supports, and its skills conform to the Agent Skills specification.
-- **NFR-12. Desktop board and keyboard core.** The board is built for desktop and laptop screens, down to a viewport about 1280 pixels wide; it has no tablet or phone layout. Accessibility is best effort, with a keyboard core: every action that answers, postpones or declines a question, or chooses how to handle the agent's change to an item (FR-6), works from the keyboard, and so do submitting and follow-ups.
+- **NFR-12. Desktop board and keyboard core.** The board is built for desktop and laptop screens, down to a viewport about 1280 pixels wide; it has no tablet or phone layout. Accessibility is best effort, with a keyboard core: every action that answers, postpones or declines a question, or chooses how to handle the agent's change to an item (FR-6), works from the keyboard, and so do submitting and follow-ups. The keys a widget takes are shown in the widget, in tooltips and a keys panel, as the platform names them, and the user can change them in the user configuration file.
 
 ## 6. Non-Goals
 

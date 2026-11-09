@@ -7,7 +7,7 @@ paradigm: 'hexagonal (ports and adapters) around an ask core, one process per Cl
 scope: 'AskBoard first version: MCP server and board host per Claude Code session, sandboxed view and widgets, compute graph, Claude Code mod and hooks, shipped skills and agents, Snapshots, light benchmark, plugin packaging and operations'
 status: final
 created: '2026-10-27'
-updated: '2026-11-09'
+updated: '2026-11-10'
 binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14, FR-15, FR-18, FR-19, FR-20, FR-21, FR-22, FR-23, FR-24, FR-25, FR-26, FR-27, FR-28, FR-29, FR-30, FR-31, FR-32, FR-33, FR-34, FR-35, NFR-1, NFR-2, NFR-3, NFR-4, NFR-5, NFR-6, NFR-7, NFR-8, NFR-9, NFR-10, NFR-11, AXFX FR-36, AXFX FR-37, AXFX FR-38, AXFX FR-39, AXFX FR-40, AXFX FR-41, AXFX NFR-1, AXFX NFR-2, AXFX NFR-3, AXFX NFR-5, AXFX NFR-8]
 sources:
   - 'AskBoard PRD (prd-askboard-2026-10-25/prd.md, final)'
@@ -450,6 +450,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
     - The schema names these keys, and the board's settings panel shows the presentation and behaviour ones (FR-35):
       - presentation: `theme`, `density`, `contextPlacement`;
       - behaviour: `defaultLanguage` (`en-US` or `it-IT`, FR-34), `askingRule` (FR-30, AD-16), `snapshotFolder` (FR-27), `editor` (AD-8);
+      - the user's keys: `keys`, for an action, the combinations that replace its keys, `[]` to remove them (NFR-12);
       - molecule defaults: `defaultMinimumMargin`, the project default for the sales-estimate-review molecule's `minimumMargin` (AD-9).
     - Only the session process reads them, through one `Config` port in `ask-core`: once at start, and the user configuration's presentation keys again whenever it opens a board. Start is the first time it needs a setting, never before its first request after `server/discover` (AD-2). It merges them key by key, project keys winning, and changes take effect from the next session, except the board's presentation writes below.
     - **Presentation keys:**
@@ -458,7 +459,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
       - Each session process reads the presentation keys from the user configuration again whenever it opens a board, so later boards of every running session open with the change.
       - A presentation key set in the project configuration wins and shows read-only.
     - The session process accepts a settings write only for `theme`, `density` and `contextPlacement`, with a value the configuration schema allows, and refuses any other key, so the board never writes a command to run. Behavioural settings show read-only, with their file and key, and keep the next-session rule.
-    - `editor` is the one key read only from the user configuration, an exception to the merge: a project-level `editor` is ignored, with a warning (AD-8).
+    - `editor` and `keys` are the keys read only from the user configuration, exceptions to the merge: a project-level `editor` is ignored, with a warning (AD-8), and so is a project-level `keys`, since an agent can write that file and agent content never chooses what a key does (AD-8). `keys` is read again whenever the session process opens a board, passes the contract's key-override check and is dropped whole, with a warning for each problem, when any combination fails it; a board never writes it, and the settings write above still admits only the presentation keys.
     - `hooks` and `mod` read effective settings only through the local API.
     - An unknown key is a warning. A file with an unsupported major version is ignored, with a diagnostic, and so is a file that cannot be read, is not JSON or fails the configuration schema: none of its keys applies, never part of them, and the settings panel shows the file as not applied, with the problem. The session process never writes a presentation key into a user configuration that fails its check.
   - **Project folders:**
