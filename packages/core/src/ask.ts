@@ -223,6 +223,8 @@ export class Ask {
   #expansion: ExpansionMap;
   // Each reference's props as last sent or changed, by the reference's ID.
   #references: ReadonlyMap<string, Readonly<Record<string, unknown>>>;
+  // Every ID a reference of the ask has expanded to, with its reference's ID, never pruned.
+  #expandedIds: ReadonlyMap<string, string>;
 
   constructor(init: AskInit) {
     this.epoch = init.epoch;
@@ -230,6 +232,9 @@ export class Ask {
     this.#request = init.request;
     this.#expansion = init.expansion ?? new Map();
     this.#references = init.references ?? new Map();
+    this.#expandedIds = new Map(
+      [...this.#expansion].map(([id, { reference }]): [string, string] => [id, reference]),
+    );
     this.link = init.link;
     this.who = init.who;
     const { presentation, delivery, items } = init.input;
@@ -378,7 +383,21 @@ export class Ask {
     }
     const widget = widgetItemValue(model, itemId, (each) => this.#status(each), fetch);
     if (widget !== undefined) return this.#value(widget.item, widget.generation);
-    return { kind: model.isDeleted(itemId) ? "deleted" : "missing", askId, itemId };
+    return { kind: this.#wasDeleted(model, itemId) ? "deleted" : "missing", askId, itemId };
+  }
+
+  /**
+   * Whether the agent deleted `itemId`, in reference addressing (AD-9): the model holds the IDs of
+   * the stored, expanded props, so an expanded ID is never taken for one the agent sent, and a
+   * molecule reference is deleted when the items it expanded to were.
+   */
+  #wasDeleted(model: BoardModel, itemId: string): boolean {
+    if (this.#expansion.has(itemId)) return false;
+    if (model.isDeleted(itemId)) return true;
+    for (const [expanded, { reference }] of this.#expansion) {
+      if (reference === itemId && model.isDeleted(expanded)) return true;
+    }
+    return false;
   }
 
   /**
@@ -484,6 +503,7 @@ export class Ask {
     this.#model = model;
     this.#expansion = widgets.expansion;
     this.#references = widgets.references;
+    this.#expandedIds = widgets.expanded;
     if (applied.effects.closed) this.close("agent");
     const warnings = [
       ...unresolvedWarnings(revised.map((question) => model.boardQuestion(question))),
@@ -561,6 +581,7 @@ export class Ask {
       source,
       expansion: new Map(this.#expansion),
       references: new Map(this.#references),
+      expanded: new Map(this.#expandedIds),
     };
   }
 

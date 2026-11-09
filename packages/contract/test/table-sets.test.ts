@@ -42,22 +42,25 @@ const roles = TABLE_FIXTURE_ITEM as unknown as { type: string; id: string; props
 const inGroup = { type: "group", id: "box", props: { title: "Box", items: [roles] } };
 
 describe("the Table in the registry", () => {
-  test("is the last entry, after every shipped type, and the registry holds together", () => {
-    expect(WIDGET_TYPES.at(-1)).toBe(TABLE_WIDGET);
+  test("is right after the PickField, with later registrations after it, and the registry holds together", () => {
+    const types = WIDGET_TYPES.map(({ type }) => type);
+    expect(types.indexOf("table")).toBe(types.indexOf("pick-field") + 1);
     expect(WIDGET_TYPES.filter(({ type }) => type === "table")).toHaveLength(1);
     expect(widgetRegistryProblems(WIDGET_TYPES)).toEqual([]);
   });
 });
 
 describe("the minors the Table binds", () => {
-  test("the four widened sets are one minor past form-widget's, and the sets carry the constants", () => {
-    // Form-widget's were input 1.11, output 1.10, tool envelopes 1.11 and board document 1.10.
+  test("the four widened sets stand at the Table's minor or a later one, and the sets carry the constants", () => {
+    // Form-widget's were input 1.11, output 1.10, tool envelopes 1.11 and board document 1.10; the
+    // Table's, 1.12, 1.11, 1.12 and 1.11, or a later change's, whose own tests pin the latest.
+    const minor = (version: string): number => Number(version.split(".")[1]);
     expect({
-      input: INPUT_FORMAT_VERSION,
-      output: OUTPUT_FORMAT_VERSION,
-      envelopes: TOOL_ENVELOPES_VERSION,
-      document: BOARD_DOCUMENT_VERSION,
-    }).toEqual({ input: "1.12", output: "1.11", envelopes: "1.12", document: "1.11" });
+      input: minor(INPUT_FORMAT_VERSION) >= 12,
+      output: minor(OUTPUT_FORMAT_VERSION) >= 11,
+      envelopes: minor(TOOL_ENVELOPES_VERSION) >= 12,
+      document: minor(BOARD_DOCUMENT_VERSION) >= 11,
+    }).toEqual({ input: true, output: true, envelopes: true, document: true });
     for (const [name, version] of [
       ["input", INPUT_FORMAT_VERSION],
       ["output", OUTPUT_FORMAT_VERSION],

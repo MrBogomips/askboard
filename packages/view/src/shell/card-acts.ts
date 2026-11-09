@@ -32,6 +32,7 @@ import {
   type ViewAct,
   type ViewMessage,
 } from "../view-protocol.ts";
+import type { ReadOnlyOf, ShownOf } from "./agent-change.ts";
 import type { AnswerActs } from "./answer-acts.ts";
 import {
   answerContentOf,
@@ -143,7 +144,24 @@ export type AnswerContext = Senders & {
   readonly delivery: Delivery;
   /** The facts of each widget type: whether an item's result requires a reason, and its field check. */
   readonly facts?: FactsOf;
+  /**
+   * The items of a question the card makes read-only on a revision the board cannot show
+   * (`readOnlyItemsOf`); the field block skips them (document-review, design decision 15). None:
+   * no item is read-only.
+   */
+  readonly readOnlyOf?: ReadOnlyOf;
+  /**
+   * The question as the card shows it, by the question the board holds (`shownOfBoard`): the
+   * revision the work was made on after "Keep mine". The gates of an act (the field block, the
+   * reason gate) read it, so that a press agrees with the card (document-review, design decision
+   * 15; Issue #92). None: the question itself.
+   */
+  readonly shownOf?: ShownOf;
 };
+
+// The question a gate reads: the one the card shows, else the question itself.
+const shownIn = (question: ViewQuestion, context: Pick<AnswerContext, "shownOf">): ViewQuestion =>
+  context.shownOf?.(question) ?? question;
 
 /** What "Answer" gave: nothing to report, or that the answer lacks the reason it requires. */
 export type AnswerOutcome = "needs-reason" | undefined;
@@ -242,15 +260,17 @@ const now = () => new Date().toISOString();
 // the card answers at once the press sends, so a mark excuses nothing.
 const reasonGate = (
   question: ViewQuestion,
-  {
-    results,
-    board,
-    facts,
-    delivery,
-  }: Pick<AnswerContext, "results" | "board" | "facts" | "delivery">,
+  context: Pick<AnswerContext, "results" | "board" | "facts" | "delivery" | "shownOf">,
   content: AnswerContent,
 ): AnswerOutcome => {
-  const requires = reasonOf(question, results?.record() ?? new Map(), undefined, facts);
+  const { results, board, facts, delivery } = context;
+  // The reason the card asks for is that of the revision it shows (Issue #92).
+  const requires = reasonOf(
+    shownIn(question, context),
+    results?.record() ?? new Map(),
+    undefined,
+    facts,
+  );
   const marked = delivery === "submitted" && board.work(question.id)?.held?.act === "answer";
   return requires !== undefined && !noteHoldsReason(content.note) && !marked
     ? "needs-reason"
@@ -263,11 +283,11 @@ const reasonGate = (
  */
 export const answerNeedsReason = (
   question: ViewQuestion,
-  context: Pick<AnswerContext, "draft" | "results" | "board" | "facts" | "delivery">,
+  context: Pick<AnswerContext, "draft" | "results" | "board" | "facts" | "delivery" | "shownOf">,
 ): boolean => {
   const { draft, results, board } = context;
   const content = answerContentOf(
-    question,
+    shownIn(question, context),
     draft.record(),
     board.work(question.id),
     results?.record(),
@@ -277,18 +297,23 @@ export const answerNeedsReason = (
 
 /**
  * Whether a field of the question blocks "Answer", by the entries and the results the user holds
- * and the facts of each type (`fieldBlock`): the one check the press, "Accept recommended" and the
- * card's state make.
+ * and the facts of each type (`fieldBlock`), apart from the items the card makes read-only: the one
+ * check the press, "Accept recommended" and the card's state make, on the revision the card shows
+ * (`shownOf`; Issue #92).
  */
 export const blockedBy = (
   question: ViewQuestion,
-  context: Pick<AnswerContext, "results" | "entries" | "cellEntries" | "facts">,
+  context: Pick<
+    AnswerContext,
+    "results" | "entries" | "cellEntries" | "facts" | "readOnlyOf" | "shownOf"
+  >,
 ): boolean =>
   holdsBlock(
-    question,
+    shownIn(question, context),
     entriesWithCells(context.entries?.record(), context.cellEntries?.record()),
     context.results?.record() ?? new Map(),
     context.facts,
+    context.readOnlyOf?.(question),
   );
 
 /**
@@ -304,7 +329,9 @@ export const answer = (question: ViewQuestion, context: AnswerContext): AnswerOu
   // decision 3; form-widget, design decision 5; NFR-10).
   if (blockedBy(question, context)) return undefined;
   const work = board.work(question.id);
-  const held = answerContentOf(question, draft.record(), work, results?.record());
+  // What the card shows is what it sends: the values, results and entries of the items of the
+  // revision it shows, even one a later revision removed (Issue #93).
+  const held = answerContentOf(shownIn(question, context), draft.record(), work, results?.record());
   const content = namesEarlierRevision(question, work)
     ? held
     : withDerived(held, derived.reported, itemIdsOf(question));
@@ -436,21 +463,24 @@ export const sendFollowUp = (question: ViewQuestion, context: AnswerContext): vo
   sendActs(context, [followUp(question, text)]);
 };
 
-/** Drops the question's draft: its items' values and results and its work, its revision included. */
+/**
+ * Drops the question's draft: its items' values and results and its work, its revision included.
+ * The items are those of the question and of the revision the card shows (`shownOf`), which after
+ * "Keep mine" holds the work: an item a later revision removed goes with the rest.
+ */
 export const dropWork = (
   question: ViewQuestion,
-  {
-    draft,
-    results,
-    entries,
-    cellEntries,
-    board,
-  }: Pick<AnswerContext, "draft" | "results" | "entries" | "cellEntries" | "board">,
+  context: Pick<AnswerContext, "draft" | "results" | "entries" | "cellEntries" | "board"> &
+    Partial<Pick<AnswerContext, "shownOf">>,
 ): void => {
-  for (const itemId of itemIdsOf(question)) draft.set(itemId, undefined);
-  for (const itemId of resultIdsOf(question)) results?.set(itemId, undefined);
-  for (const itemId of entryIdsOf(question)) entries?.set(itemId, undefined);
-  clearCellEntries(question, cellEntries);
+  const { draft, results, entries, cellEntries, board } = context;
+  const shown = shownIn(question, context);
+  for (const each of shown === question ? [question] : [question, shown]) {
+    for (const itemId of itemIdsOf(each)) draft.set(itemId, undefined);
+    for (const itemId of resultIdsOf(each)) results?.set(itemId, undefined);
+    for (const itemId of entryIdsOf(each)) entries?.set(itemId, undefined);
+    clearCellEntries(each, cellEntries);
+  }
   board.forget(question.id);
 };
 
@@ -601,6 +631,18 @@ export const startRevision = (
   context: Parameters<typeof fillFrom>[3],
 ): boolean => fillFrom(question, answer, "current", context);
 
+/**
+ * "Start from my previous answer" on a reopened question: `fillFrom` for the question the card
+ * shows (`shownOf`), the revision the work was made on after "Keep mine", so each result is seeded
+ * for an item that revision holds and checked against that revision's props, and none for an item
+ * only the current revision holds (document-review, design decision 15; Issue #93).
+ */
+export const startFromPrevious = (
+  question: ViewQuestion,
+  answer: CarriedAnswer,
+  context: Parameters<typeof fillFrom>[3] & Pick<AnswerContext, "shownOf">,
+): boolean => fillFrom(shownIn(question, context), answer, "previous", context);
+
 /** The question's recommended option, if the agent marked one (FR-3). */
 export const recommendedOf = (question: ViewQuestion): ChoiceOption | undefined =>
   question.props.options?.find((option) => option.recommended === true);
@@ -640,10 +682,25 @@ export const acceptRecommended = (
   question: ViewQuestion,
   context: AnswerContext,
 ): AnswerOutcome => {
-  if (recommendedOf(question) === undefined || blockedBy(question, context)) return undefined;
-  selectRecommendedOption(question, context);
+  const shown = shownIn(question, context);
+  if (recommendedOf(shown) === undefined || blockedBy(question, context)) return undefined;
+  selectRecommendedOption(shown, context);
   return answer(question, context);
 };
+
+/**
+ * A press of Decline on a question whose latest answer or decline the agent has received: the
+ * confirmation first, when the question holds an item that asks for it, then `run`. Returns the
+ * waiting act, or nothing when `run` ran at once.
+ */
+export const pressDecline = (
+  question: ViewQuestion,
+  context: Pick<AnswerContext, "facts" | "shownOf">,
+  status: LifecycleQuestionStatus | undefined,
+  held: HeldAct["act"] | undefined,
+  run: () => void,
+): Waiting | undefined =>
+  press(asksFirst("decline", shownIn(question, context), status, held, context.facts), run);
 
 /** What a press of "Answer" made of itself, for the card to show. */
 export type AnswerPress =
@@ -669,7 +726,9 @@ export const pressAnswer = (
   // The held act excuses the confirmation only where the press takes it back: in submitted delivery.
   const held =
     context.delivery === "submitted" ? context.board.work(question.id)?.held?.act : undefined;
-  const waiting = press(asksFirst("answer", question, status, held, context.facts), () =>
+  // The items that ask are those of the revision the card shows and the answer names (Issue #92).
+  const shown = shownIn(question, context);
+  const waiting = press(asksFirst("answer", shown, status, held, context.facts), () =>
     onOutcome(answer(question, context)),
   );
   return waiting === undefined ? { kind: "done" } : { kind: "waiting", waiting };

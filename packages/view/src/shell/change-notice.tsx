@@ -123,8 +123,10 @@ export type ChangeNoticeProps = {
   readonly earlier: ViewQuestion | undefined;
   /** What is at stake: "Your 17 changes on this question". */
   readonly stake: string;
-  /** A choice is on its way. */
+  /** "Keep mine" waits: a choice is on its way, or the card cannot be used. */
   readonly busy: boolean;
+  /** "Reload, losing my work" waits; a failed card keeps it, since the agent's revision may replace the item (Issue #103). */
+  readonly reloadBusy?: boolean;
   readonly onReload: () => void;
   readonly onKeep: () => void;
 };
@@ -135,6 +137,7 @@ export const ChangeNotice = ({
   earlier,
   stake,
   busy,
+  reloadBusy = busy,
   onReload,
   onKeep,
 }: ChangeNoticeProps) => {
@@ -155,7 +158,7 @@ export const ChangeNotice = ({
         >
           {text("change.show")}
         </button>
-        <button type="button" className={BUTTON_SECONDARY} disabled={busy} onClick={onReload}>
+        <button type="button" className={BUTTON_SECONDARY} disabled={reloadBusy} onClick={onReload}>
           {text("change.reload")}
         </button>
         <button type="button" className={BUTTON_SECONDARY} disabled={busy} onClick={onKeep}>

@@ -7,7 +7,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./assemble": "./src/assemble/index.ts",
-    "./catalog": "./src/catalog/index.ts"
+    "./catalog": "./src/catalog/index.ts",
+    "./markdown": "./src/markdown/index.ts"
   },
   "dependencies": {
     "@askboard/contract": "workspace:*",

@@ -8,14 +8,21 @@ import { anchorHref, type LinkEvent, linkAction, markExternal, mountMarkdown } f
 type Stand = {
   readonly name: string;
   readonly href?: string;
+  /** The element carries `data-review-ui`: an element a widget added beside the agent's content. */
+  readonly ui?: boolean;
   readonly parent?: Stand;
 };
 
 const standIn = (node: Stand) => ({
   closest: (selector: string): unknown => {
-    if (selector !== "a[href]") throw new Error("only anchors with an href are looked for");
+    if (selector !== "a[href]" && selector !== "[data-review-ui]") {
+      throw new Error("only anchors with an href and a widget's own elements are looked for");
+    }
     for (let at: Stand | undefined = node; at !== undefined; at = at.parent) {
-      if (at.name === "a" && at.href !== undefined) return { getAttribute: () => at.href ?? null };
+      if (selector === "[data-review-ui]" && at.ui === true) return { ui: true };
+      if (selector === "a[href]" && at.name === "a" && at.href !== undefined) {
+        return { getAttribute: () => at.href ?? null };
+      }
     }
     return null;
   },
@@ -35,10 +42,12 @@ describe("the anchor a click landed on", () => {
 
   test("the href is the attribute as the sanitizer kept it, never the resolved `href` property", () => {
     const anchor = { getAttribute: () => "https://example.com/docs", href: "http://board.test/" };
-    const target = { closest: () => anchor };
+    const target = { closest: (selector: string) => (selector === "a[href]" ? anchor : null) };
     expect(anchorHref(target, inside)).toBe("https://example.com/docs");
     const none = { getAttribute: () => null, href: "http://board.test/" };
-    expect(anchorHref({ closest: () => none }, inside)).toBeUndefined();
+    expect(
+      anchorHref({ closest: (selector: string) => (selector === "a[href]" ? none : null) }, inside),
+    ).toBeUndefined();
   });
 
   test("an element outside an anchor, one with no href, a missing target and a foreign anchor give none", () => {
@@ -49,6 +58,56 @@ describe("the anchor a click landed on", () => {
     expect(
       anchorHref(standIn({ name: "a", href: "https://example.com/" }), outside),
     ).toBeUndefined();
+  });
+});
+
+describe("an element a widget added beside the agent's content is never a link (review X-1 of 6.5)", () => {
+  const anchor: Stand = { name: "a", href: "https://example.com/docs" };
+
+  test("a target inside `data-review-ui` gives none, even where an anchor is above it", () => {
+    const slot: Stand = { name: "span", ui: true, parent: anchor };
+    expect(anchorHref(standIn({ name: "button", parent: slot }), inside)).toBeUndefined();
+    expect(anchorHref(standIn(slot), inside)).toBeUndefined();
+    expect(anchorHref(standIn({ name: "span", ui: true, parent: { name: "p" } }), inside)).toBe(
+      undefined,
+    );
+  });
+
+  test("the link's own text and an element inside it still give its href", () => {
+    expect(anchorHref(standIn(anchor), inside)).toBe("https://example.com/docs");
+    expect(anchorHref(standIn({ name: "em", parent: anchor }), inside)).toBe(
+      "https://example.com/docs",
+    );
+  });
+
+  test("a click on such an element opens nothing and is not prevented on the board", () => {
+    const log: string[] = [];
+    const slot: Stand = { name: "button", ui: true, parent: anchor };
+    const listeners = new Map<string, (event: LinkEvent) => void>();
+    const target = {
+      contains: () => true,
+      replaceChildren: () => {},
+      addEventListener: (type: string, listener: (event: LinkEvent) => void) =>
+        listeners.set(type, listener),
+      removeEventListener: () => {},
+    };
+    mountMarkdown({
+      target: target as never,
+      shown: {},
+      hosted: true,
+      itemId: "review",
+      openLink: (_item, url) => log.push(url),
+    });
+    listeners.get("click")?.({
+      target: standIn(slot),
+      preventDefault: () => log.push("prevented"),
+    });
+    expect(log).toEqual([]);
+    listeners.get("click")?.({
+      target: standIn(anchor),
+      preventDefault: () => log.push("prevented"),
+    });
+    expect(log).toEqual(["prevented", "https://example.com/docs"]);
   });
 });
 
@@ -107,7 +166,7 @@ describe("mounting Markdown in its container", () => {
       removeEventListener: (type: string) => listeners.delete(type),
     };
     const onAnchor = {
-      target: { closest: () => anchor },
+      target: { closest: (selector: string) => (selector === "a[href]" ? anchor : null) },
       prevented: false,
       preventDefault() {
         this.prevented = true;

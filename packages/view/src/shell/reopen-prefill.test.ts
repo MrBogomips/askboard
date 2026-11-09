@@ -617,7 +617,7 @@ describe("the shell's calls (design decisions 3, 4 and 9)", () => {
   test("the revisions the view has seen go to the mark's move and to the store's connection, recorded before either runs (X-1 of re-review 4.5)", async () => {
     const text = await source("./index.tsx");
     const handler = text.indexOf("channel.onUpdate(");
-    const record = text.indexOf("revisions.record(document)", handler);
+    const record = text.indexOf("applyDocumentUpdate(before, document", handler);
     const move = text.indexOf("moveMarks(", handler);
     expect(record).toBeGreaterThan(handler);
     expect(move).toBeGreaterThan(record);
@@ -634,8 +634,11 @@ describe("the shell's calls (design decisions 3, 4 and 9)", () => {
   });
 
   test("an answer or a decline that settles takes the mark with the rest of its work", async () => {
-    const text = await source("./index.tsx");
-    const carried = text.slice(text.indexOf("const CARRIED"), text.indexOf("const clearCarried"));
+    const text = await source("./carried.ts");
+    const carried = text.slice(
+      text.indexOf("const CARRIED"),
+      text.indexOf("export const clearCarried"),
+    );
     for (const act of ["answer", "decline"]) {
       const line = carried.split("\n").find((each) => each.trim().startsWith(`${act}:`)) ?? "";
       expect(line).toContain('"prefilled"');

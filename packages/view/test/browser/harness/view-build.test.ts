@@ -18,6 +18,7 @@ import {
   THROWING_CHOICE_ERROR,
   type ViewBuild,
   withBoardPageProbe,
+  withBreakingTextField,
   withChunkScript,
   withThrowingChoice,
   withViewProbe,
@@ -127,6 +128,32 @@ describe("test-only variants", () => {
     const script = variant.manifest.chunks.choice?.script;
     const text = variant.files.get(script?.path ?? "") ?? "";
     expect(text).toContain(THROWING_CHOICE_ERROR);
+    expect(text).toContain("@askboard/view/catalog");
+    expect(text).not.toContain("import.meta");
+    expect(text).not.toMatch(/^\s*(import|export)\b/m);
+    expect(digestProblems(variant)).toEqual([]);
+  });
+
+  test("the breaking TextField is a classic script that registers through the shell's port", async () => {
+    // The fixture build holds no TextField chunk: give it one, a copy of the Choice chunk's script.
+    const choice = build.manifest.chunks.choice;
+    if (choice === undefined) throw new Error("the fixture manifest has no choice chunk");
+    const path = "chunks/text-field.js";
+    const withField: ViewBuild = {
+      ...build,
+      manifest: {
+        ...build.manifest,
+        chunks: {
+          ...build.manifest.chunks,
+          "text-field": { ...choice, script: { ...choice.script, path } },
+        },
+      },
+      files: new Map([...build.files, [path, build.files.get(choice.script.path) ?? ""]]),
+    };
+    const variant = await withBreakingTextField(withField);
+    const script = variant.manifest.chunks["text-field"]?.script;
+    const text = variant.files.get(script?.path ?? "") ?? "";
+    expect(text).toContain("broke after it counted as visible");
     expect(text).toContain("@askboard/view/catalog");
     expect(text).not.toContain("import.meta");
     expect(text).not.toMatch(/^\s*(import|export)\b/m);

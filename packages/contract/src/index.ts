@@ -1100,3 +1100,40 @@ export {
 // The presentation a Snapshot's record carries (snapshot-toolbar, design decision 2).
 
 export type { SnapshotPresentation } from "./schemas/snapshot-data/index.ts";
+
+// The annotation's suggested edit (document-review, design decision 2): the longest replacement.
+
+export { ANNOTATION_REPLACEMENT_MAX_CHARS } from "./lifecycle-limits.ts";
+
+// The Document review (document-review, design decision 1), unregistered until its component's
+// chunk exists: its entry with its limits and checks, and the one list of escaped characters its
+// document is checked by.
+
+export { isEscapedCodePoint } from "./push/notice-text.ts";
+export {
+  type AnnotationPlace,
+  DOCUMENT_REVIEW_ANNOTATIONS_MAX,
+  DOCUMENT_REVIEW_MAX_CHARS,
+  DOCUMENT_REVIEW_SCHEMA_IDS,
+  DOCUMENT_REVIEW_TITLE_MAX_CHARS,
+  DOCUMENT_REVIEW_WIDGET,
+  type DocumentReviewAnnotation,
+  type DocumentReviewItem,
+  type DocumentReviewProps,
+  type DocumentReviewQuote,
+  type DocumentReviewResult,
+  documentReviewPropsProblems,
+  documentReviewResultProblems,
+  documentReviewResultShape,
+  type PlaceRefusal,
+  placeAnnotations,
+  placeQuote,
+  QUOTE_CONTEXT_CHARS,
+  QUOTE_CONTEXT_MAX_CHARS,
+  QUOTE_CONTEXT_STEPS,
+  QUOTE_EXACT_MAX_CHARS,
+  type QuotePlace,
+  type QuoteRefusal,
+  type QuoteResult,
+  quotePassage,
+} from "./widgets/document-review/index.ts";

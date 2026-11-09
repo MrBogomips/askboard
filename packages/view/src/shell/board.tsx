@@ -27,7 +27,7 @@ import {
   type ViewQuestion,
 } from "../view-document.ts";
 import type { ViewLock } from "../view-protocol.ts";
-import { changePending, type KeptChoices } from "./agent-change.ts";
+import { changePending, type KeptChoices, readOnlyOfBoard, shownOfBoard } from "./agent-change.ts";
 import type { AttentionSnapshot } from "./attention.ts";
 import type { BoardDraftState } from "./board-draft.ts";
 import { BoardHeader, type HeaderCounts } from "./board-header.tsx";
@@ -47,6 +47,7 @@ import { BottomBar } from "./bottom-bar.tsx";
 import { CARD_ACTS } from "./card-acts.ts";
 import { entriesWithCells } from "./cell-entries.ts";
 import type { HeaderData } from "./header-data.ts";
+import { type HeadingRequest, requestHeading } from "./heading-request.ts";
 import { type EntryMarks, Outline, QuestionNavigator } from "./navigators.tsx";
 import type { PresentationControls } from "./presentation-controls.ts";
 import { type CardContext, QuestionCard } from "./question-card.tsx";
@@ -54,7 +55,7 @@ import { type SnapshotControl, snapshotOfferOf } from "./snapshot-control.ts";
 import { SnapshotTopLine } from "./snapshot-top-line.tsx";
 import type { Store } from "./store.ts";
 import { FOCUS_RING, INFO_BADGE } from "./styles.ts";
-import { hasRecommendation, selectRecommended, submitStateOf } from "./submit.ts";
+import { hasRecommendation, releaseFailed, selectRecommended, submitStateOf } from "./submit.ts";
 
 /** What the board page last told the view, with the latest board document. */
 export type BoardView = {
@@ -73,8 +74,6 @@ type Shared = {
 };
 
 /** A request to move focus to a question's heading, numbered so that each runs once. */
-export type HeadingRequest = { readonly id: string; readonly n: number };
-
 /** What the board needs beyond the cards: focus moves and the removed-question line. */
 export type BoardContext = CardContext & {
   readonly focus: Store<HeadingRequest | undefined>;
@@ -238,10 +237,6 @@ const OneQuestionBody = ({
   </div>
 );
 
-/** Asks for focus on a question's heading, once the board has rendered. */
-export const requestHeading = (focus: Store<HeadingRequest | undefined>, id: string): void =>
-  focus.set({ id, n: (focus.get()?.n ?? 0) + 1 });
-
 // Focus moves to a question's heading once the navigation has rendered (Accessibility Floor).
 const useHeadingFocus = (focus: Store<HeadingRequest | undefined>) => {
   const target = useSyncExternalStore(focus.subscribe, focus.get);
@@ -289,6 +284,17 @@ export const Board = ({
   const shared: Shared = { document, state, lock, draft, context };
   const presentation = presentationOf(document);
   const questions = questionsOf(document);
+  // Submit waits for a held act's question that is loading or failed (Issue #103): the board
+  // redraws when any question's status changes, whatever else it reads of the tracker.
+  const statuses = useSyncExternalStore(context.tracker.subscribe, () =>
+    questions.map((question) => context.tracker.questionStatus(question.id)).join(),
+  );
+  // A question whose item failed takes no part in Submit: its held acts are released and its work
+  // stays in the draft, also when a restore or a later act holds one again (Appendix row 44).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `statuses` and `draft` are the triggers
+  useEffect(() => {
+    releaseFailed(document, context.board, context.tracker.questionStatus);
+  }, [statuses, draft, document, context]);
   const groups = groupsOf(document);
   const changed = changedOf(document, draft, kept);
   const known = questions.some((question) => question.id === draft.inView);
@@ -388,6 +394,10 @@ export const Board = ({
     );
   }
   const delivery = single ? "immediate" : draft.delivery;
+  // The items each card makes read-only on a revision it cannot show: no field block counts them.
+  const readOnlyOf = readOnlyOfBoard(context.board, context.revisions);
+  // The question each card shows: the gates of Submit and "Select recommended" read it (Issue #92).
+  const shownOf = shownOfBoard(context.board, context.revisions);
   const submit = submitStateOf({
     document,
     board: draft,
@@ -398,6 +408,9 @@ export const Board = ({
     sending: (id) => context.acts.of(id, CARD_ACTS) !== undefined,
     entries: entriesWithCells(context.entries?.record(), context.cellEntries?.record()),
     results: context.results?.record(),
+    readOnlyOf,
+    shownOf,
+    load: context.tracker.questionStatus,
   });
   return (
     <div
@@ -422,11 +435,14 @@ export const Board = ({
           delivery={delivery}
           warning={postponedWarningOf(document, state, draft.questions, language)}
           submit={submit}
-          recommendations={hasRecommendation(document)}
+          recommendations={hasRecommendation(document, shownOf)}
+          readOnlyOf={readOnlyOf}
+          shownOf={shownOf}
+          load={context.tracker.questionStatus}
           locked={lock !== undefined}
           context={context}
           onSelectRecommended={() =>
-            selectRecommended(document, state, context, (id) => {
+            selectRecommended(document, state, { ...context, readOnlyOf, shownOf }, (id) => {
               const question = questions.find((each) => each.id === id);
               return (
                 question === undefined || !takesSelection(context, question, draft, kept, lock)

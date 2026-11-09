@@ -8,12 +8,23 @@
 
 import { describe, expect, test } from "bun:test";
 import { formatTime } from "@askboard/contract";
+import type { Locator } from "playwright";
+import { atomAsk } from "./fixtures/atom-documents.ts";
+import { NOTES, reviewItem } from "./fixtures/document-review-documents.ts";
 import { twoAsk } from "./fixtures/lifecycle-asks.ts";
 import { ROLES, tableAsk } from "./fixtures/table-documents.ts";
 import { eventually, STEP_TIMEOUT_MS, TEST_TIMEOUT_MS, useEngine } from "./harness/board-test.ts";
 import type { Board } from "./harness/dom.ts";
 import { enginesFrom } from "./harness/engines.ts";
-import { buttonOf, card, lifecycleScenario, openBoard } from "./harness/lifecycle-test.ts";
+import {
+  actsDone,
+  buttonOf,
+  card,
+  lifecycleScenario,
+  openBoard,
+  sentDrafts,
+} from "./harness/lifecycle-test.ts";
+import { annotationsHeld, marks, select } from "./harness/review-steps.ts";
 import {
   cellOf,
   cellText,
@@ -184,6 +195,143 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           return [(frame.textContent ?? "").replaceAll("x".repeat(501), ""), ...names];
         });
         for (const text of shown) expect(text).not.toMatch(ENGLISH_TABLE_STRINGS);
+      },
+      TEST_TIMEOUT_MS,
+    );
+  });
+}
+
+// The Document review's en-US strings (document-review task 7.3; spec view-and-widgets: Document
+// review strings): none may show in an it-IT board's text, accessible names or titles. The agent's
+// own text (the title, the document) is English as sent and never counts.
+const ENGLISH_REVIEW_STRINGS =
+  /Document review|\bComment\b|comments?\b(?! to)|Suggest|suggested edits?|Detached|Replace with|Note \(optional\)|\bDone\b|\bEdit\b|\bDelete\b|\bClose\b|Your changes|Select a passage|\bPin \d/;
+// The agent's title and document, as sent.
+const AGENT_TEXT = [
+  "Release notes",
+  "Release 0.2",
+  "The board remembers drafts and keeps unsent answers.",
+  "See the docs for more.",
+  "First item",
+  "Second item",
+];
+
+for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
+  describe(`${engine}: an it-IT Document review`, () => {
+    const { start } = useEngine(engine);
+
+    test(
+      "the tools, the labels, the counter, the pins and the detached list read in Italian, and no English string of the Document review shows",
+      async () => {
+        const ask = atomAsk([reviewItem(NOTES, "Release notes")], {
+          askId: "review-italian-t7i1",
+          language: "it-IT",
+        });
+        const run = await start(lifecycleScenario(ask, dist));
+        const board = await openBoard(run, ["plan"]);
+        const { view } = board;
+        const dialog = view.getByRole("dialog");
+        const open = async (needle: string, tool: string) => {
+          expect(await select(view, needle)).toBe(true);
+          await view.getByRole("toolbar").getByRole("button", { name: tool, exact: true }).click();
+          await dialog.waitFor({ timeout: STEP_TIMEOUT_MS });
+        };
+        await open("remembers", "Commenta");
+        await dialog.getByLabel("Il tuo commento").fill("Per quanto tempo?");
+        await dialog.getByRole("button", { name: "Fatto" }).click();
+        await dialog.waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
+        await open("drafts", "Suggerisci modifica");
+        await dialog.getByLabel("Sostituisci con").fill("risposte non inviate");
+        await dialog.getByRole("button", { name: "Fatto" }).click();
+        await dialog.waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
+        await eventually(
+          () => annotationsHeld(sentDrafts(run)).length === 2,
+          "two annotations mirrored",
+        );
+        expect(await view.getByRole("button", { name: "Commento 1", exact: true }).count()).toBe(1);
+        expect(
+          await view.getByRole("button", { name: "Modifica suggerita 2", exact: true }).count(),
+        ).toBe(1);
+        const counter = await view.locator("[data-document-review]").textContent();
+        expect(counter).toContain("1 commento");
+        expect(counter).toContain("1 modifica suggerita");
+        // A third annotation that the rewrite below leaves attached (review S-1 of 7.5, task 7.6): the
+        // board is then scanned holding an attached comment, a suggested edit and a detached annotation.
+        await open("Second item", "Commenta");
+        await dialog.getByLabel("Il tuo commento").fill("Anche questo");
+        await dialog.getByRole("button", { name: "Fatto" }).click();
+        await dialog.waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
+        await eventually(
+          () => annotationsHeld(sentDrafts(run)).length === 3,
+          "three annotations mirrored",
+        );
+        // Answer, reopen with the commented word rewritten, and start from the answer: the comment
+        // is detached.
+        await buttonOf(board, "plan", "Rispondi").click({ timeout: STEP_TIMEOUT_MS });
+        await actsDone(run, 1);
+        await run.session.update([
+          { action: "reopen", itemId: "plan" },
+          {
+            action: "change",
+            itemId: "review",
+            props: reviewItem(NOTES.replace("remembers", "recalls"), "Release notes").props,
+          },
+        ]);
+        const reopened = card(board, "plan").locator('[data-askboard-notice="reopened"]');
+        await reopened.waitFor({ timeout: STEP_TIMEOUT_MS });
+        await reopened
+          .getByRole("button", { name: "Parti dalla mia risposta precedente" })
+          .click({ timeout: STEP_TIMEOUT_MS });
+        const list = view.getByRole("region", { name: "Commenti staccati" });
+        await eventually(async () => (await list.count()) === 1, "the detached list");
+        expect(await list.textContent()).toContain("Per quanto tempo?");
+        expect(await list.textContent()).toContain("Il documento è cambiato");
+        expect(await list.getByRole("button", { name: /^Elimina/ }).count()).toBe(2);
+        // The suggested edit quotes "drafts" with its context, which the rewrite broke too.
+        expect(await list.textContent()).toContain("risposte non inviate");
+        // Only the attached comment on "Second item" is still marked.
+        expect(await marks(view).count()).toBe(1);
+        const answer = buttonOf(board, "plan", "Rispondi");
+        expect(await answer.isDisabled()).toBe(true);
+        const hintId = await answer.getAttribute("aria-describedby");
+        expect(await view.locator(`[id="${hintId}"]`).textContent()).toBe(
+          "Elimina prima i commenti staccati in Release notes.",
+        );
+        // No English string of the widget in the text, the names or the titles: on the board while it
+        // holds the attached comment, the suggested edit and the detached annotation, then in the
+        // pin card and in the suggest dialog, which hold "Edit", "Close" and the note's label.
+        const scanned = (scope: Locator) =>
+          scope.evaluate((body) => {
+            const names = [body, ...body.querySelectorAll("[aria-label], [title]")].flatMap(
+              (element) => [
+                element.getAttribute("aria-label") ?? "",
+                element.getAttribute("title") ?? "",
+              ],
+            );
+            return [body.textContent ?? "", ...names];
+          });
+        const noEnglish = (texts: readonly string[]) => {
+          const stripped = texts.map((text) =>
+            AGENT_TEXT.reduce((rest, agent) => rest.replaceAll(agent, ""), text),
+          );
+          for (const text of stripped) expect(text).not.toMatch(ENGLISH_REVIEW_STRINGS);
+        };
+        noEnglish(await scanned(card(board, "plan")));
+        await view.getByRole("button", { name: /^Commento \d+$/ }).click();
+        await dialog.waitFor({ timeout: STEP_TIMEOUT_MS });
+        const pinCard = await scanned(dialog);
+        noEnglish(pinCard);
+        expect(pinCard.join("\n")).toContain("Modifica");
+        expect(pinCard.join("\n")).toContain("Elimina");
+        expect(pinCard).toContain("Chiudi");
+        await dialog.getByRole("button", { name: "Chiudi", exact: true }).click();
+        await dialog.waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
+        await open("unsent", "Suggerisci modifica");
+        const suggestCard = await scanned(dialog);
+        noEnglish(suggestCard);
+        expect(suggestCard.join("\n")).toContain("Nota (facoltativa)");
+        expect(suggestCard.join("\n")).toContain("Sostituisci con");
+        expect(suggestCard).toContain("Chiudi");
       },
       TEST_TIMEOUT_MS,
     );

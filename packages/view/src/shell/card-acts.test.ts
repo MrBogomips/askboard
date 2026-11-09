@@ -1624,3 +1624,45 @@ describe("a revision keeps the widgets' results (approval-scale-ranking, design 
     ).not.toThrow();
   });
 });
+
+describe("carrying results whose anchors belong to one revision", () => {
+  const review = { type: "document-review", id: "review", props: { markdown: "Changed" } };
+  const question = { ...payment, props: { ...payment.props, items: [review] } } as ViewQuestion;
+  const annotation = {
+    annotations: [{ id: "u-1", quote: { exact: "Old" }, body: { text: "Check" } }],
+  };
+
+  test("a structurally fitting previous annotation is retained when its document changed", () => {
+    const run = setUp();
+    const context = {
+      ...run.context,
+      facts: () => ({ fits: () => true, revisionBound: true as const }),
+    };
+    expect(
+      fillFrom(question, { results: { review: annotation }, unchanged: [] }, "previous", context),
+    ).toBe(true);
+    expect(run.results.valueOf("review")).toEqual(annotation);
+    expect(
+      fillFrom(
+        question,
+        { results: { review: annotation }, unchanged: ["review"] },
+        "previous",
+        context,
+      ),
+    ).toBe(true);
+    expect(run.results.valueOf("review")).toEqual(annotation);
+  });
+
+  test("ordinary results still carry when the changed props accept them", () => {
+    const run = setUp();
+    expect(
+      fillFrom(
+        question,
+        { results: { review: annotation }, unchanged: [] },
+        "previous",
+        run.context,
+      ),
+    ).toBe(true);
+    expect(run.results.valueOf("review")).toEqual(annotation);
+  });
+});

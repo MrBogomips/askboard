@@ -52,7 +52,11 @@ When the board state does not list a reopened question itself as unchanged, or a
 - **THEN** the Timeline shows the agent's revision with no change mark, the draft is empty, and the notice reads the line for a question that starts from the agent's version
 
 ### Requirement: An answer carried into the draft brings back widget values
-When "Start from my previous answer", a revision's start or the reopen prefill carries an answer into the draft, each edit widget item SHALL take the answer's value for it only if the answer holds the item unchanged and the item's type shows the value on its current props. Every other item SHALL show as the agent sent it. Results, choices and notes SHALL be carried as before (AD-10, AD-20).
+When a previous answer, revision start or reopen prefill fills a draft, an edit widget SHALL take its answer value only if the answer lists the item unchanged and `valueFits` accepts it; otherwise it SHALL show the agent's value. Results SHALL pass `fits` on the shown revision. `revisionBound` SHALL enforce the existing read-only rule, never an unchanged-item carry gate. Choices and notes SHALL carry as before (AD-10, AD-20).
+
+#### Scenario: An anchored result on changed content
+- **WHEN** a previous Document review result fits its shape but its item is not listed unchanged since that answer, and the user presses "Start from my previous answer"
+- **THEN** that result is put into the draft, its quotes are placed against the shown content, and detached annotations remain visible and block Answer until the user deletes them
 
 #### Scenario: One widget changed by the agent
 - **WHEN** a question answered with edits to a Timeline and a Kanban is reopened, the agent adds a card to the Kanban, and the user presses "Start from my previous answer"

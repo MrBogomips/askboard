@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { ViewQuestion } from "../view-document.ts";
+import { createRevisions, shownOfBoard } from "./agent-change.ts";
 import { createBoardDraft } from "./board-draft.ts";
 import { createDraftStore } from "./draft-store.ts";
 import { sameRefs, workRefsOf } from "./work-refs.ts";
@@ -65,5 +66,53 @@ describe("the references of a question's work", () => {
     expect(sameRefs([1, "a"], [1, "a"])).toBe(true);
     expect(sameRefs([1], [1, 2])).toBe(false);
     expect(sameRefs([{}], [{}])).toBe(false);
+  });
+});
+
+// Work held only on items a later revision removed (document-review, task 6.18, row 9): after
+// "Keep mine" the card shows revision 1, whose items hold the work, so an edit of one of them is
+// a change of the work and clears the act line. Revision 2 removes `old`, a TextField.
+describe("the references of work held on an earlier revision", () => {
+  const withItems = (rev: number, items: readonly { id: string; type: string }[]) =>
+    ({
+      ...question,
+      rev,
+      props: { ...question.props, items: items.map((each) => ({ ...each, props: {} })) },
+    }) as unknown as ViewQuestion;
+  const rev1 = withItems(1, [
+    { id: "keep", type: "probe" },
+    { id: "old", type: "text-field" },
+    { id: "typed", type: "number-field" },
+  ]);
+  const rev2 = withItems(2, [{ id: "keep", type: "probe" }]);
+  const doc = (each: ViewQuestion) => ({ items: [each] }) as never;
+  const kept = (seen: boolean) => {
+    const held = stores();
+    const revisions = createRevisions();
+    if (seen) revisions.record(doc(rev1));
+    revisions.record(doc(rev2));
+    held.board.edit("q", 1, () => ({ rev: 1 }));
+    return { ...held, shownOf: shownOfBoard(held.board, revisions) };
+  };
+
+  test("move when an item only revision 1 holds changes: its value, result or entry", () => {
+    const held = kept(true);
+    const edits: (() => void)[] = [
+      () => held.draft.set("old", { x: 1 }),
+      () => held.results.set("old", "text"),
+      () => held.entries.set("typed", "12x"),
+    ];
+    for (const edit of edits) {
+      const before = workRefsOf(rev2, held);
+      edit();
+      expect(sameRefs(before, workRefsOf(rev2, held))).toBe(false);
+    }
+  });
+
+  test("with revision 1 unseen the card shows revision 2 and those items are no work", () => {
+    const held = kept(false);
+    const before = workRefsOf(rev2, held);
+    held.results.set("old", "text");
+    expect(sameRefs(before, workRefsOf(rev2, held))).toBe(true);
   });
 });

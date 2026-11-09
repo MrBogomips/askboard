@@ -292,3 +292,25 @@ export { UNREGISTERED_TYPE } from "./unregistered-type.ts";
 // An agent's Snapshot recording the board's presentation (snapshot-toolbar, design decision 2).
 
 export { snapshotToolbarData } from "./snapshot-toolbar.ts";
+
+// The amendments to the approved tool descriptions and server instructions, and the function that
+// applies them to an approved text (agent-facing-gaps, design decision 4).
+
+export {
+  APPROVED_TEXT_AMENDMENTS,
+  type ApprovedTextAmendment,
+  amendedApprovedText,
+} from "./approved-amendments.ts";
+
+// The Document review's entry, an item, results, an act, an answer event and a fetch result
+// (document-review, task 1.3): what a test gives the shipped registry through `withWidgetTypes`
+// while the type is not registered.
+
+export {
+  DOCUMENT_REVIEW_FIXTURE_ITEM,
+  DOCUMENT_REVIEW_RESULTS,
+  DOCUMENT_REVIEW_TYPES,
+  documentReviewAct,
+  documentReviewAnswerEvent,
+  documentReviewFetchItemResult,
+} from "./document-review.ts";

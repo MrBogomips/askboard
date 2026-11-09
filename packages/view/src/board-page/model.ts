@@ -17,7 +17,7 @@ import type {
   SettingsMessage,
 } from "@askboard/contract";
 import { type BootData, bootFieldsOf } from "../boot-data.ts";
-import { valueItemsOf } from "../nested-items.ts";
+import { nestedWidgetItemsOf, valueItemsOf } from "../nested-items.ts";
 import { questionsOf, type ViewQuestion } from "../view-document.ts";
 import type {
   ViewAct,
@@ -275,10 +275,29 @@ const resultsProblem = (
     : `the answer carries a result for "${foreign}", which is not a widget item of the question`;
 };
 
+// Whether the question or one of its items, at any depth of its layouts, failed in the view. The
+// view reports a failing item by its own ID and a visible question by the question's, so the failure
+// is mapped to its question through the document the board page holds (Issue #103); an item only an
+// earlier revision holds maps to nothing here, which the view's own gates cover (AD-10).
+const failedIn = (model: BoardModel, question: ViewQuestion): boolean =>
+  model.failed.size > 0 &&
+  (model.failed.has(question.id) ||
+    nestedWidgetItemsOf(question.props.items).some((item) => model.failed.has(item.id)));
+
 const actProblem = (model: BoardModel, known: Known, act: ViewAct): string | undefined => {
   const { question } = known;
-  if (model.failed.has(question.id)) return "the question's item failed in the view";
-  if (!model.visible.has(question.id)) return "the question never counted as visible";
+  // The one act a failed question still sends is the choice to reload. It carries no content of any
+  // item, so it invents nothing and shows the user nothing they did not see (NFR-10, SM-C2), and the
+  // agent is told the user dropped the work. A question that fails before it ever counted as visible
+  // (a reload or a takeover onto a revision whose item throws at mount) has the same card, so its
+  // reload passes the visible gate too; a question neither visible nor failed still does not
+  // (document-review 6.28).
+  const failed = failedIn(model, question);
+  const reloads = act.type === "edit-choice" && act.edit === "reload";
+  if (failed && !reloads) return "the question's item failed in the view";
+  if (!model.visible.has(question.id) && !(failed && reloads)) {
+    return "the question never counted as visible";
+  }
   const revision = revisionProblem(act, question);
   if (revision !== undefined) return revision;
   if (act.type !== "answer") return undefined;

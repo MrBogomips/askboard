@@ -30,39 +30,35 @@ import {
   resolveTheme,
   type Theme,
 } from "../theme.ts";
-import { questionsOf, type ViewDocument } from "../view-document.ts";
+import { questionsOf } from "../view-document.ts";
 import { readDraftReply, type ViewMessage } from "../view-protocol.ts";
-import { createRevisions, type KeptChoices } from "./agent-change.ts";
-import { createAnswerActs, type Flight } from "./answer-acts.ts";
-import { createAttention } from "./attention.ts";
 import {
-  Board,
-  type BoardExtras,
-  type BoardView,
-  type HeadingRequest,
-  requestHeading,
-} from "./board.tsx";
+  createRevisions,
+  type KeptChoices,
+  shownDocumentFor,
+  shownOfBoard,
+} from "./agent-change.ts";
+import { createAnswerActs } from "./answer-acts.ts";
+import { createAttention } from "./attention.ts";
+import { Board, type BoardExtras, type BoardView } from "./board.tsx";
 import { createAnsweredResults, createBoardContent } from "./board-content.ts";
 import {
-  type BoardDraft,
   connectDrafts,
   createBoardDraft,
   draftRecordOf,
-  itemIdsOf,
   moveMarks,
-  type QuestionWork,
   restoreDraft,
-  resultIdsOf,
 } from "./board-draft.ts";
 import { BoardLanguage } from "./board-language.tsx";
-import { nextAfterRemoval, presentationOf } from "./board-view.ts";
-import { dropWork } from "./card-acts.ts";
-import { clearCellEntries, dropStaleCellEntries, entriesWithCells } from "./cell-entries.ts";
+import { presentationOf } from "./board-view.ts";
+import { clearCarried } from "./carried.ts";
+import { entriesWithCells } from "./cell-entries.ts";
 import { NO_CHANNEL, openChannel, type ViewChannel } from "./channel.ts";
 import { createDerivedStore } from "./derived-store.ts";
-import { createDraftStore, type DraftStore } from "./draft-store.ts";
-import { dropStaleEntries, entryIdsOf } from "./entries.ts";
+import { applyDocumentUpdate, connectTracker } from "./document-update.ts";
+import { createDraftStore } from "./draft-store.ts";
 import { focusOpener } from "./focus-opener.ts";
+import type { HeadingRequest } from "./heading-request.ts";
 import { measureInset } from "./measure-inset.ts";
 import { snapshotPresentationOf, snapshotTitleOf } from "./opened-snapshot.ts";
 import { startPresentation } from "./presentation-extras.ts";
@@ -73,7 +69,7 @@ import { prefillReopened } from "./reopen-prefill.ts";
 import { createRevisingSnapshot } from "./revising.ts";
 import { createSizeNotices, settle } from "./size-notices.ts";
 import { createSnapshotControl } from "./snapshot-control.ts";
-import { createStore, type Store } from "./store.ts";
+import { createStore } from "./store.ts";
 import { shimStyleElements } from "./style-shim.ts";
 import type { ThreadRequest } from "./thread.tsx";
 import { createChunkInstaller } from "./view-chunks.ts";
@@ -102,91 +98,11 @@ const connectToBoardPage = (): ViewChannel => {
   );
 };
 
-// The work an act carried, which goes from the draft once the board page settles it as done: an
-// answer, a decline or a note takes with it the undo it was held over; an answer or a decline
-// also takes the mark of a prefill (reopen-start-from-answer, design decision 4).
-const CARRIED: Readonly<Partial<Record<string, readonly (keyof QuestionWork)[]>>> = {
-  answer: ["other", "optionNotes", "note", "held", "undo", "prefilled"],
-  decline: ["other", "optionNotes", "note", "held", "undo", "prefilled"],
-  postpone: ["held"],
-  reopen: ["held"],
-  note: ["note", "held", "undo"],
-};
-
-const clearCarried = (
-  flight: Flight,
-  document: ViewDocument,
-  draft: DraftStore,
-  results: DraftStore,
-  entries: DraftStore,
-  cellEntries: DraftStore,
-  board: BoardDraft,
-  kept: Store<KeptChoices>,
-): void => {
-  for (const act of flight.acts) {
-    const question = questionsOf(document).find((each) => each.id === act.itemId);
-    if (question === undefined) continue;
-    if (act.type === "edit-choice") {
-      // "Keep mine" settles the notice for the revision it was about (task 6.7).
-      if (act.edit === "ignore") {
-        kept.set(new Map(kept.get()).set(act.itemId, { rev: act.rev, keptRev: act.keptRev }));
-      }
-      continue;
-    }
-    if (act.type === "follow-up") {
-      // The composer's text went; Explain's follow-up leaves it.
-      if (board.work(question.id)?.composer === act.text) board.clear(question.id, ["composer"]);
-      continue;
-    }
-    const fields = CARRIED[act.type];
-    if (fields === undefined) continue;
-    if (act.type === "answer" || act.type === "decline") {
-      for (const itemId of itemIdsOf(question)) draft.set(itemId, undefined);
-      for (const itemId of resultIdsOf(question)) results.set(itemId, undefined);
-      for (const itemId of entryIdsOf(question)) entries.set(itemId, undefined);
-      clearCellEntries(question, cellEntries);
-    }
-    board.clear(question.id, fields);
-  }
-};
-
 // The question whose card holds the focus, if any.
 const focusedQuestion = (): string | undefined =>
   document.activeElement
     ?.closest("[data-askboard-question]")
     ?.getAttribute("data-askboard-question") ?? undefined;
-
-type Removal = {
-  readonly draft: DraftStore;
-  readonly results: DraftStore;
-  readonly entries: DraftStore;
-  readonly cellEntries: DraftStore;
-  readonly board: BoardDraft;
-  readonly focus: Store<HeadingRequest | undefined>;
-  readonly removed: Store<boolean>;
-};
-
-// The agent deleted questions (FR-6; task 6.7): each leaves with its draft; the question in view
-// moves on to the next one, saying so, and so does the focus if one of them held it.
-const onRemoval = (before: ViewDocument, after: ViewDocument, stores: Removal): void => {
-  const earlier = questionsOf(before);
-  const now = questionsOf(after).map((question) => question.id);
-  const gone = earlier.filter((question) => !now.includes(question.id));
-  if (gone.length === 0) return;
-  const focused = focusedQuestion();
-  for (const question of gone) dropWork(question, stores);
-  const ids = earlier.map((question) => question.id);
-  const isGone = (id: string | undefined) => gone.some((question) => question.id === id);
-  const inView = stores.board.get().inView;
-  if (inView !== undefined && isGone(inView)) {
-    stores.board.setInView(nextAfterRemoval(ids, now, inView));
-    stores.removed.set(true);
-  }
-  if (focused !== undefined && isGone(focused)) {
-    const next = nextAfterRemoval(ids, now, focused);
-    if (next !== undefined) requestHeading(stores.focus, next);
-  }
-};
 
 const boot = (): void => {
   shimStyleElements();
@@ -223,7 +139,23 @@ const boot = (): void => {
   const board = createBoardDraft(single ? "immediate" : (data.document.delivery ?? "immediate"));
   const revisions = createRevisions();
   revisions.record(data.document);
-  connectDrafts(() => view.get().document, draft, board, results, entries, cellEntries, revisions);
+  // The question as the card shows it: the draft's readers walk the items of the revision the
+  // work was made on too, after "Keep mine" (document-review, design decision 15).
+  const shownOf = shownOfBoard(board, revisions);
+  connectDrafts(
+    () => view.get().document,
+    draft,
+    board,
+    results,
+    entries,
+    cellEntries,
+    revisions,
+    shownOf,
+  );
+  // The board document as the cards show it, which every item reads the board from: each question at
+  // the revision its card shows, walked again only when the document or the board's work changes.
+  const shownDocument = shownDocumentFor(() => view.get().document, board.get, shownOf);
+  const shownSource = () => ({ document: shownDocument(), state: view.get().state });
   const acts = createAnswerActs();
   const attention = createAttention(data.document, data.state);
   const kept = createStore<KeptChoices>(new Map());
@@ -235,7 +167,9 @@ const boot = (): void => {
   // line goes when its question's work changes (oversized-acts, design decisions 2 to 4).
   const notices = createSizeNotices((questionId) => {
     const question = questionsOf(view.get().document).find((each) => each.id === questionId);
-    return question === undefined ? [] : workRefsOf(question, { draft, results, entries, board });
+    return question === undefined
+      ? []
+      : workRefsOf(question, { draft, results, entries, board, shownOf });
   });
   for (const store of [draft, results, entries, board]) store.subscribe(notices.sync);
   // The board page's reply to a draft names the questions it left out of the record it mirrors.
@@ -254,6 +188,9 @@ const boot = (): void => {
     onVisible: (questionId) => report({ type: "ready", itemId: questionId }),
     onFailed: (_questionId, itemId, error) => report({ type: "item-error", itemId, error }),
   });
+  // The tracker waits for the items the cards show: those of the shown document, again whenever the
+  // board's work gives a card another revision (document-review, design decision 15).
+  connectTracker(() => view.get().document, board, shownOf, tracker);
   let restored = 0;
   let closedPanel = 0;
   channel.onUpdate((update) => {
@@ -263,18 +200,20 @@ const boot = (): void => {
     const before = view.get().document;
     const document = update.document ?? before;
     if (update.document !== undefined) {
-      revisions.record(document);
-      onRemoval(before, document, {
+      applyDocumentUpdate(before, document, {
+        revisions,
         draft,
         results,
         entries,
         cellEntries,
         board,
+        shownOf,
+        tracker,
+        attention,
         focus,
         removed,
+        focused: focusedQuestion,
       });
-      dropStaleEntries(document, entries);
-      dropStaleCellEntries(document, cellEntries);
       // A prefill's mark alone is no unsent work: when the agent moves the question past it, the mark
       // follows, so the change shows at once with no notice (design decision 4).
       moveMarks(
@@ -284,9 +223,8 @@ const boot = (): void => {
         results.record(),
         entriesWithCells(entries.record(), cellEntries.record()),
         revisions,
+        shownOf,
       );
-      tracker.include(questionItemsOf(document));
-      attention.documentChanged(document);
     }
     view.set({ document, state: update.state, lock: update.lock, connection: update.connection });
     attention.stateChanged(update.state);
@@ -306,12 +244,13 @@ const boot = (): void => {
         undefined,
         entries,
         cellEntries,
+        revisions,
       );
     }
     // Commands the board page dropped because their socket was closed as too large: said before
     // `reconcile` settles them, which keeps the work in the draft as for any refusal.
     for (const flight of settle(acts, update.pending ?? [], update.settled ?? [], notices)) {
-      clearCarried(flight, document, draft, results, entries, cellEntries, board, kept);
+      clearCarried(flight, document, draft, results, entries, cellEntries, board, kept, revisions);
     }
     // A reopened question the agent left unchanged starts from the user's previous answer, once, and
     // only after this update's restore: the first update after a reload or a takeover carries the
@@ -339,6 +278,7 @@ const boot = (): void => {
           results.record(),
           entries.record(),
           cellEntries.record(),
+          shownOf,
         ),
       });
     });
@@ -374,13 +314,12 @@ const boot = (): void => {
     reasons,
     focus,
     removed,
-    // The board components read follows the latest document, which an agent update replaces, and
-    // the answers of the latest board state (molecules, design decision 11).
-    // Which questions are under revision is one snapshot, which every item follows (design
-    // decision 2): the board's content reads it, and an item renders again when it changes.
-    boardContent: createBoardContent(() => view.get(), revising.get),
+    // The board components read follows the latest document, which an agent update replaces, with
+    // each question at the revision its card shows, and the answers of the latest board state
+    // (molecules, design decision 11; document-review, design decision 15).
+    boardContent: createBoardContent(shownSource, revising.get),
     revisingSnapshot: revising,
-    answeredResult: createAnsweredResults(() => view.get()),
+    answeredResult: createAnsweredResults(shownSource),
     derived: createDerivedStore(),
     opened,
   };

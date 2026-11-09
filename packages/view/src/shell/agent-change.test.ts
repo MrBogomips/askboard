@@ -1,14 +1,23 @@
 import { describe, expect, test } from "bun:test";
 import { lifecycleBoardDocument } from "@askboard/contract/fixtures";
 import type { ComponentFacts } from "../catalog/port.ts";
-import type { ViewArea, ViewDocument, ViewQuestion } from "../view-document.ts";
+import {
+  questionsOf,
+  type ViewArea,
+  type ViewDocument,
+  type ViewQuestion,
+} from "../view-document.ts";
 import {
   changeCountOf,
   changePending,
   changesLabel,
   createRevisions,
   readOnlyItemsOf,
+  readOnlyOfBoard,
   revisionDiff,
+  type ShownOf,
+  shownDocumentFor,
+  shownDocumentOf,
   workingQuestion,
 } from "./agent-change.ts";
 import { createDraftStore } from "./draft-store.ts";
@@ -131,6 +140,109 @@ describe("the items an edit widget makes read-only on a revision the board canno
   });
 });
 
+// A result that points into the agent's content (document-review, design decision 15): a type
+// that registers `revisionBound` and no `shape` is read-only on a revision the board cannot show
+// too, since its result means nothing on another revision's text.
+const boundFacts: Readonly<Record<string, ComponentFacts>> = {
+  ...stubFacts,
+  pointing: { fits: () => true, revisionBound: true },
+  both: { shape: SHAPE, revisionBound: true },
+  unbound: { fits: () => true, valueFits: () => true },
+};
+const boundFactsOf = (type: string): ComponentFacts | undefined => boundFacts[type];
+const pointing = (rev: number): ViewQuestion =>
+  withItems(at(rev), [
+    { type: "pointing", id: "review", props: {} },
+    { type: "unbound", id: "free", props: {} },
+    { type: "editing", id: "tree", props: {} },
+    { type: "bare", id: "plain", props: {} },
+    {
+      type: "group",
+      id: "box",
+      props: {
+        title: "Box",
+        items: [
+          { type: "pointing", id: "inner-review", props: {} },
+          { type: "both", id: "inner-both", props: {} },
+          { type: "unbound", id: "inner-free", props: {} },
+        ],
+      },
+    },
+  ]);
+
+describe("the items a result that points into the agent's content makes read-only (document-review, decision 15)", () => {
+  test("a type registering revisionBound and no shape is read-only at the top level and nested, beside the edit widgets, when the work names an earlier revision than the card shows", () => {
+    const question = pointing(2);
+    const read = readOnlyItemsOf(question, question, { rev: 1 }, boundFactsOf);
+    expect([...read].sort()).toEqual(["inner-both", "inner-review", "review", "tree"]);
+  });
+
+  test("none while the card shows the work's revision, with no work, or with a work naming a later revision", () => {
+    const current = pointing(2);
+    const earlier = pointing(1);
+    expect(readOnlyItemsOf(current, earlier, { rev: 1 }, boundFactsOf).size).toBe(0);
+    expect(readOnlyItemsOf(current, current, undefined, boundFactsOf).size).toBe(0);
+    expect(readOnlyItemsOf(current, current, { rev: 2 }, boundFactsOf).size).toBe(0);
+    expect(readOnlyItemsOf(current, current, { rev: 3 }, boundFactsOf).size).toBe(0);
+  });
+
+  test("a type with neither fact is never read-only, and keep-mine's cases are unchanged", () => {
+    const question = pointing(2);
+    const read = readOnlyItemsOf(question, question, { rev: 1 }, boundFactsOf);
+    expect(read.has("free")).toBe(false);
+    expect(read.has("inner-free")).toBe(false);
+    expect(read.has("plain")).toBe(false);
+    const mixedQuestion = mixed(2);
+    expect(
+      [...readOnlyItemsOf(mixedQuestion, mixedQuestion, { rev: 1 }, boundFactsOf)].sort(),
+    ).toEqual(["inner", "top"]);
+  });
+});
+
+describe("readOnlyOfBoard: the read-only items of each question, from the board's work and the revisions seen", () => {
+  const revisionsSeen = (...seen: number[]) => ({
+    record: () => undefined,
+    question: (_id: string, rev: number) => (seen.includes(rev) ? pointing(rev) : undefined),
+  });
+  const boardWith = (work: { rev: number } | undefined) => ({ work: () => work });
+
+  test("holds the items when the work names revision 1, the document holds 2 and the revisions have not seen 1", () => {
+    const read = readOnlyOfBoard(
+      boardWith({ rev: 1 }),
+      revisionsSeen(2),
+      boundFactsOf,
+    )(pointing(2));
+    expect([...read].sort()).toEqual(["inner-both", "inner-review", "review", "tree"]);
+  });
+
+  test("is empty when the revisions have seen revision 1, whose text the card then shows", () => {
+    const read = readOnlyOfBoard(
+      boardWith({ rev: 1 }),
+      revisionsSeen(1, 2),
+      boundFactsOf,
+    )(pointing(2));
+    expect(read.size).toBe(0);
+  });
+
+  test("is empty with no work", () => {
+    expect(
+      readOnlyOfBoard(boardWith(undefined), revisionsSeen(2), boundFactsOf)(pointing(2)).size,
+    ).toBe(0);
+  });
+
+  test("asks the board for the work of the question it is given", () => {
+    const asked: string[] = [];
+    const board = {
+      work: (id: string) => {
+        asked.push(id);
+        return { rev: 1 };
+      },
+    };
+    readOnlyOfBoard(board, revisionsSeen(2), boundFactsOf)(pointing(2));
+    expect(asked).toEqual([pointing(2).id]);
+  });
+});
+
 describe("Show the agent's change: the new revision with its differences marked", () => {
   test("its text fields and options, marked against the revision the work was made on", () => {
     const before = at(1).props;
@@ -185,5 +297,113 @@ describe("Show the agent's change: the new revision with its differences marked"
     const diff = revisionDiff(undefined, at(2).props);
     expect(diff.text).toEqual({ now: payment.props.text, changed: false });
     expect(diff.options.map((option) => option.change)).toEqual(["same", "same"]);
+  });
+});
+
+// The board document as the cards show it (document-review, task 6.19; design decision 15): each
+// question at the revision its card shows, so that every reader of the board's items reads what the
+// card renders.
+describe("shownDocumentOf: the board document with each question at the revision its card shows", () => {
+  const scope = document.items[0] as ViewArea;
+  const delivery = document.items[1] as ViewArea;
+  const [region, pay] = scope.props.items;
+  const earlier = { ...(pay as ViewQuestion), rev: 1, props: { ...pay?.props, text: "Earlier" } };
+  const later = { ...(pay as ViewQuestion), rev: 2, props: { ...pay?.props, text: "Later" } };
+  const revised = {
+    ...document,
+    items: [
+      { ...scope, props: { ...scope.props, items: [region, later, scope.props.items[2]] } },
+      delivery,
+    ],
+  } as unknown as ViewDocument;
+  // The card of `payment` shows revision 1; every other card shows its own question.
+  const keeping: ShownOf = (question) => (question.id === "payment" ? earlier : question);
+  const same: ShownOf = (question) => question;
+
+  test("is the document itself while every question is its own shown one", () => {
+    expect(shownDocumentOf(revised, same)).toBe(revised);
+    expect(shownDocumentOf(document, same)).toBe(document);
+  });
+
+  test("holds each question at its shown revision, in an area too, and changes nothing else", () => {
+    const shown = shownDocumentOf(revised, keeping);
+    expect(shown).not.toBe(revised);
+    const paying = questionsOf(shown).find((question) => question.id === "payment");
+    expect(paying).toBe(earlier);
+    expect(questionsOf(shown).map((question) => question.id)).toEqual(
+      questionsOf(revised).map((question) => question.id),
+    );
+    // The questions that show themselves, and the area that held none of the change, are the same.
+    for (const question of questionsOf(revised)) {
+      if (question.id !== "payment") {
+        expect(questionsOf(shown).find((each) => each.id === question.id)).toBe(question);
+      }
+    }
+    expect(shown.items[1]).toBe(delivery);
+    const shownScope = shown.items[0] as ViewArea;
+    expect(shownScope.id).toBe(scope.id);
+    expect(shownScope.props.title).toBe(scope.props.title);
+    const { items: _a, ...shownRest } = shown;
+    const { items: _b, ...revisedRest } = revised;
+    expect(shownRest).toEqual(revisedRest);
+  });
+
+  test("a document of questions without areas is rebuilt in place too", () => {
+    const flat = { ...document, items: [later, region] } as unknown as ViewDocument;
+    const shown = shownDocumentOf(flat, keeping);
+    expect(shown.items[0]).toBe(earlier);
+    expect(shown.items[1]).toBe(region as ViewQuestion);
+  });
+
+  test("is the same object across calls while the shown questions are the same objects, and a new one when one changes", () => {
+    const first = shownDocumentOf(revised, keeping);
+    expect(shownDocumentOf(revised, keeping)).toBe(first);
+    const other = { ...earlier, props: { ...earlier.props, text: "Other" } };
+    const next = shownDocumentOf(revised, (question) =>
+      question.id === "payment" ? other : question,
+    );
+    expect(next).not.toBe(first);
+    expect(questionsOf(next).find((question) => question.id === "payment")).toBe(other);
+    // Back to the first shown question: the document made for it is a new one only if it must be.
+    expect(shownDocumentOf(revised, keeping)).toBe(shownDocumentOf(revised, keeping));
+  });
+});
+
+describe("shownDocumentFor: the shown document of the view, made again only when the document or the work moves", () => {
+  const scope = document.items[0] as ViewArea;
+  const pay = scope.props.items[1] as ViewQuestion;
+  const earlier = { ...pay, rev: 1 };
+  const later = { ...pay, rev: 2, props: { ...pay.props, text: "Later" } };
+  const revised = {
+    ...document,
+    items: [
+      {
+        ...scope,
+        props: { ...scope.props, items: [scope.props.items[0], later, scope.props.items[2]] },
+      },
+      document.items[1],
+    ],
+  } as unknown as ViewDocument;
+
+  test("walks the questions once per document and per state of the board's work, never per call", () => {
+    let asked = 0;
+    const shownOf: ShownOf = (question) => {
+      asked += 1;
+      return question.id === "payment" ? earlier : question;
+    };
+    let work: object = {};
+    const shown = shownDocumentFor(
+      () => revised,
+      () => work,
+      shownOf,
+    );
+    const first = shown();
+    const walked = asked;
+    expect(walked).toBeGreaterThan(0);
+    for (let call = 0; call < 20; call += 1) expect(shown()).toBe(first);
+    expect(asked).toBe(walked);
+    work = {};
+    expect(shown()).toBe(first);
+    expect(asked).toBeGreaterThan(walked);
   });
 });

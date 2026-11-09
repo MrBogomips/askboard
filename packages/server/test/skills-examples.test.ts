@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { readdirSync } from "node:fs";
 import { join, relative } from "node:path";
 import { SCHEMA_IDS, WIDGET_TYPES } from "@askboard/contract";
-import { validateAgainst } from "@askboard/contract/validate";
+import { validateAgainst, validateUpdateRequest } from "@askboard/contract/validate";
 import { AskCore } from "@askboard/core";
 import { createMoleculeSource } from "../src/molecule-source/index.ts";
 import { LINK, runtimeClock } from "./mcp-tools/helpers.ts";
@@ -10,18 +10,25 @@ import { LINK, runtimeClock } from "./mcp-tools/helpers.ts";
 // Skills spec, Examples that validate (askboard-skills task 3.1, design decision 5): every tagged
 // example block of the shipped skill is read from the committed files by path and checked by the
 // real units: `json ask` and `json item` through AskCore.ask with the shipped molecule source,
-// `json result` against the tool envelopes.
+// `json result` against the tool envelopes, and `json update` (agent-facing-gaps, task 3.1): each
+// validates as an `update` request; one without `reply` applies through AskCore to the `json ask`
+// example of its own file, and a `reply` names a question of that ask.
 
 const SKILL = join(import.meta.dir, "../../../skills/askboard");
 
-type Block = { kind: "ask" | "item" | "result"; value: unknown; where: string };
+type Block = {
+  kind: "ask" | "item" | "result" | "update";
+  value: unknown;
+  where: string;
+  file: string;
+};
 
 const filesUnder = (dir: string): string[] =>
   readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
     entry.isDirectory() ? filesUnder(join(dir, entry.name)) : [join(dir, entry.name)],
   );
 
-const BLOCK = /^```json (ask|item|result)\n([\s\S]*?)\n```$/gm;
+const BLOCK = /^```json (ask|item|result|update)\n([\s\S]*?)\n```$/gm;
 
 const blocksOf = async (): Promise<Block[]> => {
   const found: Block[] = [];
@@ -36,6 +43,7 @@ const blocksOf = async (): Promise<Block[]> => {
         kind: match[1] as Block["kind"],
         value: JSON.parse(match[2] ?? ""),
         where: `${relative(SKILL, path)} block ${index} (json ${match[1]})`,
+        file: relative(SKILL, path),
       });
     }
   }
@@ -92,8 +100,36 @@ const typesIn = (value: unknown, found: Set<string>): Set<string> => {
   return found;
 };
 
-const asked = blocks.filter(({ kind }) => kind !== "result");
+const asked = blocks.filter(({ kind }) => kind === "ask" || kind === "item");
 const results = blocks.filter(({ kind }) => kind === "result");
+const updates = blocks.filter(({ kind }) => kind === "update");
+
+type Action = { action: string; itemId?: string };
+
+// The failure text of an `update` example, or undefined: the request validates, then a `reply` names
+// a question of the file's ask example, and any other update applies to that ask through AskCore.
+const updateRefusal = async (block: Block): Promise<string | undefined> => {
+  const checked = validateUpdateRequest(block.value);
+  if (!checked.ok) return `${block.where}: ${JSON.stringify(checked.problems)}`;
+  const ask = asked.find((other) => other.kind === "ask" && other.file === block.file);
+  if (ask === undefined) return `${block.where}: the file holds no json ask example`;
+  const actions = (block.value as { actions: Action[] }).actions;
+  if (actions.some(({ action }) => action === "reply")) {
+    const questions = (ask.value as { items: { id: string }[] }).items.map(({ id }) => id);
+    const strays = actions.filter(
+      ({ action, itemId }) => action === "reply" && !questions.includes(itemId ?? ""),
+    );
+    return strays.length === 0
+      ? undefined
+      : `${block.where}: reply names ${strays.map(({ itemId }) => itemId).join(", ")}, not a question of the ask example`;
+  }
+  // A fresh core holds the ask example alone, so the update applies to it.
+  const host = core();
+  const created = await host.ask(structuredClone(ask.value) as never);
+  if (created.kind !== "created") return `${block.where}: its ask example gave ${created.kind}`;
+  const outcome = await host.update(structuredClone(block.value) as never);
+  return outcome.kind === "updated" ? undefined : `${block.where}: ${JSON.stringify(outcome)}`;
+};
 
 describe("the shipped skill's examples", () => {
   test("the skill carries example blocks of every kind", () => {
@@ -150,5 +186,52 @@ describe("the shipped skill's examples", () => {
     const ready = unknown.found ? [] : unknown.shipped;
     expect(ready.length).toBeGreaterThan(0);
     for (const molecule of ready) expect([...found]).toContain(`molecule:${molecule}`);
+  });
+});
+
+describe("the shipped skill's update examples", () => {
+  test("the skill carries a change example and a reply example", () => {
+    const kinds = updates.map(({ value }) =>
+      (value as { actions: Action[] }).actions.map(({ action }) => action).join(),
+    );
+    expect(kinds).toContain("change");
+    expect(kinds).toContain("reply");
+  });
+
+  test.each(updates.map((block) => [block.where, block] as const))(
+    "%s validates, applies to its file's ask or names one of its questions",
+    async (_, block) => {
+      expect(await updateRefusal(block)).toBeUndefined();
+    },
+  );
+
+  test("a change example whose item is broken fails, naming the file and the block", async () => {
+    const source = updates.find(({ value }) =>
+      (value as { actions: Action[] }).actions.some(({ action }) => action === "change"),
+    );
+    expect(source).toBeDefined();
+    if (source === undefined) return;
+    const copy = structuredClone(source);
+    const [action] = (copy.value as { actions: { props: { items: { props: object }[] } }[] })
+      .actions;
+    const item = action?.props.items.at(-1);
+    (item?.props as Record<string, unknown>).unknownProp = 1;
+    const text = await updateRefusal(copy);
+    expect(text).toContain(copy.where);
+    expect(text).toContain("unknownProp");
+  });
+
+  test("a reply example naming a question the ask example does not hold fails, naming the block", async () => {
+    const source = updates.find(({ value }) =>
+      (value as { actions: Action[] }).actions.some(({ action }) => action === "reply"),
+    );
+    expect(source).toBeDefined();
+    if (source === undefined) return;
+    const copy = structuredClone(source);
+    const [reply] = (copy.value as { actions: Action[] }).actions;
+    if (reply !== undefined) reply.itemId = "nowhere";
+    const text = await updateRefusal(copy);
+    expect(text).toContain(copy.where);
+    expect(text).toContain("nowhere");
   });
 });

@@ -135,6 +135,7 @@ describe("a probe item, held and fetched as left", () => {
       source: undefined,
       expansion: new Map(),
       references: new Map(),
+      expanded: new Map(),
     };
     expect(holderOf(model, widgets, "pick", PROBE_TYPES)?.item.id).toBe("pick");
     expect(holderOf(model, widgets, "pick")).toBeUndefined();

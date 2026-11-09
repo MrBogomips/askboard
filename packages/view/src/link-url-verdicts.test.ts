@@ -4,7 +4,7 @@
 import { describe, expect, test } from "bun:test";
 import { LINK_URL_TABLE } from "@askboard/contract/fixtures";
 import { isOpenableUrl } from "./board-page/markdown-links.ts";
-import { isMarkdownLinkUrl } from "./catalog/text/markdown.ts";
+import { isMarkdownLinkUrl } from "./markdown/markdown.ts";
 
 describe("one link check for the view and the board page", () => {
   test("both give the table's verdict for every URL", () => {

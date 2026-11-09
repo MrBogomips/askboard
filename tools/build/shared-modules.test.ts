@@ -2,12 +2,21 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { GRAPH_FILE, PORT_FILE, ROOT, VIEW_DIR, VIEW_SRC, WIDGETS_SRC } from "./paths.ts";
+import {
+  GRAPH_FILE,
+  MARKDOWN_FILE,
+  PORT_FILE,
+  ROOT,
+  VIEW_DIR,
+  VIEW_SRC,
+  WIDGETS_SRC,
+} from "./paths.ts";
 import {
   BOARD_GRAPH,
   CATALOG_PORT,
   LIBRARY_CHUNKS,
   libraryEntrySource,
+  MARKDOWN_RENDERER,
   portExports,
   providerOf,
   type SharedModules,
@@ -19,6 +28,9 @@ import {
 } from "./shared-modules.ts";
 
 const modules: SharedModules = sharedModules(["register", "componentFor"]);
+
+// The names the Text and the Document review take from the shared Markdown renderer.
+const MARKDOWN_NAMES = ["MARKDOWN", "PLAIN", "markExternal", "mountMarkdown", "renderMarkdown"];
 
 const DRAG_COMBINE = "@atlaskit/pragmatic-drag-and-drop/combine";
 const DRAG_ADAPTER = "@atlaskit/pragmatic-drag-and-drop/element/adapter";
@@ -116,6 +128,13 @@ describe("the shared modules and the chunks that provide them", () => {
     ]);
   });
 
+  test("the Markdown renderer comes from the markdown chunk, under the name widgets import it by, with an exact list of names (document-review, design decision 6)", () => {
+    expect(MARKDOWN_RENDERER).toBe("@askboard/view/markdown");
+    expect(modules.get(MARKDOWN_RENDERER)).toEqual({ chunk: "markdown", names: MARKDOWN_NAMES });
+    expect(LIBRARY_CHUNKS.markdown?.modules).toEqual({ [MARKDOWN_RENDERER]: MARKDOWN_NAMES });
+    expect(MARKDOWN_FILE).toBe(join(VIEW_SRC, "markdown/index.ts"));
+  });
+
   test("the shell provides the CatalogRenderer port, with the names its module exports", () => {
     expect(modules.get(CATALOG_PORT)).toEqual({
       chunk: "shell",
@@ -123,12 +142,13 @@ describe("the shared modules and the chunks that provide them", () => {
     });
   });
 
-  test("the library chunks are React, Radix, ext-apps, compute, the board graph and the drag library", () => {
+  test("the library chunks are React, Radix, ext-apps, compute, the board graph, the drag library and the Markdown renderer", () => {
     expect(Object.keys(LIBRARY_CHUNKS).sort()).toEqual([
       "board-graph",
       "compute",
       "dnd",
       "ext-apps",
+      "markdown",
       "radix",
       "react",
     ]);
@@ -229,6 +249,9 @@ describe("the resolve filter names only the modules it maps (renderer row 18)", 
     BOARD_GRAPH,
     "../board-graph/index.ts",
     "../../board-graph/index.ts",
+    MARKDOWN_RENDERER,
+    "../../markdown/index.ts",
+    "../markdown/index.ts",
   ])("matches %s", (specifier) => {
     expect(filter.test(specifier)).toBe(true);
   });
@@ -246,6 +269,9 @@ describe("the resolve filter names only the modules it maps (renderer row 18)", 
     "./index.ts",
     "../board-graph/board-graph.ts",
     "@askboard/widgets",
+    "../markdown/markdown.ts",
+    "@askboard/view/markdown/markdown",
+    "../markdown/links.ts",
   ])("leaves %s alone", (specifier) => {
     expect(filter.test(specifier)).toBe(false);
   });
@@ -297,6 +323,19 @@ describe("which chunk an import comes from", () => {
     expect(providerOf(modules, "tree", "../board-graph/board-graph.ts", tree)).toBeUndefined();
   });
 
+  test("a relative import of the renderer's index comes from the markdown chunk, unless the chunk is that one (document-review, design decision 6)", () => {
+    const text = join(VIEW_SRC, "catalog/text/index.tsx");
+    expect(providerOf(modules, "text", "../../markdown/index.ts", text)).toEqual({
+      module: MARKDOWN_RENDERER,
+      chunk: "markdown",
+    });
+    expect(providerOf(modules, "markdown", "../../markdown/index.ts", text)).toBeUndefined();
+    // Another markdown/index.ts, or another file of the renderer, is not the renderer.
+    const elsewhere = join(WIDGETS_SRC, "tree/index.tsx");
+    expect(providerOf(modules, "tree", "../markdown/index.ts", elsewhere)).toBeUndefined();
+    expect(providerOf(modules, "text", "../../markdown/markdown.ts", text)).toBeUndefined();
+  });
+
   test("a shared name is the module a relative import of its file names, else the specifier", () => {
     const tree = join(WIDGETS_SRC, "tree/index.tsx");
     expect(sharedNameOf("../board-graph/index.ts", tree)).toBe(BOARD_GRAPH);
@@ -338,6 +377,13 @@ describe("shims", () => {
     expect(source).toContain(JSON.stringify(GRAPH_FILE));
     expect(source).toContain(`provide("${BOARD_GRAPH}", { afterAdd: m0_afterAdd`);
     expect(source).toContain("liveGraph: m0_liveGraph");
+  });
+
+  test("the markdown entry imports the renderer's index by path and provides its names", () => {
+    const source = libraryEntrySource("markdown");
+    expect(source).toContain(JSON.stringify(MARKDOWN_FILE));
+    expect(source).toContain(`provide("${MARKDOWN_RENDERER}", { MARKDOWN: m0_MARKDOWN`);
+    expect(source).toContain("renderMarkdown: m0_renderMarkdown");
   });
 
   test("an unknown library has no entry", () => {
@@ -438,6 +484,27 @@ describe("a chunk built with the plugin", () => {
     expect(entry).toContain("combine as m0_combine");
     expect(entry).toContain("draggable as m1_draggable");
     expect(entry).toContain("dropTargetForElements as m1_dropTargetForElements");
+  });
+
+  test("a widget importing the Markdown renderer leaves it out and needs the markdown chunk (document-review, design decision 6)", async () => {
+    const real = sharedModules(await portExports());
+    const { result, needs } = await build(
+      `import { renderMarkdown, mountMarkdown } from "${MARKDOWN_RENDERER}";\n(globalThis as any).x = [renderMarkdown, mountMarkdown];\n`,
+      real,
+    );
+    expect(result.success).toBe(true);
+    expect([...needs]).toEqual(["markdown"]);
+    const code = (await result.outputs[0]?.text()) ?? "";
+    expect(code).toContain(`shared("${MARKDOWN_RENDERER}")`);
+    expect(code.length).toBeLessThan(5_000);
+  });
+
+  test("a name of the renderer's folder that the chunk does not list fails the build, naming it", async () => {
+    const { result } = await build(
+      `import { markdownHtml } from "${MARKDOWN_RENDERER}";\n(globalThis as any).x = markdownHtml;\n`,
+    );
+    expect(result.success).toBe(false);
+    expect(result.logs.map(String).join("\n")).toContain("markdownHtml");
   });
 
   test("fails on a name the library chunk does not provide", async () => {
