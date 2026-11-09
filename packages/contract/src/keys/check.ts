@@ -15,6 +15,7 @@ import {
   type KeyHold,
   type KeyShows,
   type KeyTable,
+  MOD_ALT_KEYS,
   type VocabularyAction,
 } from "./vocabulary.ts";
 
@@ -24,6 +25,7 @@ const HOLD_TEXT: Readonly<Record<KeyHold, string>> = {
   "alt+shift": "Alt+Shift+",
   mod: "Ctrl/Cmd+",
   "mod+shift": "Ctrl/Cmd+Shift+",
+  "mod+alt": "Ctrl/Cmd+Alt+",
   char: "",
 };
 
@@ -41,24 +43,41 @@ const MOD_SHIFT_KEYS: ReadonlySet<string> = new Set(["ArrowUp", "ArrowDown", "En
 const CHARS: ReadonlySet<string> = new Set(["?", "%"]);
 const FUNCTION_KEYS = /^F(1|[3-9]|1[0-2])$/;
 
+/**
+ * Why a whole binding is a key the browser or the system needs, or undefined: Tab; F1 and F3 to
+ * F12; Cmd or Ctrl with any key but Z and A; with Shift any but the arrows up and down and Enter; a
+ * printed character but `?` and `%`; and Cmd or Ctrl with Alt on any key outside `MOD_ALT_KEYS`.
+ * The table check and the overrides check (`overrides.ts`) share it.
+ */
+export const reservedProblem = ({ key, hold }: KeyBinding): string | undefined => {
+  const text = bindingText({ key, hold });
+  if (key === "Tab") return `the key ${text} is Tab, which moves the focus`;
+  if (FUNCTION_KEYS.test(key)) return `the key ${text} is a function key the browser takes`;
+  if (hold === "mod" && !MOD_KEYS.has(key)) return `the key ${text} is the browser's`;
+  if (hold === "mod+shift" && !MOD_SHIFT_KEYS.has(key)) return `the key ${text} is the browser's`;
+  if (hold === "mod+alt" && !MOD_ALT_KEYS.includes(key)) {
+    return `the key ${text} is the browser's or the system's: Ctrl/Cmd with Alt takes only ArrowUp, ArrowDown, Home, End and Enter`;
+  }
+  if (hold === "char" && !CHARS.has(key)) return `the key ${text} is no character a table may take`;
+  return undefined;
+};
+
 // A binding's own problem against the browser's and the system's keys, or undefined.
 const bindingProblem = (binding: unknown): string | undefined => {
   if (typeof binding !== "object" || binding === null)
     return `a key ${shown(binding)} is no binding`;
   const { key, hold } = binding as { key: unknown; hold: unknown };
   if (typeof key !== "string" || key === "") return `a binding with the key ${shown(key)}`;
+  if (hold === "mod+alt") {
+    return `the key ${bindingText(binding as KeyBinding)} is Ctrl/Cmd with Alt, which only the user's overrides may bind`;
+  }
   if (typeof hold !== "string" || !(KEY_HOLDS as readonly string[]).includes(hold)) {
     return `the key ${shown(`${String(hold)}+${key}`)} has a hold no binding can have`;
   }
   const text = bindingText(binding as KeyBinding);
   if (key.length === 1 && key !== key.toLowerCase())
     return `the key ${text} is a letter in upper case`;
-  if (key === "Tab") return `the key ${text} is Tab, which moves the focus`;
-  if (FUNCTION_KEYS.test(key)) return `the key ${text} is a function key the browser takes`;
-  if (hold === "mod" && !MOD_KEYS.has(key)) return `the key ${text} is the browser's`;
-  if (hold === "mod+shift" && !MOD_SHIFT_KEYS.has(key)) return `the key ${text} is the browser's`;
-  if (hold === "char" && !CHARS.has(key)) return `the key ${text} is no character a table may take`;
-  return undefined;
+  return reservedProblem(binding as KeyBinding);
 };
 
 // Whether a binding of this key and hold is among `keys` (a printed character stands for the
@@ -183,7 +202,7 @@ const entryClauses = (type: string, entry: Parsed, table: readonly Parsed[]): st
 };
 
 // The bindings a press of the key can trigger: a printed character, with or without Shift.
-const reads = (binding: KeyBinding): readonly string[] =>
+export const reads = (binding: KeyBinding): readonly string[] =>
   binding.hold === "char"
     ? [`none:${binding.key}`, `shift:${binding.key}`]
     : [`${binding.hold}:${binding.key}`];

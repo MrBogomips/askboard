@@ -6,9 +6,11 @@
 /**
  * The modifiers a binding holds. `mod` is exactly one of Ctrl and Cmd; `char` is a printed
  * character with Shift as the layout needs it and no Ctrl, Alt or Cmd. No other hold can be
- * written, so Alt alone, Ctrl with Alt and AltGr combinations stay the browser's.
+ * written in a table, so Alt alone, Ctrl with Alt and AltGr combinations stay the browser's.
+ * `mod+alt` (exactly one of Ctrl and Cmd, with Alt and no Shift) is the user's overrides' alone,
+ * on `MOD_ALT_KEYS` (design decision 17): `KEY_HOLDS` does not list it and the table check refuses it.
  */
-export type KeyHold = "none" | "shift" | "alt+shift" | "mod" | "mod+shift" | "char";
+export type KeyHold = "none" | "shift" | "alt+shift" | "mod" | "mod+shift" | "mod+alt" | "char";
 
 /** One binding: a UI Events `key` value (a letter in lower case) and the modifiers held. */
 export type KeyBinding = { readonly key: string; readonly hold: KeyHold };
@@ -45,7 +47,7 @@ export type KeyEntry<Action extends string = string> = {
 /** A widget type's key table. */
 export type KeyTable<Action extends string = string> = readonly KeyEntry<Action>[];
 
-/** The holds a binding may take. */
+/** The holds a binding of a key table may take; `mod+alt` is the user's overrides' alone. */
 export const KEY_HOLDS: readonly KeyHold[] = Object.freeze([
   "none",
   "shift",
@@ -53,6 +55,15 @@ export const KEY_HOLDS: readonly KeyHold[] = Object.freeze([
   "mod",
   "mod+shift",
   "char",
+]);
+
+/** The keys `mod+alt` may take, in an override: ArrowLeft and ArrowRight switch tabs in Chrome on macOS. */
+export const MOD_ALT_KEYS: readonly string[] = Object.freeze([
+  "ArrowUp",
+  "ArrowDown",
+  "Home",
+  "End",
+  "Enter",
 ]);
 
 /** The visible counterparts an entry may name. */

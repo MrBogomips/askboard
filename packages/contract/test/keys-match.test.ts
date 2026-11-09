@@ -76,14 +76,43 @@ describe("pressHold", () => {
     expect(pressHold(mods(false, false, true, true))).toBe("mod+shift");
   });
 
-  test("Alt alone, Ctrl with Alt, Ctrl with Cmd and a third modifier are `other`", () => {
+  test("Ctrl with Alt and Cmd with Alt, with no Shift, are `mod+alt` (decision 17)", () => {
+    expect(pressHold(mods(true, true, false, false))).toBe("mod+alt");
+    expect(pressHold(mods(true, false, true, false))).toBe("mod+alt");
+  });
+
+  test("Alt alone, Ctrl with Cmd and a third modifier are `other`", () => {
     expect(pressHold(mods(true, false, false, false))).toBe("other");
-    expect(pressHold(mods(true, true, false, false))).toBe("other");
-    expect(pressHold(mods(true, false, true, false))).toBe("other");
     expect(pressHold(mods(false, true, true, false))).toBe("other");
+    expect(pressHold(mods(true, true, true, false))).toBe("other");
+    expect(pressHold(mods(true, true, true, true))).toBe("other");
     expect(pressHold(mods(false, true, true, true))).toBe("other");
     expect(pressHold(mods(true, true, false, true))).toBe("other");
-    expect(pressHold(mods(true, true, true, true))).toBe("other");
+    expect(pressHold(mods(true, false, true, true))).toBe("other");
+  });
+});
+
+describe("keyActionOf: a mod+alt binding (an override's)", () => {
+  const overridden: KeyTable = [
+    { ...vocabularyEntry("move.top", "list", "tool"), keys: [keyBinding("ArrowUp", "mod+alt")] },
+    vocabularyEntry("move.up", "list", "tool"),
+  ];
+
+  test("matches only a press with that hold", () => {
+    expect(hit("list", press("ArrowUp", "mod+alt"), true, overridden)).toBe("move.top");
+    expect(hit("list", press("ArrowUp", "mod+shift"), true, overridden)).toBeUndefined();
+    expect(hit("list", press("ArrowUp", "alt+shift"), true, overridden)).toBe("move.up");
+    expect(hit("list", press("ArrowUp", "mod"), true, overridden)).toBeUndefined();
+    expect(hit("list", press("ArrowUp", "other"), true, overridden)).toBeUndefined();
+    expect(hit("list", press("ArrowDown", "mod+alt"), true, overridden)).toBeUndefined();
+  });
+
+  test("Ctrl+Alt and Cmd+Alt events both arrive as that hold", () => {
+    const event = (ctrlKey: boolean, metaKey: boolean) =>
+      pressHold({ altKey: true, ctrlKey, metaKey, shiftKey: false });
+    expect(hit("list", press("ArrowUp", event(true, false)), true, overridden)).toBe("move.top");
+    expect(hit("list", press("ArrowUp", event(false, true)), true, overridden)).toBe("move.top");
+    expect(hit("list", press("ArrowUp", event(true, true)), true, overridden)).toBeUndefined();
   });
 });
 
@@ -245,6 +274,11 @@ describe("ariaKeyShortcuts", () => {
       "Control+Shift+ArrowUp Meta+Shift+ArrowUp",
     );
     expect(aria(keyBinding("Enter", "mod+shift"))).toBe("Control+Shift+Enter Meta+Shift+Enter");
+  });
+
+  test("writes Control and Meta with Alt for `mod+alt`, Control first (decision 17)", () => {
+    expect(aria(keyBinding("ArrowUp", "mod+alt"))).toBe("Control+Alt+ArrowUp Meta+Alt+ArrowUp");
+    expect(aria(keyBinding("Enter", "mod+alt"))).toBe("Control+Alt+Enter Meta+Alt+Enter");
   });
 
   test("writes a printed character as the character, `%` and `?` included", () => {

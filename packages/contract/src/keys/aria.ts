@@ -17,6 +17,7 @@ const MODIFIERS: Readonly<Record<Exclude<KeyBinding["hold"], "char">, readonly s
   "alt+shift": ["Alt+Shift+"],
   mod: ["Control+", "Meta+"],
   "mod+shift": ["Control+Shift+", "Meta+Shift+"],
+  "mod+alt": ["Control+Alt+", "Meta+Alt+"],
 };
 
 const shortcutsOf = ({ key, hold }: KeyBinding): readonly string[] =>

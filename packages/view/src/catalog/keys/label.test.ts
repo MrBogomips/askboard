@@ -55,6 +55,22 @@ describe("keyLabel elsewhere", () => {
   });
 });
 
+describe("keyLabel of Mod with Alt (keyboard-shortcuts-help, decision 17)", () => {
+  test("⌥⌘ on macOS, Ctrl+Alt elsewhere", () => {
+    expect(keyLabel(b("ArrowUp", "mod+alt"), "mac", en)).toBe("⌥⌘↑");
+    expect(keyLabel(b("Enter", "mod+alt"), "mac", en)).toBe("⌥⌘↩");
+    expect(keyLabel(b("ArrowUp", "mod+alt"), "other", en)).toBe("Ctrl+Alt+↑");
+    expect(keyLabel(b("Home", "mod+alt"), "other", en)).toBe("Ctrl+Alt+Home");
+  });
+
+  test("in Italian", () => {
+    expect(keyLabel(b("ArrowDown", "mod+alt"), "mac", it)).toBe("⌥⌘↓");
+    expect(keyLabel(b("ArrowDown", "mod+alt"), "other", it)).toBe("Ctrl+Alt+↓");
+    expect(keyLabel(b("End", "mod+alt"), "other", it)).toBe("Ctrl+Alt+Fine");
+    expect(keyLabel(b("Enter", "mod+alt"), "other", it)).toBe("Ctrl+Alt+Invio");
+  });
+});
+
 describe("keyLabel in Italian", () => {
   test("the key names come from the strings", () => {
     expect(keyLabel(b("Delete", "alt+shift"), "other", it)).toBe("Alt+Maiusc+Canc");

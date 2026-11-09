@@ -28,12 +28,14 @@ export type Modifiers = {
 
 /**
  * The hold of a press: none, exactly Shift, exactly Alt and Shift, exactly one of Ctrl and Cmd
- * with or without Shift; any other combination (Alt alone, Ctrl with Alt, Ctrl with Cmd) is `other`
- * and is the browser's or the system's.
+ * with or without Shift, or exactly one of Ctrl and Cmd with Alt and no Shift (`mod+alt`, which
+ * only an override binds); any other combination (Alt alone, Ctrl with Cmd, a third modifier) is
+ * `other` and is the browser's or the system's.
  */
 export const pressHold = ({ altKey, ctrlKey, metaKey, shiftKey }: Modifiers): PressHold => {
   if (ctrlKey || metaKey) {
-    if (ctrlKey === metaKey || altKey) return "other";
+    if (ctrlKey === metaKey) return "other";
+    if (altKey) return shiftKey ? "other" : "mod+alt";
     return shiftKey ? "mod+shift" : "mod";
   }
   if (altKey) return shiftKey ? "alt+shift" : "other";

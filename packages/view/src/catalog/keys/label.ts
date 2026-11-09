@@ -47,6 +47,7 @@ const MAC_MODIFIERS: Readonly<Record<Exclude<KeyHold, "char">, string>> = {
   "alt+shift": "⌥⇧",
   mod: "⌘",
   "mod+shift": "⇧⌘",
+  "mod+alt": "⌥⌘",
 };
 
 const OTHER_MODIFIERS: Readonly<Record<Exclude<KeyHold, "char">, readonly StringKey[]>> = {
@@ -55,6 +56,7 @@ const OTHER_MODIFIERS: Readonly<Record<Exclude<KeyHold, "char">, readonly String
   "alt+shift": ["key.alt", "key.shift"],
   mod: ["key.ctrl"],
   "mod+shift": ["key.ctrl", "key.shift"],
+  "mod+alt": ["key.ctrl", "key.alt"],
 };
 
 /** The label of one binding on `platform`, its key names in the language `say` speaks. */

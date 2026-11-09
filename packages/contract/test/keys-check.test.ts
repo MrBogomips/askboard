@@ -181,6 +181,29 @@ describe("a key the browser or the system needs", () => {
     expect(found[0]).toContain("probe");
   });
 
+  test("Mod+Alt is the user's alone: a table binding it is refused, naming the type and the key", () => {
+    for (const key of ["ArrowUp", "ArrowDown", "Home", "End", "Enter", "ArrowLeft"]) {
+      const found = messages([
+        ownEntry("probe.t", "list", [b(key, "mod+alt")], "tool", { readOnly: false }),
+      ]);
+      expect(found).toHaveLength(1);
+      expect(found[0]).toContain("probe");
+      expect(found[0]).toContain(key);
+      expect(found[0]).toContain("Alt");
+      expect(found[0]).toContain("override");
+    }
+  });
+
+  test("Mod+Alt on a vocabulary action is refused as well", () => {
+    const table: KeyTable = [
+      { ...vocabularyEntry("move.top", "list", "tool"), keys: [b("ArrowUp", "mod+alt")] },
+    ];
+    const found = messages(table);
+    expect(found.some((message) => message.includes("ArrowUp") && message.includes("probe"))).toBe(
+      true,
+    );
+  });
+
   test("Tab, Shift+Tab and Alt+Shift+Tab are refused", () => {
     for (const hold of ["none", "shift", "alt+shift"] as const) {
       const found = messages([

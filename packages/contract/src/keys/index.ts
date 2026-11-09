@@ -2,7 +2,20 @@
 
 export { ariaKeyShortcuts } from "./aria.ts";
 export { keyTableProblems } from "./check.ts";
+export { effectiveKeys } from "./effective.ts";
 export { type KeyPress, keyActionOf, type Modifiers, type PressHold, pressHold } from "./match.ts";
+export {
+  KEY_COMBINATION_MAX_CHARS,
+  type KeyCombinationRead,
+  type KeyOverrides,
+  keyCombinationText,
+  parseKeyCombination,
+} from "./notation.ts";
+export {
+  type KeyOverrideProblem,
+  type KeyOverrideRule,
+  keyOverridesProblems,
+} from "./overrides.ts";
 export {
   isVocabularyAction,
   KEY_HOLDS,
@@ -14,6 +27,7 @@ export {
   type KeyShows,
   type KeyTable,
   keyBinding,
+  MOD_ALT_KEYS,
   ownEntry,
   type VocabularyAction,
   type VocabularyKeys,
