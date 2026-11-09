@@ -139,6 +139,45 @@ describe("SKILL.md", () => {
     expect(skill).toContain("Home and End");
   });
 
+  // The options' and fields' keys, one bullet each (review 5.6, S-32 and the verdicts).
+  const bullet = (start: string): string => {
+    const found = skill.split("\n").find((line) => line.startsWith(`- ${start}`));
+    if (found === undefined) throw new Error(`no bullet for ${start}`);
+    return found;
+  };
+
+  test("the single choice's line names Enter beside Space", () => {
+    expect(bullet("A single choice")).toMatch(/Space or Enter chooses/);
+  });
+
+  test("the question's multiple choice names the arrows, Home and End moving the focus and Space or Enter ticking", () => {
+    const line = bullet("A multiple choice");
+    expect(line).toMatch(/Arrow keys, Home and End move the focus/);
+    expect(line).toMatch(/Space or Enter ticks/);
+  });
+
+  test("the multiple pick field has one Tab stop per box and Space, and no line says arrows move among its boxes", () => {
+    const line = bullet("A multiple pick field");
+    expect(line).toContain("one Tab stop per box");
+    expect(line).toContain("Space");
+    expect(line).not.toMatch(/arrow/i);
+    for (const other of skill.split("\n")) {
+      if (/pick field/i.test(other)) expect(other).not.toMatch(/arrow keys move/i);
+    }
+  });
+
+  test("the calendar names Shift with the arrows: a month sideways, a year up and down", () => {
+    const line = bullet("The date field's calendar");
+    expect(line).toContain("Shift with ← and → by a month");
+    expect(line).toContain("Shift with ↑ and ↓ by a year");
+  });
+
+  test("the toggle takes Space and Enter, the check box Space only", () => {
+    const line = bullet("A toggle");
+    expect(line).toMatch(/toggle: Space or Enter/);
+    expect(line).toMatch(/check box: Space only/);
+  });
+
   test("sends key changes to the user file, on the user's request, never to the project file", () => {
     expect(skill).toContain("user configuration file only when the user asks you to");
     expect(skill).toContain("keeping its `version` and every other key");

@@ -28,10 +28,11 @@ This skill answers a user's questions about using the AskBoard board. The files 
 
 ## Keys of the options and fields
 
-- A single choice is a radio group: Arrow keys move the focus among the options without choosing, Space chooses the focused one, Home and End go to the first and the last. Tab leaves the group.
-- A multiple choice: Arrow keys move the focus, Space ticks or clears the focused option.
-- A toggle and a checkbox: Space switches it.
-- The date field's calendar takes the keys react-day-picker documents: the arrow keys move the focus by a day or a week, Home and End go to the start and the end of the week, Page Up and Page Down to the previous and the next month, Shift with them to the previous and the next year, Enter or Space picks the day.
+- A single choice is a radio group: Arrow keys move the focus among the options without choosing, Space or Enter chooses the focused one, Home and End go to the first and the last. Tab leaves the group.
+- A multiple choice (a question's options): Arrow keys, Home and End move the focus, Space or Enter ticks or clears the focused option.
+- A multiple pick field (a form field): one Tab stop per box, so Tab moves among the boxes and Space ticks or clears the focused one.
+- A toggle: Space or Enter switches it. A check box: Space only.
+- The date field's calendar (react-day-picker): ← and → move by a day, ↑ and ↓ by a week, Shift with ← and → by a month, Shift with ↑ and ↓ by a year, Home and End to the start and end of the week, Page Up and Page Down by a month (Shift: a year), Enter or Space picks the day.
 - Menus and other controls take their usual keys: arrows to move, Enter or Space to choose, Escape to close.
 
 A widget with a Keys button shows the keys in effect in its keys panel (the button, or `?`), which the user may have changed; a widget's reference below says whether the board shows one for it, and lists its default keys either way.
