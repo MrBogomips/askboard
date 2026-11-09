@@ -68,7 +68,7 @@ A minor keeps its major's meaning (`versions.ts:1-9`): it may add fields and enu
 - The constant must hold a number while you build: set it to main's current minor plus one when the group starts. That number then appears in two places only: the constant and the change's own version test.
 - Other new tests compare with the constant (`version: BOARD_PROTOCOL_VERSION`), never with a literal. A test that only needs "this change's additions are in" asserts an at-least version, as `packages/contract/test/lifecycle-fixtures.test.ts:152` does.
 - Bind at the rebase right before the pull request: main's current minor plus one for each set the change widens; sets it does not widen keep main's value. If another change that widens the same set merges first, rebind after its merge. Re-read main's constants just before the merge too.
-- Record the binding once in design.md, under the versions decision, as a dated line: "Bound on <date>, rebased onto origin/main <sha>: board protocol 1.6 (main 1.5), output format 1.4 (main 1.3)." Mirror it in the rebase task's note, the PR body, and the CLAUDE.md Status and "In code since" lines, which name current versions.
+- Record the binding once in design.md, under the versions decision, as a dated line: "Bound on <date>, rebased onto origin/main <sha>: board protocol 1.6 (main 1.5), output format 1.4 (main 1.3)." Mirror it in the rebase task's note, the PR body and the change's as-built note `docs/as-built/<change-id>.md`, which names the bound versions.
 
 ## Rule 2: what moves with one minor
 
@@ -127,7 +127,7 @@ Last group, before the pull request:
    - Search for leftovers: `grep -rn '^<<<<<<<\|^>>>>>>>' packages tools`.
 6. Bind the labels and move the pins (Rules 1 and 2). Re-check every borrowed name on the rebased head; a difference stops the work for `/opsx:update`.
 7. Run `bun install --frozen-lockfile`, `bun run check`, `bun run build` and `openspec validate --all --strict --no-interactive`, plus `bun run test:e2e` when the view, the server or the conformance suite changed (CLAUDE.md).
-8. Record the rebase task's note, the PR body and the CLAUDE.md lines. If another change merges first, repeat from step 1.
+8. Record the rebase task's note, the PR body and the as-built note. If another change merges first, repeat from step 1.
 
 ## What the spec reviewer checks
 
