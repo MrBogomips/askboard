@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
-import { LIFECYCLE, lifecycleSnapshotResult } from "../src/fixtures/index.ts";
+import { amendedApprovedText, LIFECYCLE, lifecycleSnapshotResult } from "../src/fixtures/index.ts";
 import {
   OUTPUT_FORMAT_VERSION,
   RESULT_VERSIONS,
@@ -18,7 +18,16 @@ import { validateAgainst, validateSnapshotRequest } from "../src/validate.ts";
 // from it, its result and the typed discarded result, after E3's pattern for fetch.
 
 const fixture = (name: string) => Bun.file(join(import.meta.dir, "fixtures", name));
-const approved = (await fixture("tools.json").json()) as { tools: { name: string }[] };
+const approvedFile = (await fixture("tools.json").json()) as {
+  tools: { name: string; description: string }[];
+};
+// The approved definitions with the recorded amendments applied (agent-facing-gaps, design decision 4).
+const approved = {
+  tools: approvedFile.tools.map((tool) => ({
+    ...tool,
+    description: amendedApprovedText(`tools.json#${tool.name}.description`, tool.description),
+  })),
+};
 
 type Json = Record<string, unknown>;
 const pathsOf = (id: string, value: unknown) => {
@@ -55,7 +64,12 @@ describe("the approved snapshot definition", () => {
   });
 
   test("the server instructions stay the approved text, which names no snapshot", async () => {
-    expect(SERVER_INSTRUCTIONS).toBe((await fixture("server-instructions.md").text()).trimEnd());
+    expect(SERVER_INSTRUCTIONS).toBe(
+      amendedApprovedText(
+        "server-instructions.md",
+        (await fixture("server-instructions.md").text()).trimEnd(),
+      ),
+    );
     expect(SERVER_INSTRUCTIONS).not.toMatch(/\bsnapshot\b/);
   });
 });

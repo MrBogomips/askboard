@@ -113,13 +113,72 @@ describe("fetching an item", () => {
     await close();
   });
 
-  test("a deleted item is an error naming it and saying it was deleted", async () => {
+  test("a deleted item is the typed outcome deleted, naming the ask and the item, not an error", async () => {
     const core = holding({ kind: "deleted", askId: A, itemId: "analytics" });
     const { call, close } = await fetcher(core);
     const result = await call({ askId: A, itemId: "analytics" });
+    expect(result.isError).toBeFalsy();
+    const json = jsonOf(result);
+    // An ask with no agent record is unchecked (AD-5), so the outcome carries the mark.
+    expect(json).toEqual({
+      versions: RESULT_VERSIONS,
+      epoch: EPOCH,
+      askId: A,
+      itemId: "analytics",
+      outcome: "deleted",
+      unchecked: true,
+    });
+    expect(validateAgainst(SCHEMA_IDS.fetchOutcome, json).ok).toBe(true);
+    await close();
+  });
+
+  test("a deleted item of an ask with an owner carries no unchecked mark", async () => {
+    const core = fakeCore({
+      owners: { [A]: { agentId: "a1" } as never },
+      fullValue: (askId, itemId) => ({ kind: "deleted", askId, itemId }),
+    });
+    const { call, close } = await fetcher(core);
+    const json = jsonOf(await call({ askId: A, itemId: "analytics" }));
+    expect(json).toEqual({
+      versions: RESULT_VERSIONS,
+      epoch: EPOCH,
+      askId: A,
+      itemId: "analytics",
+      outcome: "deleted",
+    });
+    expect(validateAgainst(SCHEMA_IDS.fetchOutcome, json).ok).toBe(true);
+    await close();
+  });
+
+  test("an item the ask still holds never answers deleted: a live question, a live item in a Group", async () => {
+    const inside = { questionId: item.id, state: "open" };
+    const field = { type: "text-field", id: "owner", ...inside, props: { label: "Owner" } };
+    const nested = { type: "text-field", id: "owner", props: { label: "Owner" } };
+    const group = { type: "group", id: "box", ...inside, props: { title: "Box", items: [nested] } };
+    for (const held of [item, field as unknown as FetchItem, group as unknown as FetchItem]) {
+      const { call, close } = await fetcher(holding({ item: held, generation: 3 }));
+      const result = await call({ askId: A, itemId: held.id });
+      expect(result.isError).toBeFalsy();
+      const json = jsonOf(result) as Record<string, unknown>;
+      expect(json.outcome).toBeUndefined();
+      expect(json.item).toEqual(held);
+      const checked = validateAgainst(SCHEMA_IDS.fetchResult, json);
+      expect(checked.ok ? [] : checked.problems).toEqual([]);
+      await close();
+    }
+  });
+
+  test("another agent's ask is refused by the owner check before any deleted", async () => {
+    const core = fakeCore({
+      refusals: { [A]: "other-owner" },
+      fullValue: (askId, itemId) => ({ kind: "deleted", askId, itemId }),
+    });
+    const { call, close } = await fetcher(core);
+    const result = await call({ askId: A, itemId: "analytics" });
     expect(result.isError).toBe(true);
-    expect(textOf(result)).toContain('"analytics"');
-    expect(textOf(result)).toContain("deleted");
+    expect(textOf(result)).toContain("belongs to another agent");
+    expect(textOf(result)).not.toContain("deleted");
+    expect(core.calls).toEqual(["bind", `ownerRefusal ${A}`]);
     await close();
   });
 

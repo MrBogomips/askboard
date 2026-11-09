@@ -46,14 +46,14 @@ const refsOf = (schema: AnySchemaObject, union: string): string[] =>
 
 describe("the versions of the four widened sets", () => {
   test("each is bound one minor past main's, which this test pins and a later change moves", () => {
-    // Bound on 2026-11-08 on main be308421, which held input 1.12, output 1.11, envelopes 1.12 and
+    // Bound on 2026-11-09 on main e46304da, which held input 1.12, output 1.11, envelopes 1.13 and
     // board document 1.11 (task 8.2; design.md, Versions).
     expect({
       input: INPUT_FORMAT_VERSION,
       output: OUTPUT_FORMAT_VERSION,
       envelopes: TOOL_ENVELOPES_VERSION,
       document: BOARD_DOCUMENT_VERSION,
-    }).toEqual({ input: "1.13", output: "1.12", envelopes: "1.13", document: "1.12" });
+    }).toEqual({ input: "1.13", output: "1.12", envelopes: "1.14", document: "1.12" });
   });
 
   test("every other set holds at least the minor main bound when this change was bound", () => {

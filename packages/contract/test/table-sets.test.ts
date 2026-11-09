@@ -51,9 +51,9 @@ describe("the Table in the registry", () => {
 });
 
 describe("the minors the Table binds", () => {
-  test("the four widened sets are one minor past form-widget's, and the sets carry the constants", () => {
+  test("the four widened sets stand at the Table's minor or a later one, and the sets carry the constants", () => {
     // Form-widget's were input 1.11, output 1.10, tool envelopes 1.11 and board document 1.10; the
-    // Table's, 1.12, 1.11, 1.12 and 1.11, or a later change's (document-review's), which pin the latest.
+    // Table's, 1.12, 1.11, 1.12 and 1.11, or a later change's, whose own tests pin the latest.
     const minor = (version: string): number => Number(version.split(".")[1]);
     expect({
       input: minor(INPUT_FORMAT_VERSION) >= 12,

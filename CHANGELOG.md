@@ -10,6 +10,12 @@ All notable changes to AskBoard are recorded here, newest first, in the layout o
 - The Tree asks before a work package with estimates, or one a Gantt plan names as a task, becomes a group: a drop into it, an indent under it and "Add child" on it each show a question in the toolbar row first, naming the package and what leaves the totals and the plan, with "Cancel" and "Continue"; nothing changes until "Continue" (Issue #71).
 - `ask` and `update` warn when a Gantt plan names an ID that is no work package of its Tree, as a plan entry, or as a predecessor in the entry of a work package: one warning per plan, addressed to the plan, naming at most five of the IDs and counting the rest, and the formula warnings of an `ask` or `update` stay within 10,000 characters, a closing warning counting any left out; the plan stays as the agent sent it (Issue #74).
 - A Snapshot opens in the theme and density the board had when it was taken (recorded in its data), has one Theme control that works, and shows the density switch (Issue #72).
+- `fetch` of an item the agent deleted (a question, an area, an item inside one, or a molecule reference of one) returns the outcome `deleted`, naming the ask and the item, in place of an error; an ID a molecule reference expanded to stays `missing`, and an item a `change` dropped or one never held is still an error (Issue #73).
+- An ID a molecule reference of the ask has expanded to stays held against items for the ask's life: `update` refuses a plain item, a layout's items or tabs, or a reference that would take it, as in use, naming the reference (Issues #73, #75).
+
+### Added
+
+- The `askboard` skill teaches changing an ask (`references/updates.md`: add a question or an area; give a question a widget by a `change` of its `items`, sent whole; reopen before changing an answered question; reply to a follow-up with the question's `itemId` and the follow-up's cursor) and the ask's `language` and `locale`, and the `update` description and the server instructions name the reply's `itemId` (Issues #73, #75).
 
 ## 0.1.0 - 2026-11-07
 

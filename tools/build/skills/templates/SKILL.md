@@ -31,6 +31,10 @@ Without AskBoard's hooks a rule is only advisory: nothing stops an AskUserQuesti
 - Choose every ID yourself. An ask ID is a task slug plus a short random suffix, such as `checkout-plan-p8r3`. An item ID is 1 to 64 characters matching `{{idPattern}}`, unique in the ask. Change items later by ID with `update`.
 - Send content and data, never markup, colours or layout. A recommended option is only a label: the user still chooses.
 
+## Language
+
+Set `language` on every `ask` to the user's language: the one the user asked for, else the one your project's instructions give (CLAUDE.md or AGENTS.md, as you have them). AskBoard offers {{languages}}; for another language, or when nothing says, leave it out and AskBoard uses its configured default, else `en-US`. Write your own text in the user's language either way. Set `locale` ({{locales}}) only when the user's formats for money, dates and numbers differ from the language's. `update` changes neither: for another language, close the ask and send a new one in it.
+
 ## Items
 
 A question (`question`) is `{type: "question", id, props: {text, header?, options?, multiSelect?, allowOther?, items?}}`. Its `items` hold context, widgets and molecule references (`molecule`), each `{type, id, props}`. Read the reference of a type before you use it:
@@ -46,7 +50,8 @@ At the top level an ask's `items` may be areas (`area`) instead of questions: `{
 - After `ask`, the user gets a notice and a link. Never open the board or answer it yourself.
 - Answers reach you by push, or call `collect` with the latest cursor you received for each ask. Call it before you finish. Never build a cursor.
 - An event whose `seq` (the number after the dot in its cursor) you have already seen is a repeat: ignore it.
-- Reply to a follow-up at once with `update` (`reply`): the user is waiting.
+- Reply to a follow-up at once with `update` (`reply`, naming the question in `itemId` and the follow-up's cursor in `followUp`): the user is waiting.
+- How to change an ask: add, change, reply and the rest: [updates](references/updates.md).
 - When the user answers a postponed question in the terminal, record it with `update` (`answer`).
 - Do not ask a declined question again in this task.
 - A `discarded` ask lost its unsent answers: ask again under a new ID if you still need them.

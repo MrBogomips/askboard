@@ -138,7 +138,7 @@ describe("the typed results of update and fetch", () => {
     passes(SCHEMA_IDS.updateOutcome, { ...head, outcome });
   });
 
-  test("fetch's typed result is discarded only: a closed ask's items are still fetched", () => {
+  test("fetch's typed result is discarded or deleted, never closed: a closed ask's items are still fetched", () => {
     passes(SCHEMA_IDS.fetchOutcome, { ...head, outcome: "discarded" });
     expect(pathsOf(SCHEMA_IDS.fetchOutcome, { ...head, outcome: "closed" })).toEqual(["/outcome"]);
   });

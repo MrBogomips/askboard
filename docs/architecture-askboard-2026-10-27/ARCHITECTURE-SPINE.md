@@ -42,6 +42,7 @@ sources:
   - 'OpenSpec change form-widget, proposal.md, open questions 1, 3 and 4: the Form built from the input atoms and a PickField with no form library, field checks in the registry, the pattern run only in the view (accepted under the PO''s unattended handoff, 2026-11-07)'
   - 'OpenSpec change keep-mine-shown-revision, proposal.md, open question 4: no derived values in an answer naming an earlier revision (accepted under the PO''s unattended handoff, 2026-11-08)'
   - 'OpenSpec change table-widget, proposal.md, open questions 1, 3, 4 and 6: the Table on its own grid, column formulas with row references and single reads, totals as item fields, cell entries in the draft (accepted under the PO''s unattended handoff, 2026-11-08)'
+  - 'OpenSpec change agent-facing-gaps, proposal.md and design decision 7: AD-6 names `deleted` among the typed results that are not errors (Issues #73 and #75, 2026-11-09)'
   - 'OpenSpec change document-review, proposal.md, open questions 5 and 12: suggested edits in the annotation body, the Markdown renderer shared with the widgets (accepted under the PO''s unattended handoff, 2026-11-08)'
   - 'OpenSpec change result-bound, design.md, decisions 1, 2 and 6: the unresolved-pointer warnings of `ask` and `update` get their own 10,000 characters, a closing warning counts the rest, and AD-6 says so (accepted under the PO''s unattended handoff, 2026-11-09)'
 companions: ['SOLUTION-DESIGN.md']
@@ -226,7 +227,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
     - A result is one text block carrying JSON in its `contract` envelope. No tool uses `outputSchema` or `structuredContent` until the benchmark shows that the model reads only one representation.
     - A result stays under 30,000 characters. Answers carry only what changed (FR-20). `collect` pages with `more: true`.
     - `fetch` returns one item, or a range of it, with a continuation cursor, and omits excerpt text and image bytes.
-    - Typed results that are not errors: `open`, `postponed`, `closed`, `discarded`, `unavailable`.
+    - Typed results that are not errors: `open`, `postponed`, `closed`, `discarded`, `unavailable`, `deleted` (`fetch` of an item the agent deleted, or one inside a deleted question or area).
 
 ### AD-7 — The contract: AskBoard's own versioned schemas for every run-time message [ADOPTED]
 
