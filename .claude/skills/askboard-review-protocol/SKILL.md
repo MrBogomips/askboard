@@ -55,6 +55,8 @@ Both reviewers did this on their own in the first evaluation (2026-11-06).
 
 A fix re-review reports each finding as closed or still open, plus anything the fix broke.
 
+A range that touches a widget's keys also checks that the key table (`KEY_VOCABULARY`, `keyTableProblems`), the handler (`keyActionOf` over `useKeyTable`), the tooltips (`KeyHint`), the keys panel (`KeysButton`, `KeysPanelBody`), the references and `askboard-help` agree, and that a key outside the vocabulary carries the PO's recorded approval; a disagreement is an M finding citing decision 15 of `keyboard-shortcuts-help`.
+
 The pre-PR spec review also checks the backlog links (`CLAUDE.md`, The backlog): the proposal cites
 `Issue: #n` for each Issue the change resolves, each one open (`gh issue view <n>`), and the
 pull request body the coordinator will write says `Closes #n`, or `Refs #n` when the Issue spans

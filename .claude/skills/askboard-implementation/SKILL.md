@@ -10,7 +10,7 @@ You implement ONE task group of an OpenSpec change, inside the change's worktree
 ## Per-group workflow
 
 1. **Read first.** The group's tasks in `openspec/changes/<name>/tasks.md`, each task's Verify clause, the design decisions and spec requirements the tasks cite, and the spine's ADs they name. Check the names a task borrows with `git grep` before relying on them. If a name or behaviour differs from the plan, stop and report it; do not work around it (widget-answers task 0.2 is the example).
-2. **Name the tests, then write them first.** One failing test per Verify clause and per spec scenario. Run them and see them fail for the right reason (the message names the missing behaviour, not a typo or a missing import). A test that cannot fail proves nothing: E1's dialog assertion could not fail and was removed in review (#8).
+2. **Name the tests, then write them first.** One failing test per Verify clause and per spec scenario. Run them and see them fail for the right reason (the message names the missing behaviour, not a typo or a missing import). A test that cannot fail proves nothing: E1's dialog assertion could not fail and was removed in review (#8). A group that adds or alters a widget's keys writes first the tests of its key table (parity with the handler, and with the toolbar in both directions), its tooltips and its keys panel.
 3. **Implement the minimum** that passes. Keep files under about 400 lines and functions short.
 4. **Run the package's tests**, then the whole check: `GITHUB_TOKEN=$(gh auth token) bun run check` (stops at the first failure). Coverage of every file you add or change must be at least 80% of lines and functions, read from the per-file table, not the total.
 5. **View, widgets or `tools/build/` changed:** run `bun run build:view` and handle the chunk budget (below). Run the browser files that touch what you changed, on Chromium and WebKit (`bun packages/view/test/browser/run.ts --engines chromium,webkit --target session-process -- -t <pattern>`: the file argument does not narrow a run, see the reference). Do not run the full three-engine suite unless the caller asks.
@@ -52,6 +52,14 @@ Known gap: Tree and Gantt chrome (toolbar, "Day | Week | Month", legend, molecul
 
 ### Import boundaries and shared seams
 AD-1 binds imports; `tools/check-imports.ts` holds the table (`bun run check:imports`). `core`, `compute` and `mod` use no DOM, Node or Bun API; `hooks` and `mod` import only `contract`. Another package is imported as `@askboard/<name>`, never by relative path. A change to the dependency diagram updates the table in the same OpenSpec change. Contract set versions move only as the task says; a test that pinned an old version is updated to state the new one, with no assertion about behaviour weakened.
+
+### Keyboard (keyboard-shortcuts-help, #81)
+A widget's keys are a key table of the contract (`KEY_VOCABULARY`'s actions, own actions the PO approved), and the handler reads it:
+- The handler resolves a press with `keyActionOf` over the table `useKeyTable` returns (the table with the user's keys applied, decision 19), never over a literal key list; the press comes from the port's `keyPressOf`. Modifiers, input methods (composition) and text fields are the table's `when` and `isTextTarget`: a key typed into a field is not an action.
+- Call `preventDefault` only for a key the table took. `Mod+Alt` is a `mod+alt` hold, admitted in overrides only, never in a registry table (`keyTableProblems`).
+- Show each key where it acts: `KeyHint` on the tool's tooltip, `KeysButton` and the keys panel in the toolbar, `ariaKeyShortcuts` on the element. A widget with no table gives `keys-coverage.test.ts` its reason.
+- Every string (the Keys button, the panel, key names, action names) is in both catalogues (i18n above). A key outside the vocabulary needs the PO's recorded approval.
+- Browser checks run in Chromium, Firefox and WebKit: a key taken navigates and scrolls nothing, and a key not taken still does what the browser does.
 
 ### Fail closed
 Every task that touches answers, revisions or epochs includes a test that the failing case appends nothing and reports nothing the user did not send (NFR-10, AD-10). A graph or check that cannot be built refuses the request; it never throws past the tool and never reports "no answer yet".
