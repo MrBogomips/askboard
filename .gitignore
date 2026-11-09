@@ -13,3 +13,8 @@ hooks/askboard-mod.js
 # Test coverage and TypeScript build state
 coverage/
 *.tsbuildinfo
+
+# Codex interop: generated from CLAUDE.md and .claude/ by setup.sh (codex-port, rulesync); never edited
+/AGENTS.md
+/.agents/
+/.codex/

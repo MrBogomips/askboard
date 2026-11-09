@@ -8,7 +8,7 @@ description: Runs an AskBoard OpenSpec change end to end with the project's agen
 The session that runs this skill is the coordinator. It holds the change's state (ids, SHAs,
 findings), delegates the file-heavy work to the agents, and keeps their conclusions, not their
 reading. OpenSpec owns the artifacts: everything written under `openspec/changes/<id>/` goes through
-the opsx skills. GitHub Issues own the backlog: a change starts from its Issue, and `AGENTS.md` (The
+the opsx skills. GitHub Issues own the backlog: a change starts from its Issue, and `CLAUDE.md` (The
 backlog) holds the procedure and the commands for every step below that touches one.
 
 ## 1. Team, model and effort
@@ -38,7 +38,7 @@ and the base of the next one.
 
 0. **Triage.** A question, a typo or a configuration fix is not delivery work: answer it, or commit
    it directly on `main` as CLAUDE.md allows. For a change, find its Issue, or open one after the
-   duplicate search (`AGENTS.md`, The backlog); a change with no Issue is the exception, and its report
+   duplicate search (`CLAUDE.md`, The backlog); a change with no Issue is the exception, and its report
    says why. Then read `openspec list` and `openspec status --change <id>`, and resume at the first
    step not done.
 1. **Worktree.** A change runs in an integrated worktree `feature-<slug>` (CLAUDE.md, Git / PR
