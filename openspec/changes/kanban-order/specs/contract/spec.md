@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Grouped lists in the generic diff
-The generic diff SHALL take a flat list whose elements name their group in a field the shape declares, order counting within a group only. For each element in edited order it SHALL give an `add`, or its `set`s then a `move` when the element is outside the longest run of its edited group standing in sent order; then the `remove`s. An `add` or `move` SHALL name as `after` the preceding element of its group, omitted for the first, and never a `parent` (AD-20, FR-20).
+The generic diff SHALL take a flat list whose elements name their group in a field the shape declares, order counting within a group only. Group by group, in the code-unit order of the group values, for each element in edited order it SHALL give an `add`, or its `set`s then a `move` when outside its group's longest run in sent order; then the `remove`s. An `add` or `move` SHALL name as `after` its group's preceding element, omitted for the first, never a `parent` (AD-20, FR-20).
 
 #### Scenario: A card reordered in its column
 - **WHEN** the diff runs over a grouped list whose group `todo` held `a`, `b`, `c` and now holds `c`, `a`, `b`
@@ -18,6 +18,14 @@ The generic diff SHALL take a flat list whose elements name their group in a fie
 #### Scenario: A card moved to another group elsewhere
 - **WHEN** `b` moves from `todo` to the top of `doing`, above an element that precedes it in the sent list
 - **THEN** the diff gives a `set` of `b`'s group field, then a `move` of `b` with no `after`, and applying them gives `doing` with `b` first
+
+#### Scenario: Groups in the order of their values
+- **WHEN** the user adds `n` to `todo` and `m` to `doing`, whatever the interleaving of the two groups in the flat edited list
+- **THEN** the diff gives the `add` of `m` before the `add` of `n`, since `doing` precedes `todo` in code-unit order
+
+#### Scenario: Two interleaved groups reversed
+- **WHEN** the sent list is `a1`, `a2` in group `a` and `b1`, `b2` in group `b`, and the edited list reverses both groups, as `b2`, `b1`, `a2`, `a1` or as `a2`, `b2`, `a1`, `b1`
+- **THEN** both edited lists give the same changes, a `move` of `a2` then a `move` of `b2`, and the diff of the list they rebuild against the sent list gives those changes again
 
 ### Requirement: The inverse of a grouped list
 Applied in order to the sent list, a `move` or an `add` going right after `after`, or first in the list without it, a grouped list's changes SHALL rebuild every group's edited order. An `after` that is not in the moved element's group at that point, or an element whose group field is not a string, SHALL make the inverse fail, naming the operation; a grouped shape that also names children SHALL make the diff and the inverse fail (AD-20, NFR-10).
