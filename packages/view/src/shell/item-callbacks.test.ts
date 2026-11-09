@@ -322,6 +322,13 @@ describe("an item's result (widget-registry, design decision 9)", () => {
     expect(itemResultOf(undefined, undefined, "answered")).toBe("answered");
     expect(itemResultOf(undefined, undefined, undefined)).toBeUndefined();
   });
+
+  test("once a revision has started, the latest answer's result is not a fallback: the held result alone (Issue #107)", () => {
+    expect(itemResultOf(undefined, undefined, "answered", true)).toBeUndefined();
+    expect(itemResultOf(undefined, "held", "answered", true)).toBe("held");
+    expect(itemResultOf("card", undefined, "answered", true)).toBe("card");
+    expect(itemResultOf(undefined, undefined, "answered", false)).toBe("answered");
+  });
 });
 
 // An item the card makes read-only, on a revision the board cannot show (keep-mine-shown-revision,

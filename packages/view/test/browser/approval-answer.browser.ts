@@ -144,7 +144,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await isPressed(decisionOf(board, PLAN, "Reject"))).toBe(true);
         await Bun.sleep(QUIET_MS);
         expect(sentActs(run)).toHaveLength(1);
-        // Confirming sends the revision: the Tree was left alone, so it carries the result only.
+        // Confirming sends the revision: the Tree was left alone, so its answered edit is carried as
+        // the card shows it, and the event holds the result and the Tree's earlier rename, which a
+        // revision used to lose (reopen-start-from-answer, A revision keeps the widgets' edits).
         await answerOf(board, PLAN).click();
         await dialog(board).getByRole("button", { name: "Send", exact: true }).click();
         await actsDone(run, 2);
@@ -154,12 +156,17 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           itemId: PLAN,
           results: { verdict: { decision: "reject" } },
         });
-        expect(second?.acts[0]).not.toHaveProperty("values");
+        const carried = second?.acts[0] as unknown as {
+          readonly values: {
+            readonly wbs: { readonly nodes: readonly { children: readonly { label: string }[] }[] };
+          };
+        };
+        expect(carried.values.wbs.nodes[0]?.children[0]?.label).toBe(UX);
         const revised = checkedEvents(await run.session.collectJson());
         expect(revised).toHaveLength(1);
         expect(revised[0]?.replaces).toBe(first?.cursor);
         expect(revised[0]?.results).toEqual({ verdict: { decision: "reject" } });
-        expect(revised[0]).not.toHaveProperty("changes");
+        expect(revised[0]?.changes).toEqual([{ op: "set", target: "wbs.ux.label", value: UX }]);
         await delivered(board, PLAN).waitFor({ timeout: STEP_TIMEOUT_MS });
         // Revising a Tree beside the Approval: the revision carries the Tree's change and the
         // seeded result.
@@ -175,6 +182,90 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
             { op: "set", target: "wbs.architecture.label", value: ARCHITECTURE },
           ]),
         );
+        expectNoCspProblem(run);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a delivered Approve whose Tree is then renamed shows no verdict, and the revision's Answer sends the rename and no verdict",
+      async () => {
+        const run = await start(lifecycleScenario(reviewedAsk("immediate"), dist));
+        const board = await openBoard(run, [PLAN, REVIEW]);
+        await decisionOf(board, PLAN, "Approve").click();
+        await answerOf(board, PLAN).click({ timeout: STEP_TIMEOUT_MS });
+        await actsDone(run, 1);
+        const [first] = checkedEvents(await run.session.collectJson());
+        await delivered(board, PLAN).waitFor({ timeout: STEP_TIMEOUT_MS });
+        expect(await isPressed(decisionOf(board, PLAN, "Approve"))).toBe(true);
+        // A rename makes "Approve" impossible: the Approval clears its held verdict and shows none.
+        await renameNode(board, "ux", UX);
+        await eventually(
+          async () => !(await isPressed(decisionOf(board, PLAN, "Approve"))),
+          "no verdict after the rename",
+        );
+        await answerOf(board, PLAN).click({ timeout: STEP_TIMEOUT_MS });
+        await dialog(board).getByRole("button", { name: "Send", exact: true }).click();
+        await actsDone(run, 2);
+        const [revised] = checkedEvents(await run.session.collectJson());
+        expect(revised?.replaces).toBe(first?.cursor);
+        expect(revised?.results).toBeUndefined();
+        expect(revised?.changes).toEqual([{ op: "set", target: "wbs.ux.label", value: UX }]);
+        expectNoCspProblem(run);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a verdict the revision cleared stays cleared when the rename that cleared it is undone: the card does not show the answered Approve again (Issue #107)",
+      async () => {
+        const run = await start(lifecycleScenario(reviewedAsk("immediate"), dist));
+        const board = await openBoard(run, [PLAN, REVIEW]);
+        await decisionOf(board, PLAN, "Approve").click();
+        await answerOf(board, PLAN).click({ timeout: STEP_TIMEOUT_MS });
+        await actsDone(run, 1);
+        await run.session.collect();
+        await delivered(board, PLAN).waitFor({ timeout: STEP_TIMEOUT_MS });
+        await renameNode(board, "ux", UX);
+        await eventually(
+          async () => !(await isPressed(decisionOf(board, PLAN, "Approve"))),
+          "no verdict after the rename",
+        );
+        // A note keeps the revision's work once the rename is undone, which alone would end it.
+        await promptOf(board, PLAN, OPEN_NOTE).fill(WHY);
+        await renameNode(board, "ux", "UX design");
+        await Bun.sleep(QUIET_MS);
+        for (const name of ["Approve", "Approve with changes", "Reject"]) {
+          expect(await isPressed(decisionOf(board, PLAN, name))).toBe(false);
+        }
+        expect(await promptOf(board, PLAN, OPEN_NOTE).inputValue()).toBe(WHY);
+        expect(sentActs(run)).toHaveLength(1);
+        expectNoCspProblem(run);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "an edit the revision returns to the agent's label shows the agent's label, and the revised answer carries no value for it: the card does not show the answered rename again (Issue #107, values)",
+      async () => {
+        const run = await start(lifecycleScenario(reviewedAsk("immediate"), dist));
+        const board = await openBoard(run, [PLAN, REVIEW]);
+        const [first] = await answerWithChanges(run, board);
+        expect(first?.changes).toEqual([{ op: "set", target: "wbs.ux.label", value: UX }]);
+        // The revision starts from the answer: the Tree keeps the rename, the verdict and the note.
+        await renameNode(board, "ux", "UX design");
+        await Bun.sleep(QUIET_MS);
+        const cell = treeGridOf(board).cell("ux", 0);
+        expect(await cell.textContent()).toContain("UX design");
+        expect(await cell.textContent()).not.toContain(UX);
+        expect(await isPressed(decisionOf(board, PLAN, "Approve with changes"))).toBe(true);
+        await answerOf(board, PLAN).click({ timeout: STEP_TIMEOUT_MS });
+        await dialog(board).getByRole("button", { name: "Send", exact: true }).click();
+        await actsDone(run, 2);
+        const [revised] = checkedEvents(await run.session.collectJson());
+        expect(revised?.replaces).toBe(first?.cursor);
+        expect(revised?.results).toEqual({ verdict: { decision: "approve-with-changes" } });
+        expect(revised?.changes).toBeUndefined();
         expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,

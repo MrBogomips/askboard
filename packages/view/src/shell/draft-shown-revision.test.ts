@@ -82,7 +82,16 @@ const build = ({
   const revisions = createRevisions();
   if (seen) revisions.record(documentOf(rev1));
   const shownOf = shownOfBoard(board, revisions);
-  connectDrafts(() => documentOf(current), draft, board, results, entries, cellEntries, shownOf);
+  connectDrafts(
+    () => documentOf(current),
+    draft,
+    board,
+    results,
+    entries,
+    cellEntries,
+    revisions,
+    shownOf,
+  );
   work({ results, entries, cellEntries });
   // The agent's update, then "Keep mine" (which changes none of the draft): the view's own step.
   applyDocumentUpdate(documentOf(rev1), documentOf(rev2), {

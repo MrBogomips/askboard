@@ -415,7 +415,7 @@ describe("the reworded scenario: annotations held on a revision whose text no lo
   const seeded = (delivery: "immediate" | "submitted" = "immediate") => {
     const stores = board(question, { seen: [question], facts, kept: false, delivery });
     stores.results.set("owner", undefined);
-    fillFrom(question, { results: { owner: "gone" } } as never, stores.context);
+    fillFrom(question, { results: { owner: "gone" } } as never, "previous", stores.context);
     stores.board.edit("plan", 2, (work) => ({ ...work, rev: 2 }));
     return stores;
   };

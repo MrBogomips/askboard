@@ -541,14 +541,14 @@ describe("the draft mirror and its restore (ask-lifecycle, design decision 6; AD
     expect(run.tick()).toBe(300);
     run.socket(1).close(1006);
     run.tick();
-    run.socket(2).receive(board, stateOf(waiting), draftOf(noted("older")));
+    run.socket(2).receive(board, draftOf(noted("older")), stateOf(waiting));
     expect(run.drafts(2)).toEqual([draftOf(noted("mine"))]);
     expect(run.updates.at(-1)?.restore).toBeUndefined();
   });
 
   test("a page with no record of its own hands board-host's to the view, once, as a numbered restore", async () => {
     const run = setUp();
-    run.socket(1).receive(board, stateOf(waiting), draftOf(noted("kept")));
+    run.socket(1).receive(board, draftOf(noted("kept")), stateOf(waiting));
     await settled();
     expect(run.updates.at(-1)).toEqual({
       type: "state",
@@ -558,6 +558,56 @@ describe("the draft mirror and its restore (ask-lifecycle, design decision 6; AD
     await run.view({ type: "draft", record: noted("kept") });
     run.socket(1).receive(stateOf(waiting));
     expect(run.updates.at(-1)).toEqual({ type: "state", state: waiting });
+  });
+
+  // Reopen-start-from-answer, design decision 9: board-host sends the held draft before the state,
+  // and the view takes the restore with the socket's first state.
+  describe("a draft before the socket's first state (reopen-start-from-answer, decision 9)", () => {
+    test("the first update after the view loads carries the state and the restore together", async () => {
+      const run = setUp();
+      run.socket(1).receive(board, draftOf(noted("kept")), stateOf(waiting));
+      await settled();
+      expect(run.updates).toEqual([
+        { type: "state", state: waiting, restore: { id: 1, record: noted("kept") } },
+      ]);
+    });
+
+    test("on a reconnect of a page with no record of its own, the view hears nothing of the draft until the new socket's state", async () => {
+      const run = await opened();
+      const before = run.updates.length;
+      run.socket(1).close(1006);
+      run.tick();
+      const second = answered("sent");
+      run.socket(2).receive(board, draftOf(noted("kept")));
+      const during = run.updates.slice(before);
+      // Whatever the closed socket's close told the view, none of it holds the restore.
+      for (const update of during) expect(update.restore).toBeUndefined();
+      const count = run.updates.length;
+      run.socket(2).receive(stateOf(second));
+      expect(run.updates.length).toBeGreaterThan(count);
+      expect(run.updates.at(-1)).toMatchObject({
+        state: second,
+        restore: { id: 1, record: noted("kept") },
+      });
+    });
+
+    test("a draft after the state still becomes a restore", async () => {
+      const run = await opened();
+      run.socket(1).receive(draftOf(noted("late")));
+      expect(run.updates.at(-1)).toMatchObject({ restore: { id: 1, record: noted("late") } });
+    });
+
+    test("a page holding its own record ignores the held one, in either order", async () => {
+      const run = await opened();
+      await run.view({ type: "draft", record: noted("mine") });
+      run.tick();
+      run.socket(1).close(1006);
+      run.tick();
+      run.socket(2).receive(board, draftOf(noted("older")), stateOf(waiting));
+      expect(run.updates.at(-1)?.restore).toBeUndefined();
+      run.socket(2).receive(draftOf(noted("later")));
+      expect(run.updates.at(-1)?.restore).toBeUndefined();
+    });
   });
 
   test("a later board document reaches the view with the state", async () => {

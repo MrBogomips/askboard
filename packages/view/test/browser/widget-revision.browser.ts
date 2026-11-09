@@ -3,13 +3,19 @@
 // the Tree; the change highlight still compares against the agent's original (both renames are
 // marked), "Answer" sends the full edited values again, and the second event replaces the first
 // with one more `set` while the first stays as it was. Every scenario runs on the session process.
+// Reopen-start-from-answer (view spec: A revision keeps the widgets' edits): a revision that moves
+// one more Kanban card carries the Timeline's earlier move too, as the card shows it.
 
 import { describe, expect, test } from "bun:test";
+import { kanbanItem } from "./fixtures/kanban-documents.ts";
+import { timelineItem } from "./fixtures/timeline-documents.ts";
 import { planAsk } from "./fixtures/widget-asks.ts";
 import { eventually, STEP_TIMEOUT_MS, TEST_TIMEOUT_MS, useEngine } from "./harness/board-test.ts";
 import type { Board } from "./harness/dom.ts";
 import { enginesFrom } from "./harness/engines.ts";
+import { beginDrag, cardOf, cardsIn, columnOf, dragOver, release } from "./harness/kanban-drag.ts";
 import { answerOf, lifecycleScenario, openBoard } from "./harness/lifecycle-test.ts";
+import { dragEntry, entryOf, laneMiddle, PER_DAY, zoomOf } from "./harness/timeline-drag.ts";
 import { pressIn, tabIntoTree, treeGridOf } from "./harness/tree-grid.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 
@@ -83,6 +89,62 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
             { op: "set", target: "wbs.architecture.label", value: SECOND },
           ]),
         );
+      },
+      TEST_TIMEOUT_MS,
+    );
+  });
+
+  describe(`${engine}: revising one of two edited widgets`, () => {
+    const { start } = useEngine(engine);
+
+    test(
+      "a revision moving one more Kanban card carries the Timeline's earlier move: collect gives its sets and both Kanban moves",
+      async () => {
+        const ask = {
+          askId: "two-widgets-r4q7",
+          title: "Two widgets",
+          items: [
+            {
+              type: "question",
+              id: "plan",
+              props: { text: "Plan the quarter", items: [timelineItem(), kanbanItem()] },
+            },
+          ],
+        };
+        const run = await start(lifecycleScenario(ask as never, dist));
+        const board = await openBoard(run, ["plan"]);
+        const zoom = await zoomOf(board);
+        await dragEntry(board, "checkout", {
+          dx: 7 * PER_DAY[zoom],
+          y: await laneMiddle(board, "mobile"),
+        });
+        await release(board);
+        await beginDrag(board, cardOf(board, "a"));
+        await dragOver(board, columnOf(board, "doing"));
+        await release(board);
+        await eventually(async () => (await cardsIn(board, "doing")).join() === "a", "a in doing");
+        await answer(board);
+        const first = await run.session.collect();
+        await board.receipt("delivered to the agent").waitFor({ timeout: STEP_TIMEOUT_MS });
+        expect(first.events).toHaveLength(1);
+        // One more move, of the Kanban alone: the Timeline's earlier move must still be sent.
+        await beginDrag(board, cardOf(board, "c"));
+        await dragOver(board, columnOf(board, "done"));
+        await release(board);
+        await eventually(async () => (await cardsIn(board, "done")).join() === "b,c", "c in done");
+        await answer(board);
+        await board.receipt("sent").waitFor({ timeout: STEP_TIMEOUT_MS });
+        const second = await run.session.collect();
+        const changes = (second.events[0]?.changes ?? []) as readonly { readonly target: string }[];
+        expect(changes.map(({ target }) => target).sort()).toEqual([
+          "board.a.column",
+          "board.c.column",
+          "roadmap.checkout.end",
+          "roadmap.checkout.lane",
+          "roadmap.checkout.start",
+        ]);
+        expect(second.events[0]?.replaces).toBe(first.events[0]?.cursor);
+        expect(await entryOf(board, "checkout").getAttribute("data-change")).toBe("moved");
       },
       TEST_TIMEOUT_MS,
     );

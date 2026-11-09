@@ -479,7 +479,7 @@ describe("a closed ask's board", () => {
     }
   });
 
-  test("a draft held before the close is restored, before the closed message", async () => {
+  test("a draft held before the close is restored, before the state and the closed message", async () => {
     const fixture = startHost({ ports: await freeRange(1), tokens: [token] });
     try {
       const { port } = await fixture.ask(undefined, lifecycleAsk);
@@ -489,7 +489,7 @@ describe("a closed ask's board", () => {
       tab.send({ version, type: "connect", token });
       const types = [];
       for (let n = 0; n < 4; n += 1) types.push(((await tab.next()) as { type: string }).type);
-      expect(types).toEqual(["board", "state", "draft", "closed"]);
+      expect(types).toEqual(["board", "draft", "state", "closed"]);
     } finally {
       await fixture.host.close();
     }

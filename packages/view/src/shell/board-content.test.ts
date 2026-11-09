@@ -15,6 +15,8 @@ import {
   type ViewQuestion,
   type WidgetItem,
 } from "../view-document.ts";
+import "../catalog/number-field/index.tsx";
+import "../catalog/text-field/index.tsx";
 import { type ShownOf, shownDocumentOf } from "./agent-change.ts";
 import {
   answeredResultsOf,
@@ -207,6 +209,22 @@ describe("the board as the user sees it (molecules, design decision 11, option A
     expect(board.shown.get("schedule")).toBe(moved);
   });
 
+  test("an item the current answer leaves out of its unchanged list shows as the agent sent it (reopen-start-from-answer)", () => {
+    const [first] = bothAnswered;
+    const listed = (unchanged: readonly string[]) =>
+      [
+        {
+          ...first,
+          answer: { ...(first as { answer: object }).answer, unchanged },
+        },
+      ] as unknown as readonly LifecycleQuestionStatus[];
+    const board = boardOver(ganttPlanBoardDocument, listed(["schedule"]))(new Map());
+    expect(board.shown.get("wbs")).toBeUndefined();
+    expect(board.shown.get("schedule")).toBe(ganttPlanEditedValue);
+    const empty = boardOver(ganttPlanBoardDocument, listed([]))(new Map());
+    expect(empty.shown.size).toBe(0);
+  });
+
   test("the draft record gains nothing the user did not change", () => {
     const draft = createDraftStore();
     const record = draft.record();
@@ -280,20 +298,29 @@ describe("the results the board's answers hold (widget-registry, design decision
       state: "answered",
       answer: { results, when: "2026-11-06T10:00:00Z", receipt: "delivered" },
     }) as unknown as LifecycleQuestionStatus;
+  // The probe type takes any result; a NumberField takes a number within its bounds.
+  const facts = (type: string) =>
+    type === "number-field"
+      ? {
+          fits: (value: unknown, props: unknown) =>
+            typeof value === "number" &&
+            value <= ((props as { max?: number }).max ?? Number.POSITIVE_INFINITY),
+        }
+      : { fits: () => true };
   const sourceOf = (statuses: readonly LifecycleQuestionStatus[]) => ({
     document,
     state: stateOf(document, statuses),
   });
 
   test("an item gets the result its question's latest answer holds for it, read as an own property", () => {
-    const results = answeredResultsOf(sourceOf([loggedWith({ sketch: result })]));
+    const results = answeredResultsOf(sourceOf([loggedWith({ sketch: result })]), facts);
     expect(results.get("sketch")).toBe(result);
     expect(results.size).toBe(1);
   });
 
   test("a result for an item the question does not hold, or under a prototype key, is not shown", () => {
     const proto = JSON.parse('{"__proto__": 1, "constructor": 2, "elsewhere": 3}');
-    expect(answeredResultsOf(sourceOf([loggedWith(proto)])).size).toBe(0);
+    expect(answeredResultsOf(sourceOf([loggedWith(proto)]), facts).size).toBe(0);
   });
 
   test("an open question and an answer with no results show none", () => {
@@ -308,12 +335,77 @@ describe("the results the board's answers hold (widget-registry, design decision
 
   test("the lookup follows the board's latest state and document", () => {
     let source = sourceOf([]);
-    const resultOf = createAnsweredResults(() => source);
+    const resultOf = createAnsweredResults(() => source, facts);
     expect(resultOf("sketch")).toBeUndefined();
     source = sourceOf([loggedWith({ sketch: result })]);
     expect(resultOf("sketch")).toBe(result);
     expect(resultOf("elsewhere")).toBeUndefined();
     expect(resultOf("constructor")).toBeUndefined();
+  });
+
+  test("a result its item no longer takes on the item's current props is not shown (decision 2)", () => {
+    const days: WidgetItem = { type: "number-field", id: "days", props: { label: "Days", max: 5 } };
+    const doc = {
+      ...plainChoiceBoardDocument,
+      items: [holding([sketch, days])],
+    } as unknown as ViewDocument;
+    const status = {
+      itemId: question.id,
+      rev: 2,
+      state: "answered",
+      answer: {
+        results: { days: 7, sketch: result },
+        when: "2026-11-06T10:00:00Z",
+        receipt: "delivered",
+      },
+    } as unknown as LifecycleQuestionStatus;
+    const results = answeredResultsOf({ document: doc, state: stateOf(doc, [status]) }, facts);
+    expect(results.has("days")).toBe(false);
+    expect(results.get("sketch")).toBe(result);
+  });
+
+  test("the lookup an item reads shows no result for it once the revision no longer takes it", () => {
+    const days: WidgetItem = { type: "number-field", id: "days", props: { label: "Days", max: 5 } };
+    const doc = {
+      ...plainChoiceBoardDocument,
+      items: [holding([days])],
+    } as unknown as ViewDocument;
+    const status = {
+      itemId: question.id,
+      rev: 2,
+      state: "answered",
+      answer: { results: { days: 7 }, when: "2026-11-06T10:00:00Z", receipt: "delivered" },
+    } as unknown as LifecycleQuestionStatus;
+    const resultOf = createAnsweredResults(
+      () => ({ document: doc, state: stateOf(doc, [status]) }),
+      facts,
+    );
+    expect(resultOf("days")).toBeUndefined();
+  });
+
+  // The shell calls `createAnsweredResults` with no facts, so the gate rests on the default
+  // `componentFacts`, which the NumberField's own chunk fills (re-review 2.11 X-2): no stub here.
+  test("with the default facts, the real NumberField's chunk hides 7 under max 5 and shows 3", () => {
+    const days: WidgetItem = { type: "number-field", id: "days", props: { label: "Days", max: 5 } };
+    const doc = {
+      ...plainChoiceBoardDocument,
+      items: [holding([days])],
+    } as unknown as ViewDocument;
+    const statusWith = (value: number) =>
+      ({
+        itemId: question.id,
+        rev: 2,
+        state: "answered",
+        answer: { results: { days: value }, when: "2026-11-06T10:00:00Z", receipt: "delivered" },
+      }) as unknown as LifecycleQuestionStatus;
+    const source = (value: number) => ({
+      document: doc,
+      state: stateOf(doc, [statusWith(value)]),
+    });
+    expect(answeredResultsOf(source(7)).has("days")).toBe(false);
+    expect(answeredResultsOf(source(3)).get("days")).toBe(3);
+    expect(createAnsweredResults(() => source(7))("days")).toBeUndefined();
+    expect(createAnsweredResults(() => source(3))("days")).toBe(3);
   });
 });
 

@@ -155,6 +155,7 @@ const CORE_READS: readonly Read[] = [
   { file: "packages/core/src/lifecycle/updates.ts", text: "item.props.items", reason: AREA },
   { file: "packages/core/src/lifecycle/widget-fetch.ts", text: "area.props.items", reason: AREA },
   { file: "packages/core/src/lifecycle/model.ts", text: "{ items } = (props", reason: START },
+  { file: "packages/core/src/lifecycle/unchanged.ts", text: "{ items } = props", reason: START },
   {
     file: "packages/core/src/lifecycle/widget-fetch.ts",
     text: "{ items } = props",
@@ -279,6 +280,11 @@ const VIEW_READS: readonly Read[] = [
   {
     file: "packages/view/src/shell/card-acts.ts",
     text: "nestedItemById(shown.props.items",
+    reason: HANDED,
+  },
+  {
+    file: "packages/view/src/shell/card-acts.ts",
+    text: "valueItemsOf(question.props.items)",
     reason: HANDED,
   },
   {

@@ -37,7 +37,6 @@ import {
   answerContentOf,
   type BoardDraft,
   type Delivery,
-  hasAnswerWork,
   itemIdsOf,
   type QuestionWork,
 } from "./board-draft.ts";
@@ -47,7 +46,6 @@ import {
   CARD_ACTS,
   decline,
   explain,
-  fillFrom,
   keepMine,
   postpone,
   pressAnswer,
@@ -56,6 +54,7 @@ import {
   selectRecommendedOption,
   sendFollowUp,
   startFromPrevious,
+  startRevision,
 } from "./card-acts.ts";
 import { entriesWithCells } from "./cell-entries.ts";
 import { ChangeNotice, ReopenedNotice } from "./change-notice.tsx";
@@ -70,13 +69,14 @@ import {
   type CardState,
   cardActions,
   cardState,
-  contentOf,
   shownFor,
   shownResultFor,
   statusOf,
 } from "./question-state.ts";
 import { type ReasonRequests, reasonAskedAfter, reasonOf } from "./reason.ts";
 import { type RenderContext, RenderItem } from "./renderer.tsx";
+import { carriedOf } from "./reopen-prefill.ts";
+import { questionRevising } from "./revising.ts";
 import {
   type Confirmation,
   confirmationOf,
@@ -190,6 +190,14 @@ const useCard = ({ question, state, lock, context }: CardProps) => {
   // A field blocks: an entry, a value that fails its check, an empty required field; an item the
   // card makes read-only is no field (document-review, design decision 15).
   const blocked = holdsBlock(shown, heldEntries, heldResults, undefined, readOnlyItems);
+  // The work holds an edit: on an answered question, a revision under way.
+  const revising = questionRevising(question, {
+    work,
+    revisions,
+    values,
+    results: heldResults,
+    entries: heldEntries,
+  });
   const card = cardState({
     status,
     draft: answerContentOf(shown, values, work, heldResults),
@@ -197,7 +205,7 @@ const useCard = ({ question, state, lock, context }: CardProps) => {
     load,
     lock,
     ready: heldAct === "answer" || heldAct === "note",
-    editing: hasAnswerWork(shown, values, work, heldResults, heldEntries),
+    editing: revising,
     pending,
     fieldBlock: blocked,
     language,
@@ -220,6 +228,7 @@ const useCard = ({ question, state, lock, context }: CardProps) => {
     status,
     pending,
     shown,
+    revising,
     readOnlyItems,
     card,
     blocked,
@@ -369,6 +378,7 @@ export const QuestionCard = (props: CardProps) => {
     placement,
     sizeNotice,
     draftLeftOut,
+    revising,
   } = useCard(props);
   const section = useRef<HTMLElement>(null);
   useInView(section, question.id, context.attention);
@@ -441,16 +451,23 @@ export const QuestionCard = (props: CardProps) => {
   };
   // The first edit of an answered question starts the revision from its latest answer, once per
   // gesture: a gesture that clears the choice and then chooses "Other…" seeds only before the first.
-  // It seeds no widget value: an item the revision leaves alone shows its answer's value through
-  // the board (molecules, design decision 11); it seeds the widgets' results, which an answer
-  // carries only while the draft holds them (approval-scale-ranking, design decision 6).
+  // It seeds the widgets' values, which an answer carries only while the draft holds them, and
+  // their results (approval-scale-ranking, design decision 6): a revision carries the edits the user
+  // left untouched as the card shows them (reopen-start-from-answer, design decision 2, which
+  // reverses molecules decision 11's "no value is seeded").
   const seeding = useRef(false);
   const revise = () => {
     if (status?.state !== "answered" || seeding.current) return;
     const held = context.results?.record();
     const typed = entriesWithCells(context.entries?.record(), context.cellEntries?.record());
     if (
-      hasAnswerWork(shown, context.draft.record(), context.board.work(question.id), held, typed)
+      questionRevising(question, {
+        work: context.board.work(question.id),
+        revisions: context.revisions,
+        values: context.draft.record(),
+        results: held,
+        entries: typed,
+      })
     ) {
       return;
     }
@@ -458,7 +475,7 @@ export const QuestionCard = (props: CardProps) => {
     queueMicrotask(() => {
       seeding.current = false;
     });
-    fillFrom(shown, contentOf(status.answer), context);
+    startRevision(shown, status.answer, context);
   };
   const extras = extrasOf(shown, card, work, context.board, revise);
   const opened = context.opened !== undefined;
@@ -502,6 +519,7 @@ export const QuestionCard = (props: CardProps) => {
           context={context}
           disabled={readOnly}
           readOnlyItems={readOnlyItems}
+          revising={revising}
           shown={shownFor(card.shown, question.id, item.id)}
           shownResult={shownResultFor(card.shown, question.id, item.id)}
           shownOf={(itemId) => shownFor(card.shown, question.id, itemId)}
@@ -546,9 +564,10 @@ export const QuestionCard = (props: CardProps) => {
         <ReopenedNotice
           previous={reopened.previous}
           disabled={readOnly || pending}
+          carried={carriedOf(question, work, reopened.previous)}
           onStart={() => {
             const previous = reopened.previous;
-            if (previous !== undefined) startFromPrevious(question, contentOf(previous), acting);
+            if (previous !== undefined) startFromPrevious(question, previous, acting);
           }}
         />
       )}

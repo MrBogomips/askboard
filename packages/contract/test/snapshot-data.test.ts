@@ -314,3 +314,31 @@ describe("what the Snapshot data holds", () => {
     }
   });
 });
+
+describe("the unchanged items of an answer in the Snapshot data (reopen-start-from-answer)", () => {
+  const withUnchanged = (unchanged: unknown) =>
+    changed((data) => {
+      const state = data.state as { questions: { answer: Json }[] };
+      Object.assign((state.questions[0] as { answer: Json }).answer, { unchanged });
+    });
+
+  test("a board state naming unchanged IDs in its answer validates", () => {
+    expect(problemPaths(withUnchanged([question.id, "roadmap"]))).toEqual([]);
+  });
+
+  test("an empty list validates: nothing is unchanged", () => {
+    expect(problemPaths(withUnchanged([]))).toEqual([]);
+  });
+
+  test("a repeated ID fails, naming the field", () => {
+    expect(
+      problemPaths(withUnchanged([question.id, question.id])).some((p) =>
+        p.endsWith("/answer/unchanged"),
+      ),
+    ).toBe(true);
+  });
+
+  test("the data of the previous minor, with no unchanged, still validates", () => {
+    expect(problemPaths(agentSnapshot())).toEqual([]);
+  });
+});

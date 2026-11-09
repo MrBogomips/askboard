@@ -214,7 +214,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
-      "a reopened question shows Reopened by the agent, nothing chosen and the previous answer; Start from my previous answer fills the draft and sends nothing until Answer",
+      "a reopened and reworded question shows Reopened by the agent, nothing chosen and the previous answer; Start from my previous answer fills the draft and sends nothing until Answer",
       async () => {
         const run = await start(lifecycleScenario(twoAsk, dist));
         const board = await openBoard(run, ["database", "cache"]);
@@ -222,10 +222,16 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await answerOf(board, "database").click();
         await card(board, "database").getByText("sent", { exact: true }).waitFor();
         await actsDone(run, 1);
-        await run.session.update([{ action: "reopen", itemId: "database" }]);
+        // Reopened and reworded in one update: the question changed, so it starts from the agent's
+        // version, not from the previous answer (reopen-start-from-answer, design decision 3).
+        await run.session.update([
+          { action: "reopen", itemId: "database" },
+          { action: "change", itemId: "database", props: { text: "Which database now?" } },
+        ]);
         const reopened = card(board, "database").locator('[data-askboard-notice="reopened"]');
         await reopened.getByText("Reopened by the agent").waitFor({ timeout: STEP_TIMEOUT_MS });
         await reopened.getByText("PostgreSQL", { exact: true }).waitFor();
+        await reopened.getByText("starts from the agent's version", { exact: false }).waitFor();
         expect(await optionOf(board, "database", "PostgreSQL").isChecked()).toBe(false);
         expect(await answerOf(board, "database").isDisabled()).toBe(true);
         await reopened.getByRole("button", { name: "Start from my previous answer" }).click();
@@ -237,7 +243,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           {
             type: "answer",
             itemId: "database",
-            rev: 2,
+            rev: 3,
             choice: ["PostgreSQL"],
             when: expect.any(String),
           },

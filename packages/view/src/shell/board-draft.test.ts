@@ -288,6 +288,61 @@ describe("restoring a draft record (ask-lifecycle: What a reload keeps; FR-25)",
   });
 });
 
+// View-and-widgets: The prefill is remembered (reopen-start-from-answer, design decision 4): the
+// draft record marks a question's work on a revision the board filled from the previous answer.
+describe("the prefill mark in the draft (reopen-start-from-answer, design decision 4)", () => {
+  const region = (lifecycleBoardDocument.items[0] as unknown as ViewArea).props
+    .items[0] as ViewQuestion;
+  const document = lifecycleBoardDocument;
+
+  test("the mirrored record holds the mark, even with no value, and a restore keeps it on the current revision", () => {
+    const { values, board, record } = setUp();
+    const saved: DraftRecord = {
+      delivery: "submitted",
+      questions: { region: { rev: region.rev, prefilled: true } },
+    };
+    restoreDraft(saved, document, openState(document), values, board);
+    expect(board.work("region")).toEqual({ rev: region.rev, prefilled: true });
+    expect(record()).toEqual(saved);
+  });
+
+  test("a restore drops the mark with a stale revision and keeps the rest of its work", () => {
+    const { values, board, record } = setUp();
+    const stale: DraftRecord = {
+      delivery: "submitted",
+      questions: { region: { rev: region.rev - 1, prefilled: true, note: "kept" } },
+    };
+    restoreDraft(stale, document, openState(document), values, board);
+    expect(board.work("region")).toEqual({ rev: region.rev - 1, note: "kept" });
+    expect(record().questions.region).not.toHaveProperty("prefilled");
+  });
+
+  test("a stale mark alone leaves no work behind", () => {
+    const { values, board } = setUp();
+    const stale: DraftRecord = {
+      delivery: "submitted",
+      questions: { region: { rev: region.rev - 1, prefilled: true } },
+    };
+    restoreDraft(stale, document, openState(document), values, board);
+    expect(board.work("region")).toBeUndefined();
+  });
+
+  test("a mark alone is no answer work", () => {
+    const { values, board } = setUp();
+    board.edit("region", region.rev, (work) => ({ ...work, prefilled: true }));
+    expect(hasAnswerWork(region, values.record(), board.work("region"))).toBe(false);
+  });
+
+  test("the work stays, marked, when the user takes every value back out", () => {
+    const { values, board, record } = setUp();
+    board.edit("region", region.rev, (work) => ({ ...work, prefilled: true }));
+    values.set("region", ["EU"]);
+    values.set("region", undefined);
+    expect(board.work("region")).toEqual({ rev: region.rev, prefilled: true });
+    expect(record().questions.region).toEqual({ rev: region.rev, prefilled: true });
+  });
+});
+
 describe("what Answer sends: the question's whole answer (FR-3, FR-7, FR-18)", () => {
   const payment = (lifecycleBoardDocument.items[0] as unknown as ViewArea).props
     .items[1] as ViewQuestion;

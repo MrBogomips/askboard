@@ -342,7 +342,7 @@ export class Ask {
       return { askId: this.askId, state: "discarded" };
     const questions = model
       .questions()
-      .map((question) => questionView(this.#facts(question), this.#received, this.#kept));
+      .map((question) => questionView(this.#facts(question), this.#received, this.#kept, model));
     const closed = this.#closed === undefined ? {} : { closed: this.#closed };
     return { askId: this.askId, state, document: model.document(this.#head), questions, ...closed };
   }

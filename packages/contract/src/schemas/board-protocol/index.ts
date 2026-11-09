@@ -11,6 +11,8 @@
 // minor adds the widget results to the answer act, the draft record and the board state (design
 // decision 6); atoms' minor adds the entries of the input atoms to the draft record (design
 // decision 3); table-widget's minor adds the cell entries of a Table to it (design decision 8).
+// Reopen-start-from-answer's minor adds `unchanged` to the board state's answers and `prefilled` to
+// the draft record (design decisions 1 and 4).
 
 import type { EditorOutcome, SourceStatus } from "../../context/resolution.ts";
 import type { SchemaSet } from "../../versions.ts";
@@ -46,7 +48,7 @@ import state from "./state.json" with { type: "json" };
 import time from "./time.json" with { type: "json" };
 import version from "./version.json" with { type: "json" };
 
-export const BOARD_PROTOCOL_VERSION = "1.8";
+export const BOARD_PROTOCOL_VERSION = "1.9";
 
 export const boardProtocol: SchemaSet = {
   name: "board-protocol",
@@ -328,6 +330,11 @@ export type DraftQuestion = {
   readonly note?: string;
   /** The follow-up composer's text. */
   readonly composer?: string;
+  /**
+   * Since reopen-start-from-answer: the board filled this work from the previous answer; not
+   * unsent work on its own, and never part of an answer.
+   */
+  readonly prefilled?: true;
   readonly held?: HeldAct;
   /** Where the user placed the question's context, since 1.2; never unsent work (excerpts). */
   readonly context?: "beside" | "inline";
@@ -361,6 +368,15 @@ export type CurrentAnswer = {
   readonly values?: Readonly<Record<string, unknown>>;
   /** Since widget-registry: the logged result of each widget item, by expanded item ID. */
   readonly results?: Readonly<Record<string, unknown>>;
+  /**
+   * Since reopen-start-from-answer: present only for an answer on an earlier revision than the
+   * question's current one, the IDs of the question and of its items, at any depth, whose props
+   * equal those of the revision the answer names; possibly empty, which says nothing is unchanged.
+   * Absent, every item is unchanged on a current answer and none on a previous one (NFR-10). Never
+   * logged, and in no `fetch`, `collect` or tool result; a Snapshot's data holds it as the live
+   * board receives it, for the agent that reads the Snapshot.
+   */
+  readonly unchanged?: readonly string[];
   readonly declined?: true;
   readonly when: string;
   readonly receipt: Receipt;

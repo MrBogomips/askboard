@@ -307,8 +307,8 @@ describe("only the live board takes a Snapshot", () => {
       first.send({ version, type: "draft", record: LAST_DRAFT });
       expect(await first.closed()).toBe(BOARD_CLOSE_CODES.moved);
       expect(await second.next()).toMatchObject({ type: "board" });
-      expect(await second.next()).toMatchObject({ type: "state" });
       expect(await second.next()).toEqual({ version, type: "draft", record: LAST_DRAFT });
+      expect(await second.next()).toMatchObject({ type: "state" });
       await quiet(second);
     } finally {
       await host.close();

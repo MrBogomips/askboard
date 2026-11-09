@@ -47,7 +47,7 @@ describe("the minors layouts binds", () => {
     // The board protocol took 1.7 with atoms and moves on with the Table's cell entries.
     expect(Number(BOARD_PROTOCOL_VERSION.split(".")[1])).toBeGreaterThanOrEqual(7);
     expect({
-      // The Snapshot data: widget-registry's minor or a later one; snapshot-toolbar.test.ts pins the latest.
+      // The Snapshot data: widget-registry's minor or a later one; reopen-start-sets.test.ts pins the latest.
       snapshot: Number(SNAPSHOT_DATA_VERSION.split(".")[1]) >= 1,
       manifest: VIEW_MANIFEST_VERSION,
       configuration: CONFIGURATION_VERSION,

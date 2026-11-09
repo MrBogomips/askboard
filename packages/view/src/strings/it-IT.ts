@@ -167,6 +167,9 @@ export const IT_IT = {
   "reopened.previous": "Risposta precedente",
   "reopened.start": "Parti dalla mia risposta precedente",
   "reopened.other": "Altro… {text}",
+  "reopened.carried": "La tua risposta precedente è già inserita. Modificala o rispondi di nuovo.",
+  "reopened.notCarried":
+    'Questa domanda riparte dalla versione dell\'agente, non dalla tua risposta precedente. "Parti dalla mia risposta precedente" recupera ciò che è ancora valido.',
   "thread.title": "Chiarimenti",
   "thread.noMessages": "ancora nessun messaggio",
   "thread.messages": { one: "{count} messaggio", other: "{count} messaggi" },

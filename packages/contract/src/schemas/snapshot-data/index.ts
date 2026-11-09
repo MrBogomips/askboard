@@ -4,6 +4,7 @@
 // Widget-registry's minor adds the results kept for an answer logged too large (design decision 6).
 // Snapshot-toolbar's minor adds the record's optional presentation, the theme and density a board
 // would open with (design decision 2).
+// Reopen-start-from-answer's minor admits the board state's `unchanged` (design decision 7).
 
 import type { OriginMessage } from "../../push/messages.ts";
 import type { SchemaSet } from "../../versions.ts";
@@ -14,7 +15,7 @@ import type { QuestionProps } from "../input/index.ts";
 import type { DiscardedEvent, OutputEvent } from "../output/index.ts";
 import snapshotData from "./snapshot-data.json" with { type: "json" };
 
-export const SNAPSHOT_DATA_VERSION = "1.2";
+export const SNAPSHOT_DATA_VERSION = "1.3";
 
 export const SNAPSHOT_DATA_ID = "urn:askboard:snapshot-data:snapshot-data";
 

@@ -42,10 +42,17 @@ import { createAnswerActs } from "./answer-acts.ts";
 import { createAttention } from "./attention.ts";
 import { Board, type BoardExtras, type BoardView } from "./board.tsx";
 import { createAnsweredResults, createBoardContent } from "./board-content.ts";
-import { connectDrafts, createBoardDraft, draftRecordOf, restoreDraft } from "./board-draft.ts";
+import {
+  connectDrafts,
+  createBoardDraft,
+  draftRecordOf,
+  moveMarks,
+  restoreDraft,
+} from "./board-draft.ts";
 import { BoardLanguage } from "./board-language.tsx";
 import { presentationOf } from "./board-view.ts";
 import { clearCarried } from "./carried.ts";
+import { entriesWithCells } from "./cell-entries.ts";
 import { NO_CHANNEL, openChannel, type ViewChannel } from "./channel.ts";
 import { createDerivedStore } from "./derived-store.ts";
 import { applyDocumentUpdate, connectTracker } from "./document-update.ts";
@@ -58,6 +65,8 @@ import { startPresentation } from "./presentation-extras.ts";
 import { startPushExtras } from "./push-extras.ts";
 import { createReadyTracker, questionItemsOf } from "./ready-tracker.ts";
 import type { ReasonRequest } from "./reason.ts";
+import { prefillReopened } from "./reopen-prefill.ts";
+import { createRevisingSnapshot } from "./revising.ts";
 import { createSizeNotices, settle } from "./size-notices.ts";
 import { createSnapshotControl } from "./snapshot-control.ts";
 import { createStore } from "./store.ts";
@@ -133,7 +142,16 @@ const boot = (): void => {
   // The question as the card shows it: the draft's readers walk the items of the revision the
   // work was made on too, after "Keep mine" (document-review, design decision 15).
   const shownOf = shownOfBoard(board, revisions);
-  connectDrafts(() => view.get().document, draft, board, results, entries, cellEntries, shownOf);
+  connectDrafts(
+    () => view.get().document,
+    draft,
+    board,
+    results,
+    entries,
+    cellEntries,
+    revisions,
+    shownOf,
+  );
   // The board document as the cards show it, which every item reads the board from: each question at
   // the revision its card shows, walked again only when the document or the board's work changes.
   const shownDocument = shownDocumentFor(() => view.get().document, board.get, shownOf);
@@ -196,6 +214,17 @@ const boot = (): void => {
         removed,
         focused: focusedQuestion,
       });
+      // A prefill's mark alone is no unsent work: when the agent moves the question past it, the mark
+      // follows, so the change shows at once with no notice (design decision 4).
+      moveMarks(
+        document,
+        draft.record(),
+        board,
+        results.record(),
+        entriesWithCells(entries.record(), cellEntries.record()),
+        revisions,
+        shownOf,
+      );
     }
     view.set({ document, state: update.state, lock: update.lock, connection: update.connection });
     attention.stateChanged(update.state);
@@ -223,6 +252,15 @@ const boot = (): void => {
     for (const flight of settle(acts, update.pending ?? [], update.settled ?? [], notices)) {
       clearCarried(flight, document, draft, results, entries, cellEntries, board, kept, revisions);
     }
+    // A reopened question the agent left unchanged starts from the user's previous answer, once, and
+    // only after this update's restore: the first update after a reload or a takeover carries the
+    // restore whenever `board-host` held a record (design decisions 3 and 9). Never on the boot data.
+    prefillReopened(
+      document,
+      update.state,
+      { draft, results, entries, cellEntries, board },
+      update.lock,
+    );
   });
   // The draft mirror: the whole record after each change of either store, once per task (AD-20).
   let mirroring = false;
@@ -250,6 +288,15 @@ const boot = (): void => {
   entries.subscribe(mirror);
   cellEntries.subscribe(mirror);
   board.subscribe(mirror);
+  const revising = createRevisingSnapshot({
+    view,
+    draft,
+    board,
+    revisions,
+    results,
+    entries,
+    cellEntries,
+  });
   const context = {
     draft,
     results,
@@ -270,7 +317,8 @@ const boot = (): void => {
     // The board components read follows the latest document, which an agent update replaces, with
     // each question at the revision its card shows, and the answers of the latest board state
     // (molecules, design decision 11; document-review, design decision 15).
-    boardContent: createBoardContent(shownSource),
+    boardContent: createBoardContent(shownSource, revising.get),
+    revisingSnapshot: revising,
     answeredResult: createAnsweredResults(shownSource),
     derived: createDerivedStore(),
     opened,

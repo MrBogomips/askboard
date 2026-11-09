@@ -90,8 +90,8 @@ describe("the board-host exchanges", () => {
       "1 page draft",
       `1 close ${BOARD_CLOSE_CODES.moved}`,
       "2 host board",
-      "2 host state",
       "2 host draft",
+      "2 host state",
       "2 page snapshot",
       "2 host snapshot-saved",
     ]);

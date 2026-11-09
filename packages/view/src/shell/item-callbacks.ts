@@ -206,8 +206,14 @@ export const itemValueOf = (cardShown: unknown, board: BoardContent, itemId: str
 
 /**
  * The result an item shows: what the card shows in place of the draft, such as the answer being
- * sent or the logged one, else the result the user holds, else its question's latest answer's,
- * which stays while the question is revised; none when it has none.
+ * sent or the logged one, else the result the user holds, else its question's latest answer's
+ * while no revision has started; none when it has none. A revision's start copies every result
+ * that fits into the draft, so once `revising` the card shows the held results alone, and a
+ * result the user cleared stays cleared (reopen-start-from-answer, design decision 2).
  */
-export const itemResultOf = (cardShown: unknown, held: unknown, answered: unknown): unknown =>
-  cardShown ?? held ?? answered;
+export const itemResultOf = (
+  cardShown: unknown,
+  held: unknown,
+  answered: unknown,
+  revising = false,
+): unknown => cardShown ?? held ?? (revising ? undefined : answered);

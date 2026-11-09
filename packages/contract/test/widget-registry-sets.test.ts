@@ -34,7 +34,7 @@ describe("the versions of the sets", () => {
       output: minor(OUTPUT_FORMAT_VERSION) >= 8,
       envelopes: minor(TOOL_ENVELOPES_VERSION) >= 8,
       protocol: minor(BOARD_PROTOCOL_VERSION) >= 6,
-      snapshot: Number(SNAPSHOT_DATA_VERSION.split(".")[1]) >= 1,
+      snapshot: minor(SNAPSHOT_DATA_VERSION) >= 1,
     }).toEqual({ output: true, envelopes: true, protocol: true, snapshot: true });
   });
 

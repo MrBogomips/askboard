@@ -4,19 +4,27 @@
 // design decision 6), listed once per board document; the shell's document is the latest the agent
 // sent, which an agent update replaces, so the board follows it. What an item shows is its draft
 // value, else the value its question's latest answer holds for it (molecules, design decision 11,
-// option A), so that the board matches the card on a question being revised; the draft record
-// gains nothing from it. The board object is made once per items list, answers and draft record,
+// option A), so that the board matches the card on an answered question; once a revision of the
+// question has started, its draft alone (reopen-start-from-answer, design decision 2): the start
+// copied every value the answer holds into the draft, so an empty one is an edit returned to the
+// agent's props and is not filled again. The draft record gains nothing from it. The board object is made once per items list, answers and draft record,
 // so a component that builds from it, such as the Gantt's compute graph, can memoize on its
 // identity while none of them changes (cross-review H1).
 
 import type { LifecycleBoardState } from "@askboard/contract";
-import type { BoardContent, BoardWidgetItem } from "../catalog/port.ts";
+import {
+  type BoardContent,
+  type BoardWidgetItem,
+  type ComponentFacts,
+  componentFacts,
+} from "../catalog/port.ts";
 import { nestedWidgetItemsOf, valueItemsOf } from "../nested-items.ts";
 import { questionsOf, type ViewDocument } from "../view-document.ts";
 import type { AnswerContent } from "../view-protocol.ts";
+import { resultFits } from "./board-draft.ts";
 import type { DraftRecord } from "./draft-store.ts";
 import { type CheckFactsOf, itemCheckFailure } from "./field-block.ts";
-import { statusOf } from "./question-state.ts";
+import { statusIndexOf, unchangedOf } from "./question-state.ts";
 
 /** What the board is made from: the shell's latest board document and the board state. */
 export type BoardSource = {
@@ -70,17 +78,24 @@ type Answered = ReadonlyMap<string, unknown>;
 const NO_ANSWERS: Answered = new Map();
 
 // Each widget item's value in its question's latest answer, read as an own property of the
-// answer's values, for the items the question holds.
-const answeredOf = ({ document, state }: BoardSource): Answered => {
+// answer's values, for the items the question holds, and for no question with a revision under way.
+const answeredOf = ({ document, state }: BoardSource, revising: ReadonlySet<string>): Answered => {
+  const statuses = statusIndexOf(state);
   const entries = questionsOf(document).flatMap((question) => {
-    const status = statusOf(state, question.id);
+    const status = statuses.get(question.id);
     if (status === undefined || (status.state !== "answered" && status.state !== "declined")) {
       return [];
     }
+    if (revising.has(question.id)) return [];
     const { values }: AnswerContent = status.answer;
     if (values === undefined) return [];
+    // Only an item the answer lists as unchanged shows its value: an edit the agent's revision
+    // overtook shows as the agent sent it (reopen-start-from-answer, decision 2). Results go as before.
+    const unchanged = unchangedOf(status.answer, "current");
     return valueItemsOf(question.props.items).flatMap(({ id }) =>
-      Object.hasOwn(values, id) && values[id] !== undefined ? [[id, values[id]] as const] : [],
+      Object.hasOwn(values, id) && values[id] !== undefined && unchanged(id)
+        ? [[id, values[id]] as const]
+        : [],
     );
   });
   return entries.length === 0 ? NO_ANSWERS : new Map(entries);
@@ -89,18 +104,29 @@ const answeredOf = ({ document, state }: BoardSource): Answered => {
 /**
  * The result each widget item's question's latest answer holds for it, by item ID, read as an own
  * property of the answer's `results` and only for the items the question holds: what an item
- * shows of its result while the user holds none (widget-registry, design decision 9).
+ * shows of its result while the user holds none (widget-registry, design decision 9), where its
+ * type's `fits` takes it on the item's current props.
  */
-export const answeredResultsOf = ({ document, state }: BoardSource): Answered => {
+export const answeredResultsOf = (
+  { document, state }: BoardSource,
+  factsOf: (type: string) => ComponentFacts | undefined = componentFacts,
+): Answered => {
+  const statuses = statusIndexOf(state);
   const entries = questionsOf(document).flatMap((question) => {
-    const status = statusOf(state, question.id);
+    const status = statuses.get(question.id);
     if (status === undefined || (status.state !== "answered" && status.state !== "declined")) {
       return [];
     }
     const { results }: AnswerContent = status.answer;
     if (results === undefined) return [];
+    // Only a result its item's type still takes on the item's current props is shown: one the
+    // agent's revision no longer takes is not (reopen-start-from-answer, decision 2).
     return valueItemsOf(question.props.items).flatMap(({ id }) =>
-      Object.hasOwn(results, id) && results[id] !== undefined ? [[id, results[id]] as const] : [],
+      Object.hasOwn(results, id) &&
+      results[id] !== undefined &&
+      resultFits(question, id, results[id], factsOf)
+        ? [[id, results[id]] as const]
+        : [],
     );
   });
   return entries.length === 0 ? NO_ANSWERS : new Map(entries);
@@ -112,12 +138,13 @@ export const answeredResultsOf = ({ document, state }: BoardSource): Answered =>
  */
 export const createAnsweredResults = (
   sourceOf: () => BoardSource,
+  factsOf?: (type: string) => ComponentFacts | undefined,
 ): ((itemId: string) => unknown) => {
   let last: { readonly source: BoardSource; readonly results: Answered } | undefined;
   return (itemId) => {
     const source = sourceOf();
     if (last?.source.document !== source.document || last.source.state !== source.state) {
-      last = { source, results: answeredResultsOf(source) };
+      last = { source, results: answeredResultsOf(source, factsOf) };
     }
     return last.results.get(itemId);
   };
@@ -239,27 +266,44 @@ const shownOf = (draft: DraftRecord, answered: Answered): ReadonlyMap<string, un
   return unedited.length === 0 ? draft : new Map([...draft, ...unedited]);
 };
 
+const NO_REVISING: ReadonlySet<string> = new Set();
+
 /**
  * The board for a draft record, over the items of the document the shell holds now and the
- * answers of its board state: one frozen object per items list, answers and record.
+ * answers of its board state: one frozen object per items list, answers and record. A question
+ * in the set `revisingOf` gives (the revising snapshot, which returns the same set while its
+ * content is the same) shows its draft alone, whatever its answer holds; the default is none.
  */
 export const createBoardContent = (
   sourceOf: () => BoardSource,
+  revisingOf: () => ReadonlySet<string> = () => NO_REVISING,
 ): ((draft: DraftRecord) => BoardContent) => {
   const boards = new WeakMap<
     readonly BoardWidgetItem[],
     WeakMap<Answered, WeakMap<DraftRecord, BoardContent>>
   >();
-  // The answers of the last document and state, kept while a new state holds the same values.
-  let last: { readonly source: BoardSource; readonly answered: Answered } | undefined;
+  // The answers of the last document, state and set of revisions under way, kept while a new one
+  // holds the same values.
+  let last:
+    | {
+        readonly source: BoardSource;
+        readonly revising: ReadonlySet<string>;
+        readonly answered: Answered;
+      }
+    | undefined;
   const answersOf = (source: BoardSource): Answered => {
-    if (last?.source.document === source.document && last.source.state === source.state) {
+    const revising = revisingOf();
+    if (
+      last?.source.document === source.document &&
+      last.source.state === source.state &&
+      last.revising === revising
+    ) {
       return last.answered;
     }
-    const found = answeredOf(source);
+    const found = answeredOf(source, revising);
     const answered =
       last !== undefined && sameAnswers(last.answered, found) ? last.answered : found;
-    last = { source, answered };
+    last = { source, revising, answered };
     return answered;
   };
   return (draft) => {

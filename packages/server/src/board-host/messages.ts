@@ -24,7 +24,9 @@ const version = BOARD_PROTOCOL_VERSION;
 export type OpenBoardView = Exclude<LifecycleBoardView, { readonly state: "discarded" }>;
 
 // An answer as the board shows it: its content, when, its receipt and whether it was recorded;
-// never who or its cursor, which the board does not need.
+// never who or its cursor, which the board does not need. `unchanged` (reopen-start-from-answer,
+// design decision 10) goes exactly as ask-core gives it, an empty list included: ask-core gives it
+// only for an answer on an earlier revision, and absence reads as "all unchanged" on a current one.
 const currentOf = (answer: AnswerView): CurrentAnswer => ({
   ...(answer.choice === undefined ? {} : { choice: [...answer.choice] }),
   ...(answer.other === undefined ? {} : { other: answer.other }),
@@ -32,6 +34,7 @@ const currentOf = (answer: AnswerView): CurrentAnswer => ({
   ...(answer.note === undefined ? {} : { note: answer.note }),
   ...(answer.values === undefined ? {} : { values: { ...answer.values } }),
   ...(answer.results === undefined ? {} : { results: { ...answer.results } }),
+  ...(answer.unchanged === undefined ? {} : { unchanged: [...answer.unchanged] }),
   ...(answer.declined ? { declined: true as const } : {}),
   when: answer.when,
   receipt: answer.delivered ? "delivered" : "sent",

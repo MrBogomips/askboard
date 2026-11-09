@@ -15,8 +15,8 @@ import type { Store } from "./store.ts";
 
 // An answer, a decline or a note takes with it the undo it was held over.
 const CARRIED: Readonly<Partial<Record<string, readonly (keyof QuestionWork)[]>>> = {
-  answer: ["other", "optionNotes", "note", "held", "undo"],
-  decline: ["other", "optionNotes", "note", "held", "undo"],
+  answer: ["other", "optionNotes", "note", "held", "undo", "prefilled"],
+  decline: ["other", "optionNotes", "note", "held", "undo", "prefilled"],
   postpone: ["held"],
   reopen: ["held"],
   note: ["note", "held", "undo"],

@@ -315,6 +315,73 @@ export const hasAnswerWork = (
 // Work holding nothing but its revision.
 const isBare = (work: QuestionWork): boolean => Object.keys(work).every((key) => key === "rev");
 
+// Work holding nothing but its revision and the prefill's mark.
+const isMarkOnly = (work: QuestionWork): boolean =>
+  work.prefilled === true && Object.keys(work).every((key) => key === "rev" || key === "prefilled");
+
+/** The revisions the view has seen: a question at a given revision, as `Revisions` gives it. */
+export type EarlierRevisions = {
+  question(questionId: string, rev: number): ViewQuestion | undefined;
+};
+
+// No revision seen: the lookup of a caller that has none, which leaves work in place.
+const NO_REVISIONS: EarlierRevisions = { question: () => undefined };
+
+/**
+ * Whether the stores hold a value, result or entry of the question as the work's revision had it
+ * as well as the current one: the notice counts the user's changes on the revision the card shows
+ * (the work's), so a value held only on an item the current revision no longer has is still the
+ * user's work (X-1 and X-2 of re-review 4.5). When the work's revision was never seen the answer
+ * is yes, so the work and its notice stay (NFR-10: no path drops or hides unsent work).
+ */
+const holdsWorkValues = (
+  question: ViewQuestion,
+  work: QuestionWork,
+  revisions: EarlierRevisions,
+  values: ValueRecord,
+  results: ValueRecord,
+  entries: ValueRecord,
+  shown?: ViewQuestion,
+): boolean => {
+  if (hasValues(question, values, results, entries, shown ?? question)) return true;
+  if (shown !== undefined) return false;
+  if (work.rev >= question.rev) return false;
+  const earlier = revisions.question(question.id, work.rev);
+  return earlier === undefined || hasValues(earlier, values, results, entries);
+};
+
+/**
+ * Moves the mark of a prefill to the question's current revision when the work holds nothing else
+ * and the stores hold no value, result or entry of the question, on its current revision or on the
+ * revision the work was made on (`holdsWorkValues`): the mark alone is no unsent work
+ * (reopen-start-from-answer, design decision 4), so an agent change past it shows at once, with no
+ * agent-change notice, and the readers of work presence (`changePending`, `workingQuestion`) see
+ * the current revision. The work is kept, never forgotten, so the question is not filled again
+ * over what the user undid when the agent sends props equal to the answer's. Work that holds
+ * anything else stays on its revision, and the notice counts it as before.
+ */
+export const moveMarks = (
+  document: ViewDocument,
+  values: ValueRecord,
+  board: BoardDraft,
+  results: ValueRecord = NO_RESULTS,
+  entries: ValueRecord = NO_RESULTS,
+  revisions: EarlierRevisions = NO_REVISIONS,
+  shownOf?: ShownOf,
+): void => {
+  for (const question of questionsOf(document)) {
+    const work = board.work(question.id);
+    if (
+      work !== undefined &&
+      isMarkOnly(work) &&
+      work.rev < question.rev &&
+      !holdsWorkValues(question, work, revisions, values, results, entries, shownOf?.(question))
+    ) {
+      board.edit(question.id, question.rev, (held) => ({ ...held, rev: question.rev }));
+    }
+  }
+};
+
 /**
  * Keeps the two stores together: a value the user puts in starts the question's work at its
  * revision, an edit to a ready answer's values makes it not ready, and work that holds nothing
@@ -328,6 +395,7 @@ export const connectDrafts = (
   results?: DraftStore,
   entries?: DraftStore,
   cellEntries?: DraftStore,
+  revisions: EarlierRevisions = NO_REVISIONS,
   shownOf?: ShownOf,
 ): (() => void) => {
   const shownIn = (question: ViewQuestion): ViewQuestion => shownOf?.(question) ?? question;
@@ -363,12 +431,22 @@ export const connectDrafts = (
   };
   const prune = () => {
     const record = values.record();
+    // A prefill's mark left alone on a card that shows an earlier revision moves to the current one.
+    moveMarks(documentOf(), record, board, resultsNow(), entriesNow(), revisions, shownOf);
     for (const question of questionsOf(documentOf())) {
       const work = board.work(question.id);
       if (
         work !== undefined &&
         isBare(work) &&
-        !hasValues(question, record, resultsNow(), entriesNow(), shownIn(question))
+        !holdsWorkValues(
+          question,
+          work,
+          revisions,
+          record,
+          resultsNow(),
+          entriesNow(),
+          shownOf?.(question),
+        )
       ) {
         board.forget(question.id);
       }
@@ -438,6 +516,7 @@ const questionEntry = (
     ...(filled(work?.note) ? { note: work.note } : {}),
     ...(filled(work?.composer) ? { composer: work.composer } : {}),
     ...(work?.held === undefined ? {} : { held: work.held }),
+    ...(work?.prefilled === true ? { prefilled: true as const } : {}),
     ...(placement === undefined ? {} : { context: placement }),
   };
   return Object.keys(fields).length === 0
@@ -661,9 +740,13 @@ export const restoreDraft = (
       for (const [itemId, text] of typed) entries?.set(itemId, text);
       for (const [itemId, held] of typedCells) cellEntries?.set(itemId, held);
     }
+    // The prefill mark belongs to the revision it names: on any other it is dropped with the rest
+    // of what the stale revision filled (reopen-start-from-answer, design decision 4).
+    const { prefilled: mark, ...others } = rest;
+    const marked = mark === true && rest.rev === question.rev ? { prefilled: true as const } : {};
     const held = staleAnswer
       ? { rev: rest.rev, ...(rest.composer === undefined ? {} : { composer: rest.composer }) }
-      : rest;
+      : { ...others, ...marked };
     // An entry holding only a placement is no work, and neither is a value or a result that names
     // no item the card shows: after a reload the items a later revision removed are not shown.
     if (

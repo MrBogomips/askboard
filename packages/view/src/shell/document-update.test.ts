@@ -9,7 +9,7 @@ import { plainChoiceBoardDocument } from "@askboard/contract/fixtures";
 import type { ViewDocument, ViewQuestion } from "../view-document.ts";
 import { createRevisions, shownOfBoard } from "./agent-change.ts";
 import { createAttention } from "./attention.ts";
-import { createBoardDraft } from "./board-draft.ts";
+import { connectDrafts, createBoardDraft, moveMarks } from "./board-draft.ts";
 import { applyDocumentUpdate } from "./document-update.ts";
 import { createDraftStore } from "./draft-store.ts";
 import type { HeadingRequest } from "./heading-request.ts";
@@ -112,4 +112,54 @@ describe("the update step for a new document", () => {
     expect(stores.board.get().inView).toBeUndefined();
     expect(stores.focus.get()).toBeUndefined();
   });
+});
+
+describe("a reopened draft whose only work is an entry on a removed item", () => {
+  for (const prefilled of [false, true]) {
+    test(`keeps the entry and its notice across the update and later pruning (prefilled ${prefilled})`, () => {
+      const question = {
+        ...questionOf("plan"),
+        props: {
+          ...questionOf("plan").props,
+          items: [{ type: "number-field", id: "amount", props: { label: "Amount" } }],
+        },
+      } as ViewQuestion;
+      const before = documentOf(question);
+      const stores = setUp(before);
+      let document = before;
+      connectDrafts(
+        () => document,
+        stores.draft,
+        stores.board,
+        stores.results,
+        stores.entries,
+        stores.cellEntries,
+        stores.revisions,
+        stores.shownOf,
+      );
+      stores.entries.set("amount", "12x");
+      if (prefilled) stores.board.edit("plan", 1, (work) => ({ ...work, prefilled: true }));
+      const revised = questionOf("plan", 2);
+      const after = documentOf(revised);
+      applyDocumentUpdate(before, after, stores);
+      moveMarks(
+        after,
+        stores.draft.record(),
+        stores.board,
+        stores.results.record(),
+        stores.entries.record(),
+        stores.revisions,
+        stores.shownOf,
+      );
+      document = after;
+      stores.board.setDelivery("immediate");
+      expect(stores.entries.valueOf("amount")).toBe("12x");
+      expect(stores.board.work("plan")?.rev).toBe(1);
+      expect(stores.shownOf(revised)).toBe(question);
+      stores.entries.set("amount", undefined);
+      expect(stores.board.work("plan")).toEqual(
+        prefilled ? { rev: 2, prefilled: true } : undefined,
+      );
+    });
+  }
 });

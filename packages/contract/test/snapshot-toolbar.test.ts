@@ -155,8 +155,8 @@ describe("the presentation's enums", () => {
 });
 
 describe("the Snapshot data's version", () => {
-  test("is main's minor plus one (the one literal besides the constant)", () => {
-    expect(SNAPSHOT_DATA_VERSION).toBe("1.2");
+  test("is snapshot-toolbar's minor or a later one; reopen-start-sets.test.ts pins the latest", () => {
+    expect(Number(SNAPSHOT_DATA_VERSION.split(".")[1])).toBeGreaterThanOrEqual(2);
     expect(snapshotDataSet.version).toBe(SNAPSHOT_DATA_VERSION);
     expect(snapshotToolbarData.versions.snapshot).toBe(SNAPSHOT_DATA_VERSION);
   });

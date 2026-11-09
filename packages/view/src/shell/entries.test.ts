@@ -466,7 +466,7 @@ describe("answering with an entry held sends nothing (NFR-10, AD-10)", () => {
     expect(entries.record().size).toBe(0);
     expect(board.work(QUESTION)).toBeUndefined();
     entries.set("price", "x");
-    fillFrom(question, { results: {} }, context);
+    fillFrom(question, { results: {} }, "current", context);
     expect(entries.record().size).toBe(0);
     expect(results.record().size).toBe(0);
   });

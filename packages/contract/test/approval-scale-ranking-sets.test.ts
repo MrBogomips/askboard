@@ -56,7 +56,7 @@ describe("the versions of the four widened sets", () => {
     // latest in table-sets.test.ts).
     expect(minor(BOARD_PROTOCOL_VERSION)).toBeGreaterThanOrEqual(6);
     expect({
-      // The Snapshot data: widget-registry's minor or a later one; snapshot-toolbar.test.ts pins the latest.
+      // The Snapshot data: widget-registry's minor or a later one; reopen-start-sets.test.ts pins the latest.
       snapshot: Number(SNAPSHOT_DATA_VERSION.split(".")[1]) >= 1,
       manifest: VIEW_MANIFEST_VERSION,
     }).toEqual({ snapshot: true, manifest: "1.1" });

@@ -6,7 +6,8 @@
 // 7); the renderer holds no other state. Since the ask lifecycle, a component may also get
 // `extras` beside the port's props: the Choice atom's "Other…" text and option notes, which the
 // lifecycle draft keeps (ask-lifecycle, design decision 6), and the shell may run a step before
-// each value goes into the draft record, such as the start of a revision (task 6.7). Components
+// each value goes into the draft record, such as the start of a revision (task 6.7), which seeds the
+// answer's widget values since reopen-start-from-answer (design decision 2). Components
 // also read the board, its items as sent and the draft record, and report their derived values
 // (gantt-widget design decision 10). Since the molecules change (design decision 11), a component
 // may put several items of its question into the draft record in one update, and an item shows the
@@ -37,6 +38,7 @@ import { createDraftStore, type DraftRecord, type DraftStore } from "./draft-sto
 import { isEntryType } from "./entries.ts";
 import { itemCallbacks, itemResultOf, itemValueOf } from "./item-callbacks.ts";
 import type { ReadyTracker } from "./ready-tracker.ts";
+import type { RevisingSnapshot } from "./revising.ts";
 
 export type RenderContext = {
   readonly draft: DraftStore;
@@ -52,6 +54,11 @@ export type RenderContext = {
   readonly cellEntries?: DraftStore;
   /** The result an item's question's latest answer holds for it (`createAnsweredResults`). */
   readonly answeredResult?: (itemId: string) => unknown;
+  /**
+   * The questions under revision (`createRevisingSnapshot`), which `boardContent` reads: an item
+   * follows it, so one question's revision ending reaches the items of the others.
+   */
+  readonly revisingSnapshot?: RevisingSnapshot;
 };
 
 // What an item follows while the board has no results store: nothing is ever put into it.
@@ -59,6 +66,8 @@ const NO_RESULTS = createDraftStore();
 const NO_ENTRIES = createDraftStore();
 const NO_READ_ONLY: ReadonlySet<string> = new Set();
 const NO_CELLS = createDraftStore();
+const NO_QUESTIONS: ReadonlySet<string> = new Set();
+const NO_REVISING: RevisingSnapshot = { get: () => NO_QUESTIONS, subscribe: () => () => {} };
 
 const messageOf = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
@@ -144,6 +153,11 @@ type RenderItemProps = Rendered & {
    * writing nothing; none: every item takes edits.
    */
   readonly readOnlyItems?: ReadonlySet<string>;
+  /**
+   * The question's work holds a revision of its answer: the item then shows the results it holds
+   * and none from the latest answer, which the revision's start already copied.
+   */
+  readonly revising?: boolean;
   /** What the item shows in place of its draft value, such as the answer the log holds. */
   readonly shown?: unknown;
   /** The result the item shows in place of the one it holds, such as the answer's being sent. */
@@ -178,6 +192,7 @@ export const RenderItem = ({
   context,
   disabled,
   readOnlyItems = NO_READ_ONLY,
+  revising = false,
   shown,
   shownResult,
   extras,
@@ -195,6 +210,9 @@ export const RenderItem = ({
     cellEntries = NO_CELLS,
     answeredResult,
   } = context;
+  // The set of questions under revision: a change of it, by work alone, redraws every item.
+  const snapshot = context.revisingSnapshot ?? NO_REVISING;
+  useSyncExternalStore(snapshot.subscribe, snapshot.get, snapshot.get);
   // The whole record, since the board holds it: the item's value is what the board shows for it.
   const record = useSyncExternalStore(draft.subscribe, draft.record, draft.record);
   const heldResults = useSyncExternalStore(results.subscribe, results.record, results.record);
@@ -273,6 +291,7 @@ export const RenderItem = ({
       context={context}
       disabled={disabled}
       readOnlyItems={readOnlyItems}
+      revising={revising}
       shown={shownOf?.(child.id)}
       shownResult={shownResultOf?.(child.id)}
       {...(shownOf === undefined ? {} : { shownOf })}
@@ -290,7 +309,12 @@ export const RenderItem = ({
           value={itemValueOf(shown, board, item.id)}
           onValueChange={onValueChange}
           onValuesChange={onValuesChange}
-          result={itemResultOf(shownResult, heldResults.get(item.id), answeredResult?.(item.id))}
+          result={itemResultOf(
+            shownResult,
+            heldResults.get(item.id),
+            answeredResult?.(item.id),
+            revising,
+          )}
           onResultChange={onResultChange}
           disabled={disabled || readOnly}
           ready={tracker.readyFor(item.id)}

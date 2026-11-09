@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { plainChoiceBoardDocument } from "../src/fixtures/index.ts";
+import { lifecycleDraftRecord, plainChoiceBoardDocument } from "../src/fixtures/index.ts";
 import { BOARD_PROTOCOL_MESSAGES, BOARD_PROTOCOL_VERSION, boardProtocol } from "../src/index.ts";
 import { type Checked, validateBoardMessage } from "../src/validate.ts";
 
@@ -239,5 +239,110 @@ describe("minor versions of the board protocol (design decision 2)", () => {
         version: { $ref: "urn:askboard:board-protocol:version" },
       });
     }
+  });
+});
+
+// reopen-start-from-answer (contract spec: Unchanged items in the board state's answers, The prefill
+// mark in the draft record): `unchanged` in a question's current and previous answer, `prefilled`
+// in a draft record's question.
+describe("the unchanged items of an answer (reopen-start-from-answer)", () => {
+  type Make = (extra: Record<string, unknown>) => unknown;
+  const previous: Make = (extra) => ({
+    version,
+    type: "state",
+    state: {
+      ask: "waiting",
+      questions: [
+        {
+          itemId: "plan",
+          rev: 2,
+          state: "open",
+          previous: { when, receipt: "sent", ...extra },
+        },
+      ],
+    },
+  });
+  const current: Make = (extra) => ({
+    version,
+    type: "state",
+    state: {
+      ask: "answered",
+      questions: [
+        {
+          itemId: "plan",
+          rev: 1,
+          state: "answered",
+          answer: { when, receipt: "sent", ...extra },
+        },
+      ],
+    },
+  });
+
+  test("a previous answer and a current answer naming unchanged IDs validate", () => {
+    for (const make of [previous, current]) {
+      const result = validateBoardMessage("toPage", make({ unchanged: ["plan", "roadmap"] }));
+      expect(result.ok).toBe(true);
+    }
+  });
+
+  test("an empty list validates in a previous and in a current answer: nothing is unchanged", () => {
+    for (const make of [previous, current]) {
+      expect(validateBoardMessage("toPage", make({ unchanged: [] })).ok).toBe(true);
+    }
+  });
+
+  test("a repeated ID and an ID the input format refuses fail, naming the field", () => {
+    const at = (make: Make) =>
+      make === previous
+        ? "/state/questions/0/previous/unchanged"
+        : "/state/questions/0/answer/unchanged";
+    for (const make of [previous, current]) {
+      for (const bad of [["plan", "plan"], ["a b"], [""], [5], "plan"]) {
+        const result = validateBoardMessage("toPage", make({ unchanged: bad }));
+        expect([JSON.stringify(bad), result.ok]).toEqual([JSON.stringify(bad), false]);
+        expect(problemPaths(result).some((path) => path.startsWith(at(make)))).toBe(true);
+      }
+    }
+  });
+
+  test("an answer without the list validates: everything unchanged on a current one, nothing on a previous one", () => {
+    // The meaning is the reader's (view-and-widgets, `unchangedOf`); the schema only admits the absence.
+    for (const make of [previous, current]) {
+      expect(validateBoardMessage("toPage", make({})).ok).toBe(true);
+    }
+  });
+
+  test("a board state of the previous minor, with no unchanged, still validates", () => {
+    const old = { ...(previous({}) as object), version: "1.8" };
+    expect(validateBoardMessage("toPage", old).ok).toBe(true);
+  });
+});
+
+describe("the prefill mark of a draft record (reopen-start-from-answer)", () => {
+  const draft = (question: Record<string, unknown>) => ({
+    version,
+    type: "draft",
+    record: {
+      ...lifecycleDraftRecord,
+      questions: { plan: { rev: 2, ...question } },
+    },
+  });
+
+  test("a question with prefilled true and no values validates in both directions", () => {
+    for (const direction of ["toHost", "toPage"] as const) {
+      expect(validateBoardMessage(direction, draft({ prefilled: true })).ok, direction).toBe(true);
+    }
+  });
+
+  test("prefilled false and any other value fail, naming the field", () => {
+    for (const bad of [false, "true", 1, null]) {
+      const result = validateBoardMessage("toHost", draft({ prefilled: bad }));
+      expect([String(bad), result.ok]).toEqual([String(bad), false]);
+      expect(problemPaths(result)).toContain("/record/questions/plan/prefilled");
+    }
+  });
+
+  test("a record of the previous minor, with no mark, still validates", () => {
+    expect(validateBoardMessage("toHost", { ...draft({}), version: "1.8" }).ok).toBe(true);
   });
 });

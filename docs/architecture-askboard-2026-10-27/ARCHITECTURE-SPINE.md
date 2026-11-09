@@ -44,6 +44,7 @@ sources:
   - 'OpenSpec change table-widget, proposal.md, open questions 1, 3, 4 and 6: the Table on its own grid, column formulas with row references and single reads, totals as item fields, cell entries in the draft (accepted under the PO''s unattended handoff, 2026-11-08)'
   - 'OpenSpec change agent-facing-gaps, proposal.md and design decision 7: AD-6 names `deleted` among the typed results that are not errors (Issues #73 and #75, 2026-11-09)'
   - 'OpenSpec change document-review, proposal.md, open questions 5 and 12: suggested edits in the annotation body, the Markdown renderer shared with the widgets (accepted under the PO''s unattended handoff, 2026-11-08)'
+  - 'OpenSpec change reopen-start-from-answer, proposal.md, open question 1: a reopened question starts from the user''s previous answer when it is unchanged and fits, and the held draft record comes before the board state on connect (accepted under the PO''s unattended handoff, 2026-11-08)'
   - 'OpenSpec change result-bound, design.md, decisions 1, 2 and 6: the unresolved-pointer warnings of `ask` and `update` get their own 10,000 characters, a closing warning counts the rest, and AD-6 says so (accepted under the PO''s unattended handoff, 2026-11-09)'
 companions: ['SOLUTION-DESIGN.md']
 ---
@@ -352,7 +353,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
 - **Rule:**
   - **What becomes an answer:**
     - An answer event comes only from an explicit user action on its question on the board. An answer the agent records on the user's behalf with `update` (FR-19) is held by `ask-core` as that question's answer, marked recorded, with `who` and the core's time, and reported in that call's result; like every change the agent's own call makes, it is not logged (AD-3): no event carries it, so neither push nor `collect` delivers it; `fetch` returns it marked `recorded`.
-    - Choice and input widgets start with nothing chosen and no value set, whatever the agent marks as recommended or default. A recommended option is only labelled.
+    - Choice and input widgets start with nothing chosen and no value set, whatever the agent marks as recommended or default. A recommended option is only labelled. A question the agent reopens may start from the user's own previous answer, which the user still sends by an explicit act (AD-20).
     - Submit sends only answers created by user actions. A review widget (Table, Tree, Gantt, Form over agent content) reports untouched content as unchanged, never as a chosen value.
     - Unsent work never reaches the agent until the user sends it (AD-20).
   - **Epochs and states:**
@@ -584,9 +585,9 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
     - Every board command carries an action ID that the board page makes. `ask-core` applies each action ID once per ask, so a command resent after a dropped connection, a submit or a revision included, is never appended twice.
     - Switching to immediate delivery sends what is held, the same way.
   - **Drafts:**
-    - Unsent work is a per-ask **draft record**. Per question it holds the edited values, the widgets' results, held answers, declines, postpones, held undos and open-prompt text, keyed by item ID and `rev`, and also the question's context placement, the text in its follow-up composers, the user's notes on options and the entries: the text an input atom, or a Table's cell by row and field, holds that gives no value, which keeps its question from being answered until the user corrects or clears it. For the board it holds the delivery mode and the open tab or the question in view.
+    - Unsent work is a per-ask **draft record**. Per question it holds the edited values, the widgets' results, held answers, declines, postpones, held undos and open-prompt text, keyed by item ID and `rev`, and also the question's context placement, the text in its follow-up composers, the user's notes on options and the entries: the text an input atom, or a Table's cell by row and field, holds that gives no value, which keeps its question from being answered until the user corrects or clears it, and whether the board started the revision from the question's previous answer. For the board it holds the delivery mode and the open tab or the question in view.
     - The board page mirrors the draft record to `ask-core` over the board protocol. `ask-core` holds it apart from the log and never exposes it to `collect`, `fetch`, Snapshots, the mod or the local API.
-    - A reconnecting or taking-over board restores it from `ask-core`. No AskBoard page uses Web Storage, IndexedDB or cookies.
+    - A reconnecting or taking-over board restores it from `ask-core`, which `board-host` sends before the board state, so the view takes both together. No AskBoard page uses Web Storage, IndexedDB or cookies.
     - A record over the draft limit is mirrored without the work of whole questions, largest first, and the board says which; the board page keeps the whole record for the user's copy and the leave-page prompt.
 
 ### AD-21 — Board connection and discard [ADOPTED]
