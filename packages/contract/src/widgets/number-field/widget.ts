@@ -33,6 +33,10 @@ export const NUMBER_FIELD_WIDGET: WidgetType = {
       props: { label: "Days of leave", min: 0, max: 20, step: 0.5, unit: "days" },
     },
   },
+  help: {
+    mouse: "Click the box and type a number; its unit and limits are shown beside it.",
+    answer: "The agent receives the number you typed.",
+  },
   skill: {
     use: "a number the user types, with optional bounds, a step and a unit",
     notes: [

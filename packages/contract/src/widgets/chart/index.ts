@@ -24,4 +24,5 @@ export {
   type ChartResult,
   type ChartSeries,
 } from "./constants.ts";
+export { CHART_KEYS, type ChartKeyAction } from "./keys.ts";
 export { CHART_WIDGET } from "./widget.ts";

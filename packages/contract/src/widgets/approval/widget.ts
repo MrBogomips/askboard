@@ -21,6 +21,12 @@ export const APPROVAL_WIDGET: WidgetType = {
   },
   wording: { expected: APPROVAL_EXPECTED, fields: APPROVAL_FIELDS },
   example: { item: { type: "approval", id: "verdict", props: {} } },
+  help: {
+    mouse:
+      "Press Approve, Approve with changes or Reject. For changes, write the reason in the note that opens.",
+    answer:
+      "The agent receives your decision, your reason if you gave one, and any changes you made to the question's other items.",
+  },
   skill: {
     use: "a decision on its question's content: approve, approve with changes or reject; put it last in the question it approves",
     notes: [

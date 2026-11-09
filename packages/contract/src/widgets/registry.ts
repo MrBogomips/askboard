@@ -14,6 +14,8 @@
 
 import type { AnySchemaObject, ErrorObject } from "ajv/dist/2020";
 import { ID_PATTERN } from "../constants.ts";
+import { keyTableProblems } from "../keys/check.ts";
+import type { KeyTable } from "../keys/vocabulary.ts";
 import type { Segments } from "../problems.ts";
 import boardDocumentBase from "../schemas/board-document/board-document.json" with { type: "json" };
 import questionPropsBase from "../schemas/input/question-props.json" with { type: "json" };
@@ -142,6 +144,22 @@ export type WidgetType = {
    * holds one, except a pattern, which only the board runs.
    */
   readonly fieldCheck?: (result: unknown, props: unknown) => FieldCheckFailure | undefined;
+  /**
+   * The help text for the user (keyboard-shortcuts-help, design decision 10): how the widget is
+   * edited with the mouse, and what the agent receives, each 1 to 300 characters, in plain English
+   * (the generated help skill's references hold it). Optional here so a test-only type still
+   * type-checks; every shipped type carries it.
+   */
+  readonly help?: {
+    readonly mouse: string;
+    readonly answer: string;
+  };
+  /**
+   * The keys the widget takes, by action and part (keyboard-shortcuts-help, design decision 2),
+   * checked by `keyTableProblems`. Optional: a type without a table is listed with its reason in
+   * `keys-coverage.test.ts`.
+   */
+  readonly keys?: KeyTable;
 };
 
 /** The widget types a question's items may hold, in order. */
@@ -210,7 +228,9 @@ export type RegistryProblem = {
     | "result-empty"
     | "wording"
     | "example"
-    | "skill";
+    | "skill"
+    | "keys"
+    | "help";
   readonly message: string;
 };
 
@@ -298,6 +318,32 @@ const skillProblems = (entry: WidgetType): RegistryProblem[] => {
   return problems;
 };
 
+const HELP_MAX = 300;
+
+// The help text's bounds (keyboard-shortcuts-help): a mouse text and an answer text, each 1 to 300
+// characters. A help of another shape is one problem naming the type, never a throw.
+const helpProblems = (entry: WidgetType): RegistryProblem[] => {
+  const { help } = entry;
+  if (help === undefined) return [];
+  const at = (message: string): RegistryProblem => ({ type: entry.type, rule: "help", message });
+  if (typeof help !== "object" || help === null || Array.isArray(help)) {
+    return [
+      at(`the help text of "${entry.type}" is no object with a mouse text and an answer text`),
+    ];
+  }
+  return (["mouse", "answer"] as const).flatMap((field) => {
+    const text: unknown = help[field];
+    const length = typeof text === "string" ? text.length : 0;
+    return length >= 1 && length <= HELP_MAX
+      ? []
+      : [
+          at(
+            `the ${field} help of "${entry.type}" has ${length} characters, and a help text has 1 to ${HELP_MAX}`,
+          ),
+        ];
+  });
+};
+
 const entryProblems = (entry: WidgetType, index: number, seen: Set<string>): RegistryProblem[] => {
   const type = typeof entry.type === "string" ? entry.type : `entry ${index}`;
   const problems: RegistryProblem[] = [];
@@ -320,6 +366,8 @@ const entryProblems = (entry: WidgetType, index: number, seen: Set<string>): Reg
     ...idProblem(entry, entry.result?.schema, "result-id", `urn:askboard:output:${type}-result`),
     ...wordingProblems(entry),
     ...skillProblems(entry),
+    ...helpProblems(entry),
+    ...(entry.keys === undefined ? [] : keyTableProblems(type, entry.keys)),
   );
   if (entry.example.item.type !== type) {
     at("example", `the example of "${type}" is an item of the type "${entry.example.item.type}"`);

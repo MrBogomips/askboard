@@ -38,6 +38,10 @@ export const TEXT_FIELD_WIDGET: WidgetType = {
       },
     },
   },
+  help: {
+    mouse: "Click the box and type; a long text allows line breaks.",
+    answer: "The agent receives the text you typed. An empty field gives no answer.",
+  },
   skill: {
     use: "a short or long free text the user types, such as a name or a comment",
     notes: [

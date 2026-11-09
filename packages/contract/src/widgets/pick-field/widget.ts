@@ -42,6 +42,11 @@ export const PICK_FIELD_WIDGET: WidgetType = {
       },
     },
   },
+  help: {
+    mouse:
+      "Click an option to pick it, or several where the question allows more than one; a long list has a box to filter the options.",
+    answer: "The agent receives the option or options you picked.",
+  },
   skill: {
     use: "one or several options picked from a list, as in a form",
     notes: [

@@ -25,6 +25,10 @@ export const GROUP_WIDGET: WidgetType = {
       },
     },
   },
+  help: {
+    mouse: "It frames related items under a title: use the items inside it.",
+    answer: "Nothing of its own: each item in the group gives its own answer.",
+  },
   skill: {
     use: "a titled box around related items, read as one group",
     notes: [

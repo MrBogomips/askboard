@@ -31,6 +31,11 @@ export const DOCUMENT_REVIEW_WIDGET: WidgetType = {
       },
     },
   },
+  help: {
+    mouse:
+      "Select a passage of the document and press Comment or Suggest edit; click a pin to read, edit or delete its note.",
+    answer: "The agent receives each comment and suggested edit with the passage it is about.",
+  },
   skill: {
     use: "a Markdown document the user comments on and suggests edits to",
     notes: [

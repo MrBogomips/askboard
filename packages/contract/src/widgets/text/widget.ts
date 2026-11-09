@@ -20,6 +20,10 @@ export const TEXT_WIDGET: WidgetType = {
       props: { text: "The budget below covers **Q3** only.", format: "markdown" },
     },
   },
+  help: {
+    mouse: "Read it: there is nothing to click or type.",
+    answer: "Nothing: a passage of text is for reading and gives no answer.",
+  },
   skill: {
     use: "a passage of plain text or Markdown the user reads; it gives no answer",
     notes: [

@@ -1137,3 +1137,44 @@ export {
   type QuoteResult,
   quotePassage,
 } from "./widgets/document-review/index.ts";
+
+// The key vocabulary, the matcher, the table check and the ARIA form (keyboard-shortcuts-help,
+// design decisions 2 to 4): the actions every widget with keys binds to the same keys, a widget
+// type's key table built from them, the pure matcher a handler maps through, the check the
+// registry runs, and `aria-keyshortcuts` from a table.
+
+export {
+  ariaKeyShortcuts,
+  isVocabularyAction,
+  KEY_HOLDS,
+  KEY_SHOWS,
+  KEY_VOCABULARY,
+  type KeyBinding,
+  type KeyEntry,
+  type KeyHold,
+  type KeyPress,
+  type KeyShows,
+  type KeyTable,
+  keyActionOf,
+  keyBinding,
+  keyTableProblems,
+  type Modifiers,
+  ownEntry,
+  type PressHold,
+  pressHold,
+  type VocabularyAction,
+  type VocabularyKeys,
+  vocabularyEntry,
+  vocabularyLabel,
+} from "./keys/index.ts";
+
+// The key tables of the six types that have one (keyboard-shortcuts-help, design decisions 6, 8 and
+// 9), each on its registry entry: the Ranking's as it is built here, the others as their handlers
+// take keys today.
+
+export { CHART_KEYS, type ChartKeyAction } from "./widgets/chart/index.ts";
+export { GANTT_KEYS, type GanttKeyAction } from "./widgets/gantt/index.ts";
+export { KANBAN_KEYS, type KanbanKeyAction } from "./widgets/kanban/index.ts";
+export { RANKING_KEYS, type RankingKeyAction } from "./widgets/ranking/index.ts";
+export { TIMELINE_KEYS, type TimelineKeyAction } from "./widgets/timeline/index.ts";
+export { TREE_KEYS, type TreeKeyAction } from "./widgets/tree/index.ts";
