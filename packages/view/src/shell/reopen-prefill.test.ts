@@ -535,7 +535,38 @@ describe("work held only on an item the agent's change removed (X-1 and X-2 of r
     expect(run.board.work("database")).toEqual({ rev: REV });
   });
 
-  test("bare work holding nothing anywhere is still forgotten", () => {
+  test("bare work on an earlier, seen revision whose value is cleared is forgotten, the item kept (S-1 of re-review 4.7)", () => {
+    let shown = document;
+    // No `setUp()`: its own connection holds the first document and would forget the work itself.
+    const run = {
+      draft: createDraftStore(),
+      results: createDraftStore(),
+      entries: createDraftStore(),
+      cellEntries: createDraftStore(),
+      board: createBoardDraft("immediate"),
+    };
+    const revisions = createRevisions();
+    revisions.record(document);
+    const kept = { ...question, rev: REV + 1 } as ViewQuestion;
+    const keptDocument = { ...document, items: [kept] } as unknown as ViewDocument;
+    revisions.record(keptDocument);
+    connectDrafts(
+      () => shown,
+      run.draft,
+      run.board,
+      run.results,
+      run.entries,
+      run.cellEntries,
+      revisions,
+    );
+    run.draft.set("roadmap", moved);
+    expect(run.board.work("database")).toEqual({ rev: REV });
+    shown = keptDocument;
+    run.draft.set("roadmap", undefined);
+    expect(run.board.work("database")).toBeUndefined();
+  });
+
+  test("bare work on the current revision, holding nothing, is still forgotten at a store change", () => {
     const run = setUp();
     connectDrafts(
       () => document,
