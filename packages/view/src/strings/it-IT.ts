@@ -382,6 +382,11 @@ export const IT_IT = {
     one: "Le tue modifiche: {count} spostata",
     other: "Le tue modifiche: {count} spostate",
   },
+  // The Kanban's order texts are provisional, to review (kanban-order, task 3.2).
+  "kanban.moveUp": "Sposta su",
+  "kanban.moveDown": "Sposta giù",
+  "kanban.toTop": "In cima",
+  "kanban.toBottom": "In fondo",
   // The Timeline's texts are provisional, to review (latex-kanban-timeline, task 5.3).
   "timeline.tools": "Strumenti della timeline",
   "timeline.moveEarlier": "Sposta prima",

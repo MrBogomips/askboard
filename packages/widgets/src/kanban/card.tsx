@@ -1,7 +1,8 @@
 // One card of the Kanban (view-and-widgets spec: Kanban columns and cards; DESIGN.md: Kanban): its
 // label and its description. The card is draggable while the Kanban can change, and is one option
-// of the board, the current one (or the first, while none is) holding the board's Tab stop. A moved
-// card takes the change highlight. The label and description are the agent's content, shown as
+// of the board, the current one (or the first, while none is) holding the board's Tab stop, giving
+// its place in its column and the column's size (kanban-order). A moved card takes the change
+// highlight. The label and description are the agent's content, shown as
 // text (AD-8).
 
 import type { KanbanCard as Card } from "@askboard/contract";
@@ -22,6 +23,8 @@ export const KanbanCard = ({
   kanbanId,
   card,
   columnLabel,
+  position,
+  size,
   current,
   stop,
   moved,
@@ -35,6 +38,9 @@ export const KanbanCard = ({
   readonly card: Card;
   /** The label of the column the card is in, for its name. */
   readonly columnLabel: string;
+  /** Its place in its column, from 1, and the column's number of cards, for assistive technology. */
+  readonly position: number;
+  readonly size: number;
   /** The user made it the current card. */
   readonly current: boolean;
   /** It holds the board's Tab stop. */
@@ -71,6 +77,8 @@ export const KanbanCard = ({
       }}
       role="option"
       aria-label={cardName(card.label, columnLabel, text)}
+      aria-posinset={position}
+      aria-setsize={size}
       aria-describedby={card.description === undefined ? undefined : description}
       aria-selected={current}
       aria-current={current ? "true" : undefined}

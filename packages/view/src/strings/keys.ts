@@ -341,6 +341,11 @@ export const STRING_KEYS = [
   "kanban.columnName",
   "kanban.cardName",
   "kanban.counterMoved",
+  // The Kanban's order (kanban-order, task 3.2; the Italian texts to review).
+  "kanban.moveUp",
+  "kanban.moveDown",
+  "kanban.toTop",
+  "kanban.toBottom",
   // The Timeline (latex-kanban-timeline, task 5.3; ux-update-draft.md block 2; the Italian texts to review).
   "timeline.tools",
   "timeline.moveEarlier",

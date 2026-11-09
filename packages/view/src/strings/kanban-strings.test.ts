@@ -6,6 +6,10 @@ import { STRINGS, t } from "./index.ts";
 const KEYS = [
   "kanban.tools",
   "kanban.moveTo",
+  "kanban.moveUp",
+  "kanban.moveDown",
+  "kanban.toTop",
+  "kanban.toBottom",
   "kanban.columnName",
   "kanban.cardName",
   "kanban.counterMoved",
@@ -23,6 +27,10 @@ describe("the Kanban's strings", () => {
   test("read in English", () => {
     expect(t("en-US", "kanban.tools")).toBe("Kanban tools");
     expect(t("en-US", "kanban.moveTo")).toBe("Move to…");
+    expect(t("en-US", "kanban.moveUp")).toBe("Move up");
+    expect(t("en-US", "kanban.moveDown")).toBe("Move down");
+    expect(t("en-US", "kanban.toTop")).toBe("To top");
+    expect(t("en-US", "kanban.toBottom")).toBe("To bottom");
     expect(t("en-US", "kanban.columnName", { label: "To do", count: 2 })).toBe("To do, 2 cards");
     expect(t("en-US", "kanban.columnName", { label: "To do", count: 1 })).toBe("To do, 1 card");
     expect(t("en-US", "kanban.cardName", { label: "Fix login", column: "To do" })).toBe(
@@ -35,6 +43,10 @@ describe("the Kanban's strings", () => {
   test("read in Italian", () => {
     expect(t("it-IT", "kanban.tools")).toBe("Strumenti del Kanban");
     expect(t("it-IT", "kanban.moveTo")).toBe("Sposta in…");
+    expect(t("it-IT", "kanban.moveUp")).toBe("Sposta su");
+    expect(t("it-IT", "kanban.moveDown")).toBe("Sposta giù");
+    expect(t("it-IT", "kanban.toTop")).toBe("In cima");
+    expect(t("it-IT", "kanban.toBottom")).toBe("In fondo");
     expect(t("it-IT", "kanban.columnName", { label: "Da fare", count: 2 })).toBe(
       "Da fare, 2 schede",
     );
