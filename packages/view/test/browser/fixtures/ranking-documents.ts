@@ -62,3 +62,20 @@ export const rankingFiveAsk = (askId: string) =>
     title: "Customer portal SOW plan",
     items: [{ type: "question", id: "plan", props: { ...plan.props, items: [FIVE_ITEM] } }],
   }) as const;
+
+/**
+ * The question `plan` holding long texts, then the five-row Ranking, then long texts, so that the
+ * view scrolls with the Ranking in the middle of it (keyboard-shortcuts-help, task 4.9).
+ */
+export const rankingScrollDocument = (): ViewDocument => {
+  const text = (id: string) => ({
+    type: "text",
+    id,
+    props: {
+      text: `${id}: ${"A paragraph the user scrolls past, long enough to wrap across the line. ".repeat(6)}`,
+    },
+  });
+  const before = Array.from({ length: 8 }, (_, at) => text(`before-${at}`));
+  const after = Array.from({ length: 8 }, (_, at) => text(`after-${at}`));
+  return documentOf([...before, FIVE_ITEM, ...after]);
+};
