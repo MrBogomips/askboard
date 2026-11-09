@@ -14,8 +14,11 @@ export type DragState = {
 /** Which side of a card the drop line is drawn on. */
 export type LineSide = "before" | "after";
 
-/** The line a drop would draw: on the side of one card of the column. */
-export type DropLine = { readonly card: string; readonly side: LineSide };
+/**
+ * The line a drop would draw: on the side of one card of the column, or, in a column that holds no
+ * other card, at the top of the column.
+ */
+export type DropLine = { readonly card: string; readonly side: LineSide } | { readonly top: true };
 
 /**
  * The slot under the pointer among a column's other cards: how many have their vertical middle
@@ -39,9 +42,9 @@ export const indicatorOf = (
 
 /**
  * The line `columnId` shows while `drag` runs, given the IDs of its cards in order: before the
- * card at the slot among the column's other cards, or after the last. None where the pointer is
- * over another column, where the column holds no other card, and where the drop would change
- * nothing (the dragged card's own place in its own column).
+ * card at the slot among the column's other cards, or after the last; at the top of a column that
+ * holds no other card. None where the pointer is over another column and where the drop would
+ * change nothing (the dragged card's own place in its own column).
  */
 export const lineOf = (
   drag: DragState | undefined,
@@ -55,7 +58,7 @@ export const lineOf = (
   const before = others[slot];
   if (before !== undefined) return { card: before, side: "before" };
   const last = others[others.length - 1];
-  return last === undefined ? undefined : { card: last, side: "after" };
+  return last === undefined ? { top: true } : { card: last, side: "after" };
 };
 
 /**

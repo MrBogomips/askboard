@@ -100,8 +100,16 @@ describe("lineOf", () => {
     });
   });
 
-  test("an empty column, another column, and no drag give no line", () => {
-    expect(lineOf(over("fix-login", "later", 0), "later", [])).toBeUndefined();
+  test("an empty column gets a line at its top, whatever the slot", () => {
+    expect(lineOf(over("fix-login", "later", 0), "later", [])).toEqual({ top: true });
+    expect(lineOf(over("fix-login", "later", 5), "later", [])).toEqual({ top: true });
+  });
+
+  test("a column holding only the dragged card shows no line: the drop changes nothing", () => {
+    expect(lineOf(over("solo", "todo", 0), "todo", ["solo"])).toBeUndefined();
+  });
+
+  test("another column, and no drag give no line", () => {
     expect(lineOf(over("fix-login", "doing", 1), "todo", TODO)).toBeUndefined();
     expect(lineOf({ dragging: "fix-login" }, "doing", DOING)).toBeUndefined();
     expect(lineOf(undefined, "doing", DOING)).toBeUndefined();

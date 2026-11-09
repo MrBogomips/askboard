@@ -187,6 +187,7 @@ export const KanbanWidget = ({
               kanbanId={kanbanId}
               column={column}
               indicator={indicatorOf(drag, column.id, draggedColumn)}
+              topLine={line !== undefined && "top" in line}
               editable={!disabled}
               events={events}
             >
@@ -202,7 +203,11 @@ export const KanbanWidget = ({
                   stop={card.id === stop}
                   moved={moved.has(card.id)}
                   dragged={drag?.dragging === card.id}
-                  line={line?.card === card.id ? line.side : undefined}
+                  line={
+                    line !== undefined && "card" in line && line.card === card.id
+                      ? line.side
+                      : undefined
+                  }
                   editable={!disabled}
                   events={events}
                   cardRef={(node) => {

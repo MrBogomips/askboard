@@ -363,6 +363,29 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     const current = (board: Board, id: string) => cardOf(board, id).getAttribute("aria-current");
 
     test(
+      "a drag into an empty column shows a line at the top of the column, and the card lands there",
+      async () => {
+        const run = await host(dist, orderDocument());
+        await readyIn(run);
+        const { board } = run;
+        await beginDrag(board, cardOf(board, "c"));
+        await dragOver(board, columnOf(board, "doing"));
+        await expectDrop(board, "doing", "into");
+        await eventually(
+          async () =>
+            (await columnOf(board, "doing").locator('[data-drop-line="top"]').count()) === 1,
+          "the empty column's top line",
+          STEP_TIMEOUT_MS,
+        );
+        expect(await lineCount(board)).toBe(1);
+        await release(board);
+        await expectCards(board, "doing", ["c"]);
+        expect(await lineCount(board)).toBe(0);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
       "a drag within the column shows the line where the card would land, drops it there with the highlight on the moved card, and a drag back clears both",
       async () => {
         const run = await host(dist, orderDocument());

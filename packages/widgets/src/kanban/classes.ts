@@ -54,3 +54,6 @@ export const CARD_LABEL = "min-w-0 break-words";
 
 /** The description, in `muted-foreground`, under the title. */
 export const CARD_DESCRIPTION = "min-w-0 break-words text-muted-foreground";
+
+/** The drop line at the top of an empty column: the card's line, as its own bar. */
+export const COLUMN_TOP_LINE = "h-0.5 shrink-0 rounded-full bg-primary";
