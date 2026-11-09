@@ -4,6 +4,10 @@ All notable changes to AskBoard are recorded here, newest first, in the layout o
 
 ## Unreleased
 
+### Added
+
+- Kanban cards are ordered within their column, by drag (a line shows where the card would land) and from the keyboard (Alt+Shift with Up, Down, Home and End, or Ctrl or Cmd with Shift and Up and Down) and the toolbar's "Move up", "Move down", "To top" and "To bottom"; the answer carries the order as `move`s beside the `set`s of a card's column (Issue #79).
+
 ### Fixed
 
 - The Tree asks before a work package with estimates, or one a Gantt plan names as a task, becomes a group: a drop into it, an indent under it and "Add child" on it each show a question in the toolbar row first, naming the package and what leaves the totals and the plan, with "Cancel" and "Continue"; nothing changes until "Continue" (Issue #71).

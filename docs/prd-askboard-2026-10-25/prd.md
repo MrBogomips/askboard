@@ -2,7 +2,7 @@
 title: "PRD: AskBoard"
 status: final
 created: 2026-10-25
-updated: 2026-11-08
+updated: 2026-11-09
 ---
 
 # PRD: AskBoard
@@ -247,7 +247,7 @@ AskBoard ships the following widgets. An agent can put any of them in a question
 | | Diagram | Annotates and corrects a Mermaid or PlantUML (UML) diagram | Rendering of the corrected source |
 | Time | Gantt | Reschedules tasks by dragging, and edits durations and dependencies | Dates, critical path |
 | | Timeline | Moves milestones and ranges across lanes, as in a roadmap | — |
-| | Kanban | Moves cards between columns (status, priority, owner) | — |
+| | Kanban | Moves cards between columns and orders them within a column (status, priority, owner) | — |
 | Media | Image annotation | Places pins, boxes and comments on a screenshot or a mockup | — |
 
 The "What the user does" column is each widget's first-version minimum. The widgets and molecules that the journeys reach (UJ-1 to UJ-3) have this further scope in the first version:
