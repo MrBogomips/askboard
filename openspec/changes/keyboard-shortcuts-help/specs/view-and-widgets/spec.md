@@ -19,7 +19,7 @@ A widget that gives one of these actions a key SHALL give it these keys, as the 
 - **THEN** the first closes the panel and keeps the selection, and the second selects none
 
 ### Requirement: Keys left to the browser
-A widget with a key table SHALL take only the keys its table names, with exactly the modifiers it names, and SHALL leave to the browser every other key, a key pressed while an input method composes, and inside a text field every key but its editor's. A key it takes SHALL trigger no browser action. A toolbar's arrows, Home and End, and those among a question's options or a PickField's, SHALL act only with no modifier held (NFR-12).
+A widget with a key table SHALL take only the keys its table names, with exactly the modifiers it names, or that its design names to stop a browser action, and SHALL leave to the browser every other key, a key pressed while an input method composes, and inside a text field every key but its editor's. A key it takes SHALL trigger no browser action. A toolbar's arrows, Home and End, and those among a question's options or a PickField's, SHALL act only with no modifier held (NFR-12).
 
 #### Scenario: Alt with an arrow on a Kanban card
 - **WHEN** the focus is on a Kanban card and the user presses Alt+ArrowLeft
@@ -44,6 +44,13 @@ A widget with a key table SHALL take only the keys its table names, with exactly
 #### Scenario: No navigation, no scroll
 - **WHEN** the user presses every key of a Ranking's key table on its list, in Chromium, Firefox and WebKit
 - **THEN** the page has neither navigated nor scrolled
+
+### Requirement: Keys taken only to stop a browser action
+A widget MAY take, beside its table's keys, a key its change's design names as taken only to stop a browser action; such a key SHALL do nothing, SHALL have its default prevented, and is no action of the widget's key table (NFR-12).
+
+#### Scenario: Delete in the Gantt's predecessors panel
+- **WHEN** the Gantt's predecessors panel has the focus and the user presses Delete, then Backspace
+- **THEN** nothing in the panel or the plan changes, neither key's default action is performed, and the Gantt's key table lists neither key
 
 ### Requirement: Key tables match the handlers
 The keys a widget's handler takes SHALL be those of its key table: for each part of the widget, a key the table binds SHALL do its action and a key it does not bind SHALL do nothing, so that the tooltips, the keys panel and the skills describe what the board does (NFR-12).
