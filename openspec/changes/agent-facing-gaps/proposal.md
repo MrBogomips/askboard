@@ -15,6 +15,7 @@ Issue: #73. Issue: #75. The end-to-end test of 2026-11-08 found four places wher
 - **The tool envelopes** take the next minor after `main`'s: `fetch-outcome.json` admits `deleted` with `itemId`, and `unchecked` with it. No other set moves (design decision 5).
 - **A new skill reference, `references/updates.md`** ("Changing an ask"). It gives each `update` action with the fields it takes, generated from the input format's update schema, and how to add an item to an existing question. It holds `update` examples that the examples test validates. `SKILL.md` links it in "After you ask".
 - **A "Language" section in `SKILL.md`.** The agent passes `language` on every `ask`, taken from what the user asked for, else from the project's instructions it has in context. It passes `locale` only for formats that differ from the language, and leaves both out otherwise. The values come from the input format.
+- **Expanded IDs held against items** in `ask-core`: an ID a molecule reference of the ask has expanded to stays held for the ask's life, so `update` refuses a plain item or reference that would take it on `add` as on `change` (review 3.3 X-1), and `fetch`'s `deleted` reads one owner per ID.
 - **The answers reference** says that `fetch` of an item the agent deleted returns the outcome `deleted`.
 - **Approved texts, each with the PO's approval (open questions 1 and 2):**
   - The `update` tool description names `reply`'s `itemId` and `followUp`, and says how to add a widget to a question.
@@ -23,7 +24,8 @@ Issue: #73. Issue: #75. The end-to-end test of 2026-11-08 found four places wher
 - **Documents:**
   - CLAUDE.md's layouts paragraph keeps "`fetch` of one answers `deleted`", now true of the tool.
   - `CHANGELOG.md` gains Unreleased entries.
-  - The PRD, the spine and the UX documents are unchanged: FR-34 already says the agent sets the language, and AD-6 and AD-10 already ask for typed results for states.
+  - The spine's AD-6 is amended in place: `deleted` joins the typed results that are not errors (`fetch` of an item the agent deleted), with the spine's `updated:` and `sources:` lines; a contract test reads the line and checks it names every outcome value of the tool envelopes.
+  - The PRD and the UX documents are unchanged: FR-34 already says the agent sets the language, and AD-10 already asks for typed results for states.
 
 ## Capabilities
 
@@ -44,14 +46,16 @@ None.
   - `packages/contract/src/schemas/tool-envelopes/` (`fetch-outcome.json`, `index.ts`: the constant and `FetchOutcomeResult`, and `tools.json` if open question 1 is accepted);
   - `packages/contract/src/server-instructions.ts` (if open question 2 is accepted) and a fixtures module for the amendments;
   - `packages/server/src/mcp-tools/fetch.ts`;
+  - `packages/core` (`ask.ts`, `lifecycle/updates.ts`, `lifecycle/widget-update.ts`): the expanded IDs held against items;
   - `tools/build/skills/` (`generate.ts`, a new `updates.ts`, the templates `SKILL.md` and `answers.md`, a new template `updates.md`);
   - `skills/askboard/`, regenerated.
 - **Tests:**
   - contract: the envelopes, the amendments and the version test;
   - server: `fetch`, the tool list and `skills-examples.test.ts`, which gains `json update` blocks;
   - tools: the skill generator;
+  - core: `deleted-fetch` and `expanded-held`;
   - conformance: the `fetch` transcript of a deleted item, if any pins the error.
-- **No change** to the view, the board protocol, `ask-core`'s behaviour, any dependency or chunk.
+- **No change** to the view, the board protocol, any dependency or chunk.
 - **IDs served:** FR-5, FR-6, FR-10, FR-20, FR-29, FR-34; NFR-1, NFR-10, NFR-11; PRD R5 (the always-loaded total).
 - **ADs relied on:** AD-6, AD-7, AD-10, AD-21. UX: none (no user-facing surface).
 

@@ -7,7 +7,7 @@ paradigm: 'hexagonal (ports and adapters) around an ask core, one process per Cl
 scope: 'AskBoard first version: MCP server and board host per Claude Code session, sandboxed view and widgets, compute graph, Claude Code mod and hooks, shipped skills and agents, Snapshots, light benchmark, plugin packaging and operations'
 status: final
 created: '2026-10-27'
-updated: '2026-11-08'
+updated: '2026-11-09'
 binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14, FR-15, FR-18, FR-19, FR-20, FR-21, FR-22, FR-23, FR-24, FR-25, FR-26, FR-27, FR-28, FR-29, FR-30, FR-31, FR-32, FR-33, FR-34, FR-35, NFR-1, NFR-2, NFR-3, NFR-4, NFR-5, NFR-6, NFR-7, NFR-8, NFR-9, NFR-10, NFR-11, AXFX FR-36, AXFX FR-37, AXFX FR-38, AXFX FR-39, AXFX FR-40, AXFX FR-41, AXFX NFR-1, AXFX NFR-2, AXFX NFR-3, AXFX NFR-5, AXFX NFR-8]
 sources:
   - 'AskBoard PRD (prd-askboard-2026-10-25/prd.md, final)'
@@ -42,6 +42,7 @@ sources:
   - 'OpenSpec change form-widget, proposal.md, open questions 1, 3 and 4: the Form built from the input atoms and a PickField with no form library, field checks in the registry, the pattern run only in the view (accepted under the PO''s unattended handoff, 2026-11-07)'
   - 'OpenSpec change keep-mine-shown-revision, proposal.md, open question 4: no derived values in an answer naming an earlier revision (accepted under the PO''s unattended handoff, 2026-11-08)'
   - 'OpenSpec change table-widget, proposal.md, open questions 1, 3, 4 and 6: the Table on its own grid, column formulas with row references and single reads, totals as item fields, cell entries in the draft (accepted under the PO''s unattended handoff, 2026-11-08)'
+  - 'OpenSpec change agent-facing-gaps, proposal.md and design decision 7: AD-6 names `deleted` among the typed results that are not errors (Issues #73 and #75, 2026-11-09)'
 companions: ['SOLUTION-DESIGN.md']
 ---
 
@@ -224,7 +225,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
     - A result is one text block carrying JSON in its `contract` envelope. No tool uses `outputSchema` or `structuredContent` until the benchmark shows that the model reads only one representation.
     - A result stays under 30,000 characters. Answers carry only what changed (FR-20). `collect` pages with `more: true`.
     - `fetch` returns one item, or a range of it, with a continuation cursor, and omits excerpt text and image bytes.
-    - Typed results that are not errors: `open`, `postponed`, `closed`, `discarded`, `unavailable`.
+    - Typed results that are not errors: `open`, `postponed`, `closed`, `discarded`, `unavailable`, `deleted` (`fetch` of an item the agent deleted, or one inside a deleted question or area).
 
 ### AD-7 — The contract: AskBoard's own versioned schemas for every run-time message [ADOPTED]
 

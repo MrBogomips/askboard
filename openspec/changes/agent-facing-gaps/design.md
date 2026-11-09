@@ -120,7 +120,7 @@ Bound on 2026-11-09, merged origin/main ac9f891f: tool envelopes 1.13 (main 1.12
 
 - The change's record is `docs/as-built/agent-facing-gaps.md` (task 4.1): the outcome, the reference, the language section, the amendments record, the expanded IDs held against items and the bound version. CLAUDE.md is not edited: PR #109 moves every change's record out of it, the layouts paragraph included, whose "`fetch` of one answers `deleted`" becomes true as written.
 - `CHANGELOG.md`: Unreleased entries for the outcome and the teaching.
-- The PRD, the spine and the UX documents are unchanged. FR-34 and FR-29 already ask for this teaching, and AD-6 and AD-10 already make states typed.
+- AD-6 is amended in place (review 4.3 S-1): it lists the typed results that are not errors one by one, so `deleted` joins them, with the spine's `updated:` and `sources:` lines; a contract test derives the outcome values from the tool envelopes and checks AD-6's line names each. The PRD and the UX documents are unchanged: FR-34 and FR-29 already ask for this teaching, and AD-10 already makes states typed.
 
 ## Merge points
 
