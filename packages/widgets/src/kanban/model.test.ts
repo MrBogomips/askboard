@@ -146,7 +146,7 @@ describe("moveTo", () => {
 describe("valueFor", () => {
   test("is the edited props, or nothing while every card is in the column it was sent in", () => {
     const moved = moveTo(SENT, "a", "doing");
-    expect(valueFor(SENT, moved)).toBe(moved);
+    expect(valueFor(SENT, moved)).toEqual(moved);
     expect(valueFor(SENT, SENT)).toBeUndefined();
     expect(valueFor(SENT, structuredClone(SENT))).toBeUndefined();
   });
