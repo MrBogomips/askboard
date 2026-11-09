@@ -383,6 +383,32 @@ export const isRunning = (pid: number): boolean => {
   }
 };
 
+/**
+ * The TCP ports a process (not the machine) listens on, read with lsof: `-a` joins the process and
+ * the listening filter, `-Fn` prints one `n<address>:<port>` line per socket, and lsof exits 1
+ * when there is none. A missing lsof fails the test loudly rather than reading as "no port".
+ */
+export const listeningPorts = (pid: number): number[] => {
+  const ran = Bun.spawnSync([
+    "lsof",
+    "-nP",
+    "-a",
+    "-p",
+    String(pid),
+    "-iTCP",
+    "-sTCP:LISTEN",
+    "-Fn",
+  ]);
+  if (ran.exitCode !== 0 && ran.exitCode !== 1) {
+    throw new Error(`lsof failed (${ran.exitCode}): ${ran.stderr.toString()}`);
+  }
+  return ran.stdout
+    .toString()
+    .split("\n")
+    .filter((line) => line.startsWith("n"))
+    .map((line) => Number(line.slice(line.lastIndexOf(":") + 1)));
+};
+
 /** Whether a folder holds nothing at all. */
 export const isEmpty = (path: string): boolean =>
   !existsSync(path) || readdirSync(path).length === 0;

@@ -43,6 +43,7 @@ sources:
   - 'OpenSpec change keep-mine-shown-revision, proposal.md, open question 4: no derived values in an answer naming an earlier revision (accepted under the PO''s unattended handoff, 2026-11-08)'
   - 'OpenSpec change table-widget, proposal.md, open questions 1, 3, 4 and 6: the Table on its own grid, column formulas with row references and single reads, totals as item fields, cell entries in the draft (accepted under the PO''s unattended handoff, 2026-11-08)'
   - 'OpenSpec change agent-facing-gaps, proposal.md and design decision 7: AD-6 names `deleted` among the typed results that are not errors (Issues #73 and #75, 2026-11-09)'
+  - 'OpenSpec change result-bound, design.md, decisions 1, 2 and 6: the unresolved-pointer warnings of `ask` and `update` get their own 10,000 characters, a closing warning counts the rest, and AD-6 says so (accepted under the PO''s unattended handoff, 2026-11-09)'
 companions: ['SOLUTION-DESIGN.md']
 ---
 
@@ -217,7 +218,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
     - The skills' reference files, examples and asking-rule texts are generated from `contract` and `molecules` at build time. CI fails when a shipped file differs from its generated form, or when an example fails validation.
     - The server validates every request against `contract`.
       - A request the agent must fix returns `isError` text naming the item ID and the expected shape, under 4,000 characters, with the first problems first.
-      - A problem confined to one item that leaves the board usable is a typed warning in a successful result: an unresolved pointer (FR-8), a formula error (FR-14).
+      - A problem confined to one item that leaves the board usable is a typed warning in a successful result: an unresolved pointer (FR-8), a formula error (FR-14), each kind within its share of the result bound: past it, one closing warning counts the rest.
   - **Re-sending an ask:**
     - `ask` with the ID of an open ask returns that ask's board only when the request is identical and comes from the owner. Identical means deep-equal after RFC 8785 canonicalization to the first accepted request. It then opens no tab and sends no notice.
     - Any other `ask` with the ID of an open, closed or discarded ask is refused, naming the ID as in use.
