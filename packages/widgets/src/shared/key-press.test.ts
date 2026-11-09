@@ -9,7 +9,7 @@ describe("pressOfEvent", () => {
     const holds = FLAG_SETS.map((flags) => pressOfEvent({ key: "a", ...flags }).hold);
     expect(holds[0]).toBe("none");
     expect(new Set(holds)).toEqual(
-      new Set(["none", "shift", "alt+shift", "mod", "mod+shift", "other"]),
+      new Set(["none", "shift", "alt+shift", "mod", "mod+shift", "mod+alt", "other"]),
     );
     expect(pressOfEvent({ key: "ArrowLeft", ...NO_MODIFIER, altKey: true })).toEqual({
       key: "ArrowLeft",
