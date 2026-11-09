@@ -51,7 +51,7 @@ describe("the sets reopen-start-from-answer widens", () => {
       document: BOARD_DOCUMENT_VERSION,
       manifest: VIEW_MANIFEST_VERSION,
       // The configuration: its minor at keyboard-shortcuts-help or a later change's (its own test pins it).
-      configuration: Number(CONFIGURATION_VERSION.split(".")[1]) >= 0,
+      configuration: Number(CONFIGURATION_VERSION.split(".")[1]) >= 1,
       localApi: LOCAL_API_VERSION,
       sessionFile: SESSION_FILE_FORMAT,
     }).toEqual({
