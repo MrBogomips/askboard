@@ -24,6 +24,7 @@ import {
   kanbanDocument,
   kanbanItem,
   MOVED_A,
+  orderAsk,
   orderDocument,
   orderItem,
   treeAndKanbanDocument,
@@ -747,6 +748,53 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await cardsIn(board, "doing")).toEqual(["a"]);
         expect(await cardsIn(board, "todo")).toEqual(["c"]);
         expect(await cardsIn(board, "done")).toEqual(["b"]);
+        expect([sentDrafts(run).length, sentActs(run).length]).toEqual([drafts, acts]);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "once the ask closes, the keys and the four tools that place a card act on nothing in a column of several cards: the order stays, no draft and no act",
+      async () => {
+        const run = await start(lifecycleScenario(orderAsk(), dist));
+        const board = await openBoard(run, ["plan"]);
+        await beginDrag(board, cardOf(board, "d"));
+        await dragOverCard(board, cardOf(board, "a"), "upper");
+        await release(board);
+        await expectCards(board, "todo", ["d", "a", "c"]);
+        await eventually(
+          () =>
+            sentDrafts(run).some((record) => record.questions.plan?.values?.board !== undefined),
+          "the draft to hold the order",
+        );
+        await answerOf(board, "plan").click({ timeout: STEP_TIMEOUT_MS });
+        await board.receipt("sent").waitFor({ timeout: STEP_TIMEOUT_MS });
+        const { events } = await run.session.collect();
+        expect(events[0]?.changes).toEqual([{ op: "move", target: "board.d" }]);
+        await board.receipt("delivered to the agent").waitFor({ timeout: STEP_TIMEOUT_MS });
+        await run.session.update([{ action: "close" }]);
+        await board
+          .banner(/closed/i)
+          .first()
+          .waitFor({ timeout: STEP_TIMEOUT_MS });
+        await eventually(
+          async () => (await cardOf(board, "a").getAttribute("draggable")) === null,
+          "the cards to stop dragging",
+        );
+        const [drafts, acts] = [sentDrafts(run).length, sentActs(run).length];
+        // `a` is the middle card of `todo`: each press would move it, were it not read-only.
+        await cardOf(board, "a").click();
+        for (const keys of ["Alt+Shift+ArrowUp", "Alt+Shift+End", "Control+Shift+ArrowDown"]) {
+          await board.page.keyboard.press(keys);
+        }
+        for (const name of ["Move up", "Move down", "To top", "To bottom"]) {
+          expect(await tool(board, name).getAttribute("aria-disabled")).toBe("true");
+          await tool(board, name).click({ force: true, timeout: STEP_TIMEOUT_MS });
+        }
+        await Bun.sleep(QUIET_MS);
+        expect(await cardsIn(board, "todo")).toEqual(["d", "a", "c"]);
+        expect(await cardsIn(board, "done")).toEqual(["b"]);
+        expect(await cardOf(board, "d").getAttribute("data-change")).toBe("moved");
         expect([sentDrafts(run).length, sentActs(run).length]).toEqual([drafts, acts]);
       },
       TEST_TIMEOUT_MS,

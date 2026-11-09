@@ -104,6 +104,21 @@ export const kanbanAsk = {
   ],
 } as const;
 
+/**
+ * The ask for the session process holding the Kanban of `orderItem` (kanban-order, task 4.1),
+ * beside `more` items.
+ */
+export const orderAsk = (...more: readonly unknown[]) => ({
+  ...kanbanAsk,
+  items: [
+    {
+      type: "question",
+      id: "plan",
+      props: { ...plan.props, items: [orderItem(), ...more] },
+    },
+  ],
+});
+
 type Mirrored = {
   readonly record: {
     readonly questions: Readonly<

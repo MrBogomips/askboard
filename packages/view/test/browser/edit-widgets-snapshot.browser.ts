@@ -7,6 +7,9 @@
 // or moved, and the file inlines the chunks `assemble` selects for the three types, `dnd` among
 // them. An answer KaTeX does not parse shows its source with the same field error and
 // no drawn preview, and one raised a million em down (task 5b.1) holds its preview within the cap.
+// A Snapshot of a reordered Kanban (kanban-order, task 4.1; spec view-and-widgets: Kanban order
+// read-only and in a Snapshot): each column in the answer's order, the moved cards highlighted, and
+// the keys and the four tools that place a card, and a drag, acting on nothing.
 // The session process serves this test whatever the target.
 
 import { describe, expect, test } from "bun:test";
@@ -19,7 +22,7 @@ import { LATEX_FIXTURE_ITEM } from "@askboard/contract/fixtures";
 import { validateSnapshotData } from "@askboard/contract/validate";
 import type { Browser } from "playwright";
 import { selectChunks, targetOf } from "../../src/assemble/index.ts";
-import { kanbanItem } from "./fixtures/kanban-documents.ts";
+import { kanbanItem, orderAsk } from "./fixtures/kanban-documents.ts";
 import { latexItem } from "./fixtures/latex-documents.ts";
 import { timelineItem } from "./fixtures/timeline-documents.ts";
 import { plan } from "./fixtures/tree-documents.ts";
@@ -27,7 +30,14 @@ import type { Asker } from "./harness/asker.ts";
 import { eventually, STEP_TIMEOUT_MS, TEST_TIMEOUT_MS, useEngine } from "./harness/board-test.ts";
 import { launchEngine } from "./harness/browser.ts";
 import { enginesFrom } from "./harness/engines.ts";
-import { beginDrag, cardOf, columnOf, dragOver, release } from "./harness/kanban-drag.ts";
+import {
+  beginDrag,
+  cardOf,
+  columnOf,
+  dragOver,
+  dragOverCard,
+  release,
+} from "./harness/kanban-drag.ts";
 import { KATEX_VERSION } from "./harness/katex-version.ts";
 import { answerOf, lifecycleScenario, openBoard } from "./harness/lifecycle-test.ts";
 import { entryOf } from "./harness/timeline-drag.ts";
@@ -258,6 +268,91 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
             requests.filter((url) => !url.startsWith("file:") && !url.startsWith("data:")),
           ).toEqual([]);
           expect(violations).toEqual([]);
+          await context.close();
+        } finally {
+          await browser.close();
+        }
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a Snapshot of a reordered Kanban lists each column in the answer's order with the moved cards highlighted, and no key, tool or drag moves a card",
+      async () => {
+        const run = await start({ ...lifecycleScenario(orderAsk(), dist), asker: ASKER });
+        const board = await openBoard(run, ["plan"]);
+        // `c` goes above `b` in `done`, `d` above `a` in `todo`.
+        await beginDrag(board, cardOf(board, "c"));
+        await dragOverCard(board, cardOf(board, "b"), "upper");
+        await release(board);
+        await eventually(
+          async () => (await columnOf(board, "done").locator("[data-kanban-card]").count()) === 2,
+          "c to show in done",
+        );
+        await beginDrag(board, cardOf(board, "d"));
+        await dragOverCard(board, cardOf(board, "a"), "upper");
+        await release(board);
+        await eventually(
+          async () =>
+            (await board.view.locator('[data-kanban-card][data-change="moved"]').count()) === 2,
+          "c and d to be moved",
+        );
+        await answerOf(board, "plan").click({ timeout: STEP_TIMEOUT_MS });
+        await board.header.getByText("Answered").waitFor({ timeout: STEP_TIMEOUT_MS });
+        const taken = await run.session.snapshot();
+        await run.session.exit();
+
+        const browser: Browser = await launchEngine(engine);
+        try {
+          const context = await browser.newContext({ offline: true });
+          const page = await context.newPage();
+          await page.goto(`file://${taken.path}`);
+          await eventually(
+            async () => (await page.locator("[data-kanban-card]").count()) === 4,
+            "cards",
+          );
+          const order = async (column: string) =>
+            page
+              .locator(`[data-kanban-column="${column}"] [data-kanban-card]`)
+              .evaluateAll((cards) => cards.map((found) => found.getAttribute("data-kanban-card")));
+          const held = async () => ({
+            todo: await order("todo"),
+            doing: await order("doing"),
+            done: await order("done"),
+          });
+          const marked = () =>
+            page
+              .locator('[data-kanban-card][data-change="moved"]')
+              .evaluateAll((cards) => cards.map((found) => found.getAttribute("data-kanban-card")));
+          const answered = { todo: ["d", "a"], doing: [], done: ["c", "b"] };
+          expect(await held()).toEqual(answered);
+          expect((await marked()).sort()).toEqual(["c", "d"]);
+          expect(await page.locator('[data-kanban-card][draggable="true"]').count()).toBe(0);
+
+          // The keys and the tools that place a card, on `d`, the first of `todo`, and a drag of
+          // `a` above it: each would move a card were the Kanban not read-only.
+          await page.locator('[data-kanban-card="d"]').click();
+          for (const keys of ["Alt+Shift+ArrowDown", "Alt+Shift+End", "Control+Shift+ArrowDown"]) {
+            await page.keyboard.press(keys);
+          }
+          for (const tool of ["Move up", "Move down", "To top", "To bottom", "Move to…"]) {
+            for (const button of await page
+              .getByRole("button", { name: tool, exact: true })
+              .all()) {
+              expect(await button.getAttribute("aria-disabled")).toBe("true");
+              await button.click({ force: true });
+            }
+          }
+          const card = await page.locator('[data-kanban-card="a"]').boundingBox();
+          const target = await page.locator('[data-kanban-card="d"]').boundingBox();
+          if (card === null || target === null) throw new Error("no box");
+          await page.mouse.move(card.x + card.width / 2, card.y + card.height / 2);
+          await page.mouse.down();
+          await page.mouse.move(target.x + target.width / 2, target.y + 4, { steps: 10 });
+          await page.mouse.up();
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          expect(await held()).toEqual(answered);
+          expect((await marked()).sort()).toEqual(["c", "d"]);
           await context.close();
         } finally {
           await browser.close();
