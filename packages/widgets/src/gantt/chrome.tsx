@@ -9,7 +9,9 @@
 import { type StringKey, useStrings } from "@askboard/view/catalog";
 import { Switch } from "radix-ui";
 import { useRef } from "react";
+import { keyPressOf } from "./key-press.ts";
 import { counterText } from "./model/counter.ts";
+import { switchKeyMove } from "./model/keys.ts";
 import { type LegendEntry, legendEntries } from "./model/legend.ts";
 import { ZoomControl, type ZoomProps } from "./zoom.tsx";
 
@@ -43,8 +45,10 @@ const CriticalToggle = ({
         data-gantt-critical-switch=""
         className="relative h-[16px] w-[28px] shrink-0 rounded-full border border-border-strong bg-card focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring data-[state=checked]:border-primary data-[state=checked]:bg-primary"
         onKeyDown={(event) => {
-          if (onBefore === undefined || event.altKey || event.ctrlKey || event.metaKey) return;
-          if (event.key !== "ArrowLeft" && event.key !== "Home") return;
+          const press = keyPressOf(event);
+          if (onBefore === undefined || press === undefined || switchKeyMove(press) === undefined) {
+            return;
+          }
           event.preventDefault();
           onBefore();
         }}
