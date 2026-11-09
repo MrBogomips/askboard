@@ -6,6 +6,7 @@
 // page as a text node, never as markup (AD-8).
 
 import {
+  changedKeyActions,
   escapeFileText,
   type KeyOverrideRule,
   type Locale,
@@ -102,11 +103,11 @@ export const keysRowOf = (
 ): PanelKeysRow => {
   const row = message.keys.keys;
   const changed =
-    row?.from === "user" && row.value !== undefined ? Object.keys(row.value).length : 0;
+    row?.from === "user" && row.value !== undefined ? changedKeyActions(row.value).length : 0;
   return {
     label: t(language, "settings.keys"),
     value:
-      row?.from === "user"
+      changed > 0
         ? t(language, "settings.keysChanged", { count: changed })
         : t(language, "settings.keysDefault"),
     source: `${userFile} · keys`,

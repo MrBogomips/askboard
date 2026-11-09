@@ -4,6 +4,7 @@
 
 import { describe, expect, test } from "bun:test";
 import {
+  changedKeyActions,
   effectiveKeys,
   type KeyBinding,
   type KeyEntry,
@@ -12,6 +13,8 @@ import {
   keyBinding,
   ownEntry,
   RANKING_KEYS,
+  REGISTERED_KEY_TABLES,
+  sameBindings,
   vocabularyEntry,
 } from "../src/index.ts";
 
@@ -166,5 +169,120 @@ describe("effectiveKeys is pure", () => {
   test("no overrides gives an equal table", () => {
     expect(effectiveKeys(TABLE, {})).toEqual(TABLE);
     expect(effectiveKeys(RANKING_KEYS, {})).toEqual(RANKING_KEYS);
+  });
+});
+
+// Task 10.9 (review 10.5, S-42; design decision 19; view spec: The keys panel shows the user's
+// changes, scenario "Keys equal to the defaults"): "customised" and "N actions changed" mean keys
+// that differ from the defaults, never keys that are merely named in the file.
+describe("sameBindings", () => {
+  const up = keyBinding("ArrowUp", "mod+shift");
+  const home = keyBinding("Home", "alt+shift");
+
+  test("the same bindings in another order, or with one repeated, are the same", () => {
+    expect(sameBindings([up, home], [home, up])).toBe(true);
+    expect(sameBindings([up, home], [up, home, up])).toBe(true);
+    expect(sameBindings([], [])).toBe(true);
+  });
+
+  test("a binding added, left out or with another hold is not the same", () => {
+    expect(sameBindings([up], [up, home])).toBe(false);
+    expect(sameBindings([up, home], [up])).toBe(false);
+    expect(sameBindings([up], [])).toBe(false);
+    expect(sameBindings([up], [keyBinding("ArrowUp", "mod+alt")])).toBe(false);
+    expect(sameBindings([up], [keyBinding("ArrowDown", "mod+shift")])).toBe(false);
+  });
+});
+
+describe("changedKeyActions", () => {
+  const changed = (overrides: unknown, types?: Parameters<typeof changedKeyActions>[1]) =>
+    changedKeyActions(overrides as KeyOverrides, types);
+
+  test("{} changes nothing, and the result is sorted and frozen", () => {
+    expect(changed({})).toEqual([]);
+    const some = changed({ "select.all": [], "move.top": ["Mod+Alt+ArrowUp"] });
+    expect(Object.isFrozen(some)).toBe(true);
+    expect(some).toEqual([...some].sort());
+  });
+
+  test("an action given its default keys, in either order, changes nothing", () => {
+    expect(changed({ "move.top": ["Alt+Shift+Home", "Mod+Shift+ArrowUp"] })).toEqual([]);
+    expect(changed({ "move.top": ["Mod+Shift+ArrowUp", "Alt+Shift+Home"] })).toEqual([]);
+    expect(
+      changed({ "move.top": ["Alt+Shift+Home", "Mod+Shift+ArrowUp", "Alt+Shift+Home"] }),
+    ).toEqual([]);
+  });
+
+  test("the PO's example changes move.bottom, move.top and select.all", () => {
+    expect(
+      changed({
+        "move.top": ["Mod+Alt+ArrowUp"],
+        "move.bottom": ["Mod+Alt+ArrowDown"],
+        "select.all": [],
+      }),
+    ).toEqual(["move.bottom", "move.top", "select.all"]);
+  });
+
+  test("one of two default keys alone, or one more, is a change", () => {
+    expect(changed({ "move.top": ["Alt+Shift+Home"] })).toEqual(["move.top"]);
+    expect(changed({ "move.top": ["Alt+Shift+Home", "Mod+Shift+ArrowUp", "F2"] })).toEqual([
+      "move.top",
+    ]);
+  });
+
+  test("a vocabulary action no table binds is judged against the vocabulary's keys", () => {
+    expect(changed({ "add.after": ["Alt+Shift+Enter"] })).toEqual([]);
+    expect(changed({ "add.after": ["Mod+Alt+Enter"] })).toEqual(["add.after"]);
+  });
+
+  test("an own action is judged against its table's entry", () => {
+    const ranking = REGISTERED_KEY_TABLES.find(({ type }) => type === "ranking");
+    const keep = ranking?.keys.find((entry) => entry.action === "ranking.keep");
+    expect(keep).toBeDefined();
+    expect(changed({ "ranking.keep": [] })).toEqual(["ranking.keep"]);
+    expect(changed({ "ranking.keep": ["F9"] })).toEqual(["ranking.keep"]);
+  });
+
+  test("a type given as the default is read from its own tables, not the registered ones", () => {
+    const probe: KeyTable = [
+      ownEntry("probe.keep", "list", [keyBinding("F2")], "tool", { readOnly: false }),
+    ];
+    const types = [{ type: "probe", keys: probe }];
+    expect(changed({ "probe.keep": ["F2"] }, types)).toEqual([]);
+    expect(changed({ "probe.keep": ["F3"] }, types)).toEqual(["probe.keep"]);
+    expect(changed({ "ranking.keep": [] }, types)).toEqual([]);
+  });
+
+  test("an action that differs in any registered table's entry counts, though it equals another's", () => {
+    const one: KeyTable = [
+      ownEntry("probe.a", "list", [keyBinding("F2")], "tool", { readOnly: false }),
+    ];
+    const other: KeyTable = [
+      ownEntry("probe.a", "list", [keyBinding("F3")], "tool", { readOnly: false }),
+    ];
+    const types = [
+      { type: "one", keys: one },
+      { type: "other", keys: other },
+    ];
+    expect(changed({ "probe.a": ["F2"] }, types)).toEqual(["probe.a"]);
+  });
+
+  test("a native entry, an unknown action and an override that does not parse change nothing", () => {
+    expect(changed({ "gantt.togglePredecessor": [] })).toEqual([]);
+    expect(changed({ "no.such": ["F2"] })).toEqual([]);
+    expect(changed({ "move.top": ["Ctrl+Home"] })).toEqual([]);
+    expect(changed({ "move.top": "Mod+Alt+ArrowUp" })).toEqual([]);
+  });
+
+  test("__proto__, constructor and toString give nothing", () => {
+    const own = JSON.parse('{"__proto__": ["F2"], "constructor": [], "toString": ["F3"]}');
+    expect(changed(own)).toEqual([]);
+    expect(changed(Object.create({ "move.top": [] }))).toEqual([]);
+  });
+
+  test("whatever is not an object gives nothing", () => {
+    for (const value of [null, undefined, 3, "move.top", ["move.top"]]) {
+      expect(changed(value)).toEqual([]);
+    }
   });
 });

@@ -7,13 +7,12 @@
 import { editorKeyProblem, reads, reservedProblem } from "./check.ts";
 import { bindingsOf, effectiveKeys } from "./effective.ts";
 import { type KeyOverrides, keyCombinationText, parseKeyCombination } from "./notation.ts";
-import { REGISTERED_KEY_TABLES } from "./tables.ts";
+import { type KeyTypes, REGISTERED_KEY_TABLES } from "./tables.ts";
 import {
   isVocabularyAction,
   KEY_VOCABULARY,
   type KeyBinding,
   type KeyEntry,
-  type KeyTable,
 } from "./vocabulary.ts";
 
 /** The rules an override can break. */
@@ -64,13 +63,6 @@ export const KEYS_OPEN_RESERVED_KEYS: ReadonlySet<string> = new Set([
 
 const takenByControls = ({ key, hold }: KeyBinding): boolean =>
   (hold === "none" || hold === "shift") && KEYS_OPEN_RESERVED_KEYS.has(key);
-
-/**
- * What the check reads of a registry entry: its type and, when it has one, its key table. The
- * registry's `WidgetType` fits, and so does a probe registry; the default is the registered tables
- * alone (`REGISTERED_KEY_TABLES`), so the check loads no registry.
- */
-export type KeyTypes = readonly { readonly type: string; readonly keys?: KeyTable }[];
 
 // A registered table's entries that are whole, by type.
 type Registered = { readonly type: string; readonly table: readonly KeyEntry[] };

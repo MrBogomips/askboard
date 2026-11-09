@@ -1148,6 +1148,7 @@ export {
 
 export {
   ariaKeyShortcuts,
+  changedKeyActions,
   effectiveKeys,
   isVocabularyAction,
   KEY_ACTION_MAX_CHARS,
@@ -1185,6 +1186,7 @@ export {
   pressHold,
   REGISTERED_KEY_TABLES,
   type RegisteredKeyTable,
+  sameBindings,
   type VocabularyAction,
   type VocabularyKeys,
   vocabularyEntry,

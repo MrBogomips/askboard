@@ -289,9 +289,12 @@ describe("the keys in effect: panelGroups", () => {
     expect(names).not.toContain("To top");
   });
 
-  test("the mark follows the user's source, not the keys: the same keys given are still the user's", () => {
+  test("the mark follows whether the keys differ from the defaults: the same keys given are not marked (S-42)", () => {
     const same = keyTableOf(PROBE_TABLE(), { "cursor.down": ["ArrowDown"] });
-    expect(rowsOf(panelGroups(same, true, "other", en))[0]).toEqual(["Go down", ["↓"], true]);
+    expect(rowsOf(panelGroups(same, true, "other", en))[0]).toEqual(["Go down", ["↓"], false]);
+    expect(rowsOf(panelGroups(same, true, "other", en))).toEqual(
+      rowsOf(panelGroups(keyTableOf(PROBE_TABLE(), undefined), true, "other", en)),
+    );
   });
 });
 

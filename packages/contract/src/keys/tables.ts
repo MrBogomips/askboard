@@ -17,6 +17,13 @@ import type { KeyTable } from "./vocabulary.ts";
 /** A registered type with a key table: what the override check reads of a registry entry. */
 export type RegisteredKeyTable = { readonly type: string; readonly keys: KeyTable };
 
+/**
+ * What the check reads of a registry entry: its type and, when it has one, its key table. The
+ * registry's `WidgetType` fits, and so does a probe registry; the default is the registered tables
+ * alone (`REGISTERED_KEY_TABLES`), so the check loads no registry.
+ */
+export type KeyTypes = readonly { readonly type: string; readonly keys?: KeyTable }[];
+
 /** The registered types that have a key table, in the registry's order, each with its table. Frozen. */
 export const REGISTERED_KEY_TABLES: readonly RegisteredKeyTable[] = Object.freeze([
   { type: "tree", keys: TREE_KEYS },

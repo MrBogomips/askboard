@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { Locale, SettingsMessage } from "@askboard/contract";
+import { changedKeyActions, type Locale, type SettingsMessage } from "@askboard/contract";
 import {
   keyOverridesExample,
   settingsKeysIgnored,
@@ -183,6 +183,30 @@ describe("the Keys row", () => {
     expect(row.source).toBe("~/.config/askboard/config.json · keys");
     expect(row.warnings).toEqual([]);
     expect(Object.keys(keyOverridesExample)).toHaveLength(3);
+  });
+
+  test("keys equal to the defaults read Default keys, as {} does (S-42)", () => {
+    const withValue = (value: Record<string, readonly string[]>): SettingsMessage => ({
+      ...settingsWithKeys,
+      keys: { ...settingsWithKeys.keys, keys: { from: "user", writable: false, value } },
+    });
+    expect(data(withValue({})).keys.value).toBe("Default keys");
+    const same = withValue({ "move.top": ["Mod+Shift+ArrowUp", "Alt+Shift+Home"] });
+    expect(data(same).keys.value).toBe("Default keys");
+    expect(data(same, "it-IT").keys.value).toBe("Tasti predefiniti");
+  });
+
+  test("the count is the actions that differ: move.top given one key alone reads 1 action changed", () => {
+    const value = { "move.top": ["Mod+Alt+ArrowUp"], "select.none": ["Escape"] };
+    const message: SettingsMessage = {
+      ...settingsWithKeys,
+      keys: { ...settingsWithKeys.keys, keys: { from: "user", writable: false, value } },
+    };
+    expect(changedKeyActions(value)).toEqual(["move.top"]);
+    expect(data(message).keys.value).toBe("1 action changed");
+    expect(data(settingsWithKeys).keys.value).toBe(
+      `${changedKeyActions(keyOverridesExample).length} actions changed`,
+    );
   });
 
   test("one action reads in the singular", () => {

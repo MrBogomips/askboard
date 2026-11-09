@@ -54,6 +54,25 @@ describe("keyTableOf", () => {
     expect(changed).toEqual(before);
   });
 
+  test("keys equal to the table's, in another order, leave the table's own entry unmarked (S-42)", () => {
+    const table = keyTableOf(TABLE, { "move.top": ["Mod+Shift+ArrowUp", "Alt+Shift+Home"] });
+    expect(byAction(table, "move.top").source).toBe("table");
+    const entry = byAction(table, "move.top");
+    expect(entry.keys).toBe(byAction(TABLE, "move.top").keys);
+    expect(table.every((each) => each.source === "table")).toBe(true);
+  });
+
+  test("keys equal to the table's with one repeated are not a change; a removed action stays the user's", () => {
+    const repeated = keyTableOf(TABLE, {
+      "move.top": ["Alt+Shift+Home", "Mod+Shift+ArrowUp", "Alt+Shift+Home"],
+    });
+    expect(byAction(repeated, "move.top").source).toBe("table");
+    expect(byAction(keyTableOf(TABLE, { "move.top": [] }), "move.top").source).toBe("user");
+    expect(byAction(keyTableOf(TABLE, { "move.top": ["Alt+Shift+Home"] }), "move.top").source).toBe(
+      "user",
+    );
+  });
+
   test("an override that does not parse changes nothing and marks nothing", () => {
     const table = keyTableOf(TABLE, { "move.top": ["Ctrl+Home"] });
     expect(byAction(table, "move.top").source).toBe("table");

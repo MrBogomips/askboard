@@ -6,7 +6,7 @@
 // are text from a file, so every lookup of an action in them is the contract's own-property one.
 // Pure: the hooks that give a component these are in `key-table.tsx`.
 
-import { effectiveKeys, type KeyEntry, type KeyOverrides } from "@askboard/contract";
+import { effectiveKeys, type KeyEntry, type KeyOverrides, sameBindings } from "@askboard/contract";
 import { KEYS_OPEN_ENTRY } from "./hint.ts";
 
 /** Whose keys an entry holds: the table's own, or those the user's file gave it. */
@@ -16,18 +16,22 @@ export type KeySource = "table" | "user";
 export type KeyInEffect = KeyEntry & { readonly source: KeySource };
 
 /**
- * `table` with `overrides` applied. An entry `effectiveKeys` changed is the user's; one it left (an
- * action the overrides do not name, a `native` entry, an override that does not parse) is the
- * table's. With no overrides every entry is the table's.
+ * `table` with `overrides` applied. An entry whose keys `effectiveKeys` changed to keys that differ
+ * from the table's (`sameBindings`) is the user's, a removed action among them; one it left (an
+ * action the overrides do not name, a `native` entry, an override that does not parse) or whose
+ * keys are the table's in another order is the table's own entry, the very object. With no
+ * overrides every entry is the table's.
  */
 export const keyTableOf = (
   table: readonly KeyEntry[],
   overrides: KeyOverrides | undefined,
 ): readonly KeyInEffect[] => {
   const effective = overrides === undefined ? table : effectiveKeys(table, overrides);
-  return effective.map(
-    (entry, at): KeyInEffect => ({ ...entry, source: entry === table[at] ? "table" : "user" }),
-  );
+  return effective.map((entry, at): KeyInEffect => {
+    const own = table[at] as KeyEntry;
+    const same = entry === own || sameBindings(entry.keys, own.keys);
+    return { ...(same ? own : entry), source: same ? "table" : "user" };
+  });
 };
 
 /**
