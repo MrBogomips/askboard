@@ -97,3 +97,8 @@ Deferred by the PRD (§8.2) or the architecture (the spine's Deferred section):
 - The full benchmark, with settings the user chooses (part of FR-32).
 - The Bun executable form, with its launcher and `askboard doctor` (AD-19). The plain JavaScript bundle on Node ships until AXFX admits the executable.
 - Boards in the Claude Desktop Browser pane (NFR-8).
+
+Planned after 1.0.0 by the PO, with Claude Code the focus until then:
+
+- **Codex as a second harness:** first a spike, then a pull-only port (the MCP server and the skill), then adapters for Codex's hooks; push comes later. This amends the PRD §6 non-goal. #134
+- **AXI adherence inside the MCP tools, each change measured by the benchmark:** next-step hints, size hints, counts per state, no-op repeats, `collect` without cursors, and a leaner result format. No TOON and no CLI front-end. #135
