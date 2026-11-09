@@ -43,11 +43,17 @@ const MOD_SHIFT_KEYS: ReadonlySet<string> = new Set(["ArrowUp", "ArrowDown", "En
 const CHARS: ReadonlySet<string> = new Set(["?", "%"]);
 const FUNCTION_KEYS = /^F(1|[3-9]|1[0-2])$/;
 
+// A key that types a character: a letter or the space bar (a printed character is the `char` hold).
+const TYPES_CHARACTER = /^[A-Za-z ]$/;
+
 /**
  * Why a whole binding is a key the browser or the system needs, or undefined: Tab; F1 and F3 to
  * F12; Cmd or Ctrl with any key but Z and A; with Shift any but the arrows up and down and Enter; a
- * printed character but `?` and `%`; and Cmd or Ctrl with Alt on any key outside `MOD_ALT_KEYS`.
- * The table check and the overrides check (`overrides.ts`) share it.
+ * printed character but `?` and `%`; Cmd or Ctrl with Alt on any key outside `MOD_ALT_KEYS`; and
+ * Alt with Shift on a letter or Space (review 8.6, S-25): macOS reports the character Option and
+ * Shift compose as `event.key`, so the binding would never match, and some Linux desktops switch
+ * the keyboard layout on Alt+Shift. The table check and the overrides check (`overrides.ts`) share
+ * it.
  */
 export const reservedProblem = ({ key, hold }: KeyBinding): string | undefined => {
   const text = bindingText({ key, hold });
@@ -58,12 +64,31 @@ export const reservedProblem = ({ key, hold }: KeyBinding): string | undefined =
   if (hold === "mod+alt" && !MOD_ALT_KEYS.includes(key)) {
     return `the key ${text} is the browser's or the system's: Ctrl/Cmd with Alt takes only ArrowUp, ArrowDown, Home, End and Enter`;
   }
+  if (hold === "alt+shift" && TYPES_CHARACTER.test(key)) {
+    return `the key ${text} is the system's: Alt+Shift with a letter or Space is composed by macOS and switches the layout on some Linux desktops`;
+  }
   if (hold === "char" && !CHARS.has(key)) return `the key ${text} is no character a table may take`;
   return undefined;
 };
 
-// A binding's own problem against the browser's and the system's keys, or undefined.
-const bindingProblem = (binding: unknown): string | undefined => {
+/**
+ * Why a binding in an `editor` part types a character, or undefined: a letter or Space with no
+ * modifier or Shift alone, and a printed character (review 8.6). An editor's entries match inside
+ * its text field, so such a key would act while the user types. A per-part rule, beside
+ * `reservedProblem`: the table check applies it to the entries of an `editor` part, and the
+ * overrides check to an action that any registered table has in one.
+ */
+export const editorKeyProblem = ({ key, hold }: KeyBinding): string | undefined => {
+  const typed =
+    hold === "char" || ((hold === "none" || hold === "shift") && TYPES_CHARACTER.test(key));
+  return typed
+    ? `the key ${bindingText({ key, hold })} types a character, and an editor's keys act while the user types`
+    : undefined;
+};
+
+// A binding's own problem against the browser's and the system's keys, or undefined; in an
+// `editor` part, also a key that types a character.
+const bindingProblem = (binding: unknown, part?: unknown): string | undefined => {
   if (typeof binding !== "object" || binding === null)
     return `a key ${shown(binding)} is no binding`;
   const { key, hold } = binding as { key: unknown; hold: unknown };
@@ -77,7 +102,9 @@ const bindingProblem = (binding: unknown): string | undefined => {
   const text = bindingText(binding as KeyBinding);
   if (key.length === 1 && key !== key.toLowerCase())
     return `the key ${text} is a letter in upper case`;
-  return reservedProblem(binding as KeyBinding);
+  const reserved = reservedProblem(binding as KeyBinding);
+  if (reserved !== undefined || part !== "editor") return reserved;
+  return editorKeyProblem(binding as KeyBinding);
 };
 
 // Whether a binding of this key and hold is among `keys` (a printed character stands for the
@@ -185,7 +212,7 @@ const entryClauses = (type: string, entry: Parsed, table: readonly Parsed[]): st
     clauses.push(`has when ${shown(entry.when)}, and only "selected" is one`);
   }
   for (const binding of entry.keys) {
-    const problem = bindingProblem(binding);
+    const problem = bindingProblem(binding, entry.part);
     if (problem !== undefined) clauses.push(problem);
   }
   if (entry.keys.length === 0 && !KEYLESS_SHOWS.has(entry.shows)) {
@@ -193,7 +220,7 @@ const entryClauses = (type: string, entry: Parsed, table: readonly Parsed[]): st
   }
   if (
     isVocabularyAction(action) &&
-    entry.keys.every((binding) => bindingProblem(binding) === undefined)
+    entry.keys.every((binding) => bindingProblem(binding, entry.part) === undefined)
   ) {
     const problem = vocabularyProblem(action, entry, table);
     if (problem !== undefined) clauses.push(problem);
@@ -249,7 +276,9 @@ const isEntry = (value: unknown): value is Parsed => {
  * key added or left out, or whose `when` differs (`delete` is the plain pair, with or without the
  * Alt+Shift pair, or the Alt+Shift pair beside another action that takes the plain pair); one
  * binding twice in one part; Tab; F1 and F3 to F12; Cmd or Ctrl with any key but Z and A, and with
- * Shift any but the arrows up and down and Enter; a printed character but `?` and `%`; a hold no
+ * Shift any but the arrows up and down and Enter; Alt with Shift on a letter or Space; in an
+ * `editor` part, a key that types a character (a letter or Space with no modifier or Shift, a
+ * printed character); a printed character but `?` and `%`; a hold no
  * binding can have; an empty label; a keyless entry that does not show as a tool or a menu; a
  * `readOnly` that is no boolean, or true on an action that changes the answer (`move.*`, `add.*`,
  * `delete`, `edit.*`, `undo`, `adjust.percent`). Each

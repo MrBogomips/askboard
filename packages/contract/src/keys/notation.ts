@@ -3,7 +3,9 @@
 // `Mod` (Cmd or Ctrl), `Alt` and `Shift`, joined by `+` to a key: a UI Events `key` name, a letter
 // (read as lower case), `Space` for the space bar, or `?` or `%` alone. Pure and total: a value
 // that is no combination is refused with a reason, never thrown on. What a combination may bind is
-// the overrides check's (`overrides.ts`), not the notation's.
+// the overrides check's (`overrides.ts`), not the notation's: the keys the browser or the system
+// takes, Alt with Shift on a letter or Space, and, for an action an `editor` part has, a key that
+// types a character (`reservedProblem`, `editorKeyProblem` in `check.ts`).
 
 import { type KeyBinding, type KeyHold, keyBinding } from "./vocabulary.ts";
 

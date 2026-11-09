@@ -188,6 +188,83 @@ describe("the reserved rule", () => {
   });
 });
 
+describe("keys a system composes or an editor types (decisions 2, 17 and 18)", () => {
+  const reservedOf = (overrides: unknown) => check(overrides).filter((p) => p.rule === "reserved");
+
+  test("Alt+Shift with a letter or Space is reserved", () => {
+    expect(only({ "select.all": ["Alt+Shift+a"] })).toEqual({
+      rule: "reserved",
+      action: "select.all",
+      binding: "Alt+Shift+a",
+    });
+    expect(only({ "ranking.keep": ["Alt+Shift+Space"] })).toEqual({
+      rule: "reserved",
+      action: "ranking.keep",
+      binding: "Alt+Shift+Space",
+    });
+  });
+
+  test("Alt+Shift with an arrow, Home, End, Enter, Delete or Backspace is not", () => {
+    for (const key of ["ArrowLeft", "Home", "End", "Enter", "Delete", "Backspace"]) {
+      expect(reservedOf({ "ranking.keep": [`Alt+Shift+${key}`] })).toEqual([]);
+    }
+  });
+
+  test("Mod+Alt takes only ArrowUp, ArrowDown, Home, End and Enter: a letter is reserved", () => {
+    expect(only({ "move.top": ["Mod+Alt+k"] })).toEqual({
+      rule: "reserved",
+      action: "move.top",
+      binding: "Mod+Alt+k",
+    });
+  });
+
+  test.each(["e", "Shift+e", "Space", "?"])(
+    "edit.commit on %s is reserved, naming the action and the combination as written",
+    (combination) => {
+      expect(reservedOf({ "edit.commit": [combination] })).toEqual([
+        { rule: "reserved", action: "edit.commit", binding: combination },
+      ]);
+    },
+  );
+
+  test("edit.commit on Mod+Alt+Enter, and on no key, passes", () => {
+    expect(check({ "edit.commit": ["Mod+Alt+Enter"] })).toEqual([]);
+    expect(check({ "edit.commit": [] })).toEqual([]);
+  });
+
+  test("a letter on an action no table has in an editor part is not reserved", () => {
+    expect(reservedOf({ "ranking.keep": ["e", "Space", "Shift+e"] })).toEqual([]);
+  });
+
+  test("the editor rule reads the tables it is given", () => {
+    const grid = typeOf("probe", [
+      ownEntry("probe.a", "grid", [keyBinding("Enter")], "tool", { readOnly: false }),
+    ]);
+    const editor = typeOf("probe", [
+      ownEntry("probe.a", "editor", [keyBinding("Enter")], "tool", { readOnly: false }),
+    ]);
+    expect(check({ "probe.a": ["e"] }, [grid])).toEqual([]);
+    expect(check({ "probe.a": ["e"] }, [editor])).toEqual([
+      { rule: "reserved", action: "probe.a", binding: "e" },
+    ]);
+  });
+
+  test("a combination written twice, or in two spellings, is no problem", () => {
+    expect(check({ "move.top": ["Mod+Alt+ArrowUp", "Mod+Alt+ArrowUp"] })).toEqual([]);
+    expect(check({ "move.top": ["Mod+Shift+ArrowUp", "Shift+Mod+ArrowUp"] })).toEqual([]);
+  });
+
+  test("the PO's example still passes", () => {
+    expect(
+      check({
+        "move.top": ["Mod+Alt+ArrowUp"],
+        "move.bottom": ["Mod+Alt+ArrowDown"],
+        "select.all": [],
+      }),
+    ).toEqual([]);
+  });
+});
+
 describe("the conflict rule", () => {
   test("to the top on the key of move up, in the Ranking's list", () => {
     const found = check({ "move.top": ["Alt+Shift+ArrowUp"] });
@@ -203,13 +280,14 @@ describe("the conflict rule", () => {
   test("a printed character against the same plain key", () => {
     const type = typeOf("probe", [
       ownEntry("probe.a", "list", [keyBinding("Enter")], "tool", { readOnly: false }),
-      ownEntry("probe.q", "list", [keyBinding("?")], "tool", { readOnly: false }),
-      ownEntry("probe.z", "other", [keyBinding("?")], "tool", { readOnly: false }),
+      ownEntry("probe.q", "list", [keyBinding("%")], "tool", { readOnly: false }),
+      ownEntry("probe.z", "other", [keyBinding("%")], "tool", { readOnly: false }),
     ]);
-    expect(only({ "probe.a": ["?"] }, [type])).toEqual({
+    // `%`, not `?`: `?` is also keys.open's, which every item has in effect (task 8.9).
+    expect(only({ "probe.a": ["%"] }, [type])).toEqual({
       rule: "conflict",
       action: "probe.a",
-      binding: "?",
+      binding: "%",
       with: "probe.q",
     });
   });
@@ -260,6 +338,142 @@ describe("the conflict rule", () => {
     expect(found).toEqual([
       { rule: "conflict", action: "chart.highlight", binding: "ArrowUp", with: "cursor.up" },
     ]);
+  });
+});
+
+describe("the keys panel's keys act across the item (decision 18; review 8.6)", () => {
+  test.each([
+    "Enter",
+    "Space",
+    "Escape",
+    "ArrowDown",
+    "Shift+Home",
+    "PageUp",
+    "Delete",
+    "Backspace",
+  ])("keys.open on %s is reserved: a control inside an item takes it", (combination) => {
+    // The same key may also conflict with the actions that hold it: every problem is reported.
+    expect(check({ "keys.open": [combination] })).toContainEqual({
+      rule: "reserved",
+      action: "keys.open",
+      binding: combination,
+    });
+    expect(
+      check({ "keys.open": [combination] }).filter(
+        (problem) => problem.rule === "reserved" && problem.action === "keys.open",
+      ),
+    ).toHaveLength(1);
+  });
+
+  test("the whole list is reserved, with no modifier or Shift alone, and nothing else is", () => {
+    const keys = [
+      "Enter",
+      "Space",
+      "Escape",
+      "ArrowUp",
+      "ArrowDown",
+      "ArrowLeft",
+      "ArrowRight",
+      "Home",
+      "End",
+      "PageUp",
+      "PageDown",
+      "Delete",
+      "Backspace",
+    ];
+    for (const key of keys) {
+      for (const combination of [key, `Shift+${key}`]) {
+        const found = check({ "keys.open": [combination] }).filter((p) => p.rule === "reserved");
+        expect({ combination, found }).toEqual({
+          combination,
+          found: [{ rule: "reserved", action: "keys.open", binding: combination }],
+        });
+      }
+    }
+    for (const combination of ["F2", "Mod+Alt+Home", "Mod+Shift+Enter", "%", "j"]) {
+      expect(check({ "keys.open": [combination] }).filter((p) => p.rule === "reserved")).toEqual(
+        [],
+      );
+    }
+  });
+
+  test("another action may take those keys: only keys.open's are reserved", () => {
+    expect(
+      check({ "ranking.keep": ["Enter", "Space"] }).filter((p) => p.rule === "reserved"),
+    ).toEqual([]);
+  });
+
+  test("keys.open on Mod+z conflicts with undo, though no part that holds keys.open binds undo", () => {
+    expect(only({ "keys.open": ["Mod+z"] })).toEqual({
+      rule: "conflict",
+      action: "keys.open",
+      binding: "Mod+z",
+      with: "undo",
+    });
+  });
+
+  test("keys.open on Alt+Shift+ArrowUp gives one conflict with move.up, not one per table or part", () => {
+    expect(only({ "keys.open": ["Alt+Shift+ArrowUp"] })).toEqual({
+      rule: "conflict",
+      action: "keys.open",
+      binding: "Alt+Shift+ArrowUp",
+      with: "move.up",
+    });
+  });
+
+  test("undo on ? conflicts with keys.open, whose ? is in effect on every item", () => {
+    expect(only({ undo: ["?"] })).toEqual({
+      rule: "conflict",
+      action: "undo",
+      binding: "?",
+      with: "keys.open",
+    });
+  });
+
+  test("two overridden actions on one key are reported once, from the one named later", () => {
+    expect(only({ undo: ["Mod+Alt+Home"], "keys.open": ["Mod+Alt+Home"] })).toEqual({
+      rule: "conflict",
+      action: "keys.open",
+      binding: "Mod+Alt+Home",
+      with: "undo",
+    });
+    expect(only({ "keys.open": ["Mod+Alt+Home"], undo: ["Mod+Alt+Home"] })).toEqual({
+      rule: "conflict",
+      action: "undo",
+      binding: "Mod+Alt+Home",
+      with: "keys.open",
+    });
+  });
+
+  test("swapping keys.open away from ? and undo onto it is no conflict", () => {
+    expect(check({ "keys.open": ["Mod+Alt+Home"], undo: ["?"] })).toEqual([]);
+  });
+
+  test("keys.open on Mod+Alt+Enter, and the PO's example, give none", () => {
+    expect(check({ "keys.open": ["Mod+Alt+Enter"] })).toEqual([]);
+    expect(
+      check({
+        "move.top": ["Mod+Alt+ArrowUp"],
+        "move.bottom": ["Mod+Alt+ArrowDown"],
+        "select.all": [],
+      }),
+    ).toEqual([]);
+  });
+
+  test("keys.open removed, or on the key an action takes in another type's part, is judged the same", () => {
+    expect(check({ "keys.open": [] })).toEqual([]);
+    const type = typeOf("probe", [
+      ownEntry("probe.a", "list", [keyBinding("F2")], "tool", { readOnly: false }),
+      ownEntry("probe.b", "other", [keyBinding("Enter", "mod+shift")], "tool", {
+        readOnly: false,
+      }),
+    ]);
+    expect(only({ "keys.open": ["Mod+Shift+Enter"] }, [type])).toEqual({
+      rule: "conflict",
+      action: "keys.open",
+      binding: "Mod+Shift+Enter",
+      with: "probe.b",
+    });
   });
 });
 

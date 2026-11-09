@@ -5,10 +5,15 @@
 // hides another. A file with any problem applies no `keys` at all (`ask-core`, NFR-10).
 
 import { WIDGET_TYPES, type WidgetType } from "../widgets/registry.ts";
-import { reads, reservedProblem } from "./check.ts";
+import { editorKeyProblem, reads, reservedProblem } from "./check.ts";
 import { bindingsOf, effectiveKeys } from "./effective.ts";
 import { type KeyOverrides, keyCombinationText, parseKeyCombination } from "./notation.ts";
-import { isVocabularyAction, type KeyBinding, type KeyEntry } from "./vocabulary.ts";
+import {
+  isVocabularyAction,
+  KEY_VOCABULARY,
+  type KeyBinding,
+  type KeyEntry,
+} from "./vocabulary.ts";
 
 /** The rules an override can break. */
 export type KeyOverrideRule =
@@ -31,6 +36,33 @@ export type KeyOverrideProblem = {
   readonly with?: string;
 };
 
+// `keys.open` is the frame's: its keys act across the whole item, not in one part (decision 5).
+const KEYS_OPEN = "keys.open";
+
+// The keys a native control inside an item takes (a button, a check box, a Radix toggle group, a
+// slider, a menu), which `keys.open` may not be bound to with no modifier or Shift alone: the frame
+// acts on a key no part prevented, so `Enter` would open the panel from a focused button instead of
+// pressing it (design decision 18, review 8.6). A key named as `parseKeyCombination` reads it;
+// the space bar is " ".
+const KEYS_OPEN_RESERVED_KEYS: ReadonlySet<string> = new Set([
+  "Enter",
+  " ",
+  "Escape",
+  "ArrowUp",
+  "ArrowDown",
+  "ArrowLeft",
+  "ArrowRight",
+  "Home",
+  "End",
+  "PageUp",
+  "PageDown",
+  "Delete",
+  "Backspace",
+]);
+
+const takenByControls = ({ key, hold }: KeyBinding): boolean =>
+  (hold === "none" || hold === "shift") && KEYS_OPEN_RESERVED_KEYS.has(key);
+
 // A registered table's entries that are whole, by type.
 type Registered = { readonly type: string; readonly table: readonly KeyEntry[] };
 
@@ -50,6 +82,15 @@ const registered = (types: readonly WidgetType[]): readonly Registered[] =>
 // What a combination's text is shown as in a problem, whatever the value is.
 const shownText = (value: unknown): string =>
   (typeof value === "string" ? value : (JSON.stringify(value) ?? String(value))).slice(0, 64);
+
+// The actions some registered table has in an `editor` part: a key that types a character is
+// refused on them, as the table check refuses it in the part (review 8.6).
+const editorActions = (tables: readonly Registered[]): ReadonlySet<string> =>
+  new Set(
+    tables.flatMap(({ table }) =>
+      table.filter((entry) => entry.part === "editor").map((entry) => entry.action),
+    ),
+  );
 
 const isEscape = ({ key, hold }: KeyBinding): boolean => key === "Escape" && hold === "none";
 
@@ -74,6 +115,7 @@ const actionProblems = (
   combinations: unknown,
   tables: readonly Registered[],
   exits: ReadonlySet<string>,
+  editors: ReadonlySet<string>,
 ): readonly KeyOverrideProblem[] => {
   const entries = tables.flatMap(({ table }) => table.filter((entry) => entry.action === action));
   const known = isVocabularyAction(action) || entries.some((entry) => entry.keys.length > 0);
@@ -89,7 +131,11 @@ const actionProblems = (
     const read = parseKeyCombination(combination);
     if (!read.ok) {
       problems.push({ rule: read.rule, action, binding: shownText(combination) });
-    } else if (reservedProblem(read.binding) !== undefined) {
+    } else if (
+      reservedProblem(read.binding) !== undefined ||
+      (editors.has(action) && editorKeyProblem(read.binding) !== undefined) ||
+      (action === KEYS_OPEN && takenByControls(read.binding))
+    ) {
       problems.push({ rule: "reserved", action, binding: shownText(combination) });
     }
   }
@@ -134,6 +180,67 @@ const conflicts = (
   return problems;
 };
 
+// The text the user wrote for a binding of an overridden action, else the binding as the notation
+// writes it.
+const textOf = (
+  written: ReadonlyMap<string, ReadonlyMap<string, string>>,
+  action: string,
+  binding: KeyBinding,
+): string =>
+  written.get(action)?.get(`${binding.hold}:${binding.key}`) ?? keyCombinationText(binding);
+
+// The keys `keys.open` has in effect: the override when it parses, else the vocabulary's.
+const openKeys = (overrides: KeyOverrides): readonly KeyBinding[] =>
+  (Object.hasOwn(overrides, KEYS_OPEN) ? bindingsOf(overrides[KEYS_OPEN]) : undefined) ??
+  KEY_VOCABULARY[KEYS_OPEN].keys;
+
+// The conflicts of `keys.open` with every keyed binding of every part of every registered table
+// once the overrides apply (it acts across the item, so the part of an action does not matter),
+// where one of the two is overridden. A pair is reported once, from the overridden action, or
+// from the one the overrides name later when both are; duplicates across tables and parts are
+// the caller's to drop.
+const openConflicts = (
+  tables: readonly Registered[],
+  overrides: KeyOverrides,
+  order: readonly string[],
+  written: ReadonlyMap<string, ReadonlyMap<string, string>>,
+): readonly KeyOverrideProblem[] => {
+  const problems: KeyOverrideProblem[] = [];
+  const open = openKeys(overrides);
+  for (const { table } of tables) {
+    for (const entry of effectiveKeys(table, overrides)) {
+      if (entry.action === KEYS_OPEN || (!written.has(entry.action) && !written.has(KEYS_OPEN))) {
+        continue;
+      }
+      const fromEntry =
+        written.has(entry.action) &&
+        (!written.has(KEYS_OPEN) || order.indexOf(entry.action) > order.indexOf(KEYS_OPEN));
+      for (const binding of entry.keys) {
+        const own = new Set(reads(binding));
+        for (const opened of open) {
+          if (!reads(opened).some((id) => own.has(id))) continue;
+          problems.push(
+            fromEntry
+              ? {
+                  rule: "conflict",
+                  action: entry.action,
+                  binding: textOf(written, entry.action, binding),
+                  with: KEYS_OPEN,
+                }
+              : {
+                  rule: "conflict",
+                  action: KEYS_OPEN,
+                  binding: textOf(written, KEYS_OPEN, opened),
+                  with: entry.action,
+                },
+          );
+        }
+      }
+    }
+  }
+  return problems;
+};
+
 // For each overridden action whose combinations all parse, the text the user wrote for each binding.
 const writtenTexts = (
   overrides: KeyOverrides,
@@ -161,8 +268,12 @@ const same = (a: KeyOverrideProblem, b: KeyOverrideProblem): boolean =>
  * `action` neither in the vocabulary nor an own action some registered table binds with keys
  * (`__proto__`, a misspelling, a keyless tool); a `native` action, whose keys a Radix or browser
  * control takes; a combination that does not parse (`notation`) or has no hold (`hold`); a
- * `reserved` key of the browser or the system; a `conflict`, two actions of one part on one key
- * once applied; an `exit` left with no key (`edit.cancel`, and each own action whose default keys
+ * `reserved` key of the browser or the system (Alt with Shift on a letter or Space included), or,
+ * for an action that any registered table has in an `editor` part, a key that types a character;
+ * a `conflict`, two actions of one part on one key
+ * once applied, and `keys.open` against every keyed binding of every part, since it acts across
+ * the item; for `keys.open` also a `reserved` key a native control takes (`KEYS_OPEN_RESERVED_KEYS`);
+ * an `exit` left with no key (`edit.cancel`, and each own action whose default keys
  * hold Escape). A vocabulary action no table binds yet passes. Each problem names the action, the
  * combination as written and, for a conflict, the other action. Never throws.
  */
@@ -175,15 +286,18 @@ export const keyOverridesProblems = (
   }
   const tables = registered(types);
   const exits = escapeActions(tables);
+  const editors = editorActions(tables);
   const actions = Object.keys(overrides);
   const found = actions.flatMap((action) =>
-    actionProblems(action, overrides[action], tables, exits),
+    actionProblems(action, overrides[action], tables, exits, editors),
   );
   const written = writtenTexts(overrides, actions);
-  for (const { table } of tables) {
-    for (const problem of conflicts(effectiveKeys(table, overrides), actions, written)) {
-      if (!found.some((other) => same(other, problem))) found.push(problem);
-    }
+  const conflicting = [
+    ...tables.flatMap(({ table }) => conflicts(effectiveKeys(table, overrides), actions, written)),
+    ...openConflicts(tables, overrides, actions, written),
+  ];
+  for (const problem of conflicting) {
+    if (!found.some((other) => same(other, problem))) found.push(problem);
   }
   return found;
 };

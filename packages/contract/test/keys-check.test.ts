@@ -288,6 +288,76 @@ describe("a key the browser or the system needs", () => {
   });
 });
 
+describe("a key a system composes or an editor types (decision 2; review 8.6, S-25)", () => {
+  const own = (action: string, part: string, keys: KeyBinding[]): KeyEntry =>
+    entry({ action, part, keys });
+
+  test("Alt+Shift with a letter or Space is refused, naming the type, the action and the key", () => {
+    const letter = messages([own("probe.k", "list", [b("k", "alt+shift")])]);
+    expect(letter).toHaveLength(1);
+    expect(letter[0]).toContain('"probe"');
+    expect(letter[0]).toContain("probe.k");
+    expect(letter[0]).toContain("Alt+Shift+k");
+    const space = messages([own("probe.space", "list", [b(" ", "alt+shift")])]);
+    expect(space).toHaveLength(1);
+    expect(space[0]).toContain("probe.space");
+    expect(space[0]).toContain("Alt+Shift+Space");
+  });
+
+  test("Alt+Shift with each arrow, Home, End, Enter, Delete and Backspace still passes", () => {
+    const keys = [
+      "ArrowUp",
+      "ArrowDown",
+      "ArrowLeft",
+      "ArrowRight",
+      "Home",
+      "End",
+      "Enter",
+      "Delete",
+      "Backspace",
+    ];
+    for (const key of keys) {
+      expect({ key, problems: messages([own("probe.k", "list", [b(key, "alt+shift")])]) }).toEqual({
+        key,
+        problems: [],
+      });
+    }
+  });
+
+  test.each([
+    ["e", "none", "e"],
+    ["e", "shift", "Shift+e"],
+    [" ", "none", "Space"],
+    ["?", "char", "?"],
+  ] as const)(
+    "in an editor part the key %j with %s is refused, and on a grid it passes",
+    (key, hold, text) => {
+      const found = messages([own("probe.type", "editor", [b(key, hold)])]);
+      expect(found).toHaveLength(1);
+      expect(found[0]).toContain('"probe"');
+      expect(found[0]).toContain("probe.type");
+      expect(found[0]).toContain(text);
+      expect(messages([own("probe.type", "grid", [b(key, hold)])])).toEqual([]);
+    },
+  );
+
+  test("an editor's other keys pass: Enter, Escape, F2, Mod+z, Alt+Shift+Enter", () => {
+    const keys = [
+      b("Enter"),
+      b("Escape"),
+      b("F2"),
+      b("z", "mod"),
+      b("Enter", "alt+shift"),
+      b("ArrowUp", "shift"),
+    ];
+    expect(messages([own("probe.edit", "editor", keys)])).toEqual([]);
+  });
+
+  test("the shipped registry still passes", () => {
+    expect(widgetRegistryProblems(WIDGET_TYPES)).toEqual([]);
+  });
+});
+
 describe("an entry's readOnly (decision 2; contract spec: Keys on an item that takes no edits)", () => {
   test("a readOnly that is not a boolean is refused, naming the type and the action", () => {
     for (const bad of [undefined, "yes", 1, null]) {

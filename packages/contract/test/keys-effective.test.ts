@@ -82,6 +82,11 @@ describe("effectiveKeys replaces and removes", () => {
     ]);
   });
 
+  test("two spellings of one binding give it once, the first kept (review 8.6, S-26)", () => {
+    const result = effectiveKeys(TABLE, { "move.top": ["Mod+Shift+ArrowUp", "Shift+Mod+ArrowUp"] });
+    expect(keysOf(result, "move.top")).toEqual([keyBinding("ArrowUp", "mod+shift")]);
+  });
+
   test("the PO's example on the Ranking's table (its select all arrives with group 4: select none stands in)", () => {
     const result = effectiveKeys(RANKING_KEYS, {
       "move.top": ["Mod+Alt+ArrowUp"],
