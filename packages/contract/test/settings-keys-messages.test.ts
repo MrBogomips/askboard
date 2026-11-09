@@ -115,6 +115,63 @@ describe("a keys row", () => {
   });
 });
 
+describe("a keys row admits only what ask-core may send (decision 19; S-23, X-3)", () => {
+  const example = keyOverridesExample;
+
+  test.each([
+    [
+      "an other from the project, with an empty value",
+      { value: {}, from: "user", writable: false, other: { file: "project", value: {} } },
+    ],
+    [
+      "an other from the project, with the PO's example",
+      { value: example, from: "user", writable: false, other: { file: "project", value: example } },
+    ],
+    [
+      "an other from the user file",
+      { value: {}, from: "user", writable: false, other: { file: "user", value: {} } },
+    ],
+    ["a value from the default, empty", { value: {}, from: "default", writable: false }],
+    [
+      "a value from the default, the PO's example",
+      { value: example, from: "default", writable: false },
+    ],
+    ["a user row with no value", { from: "user", writable: false }],
+  ])("a row with %s fails, with a problem under /keys/keys", (_, row) => {
+    const result = toPage(withRow(row));
+    expect(result.ok).toBe(false);
+    const paths = pathsOf(result);
+    expect(paths.length).toBeGreaterThan(0);
+    expect(paths.every((path) => path.startsWith("/keys/keys"))).toBe(true);
+  });
+
+  test("the four fixtures of the row still validate", () => {
+    for (const message of [
+      settingsWithKeys,
+      settingsKeysNotApplied,
+      settingsKeysIgnored,
+      settingsKeysSaved,
+    ]) {
+      expect(toPage(message).ok).toBe(true);
+    }
+  });
+
+  test("a user row with a value, and a default row with no value, validate", () => {
+    expect(toPage(withRow({ value: {}, from: "user", writable: false })).ok).toBe(true);
+    expect(toPage(withRow({ from: "default", writable: false })).ok).toBe(true);
+  });
+
+  test("a settings message of the previous minor, without the row, validates", () => {
+    expect(toPage(settingsWithEveryKey).ok).toBe(true);
+  });
+
+  test("the other rows still admit an other", () => {
+    const message = JSON.parse(JSON.stringify(settingsWithEveryKey));
+    message.keys.theme = { ...message.keys.theme, other: { file: "project", value: "dark" } };
+    expect(toPage(message).ok).toBe(true);
+  });
+});
+
 describe("the warnings of the user's keys", () => {
   const notApplied = {
     code: "keys-not-applied",

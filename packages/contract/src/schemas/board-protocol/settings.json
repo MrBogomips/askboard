@@ -159,7 +159,7 @@
           }
         },
         "keys": {
-          "description": "The user's key overrides, in effect for the next board (keyboard-shortcuts-help, design decision 19): the user file's keys that passed the key-override check, else no value and, when the check refused them, a keys-not-applied warning for each problem. Never written by a board, and never from the project file, whose keys are ignored.",
+          "description": "The user's key overrides, in effect for the next board (keyboard-shortcuts-help, design decision 19): the user file's keys that passed the key-override check, else no value and, when the check refused them, a keys-not-applied warning for each problem. Never written by a board, and never from the project file, whose keys are ignored: the row admits no other, and a row from the default no value (a row from the user file has its value), so the schema itself refuses a project's keys or a refused file's keys on the wire.",
           "type": "object",
           "$ref": "#/$defs/row",
           "properties": {
@@ -172,15 +172,38 @@
             "writable": {
               "const": false
             },
-            "other": {
-              "type": "object",
-              "properties": {
-                "value": {
-                  "$ref": "urn:askboard:configuration:config#/properties/keys"
+            "other": false
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "from": {
+                    "const": "default"
+                  }
+                },
+                "required": ["from"]
+              },
+              "then": {
+                "properties": {
+                  "value": false
                 }
               }
+            },
+            {
+              "if": {
+                "properties": {
+                  "from": {
+                    "const": "user"
+                  }
+                },
+                "required": ["from"]
+              },
+              "then": {
+                "required": ["value"]
+              }
             }
-          }
+          ]
         }
       },
       "required": [

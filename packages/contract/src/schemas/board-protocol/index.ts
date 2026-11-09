@@ -543,10 +543,13 @@ export type SettingRow<T> = {
   readonly warnings?: readonly [SettingWarning, ...SettingWarning[]];
 };
 
-/** Every key's row; the user's `keys` row is optional (keyboard-shortcuts-help). */
+/**
+ * Every key's row; the user's `keys` row is optional and admits no `other`, since a project file's
+ * keys never reach a board (keyboard-shortcuts-help, design decision 19).
+ */
 export type SettingsRows = {
   readonly [K in Exclude<ConfigurationKey, "keys">]: SettingRow<ConfigurationValues[K]>;
-} & { readonly keys?: SettingRow<ConfigurationValues["keys"]> };
+} & { readonly keys?: Omit<SettingRow<ConfigurationValues["keys"]>, "other"> };
 
 export type FileProblemCode = "unreadable" | "not-json" | "version" | "schema";
 
