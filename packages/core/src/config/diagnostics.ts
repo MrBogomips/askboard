@@ -4,9 +4,12 @@
 // key, a Snapshot folder, an action, a combination) goes through `quoteFileText`: quoted as JSON,
 // with DEL, the C1 controls, U+2028, U+2029 and the bidirectional controls escaped as well, so each
 // diagnostic is one line that no file can colour, split or reorder (keyboard-shortcuts-help, review
-// 8.6, X-1 and X-2). No value of an `editor` is named, so it never reaches stderr.
+// 8.6, X-1 and X-2). A path goes through the same helpers (review 8.13, X-6): a file's, as the
+// panel shows it, with `escapeFileText`, and the project folder's with `quoteFileText`. No value of
+// an `editor` is named, so it never reaches stderr.
 
 import {
+  escapeFileText,
   type FileProblem,
   quoteFileText,
   type SettingsFile,
@@ -17,8 +20,10 @@ import type { SettingsInEffect } from "./settings.ts";
 
 const FILE_NAMES = { user: "the user file", project: "the project file" } as const;
 
+// A file's path as the panel shows it comes from `XDG_CONFIG_HOME` or `HOME`: escaped, with no
+// quotes, so a line feed there cannot split a line and a usual path reads as it always did.
 const where = (file: SettingsFile, name: keyof typeof FILE_NAMES): string =>
-  file.path ?? FILE_NAMES[name];
+  file.path === undefined ? FILE_NAMES[name] : escapeFileText(file.path);
 
 const problemText = ({ code, pointer, keyword, error }: FileProblem): string =>
   [
@@ -75,6 +80,10 @@ export const configurationDiagnostics = (settings: SettingsInEffect): string[] =
   return lines;
 };
 
-/** The line for project folders the first ask could not create; the path is quoted as JSON. */
+/**
+ * The line for project folders the first ask could not create. The path is the project folder's,
+ * which the folder names under it choose: it is quoted as JSON with `quoteFileText`, so no control
+ * character, separator or bidirectional control gets out (review 8.13, X-6).
+ */
 export const foldersFailed = ({ path, code }: Extract<FolderResult, { kind: "failed" }>): string =>
-  `AskBoard: .askboard/ could not be created at ${JSON.stringify(path)} (${code}); the ask goes on without it.`;
+  `AskBoard: .askboard/ could not be created at ${quoteFileText(path)} (${code}); the ask goes on without it.`;
