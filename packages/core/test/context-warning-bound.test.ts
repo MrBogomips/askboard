@@ -162,6 +162,56 @@ describe("a list past the room only by its last pointer", () => {
   });
 });
 
+describe("the closing warning's comma is budgeted (review 1.3, X-1)", () => {
+  /** 26 `not-found` excerpts `ex-00`..`ex-25`, each pointer `length` characters: every warning has the same size. */
+  const sameSize = (count: number, length: number) =>
+    Array.from({ length: count }, (_, n) => {
+      const id = String(n).padStart(2, "0");
+      return {
+        ...warning(n, `${id}${"m".repeat(length - 5)}.md`, "not-found"),
+        itemId: `ex-${id}`,
+      };
+    });
+
+  test("26 pointers of 477 characters: the list with its closing warning is within the bound", () => {
+    const list = sameSize(26, 477);
+    const result = boundedUnresolvedWarnings(list, UNRESOLVED_WARNINGS_MAX_CHARS);
+    expect(result).not.toBe(list);
+    expect(result.at(-1)?.message).toContain("more unresolved pointers are left out");
+    expect(json(result)).toBeLessThanOrEqual(UNRESOLVED_WARNINGS_MAX_CHARS);
+  });
+
+  test("every pointer length from 1 to 1,024, for list sizes past the cut, stays within the bound", () => {
+    let cut = 0;
+    for (let length = 1; length <= POINTER_MAX_CHARS; length++) {
+      const around = Math.ceil(
+        UNRESOLVED_WARNINGS_MAX_CHARS / json([warning(0, "x".repeat(length))]),
+      );
+      for (const count of [around, around + 1, around + 2, around + 3, around + 12]) {
+        const list = Array.from({ length: count }, (_, n) => ({
+          ...warning(n, "x".repeat(length), "not-found"),
+          itemId: `ex-${String(n).padStart(2, "0")}`,
+        }));
+        const result = boundedUnresolvedWarnings(list, UNRESOLVED_WARNINGS_MAX_CHARS);
+        expect(json(result)).toBeLessThanOrEqual(UNRESOLVED_WARNINGS_MAX_CHARS);
+        if (result !== list) cut++;
+      }
+    }
+    expect(cut).toBeGreaterThan(1_000);
+  });
+});
+
+describe("the closing warning always counts the rest (decision 2's premise)", () => {
+  test("for every reason, the closing warning with count 2 is longer than that reason's warning, its comma and the closing comma", () => {
+    for (const reason of Object.keys(UNRESOLVED_MESSAGES) as UnresolvedReason[]) {
+      const own = { ...warning(0, "x", reason), itemId: "a" };
+      const closing = closingUnresolvedWarning(own, 2);
+      // The warning and the comma after it (the cut keeps one more), and the comma before the closing one.
+      expect(JSON.stringify(closing).length).toBeGreaterThan(JSON.stringify(own).length + 2);
+    }
+  });
+});
+
 describe("the closing warning always counts the rest (decision 2's sweep)", () => {
   test("over every reason, ID lengths, pointer lengths and list sizes, no closing warning counts fewer than 1", () => {
     const reasons = Object.keys(UNRESOLVED_MESSAGES) as UnresolvedReason[];

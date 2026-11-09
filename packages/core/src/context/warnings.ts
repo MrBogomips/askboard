@@ -54,8 +54,9 @@ export const closingUnresolvedWarning = (
  * The warnings within `max` characters of JSON text, measured as `JSON.stringify` writes them. A
  * list within `max` is returned as it is. Past it, the warnings kept in order leave room for the
  * longest closing warning any warning of the list would give, measured with the list's length as
- * its count, and one closing warning stands for the first warning left out and counts the rest, so
- * that the kept, the closing one and the count make up the list. Pure, plain ECMAScript.
+ * its count, and the comma before it; one closing warning stands for the first warning left out and
+ * counts the rest, so that the kept, the closing one and the count make up the list. Pure, plain
+ * ECMAScript.
  */
 export const boundedUnresolvedWarnings = (
   warnings: readonly UnresolvedPointerWarning[],
@@ -63,11 +64,14 @@ export const boundedUnresolvedWarnings = (
 ): readonly UnresolvedPointerWarning[] =>
   boundedWarnings(warnings, {
     max,
-    room: warnings.reduce(
-      (most, warning) =>
-        Math.max(most, JSON.stringify(closingUnresolvedWarning(warning, warnings.length)).length),
-      0,
-    ),
+    // The longest closing warning, plus the comma that comes before it in the list.
+    room:
+      1 +
+      warnings.reduce(
+        (most, warning) =>
+          Math.max(most, JSON.stringify(closingUnresolvedWarning(warning, warnings.length)).length),
+        0,
+      ),
     closing: closingUnresolvedWarning,
   });
 

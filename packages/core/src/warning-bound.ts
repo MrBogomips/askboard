@@ -6,7 +6,11 @@
 export type WarningBound<T> = {
   /** The most characters the JSON text of the whole list may take, closing warning included. */
   readonly max: number;
-  /** The room kept free for the closing warning, in characters of JSON text. */
+  /**
+   * The room kept free for the closing warning, in characters of JSON text. It includes the comma
+   * before the closing warning: the loop does not count that comma, so a caller whose closing
+   * warning can fill the room adds one to it.
+   */
   readonly room: number;
   /** The closing warning for `first`, the first warning left out, with `left` warnings after it. */
   readonly closing: (first: T, left: number) => T;

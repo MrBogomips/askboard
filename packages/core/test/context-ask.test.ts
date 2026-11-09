@@ -439,6 +439,29 @@ describe("warnings", () => {
       expect(unresolvedIds(core)).toHaveLength(40);
     });
 
+    test("26 excerpts with 477-character not-found pointers: the list with its closing warning stays within the bound (review 1.3, X-1)", async () => {
+      const pointers = Array.from(
+        { length: 26 },
+        (_, n) => `${String(n).padStart(2, "0")}${"m".repeat(472)}.md`,
+      );
+      expect(pointers.every((pointer) => pointer.length === 477)).toBe(true);
+      const answers = Object.fromEntries(
+        pointers.map((pointer) => [
+          pointer,
+          { resolveExcerpt: { status: "unresolved" as const, reason: "not-found" as const } },
+        ]),
+      );
+      const items = pointers.map((pointer, n) =>
+        excerpt(`ex-${String(n).padStart(2, "0")}`, pointer),
+      );
+      const { core, outcome } = await created({ answers }, contextAsk(items));
+      expect(outcome.kind).toBe("created");
+      const warnings = warningsOf(outcome);
+      expect(warnings.at(-1)?.message).toContain("more unresolved pointers are left out");
+      expect(JSON.stringify(warnings).length).toBeLessThanOrEqual(UNRESOLVED_BOUND);
+      expect(unresolvedIds(core)).toHaveLength(26);
+    });
+
     test("pointers that JSON escapes: ten images of 1,024 control characters, each invalid-pointer, a closing warning counting the rest", async () => {
       const controls = "\u0001".repeat(POINTER_MAX_CHARS);
       const images: ContextItem[] = Array.from({ length: 10 }, (_, n) => ({
