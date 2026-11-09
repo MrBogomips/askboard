@@ -44,11 +44,9 @@ export const closingUnresolvedWarning = (
   const { itemId, pointer, reason } = first;
   const head = `The pointer of ${itemId} did not resolve (${reason})`;
   const message =
-    left === 0
-      ? `${head}; its message is left out.`
-      : left === 1
-        ? `${head}, and 1 more unresolved pointer is left out: fetch its question to read its reason.`
-        : `${head}, and ${left} more unresolved pointers are left out: fetch their questions to read each one's reason.`;
+    left === 1
+      ? `${head}, and 1 more unresolved pointer is left out: fetch its question to read its reason.`
+      : `${head}, and ${left} more unresolved pointers are left out: fetch their questions to read each one's reason.`;
   return { code: "unresolved-pointer", itemId, pointer, reason, message };
 };
 

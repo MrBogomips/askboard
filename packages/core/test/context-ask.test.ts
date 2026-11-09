@@ -14,7 +14,7 @@ import {
 } from "@askboard/contract";
 import { ONE_PIXEL_PNG } from "@askboard/contract/fixtures";
 import { validateBoardDocument } from "@askboard/contract/validate";
-import { UNRESOLVED_MESSAGES } from "../src/context/warnings.ts";
+import { closingUnresolvedWarning, UNRESOLVED_MESSAGES } from "../src/context/warnings.ts";
 import {
   ADR_POINTER,
   boardItemsOf,
@@ -456,6 +456,42 @@ describe("warnings", () => {
       expect(warnings.at(-1)?.message).toContain("more unresolved pointers are left out");
       expect(warnings.at(-1)?.reason).toBe("invalid-pointer");
       expect(unresolvedIds(core)).toHaveLength(10);
+    });
+
+    test("a list past the room only by its last pointer is kept whole: every warning, none closing, within the bound", async () => {
+      const count = 8;
+      const pointerOf = (length: number) => (n: number) =>
+        `../${String(n)}${"d".repeat(length - 4)}`;
+      const warningOf = (length: number, n: number) => ({
+        code: "unresolved-pointer" as const,
+        itemId: `ex-${n}`,
+        pointer: pointerOf(length)(n),
+        reason: "outside-root" as const,
+        message: UNRESOLVED_MESSAGES["outside-root"],
+      });
+      const sizes = (length: number) => {
+        const list = Array.from({ length: count }, (_, n) => warningOf(length, n));
+        const room =
+          Math.max(
+            ...list.map((w) => JSON.stringify([closingUnresolvedWarning(w, count)]).length),
+          ) - 2;
+        return { total: JSON.stringify(list).length, room };
+      };
+      // The longest pointers whose list takes more than the share less the room: all but the last
+      // leave the room, the last takes part of it.
+      const length = Array.from({ length: POINTER_MAX_CHARS - 4 }, (_, i) => i + 5).find((l) => {
+        const { total, room } = sizes(l);
+        return total > UNRESOLVED_BOUND - room && total <= UNRESOLVED_BOUND;
+      });
+      expect(length).toBeDefined();
+      const { answers, items } = manyExcerpts(count, pointerOf(length as number), "outside-root");
+      const { core, outcome } = await created({ answers }, contextAsk(items));
+      const warnings = warningsOf(outcome);
+      expect(warnings).toHaveLength(count);
+      expect(warnings.map((w) => w.itemId)).toEqual(items.map((item) => item.id));
+      expect(warnings.every((w) => w.message === UNRESOLVED_MESSAGES["outside-root"])).toBe(true);
+      expect(JSON.stringify(warnings).length).toBeLessThanOrEqual(UNRESOLVED_BOUND);
+      expect(unresolvedIds(core)).toHaveLength(count);
     });
 
     test("under the bound: five missing files give five warnings with their own messages, none closing", async () => {

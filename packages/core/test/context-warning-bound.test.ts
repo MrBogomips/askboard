@@ -59,14 +59,8 @@ describe("the closing warning's words", () => {
     );
   });
 
-  test("none after it: says its own message is left out, with no count", () => {
-    expect(closingUnresolvedWarning(first, 0).message).toBe(
-      "The pointer of item-7 did not resolve (anchor-not-found); its message is left out.",
-    );
-  });
-
   test("keeps the item, the pointer and the reason of the first left out, and fits the schema", () => {
-    for (const left of [0, 1, 12]) {
+    for (const left of [1, 12]) {
       const closing = closingUnresolvedWarning(first, left);
       expect(closing).toMatchObject({
         code: "unresolved-pointer",
@@ -144,5 +138,61 @@ describe("past the bound", () => {
         expect(json(result)).toBeLessThanOrEqual(UNRESOLVED_WARNINGS_MAX_CHARS);
       }
     }
+  });
+});
+
+describe("a list past the room only by its last pointer", () => {
+  test("comes back whole, the same array, none closing", () => {
+    const build = (length: number) =>
+      Array.from({ length: 8 }, (_, n) =>
+        warning(n, `${"p".repeat(length - 4)}${String(n).padStart(4, "0")}`, "not-found"),
+      );
+    const roomOf = (list: UnresolvedPointerWarning[]) =>
+      Math.max(...list.map((w) => json([closingUnresolvedWarning(w, list.length)]))) - 2;
+    const length = Array.from({ length: POINTER_MAX_CHARS - 4 }, (_, i) => i + 5).find((l) => {
+      const list = build(l);
+      return (
+        json(list) > UNRESOLVED_WARNINGS_MAX_CHARS - roomOf(list) &&
+        json(list) <= UNRESOLVED_WARNINGS_MAX_CHARS
+      );
+    });
+    expect(length).toBeDefined();
+    const list = build(length as number);
+    expect(boundedUnresolvedWarnings(list, UNRESOLVED_WARNINGS_MAX_CHARS)).toBe(list);
+  });
+});
+
+describe("the closing warning always counts the rest (decision 2's sweep)", () => {
+  test("over every reason, ID lengths, pointer lengths and list sizes, no closing warning counts fewer than 1", () => {
+    const reasons = Object.keys(UNRESOLVED_MESSAGES) as UnresolvedReason[];
+    const pointers = [1, 300, 1_024].flatMap((length) => [
+      "x".repeat(length),
+      "\u0001".repeat(length),
+    ]);
+    const counted = /, and (\d+) more unresolved pointers? (is|are) left out/;
+    let closings = 0;
+    for (const reason of reasons) {
+      for (const idLength of [1, 64]) {
+        for (const pointer of pointers) {
+          const size = json([warning(0, pointer, reason)]);
+          const around = Math.ceil(UNRESOLVED_WARNINGS_MAX_CHARS / size);
+          for (let count = Math.max(1, around - 3); count <= around + 4; count++) {
+            const list = Array.from({ length: count }, (_, n) => ({
+              ...warning(n, pointer, reason),
+              itemId: String(n % 10).repeat(idLength),
+            }));
+            const result = boundedUnresolvedWarnings(list, UNRESOLVED_WARNINGS_MAX_CHARS);
+            expect(json(result)).toBeLessThanOrEqual(UNRESOLVED_WARNINGS_MAX_CHARS);
+            if (result === list) continue;
+            const message = result.at(-1)?.message ?? "";
+            const match = counted.exec(message);
+            expect(match).not.toBeNull();
+            expect(Number(match?.[1])).toBeGreaterThanOrEqual(1);
+            closings++;
+          }
+        }
+      }
+    }
+    expect(closings).toBeGreaterThan(0);
   });
 });
