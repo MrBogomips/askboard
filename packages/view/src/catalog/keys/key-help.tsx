@@ -10,7 +10,9 @@ import type { KeyEntry } from "@askboard/contract";
 import { Tooltip } from "radix-ui";
 import { type ComponentPropsWithRef, createContext, type ReactElement, useContext } from "react";
 import { useStrings } from "../port.ts";
-import { hintOf, KEYS_OPEN_ENTRY } from "./hint.ts";
+import { entryInEffect } from "./effective.ts";
+import { hintOf } from "./hint.ts";
+import { KeyTableContext, useKeysOpenEntry } from "./key-table.tsx";
 import { buttonRefOf, clickOf, type KeysPanelControl } from "./keys-button.ts";
 import { useKeyPlatform } from "./label.ts";
 
@@ -20,8 +22,11 @@ const KEY_CAP = "rounded-sm border border-border bg-muted px-1 font-mono text-co
 
 /**
  * Wraps `children`, one control, in a tooltip with the entry's name and keys, and gives it the
- * entry's `aria-keyshortcuts`. A keyless entry leaves the control as it is: it has no tooltip and
- * no attribute. The shell provides the tooltip provider.
+ * entry's `aria-keyshortcuts`. The keys are those in effect: inside an item frame the entry is looked
+ * up in the frame's table by action and part, so a widget that passes its static entry shows the
+ * user's keys; outside a frame it shows the entry as given. A table's keyless entry leaves the
+ * control as it is: no tooltip and no attribute. An action the user's file removed the keys of keeps
+ * its tooltip, with its name and no key, and carries no attribute. The shell provides the provider.
  */
 export const KeyHint = ({
   entry,
@@ -32,11 +37,12 @@ export const KeyHint = ({
 }) => {
   const platform = useKeyPlatform();
   const text = useStrings();
-  const hint = hintOf(entry, platform, text);
+  const table = useContext(KeyTableContext);
+  const hint = hintOf(entryInEffect(table, entry), platform, text);
   if (hint === undefined) return children;
   return (
     <Tooltip.Root>
-      <Tooltip.Trigger asChild aria-keyshortcuts={hint.aria}>
+      <Tooltip.Trigger asChild aria-keyshortcuts={hint.aria === "" ? undefined : hint.aria}>
         {children}
       </Tooltip.Trigger>
       <Tooltip.Portal>
@@ -64,7 +70,7 @@ const KEYS_BUTTON =
 
 /**
  * The Keys button, a `button-secondary` that opens the frame's panel (`aria-haspopup="dialog"`),
- * its tooltip "Keys" with `?`: the last stop of a toolbar row, never in "More". It draws nothing in
+ * its tooltip "Keys" with `keys.open`'s keys in effect (`?` by default): the last stop of a toolbar row, never in "More". It draws nothing in
  * a frame with no panel. The props are a button's, for a toolbar's roving focus and its classes.
  */
 export const KeysButton = ({
@@ -75,9 +81,10 @@ export const KeysButton = ({
 }: ComponentPropsWithRef<"button">) => {
   const panel = useKeysPanel();
   const text = useStrings();
+  const keysOpen = useKeysOpenEntry();
   if (panel === undefined) return null;
   return (
-    <KeyHint entry={KEYS_OPEN_ENTRY}>
+    <KeyHint entry={keysOpen}>
       <button
         {...rest}
         type="button"

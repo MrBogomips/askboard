@@ -546,6 +546,8 @@ export const EN_US = {
   "keys.button": "Keys",
   "keys.panel.title": "{widget} keys",
   "keys.panel.close": "Close",
+  "keys.panel.customised": "customised",
+  "keys.panel.noKey": "no key",
   "keys.group.cursor": "Move around",
   "keys.group.selection": "Select",
   "keys.group.move": "Move items",

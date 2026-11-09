@@ -518,6 +518,8 @@ export const STRING_KEYS = [
   "keys.button",
   "keys.panel.title",
   "keys.panel.close",
+  "keys.panel.customised",
+  "keys.panel.noKey",
   "keys.group.cursor",
   "keys.group.selection",
   "keys.group.move",

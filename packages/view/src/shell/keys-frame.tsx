@@ -7,10 +7,11 @@
 // element that held it before it opened; a close from an interaction outside (a click or a focus
 // elsewhere) leaves the focus where that interaction put it.
 
-import type { KeyTable } from "@askboard/contract";
 import { Popover } from "radix-ui";
 import { type ReactNode, type RefObject, useMemo, useRef, useState } from "react";
+import type { KeyInEffect } from "../catalog/keys/effective.ts";
 import { KeysPanelContext } from "../catalog/keys/key-help.tsx";
+import { KeyTableContext } from "../catalog/keys/key-table.tsx";
 import type { StringKey } from "../catalog/port.ts";
 import { useStrings } from "../catalog/port.ts";
 import {
@@ -40,7 +41,8 @@ export const KeysFrame = ({
 }: {
   /** The item the frame belongs to, which marks its panel for tests and for the nearest-frame rule. */
   readonly itemId: string;
-  readonly table: KeyTable;
+  /** The type's table with the user's keys applied (`useKeyTable`): the frame provides it to its widget. */
+  readonly table: readonly KeyInEffect[];
   /** The string key of the type's name, which titles the panel; none: the panel is titled "Keys". */
   readonly name: StringKey | undefined;
   /** The item takes edits: not answered, locked, read-only or in a Snapshot. */
@@ -65,7 +67,7 @@ export const KeysFrame = ({
     <KeysPanelContext.Provider value={control}>
       {/* biome-ignore lint/a11y/noStaticElementInteractions: the frame only hears keys the widget inside it left unprevented, to open the panel on `?`; it has no role of its own. */}
       <div className={className} onKeyDown={onKeyDown} data-askboard-keys-edits={takesEdits}>
-        {children}
+        <KeyTableContext.Provider value={table}>{children}</KeyTableContext.Provider>
       </div>
       <Popover.Root open={open} onOpenChange={setOpen} modal={false}>
         <Popover.Anchor virtualRef={elements.anchor as RefObject<Measurable>} />

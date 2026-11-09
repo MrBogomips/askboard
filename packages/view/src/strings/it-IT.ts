@@ -568,6 +568,8 @@ export const IT_IT = {
   "keys.button": "Tasti",
   "keys.panel.title": "Tasti: {widget}",
   "keys.panel.close": "Chiudi",
+  "keys.panel.customised": "personalizzato",
+  "keys.panel.noKey": "nessun tasto",
   "keys.group.cursor": "Spostarsi",
   "keys.group.selection": "Selezionare",
   "keys.group.move": "Spostare gli elementi",

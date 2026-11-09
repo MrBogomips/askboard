@@ -415,7 +415,9 @@ export const useOpenLink = (): ((itemId: string, url: string) => void) =>
 // The key helpers and the key hint and Keys button of the port (keyboard-shortcuts-help, design
 // decisions 3 to 5), which the chunks reach through this module like every other name here.
 
+export type { KeyInEffect, KeySource } from "./keys/effective.ts";
 export { KeyHint, KeysButton, useKeysPanel } from "./keys/key-help.tsx";
+export { useKeyTable } from "./keys/key-table.tsx";
 export type { KeysPanelControl } from "./keys/keys-button.ts";
 export { type KeyPlatform, keyLabel, useKeyPlatform } from "./keys/label.ts";
 export { isTextTarget, type KeyEventFields, keyPressOf } from "./keys/press.ts";

@@ -1,9 +1,17 @@
 import { describe, expect, test } from "bun:test";
 import { type KeyEntry, ownEntry, vocabularyEntry } from "@askboard/contract";
 import { Tooltip } from "radix-ui";
-import { createElement } from "react";
+import { createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { type BoardContent, KeysButton, LanguageContext, register } from "../catalog/port.ts";
+import { keyTableOf } from "../catalog/keys/effective.ts";
+import { KeyOverridesContext } from "../catalog/keys/key-table.tsx";
+import {
+  type BoardContent,
+  KeyHint,
+  KeysButton,
+  LanguageContext,
+  register,
+} from "../catalog/port.ts";
 import { createDerivedStore } from "./derived-store.ts";
 import { createDraftStore } from "./draft-store.ts";
 import { KeysPanelBody } from "./keys-panel.tsx";
@@ -171,5 +179,149 @@ describe("what an item frame lists by the item's state (A read-only Ranking)", (
     const html = listedBy("keys-with-moves", true);
     expect(html).not.toContain("Move up");
     expect(html).toContain("Show the keys");
+  });
+});
+
+// The keys in effect (keyboard-shortcuts-help, task 10.2; spec: The keys panel shows the user's
+// changes): the frame gives its widget the table with the user's overrides applied, and the panel
+// marks the changed actions and lists a removed one with no key.
+const MOVE_UP = vocabularyEntry("move.up", "list", "tool");
+// `KeyHint` takes its control as children; the cast lets createElement pass it as an argument.
+const Hint = KeyHint as (props: { entry: KeyEntry; children?: ReactNode }) => ReactNode;
+const HintStub = () =>
+  createElement(
+    "div",
+    null,
+    createElement(
+      Hint,
+      { entry: MOVE_UP },
+      createElement("button", { type: "button", "data-up": "" }, "Up"),
+    ),
+    createElement(KeysButton),
+  );
+register("keys-with-hint", HintStub, { keys: MOVES_TABLE, name: "change.widgetRanking" });
+
+const withOverrides = (overrides: Record<string, readonly string[]> | undefined, node: ReactNode) =>
+  createElement(KeyOverridesContext.Provider, { value: overrides }, node);
+
+const drawWith = (overrides: Record<string, readonly string[]> | undefined, type: string) => {
+  const board: BoardContent = { items: [], draft: new Map(), shown: new Map() };
+  const context: RenderContext = {
+    draft: createDraftStore(),
+    tracker: createReadyTracker([{ questionId: "q", itemIds: ["x"] }], {
+      onVisible: () => {},
+      onFailed: () => {},
+    }),
+    boardContent: () => board,
+    derived: createDerivedStore(),
+  };
+  return renderToStaticMarkup(
+    withOverrides(
+      overrides,
+      createElement(
+        Tooltip.Provider,
+        null,
+        createElement(RenderItem, {
+          item: { type, id: "x", props: {} },
+          component: type,
+          questionId: "q",
+          itemIds: ["x"],
+          context,
+          disabled: false,
+        }),
+      ),
+    ),
+  );
+};
+
+describe("the item frame gives its widget the keys in effect", () => {
+  test("with no overrides the widget's hint shows the table's keys, as today", () => {
+    const html = drawWith(undefined, "keys-with-hint");
+    expect(html).toContain('aria-keyshortcuts="Alt+Shift+ArrowUp"');
+    expect(html).toContain('aria-keyshortcuts="?"');
+  });
+
+  test("a widget that passes its static entry shows the user's keys", () => {
+    const html = drawWith({ "move.up": ["Mod+Alt+ArrowUp"] }, "keys-with-hint");
+    expect(html).toContain('aria-keyshortcuts="Control+Alt+ArrowUp Meta+Alt+ArrowUp"');
+    expect(html).not.toContain('aria-keyshortcuts="Alt+Shift+ArrowUp"');
+  });
+
+  test("an action the user removed the keys of keeps its tooltip and has no attribute", () => {
+    const html = drawWith({ "move.up": [] }, "keys-with-hint");
+    expect(html).toMatch(
+      /<button[^>]*data-up=""[^>]*data-state="closed"|<button[^>]*data-state="closed"[^>]*data-up=""/,
+    );
+    const button = /<button[^>]*data-up=""[^>]*>/.exec(html)?.[0] ?? "";
+    expect(button).not.toContain("aria-keyshortcuts");
+  });
+
+  test("overrides that name another action leave this one as it is", () => {
+    const html = drawWith({ "move.top": ["Mod+Alt+ArrowUp"] }, "keys-with-hint");
+    expect(html).toContain('aria-keyshortcuts="Alt+Shift+ArrowUp"');
+  });
+
+  test("the Keys button's own keys are keys.open in effect", () => {
+    const html = drawWith({ "keys.open": ["Mod+Alt+Enter"] }, "keys-with-hint");
+    expect(html).toContain('aria-keyshortcuts="Control+Alt+Enter Meta+Alt+Enter"');
+  });
+});
+
+const panelOf = (
+  overrides: Record<string, readonly string[]> | undefined,
+  takesEdits: boolean,
+  language: "en-US" | "it-IT" = "en-US",
+) =>
+  renderToStaticMarkup(
+    createElement(
+      LanguageContext.Provider,
+      { value: language },
+      createElement(KeysPanelBody, { table: keyTableOf(MOVES_TABLE, overrides), takesEdits }),
+    ),
+  );
+
+describe("the panel shows the user's changes", () => {
+  test("marks a changed action with its new keys and lists a removed one with no key", () => {
+    const html = panelOf({ "move.top": ["Mod+Alt+ArrowUp"], "select.toggle": [] }, true);
+    expect(html).toContain("Ctrl+Alt+↑");
+    expect(html.match(/customised/g)).toHaveLength(2);
+    expect(html).toContain("no key");
+    expect(html).not.toContain("Alt+Shift+Home");
+  });
+
+  test("no overrides: no mark and no empty row, as before", () => {
+    const html = panelOf(undefined, true);
+    expect(html).not.toContain("customised");
+    expect(html).not.toContain("no key");
+  });
+
+  test("in Italian the marks follow the board's language", () => {
+    const html = panelOf({ "select.toggle": [] }, true, "it-IT");
+    expect(html).toContain("personalizzato");
+    expect(html).toContain("nessun tasto");
+  });
+
+  test("a read-only item lists a removed action only if it still acts", () => {
+    const html = panelOf({ "select.toggle": [], "move.up": [] }, false);
+    expect(html).toContain("Select");
+    expect(html).not.toContain("Move up");
+  });
+
+  test("every name is text: a label holding markup is escaped, and a prototype name looks nothing up", () => {
+    const table = [
+      { ...vocabularyEntry("move.up", "list", "tool"), label: "<img src=x onerror=1>" },
+      { ...vocabularyEntry("move.top", "list", "tool"), label: "__proto__" },
+      { ...vocabularyEntry("move.bottom", "list", "tool"), label: "toString" },
+      { ...vocabularyEntry("select.all", "list", "tool"), label: "constructor" },
+    ];
+    const html = renderToStaticMarkup(
+      createElement(KeysPanelBody, {
+        table: keyTableOf(table, { "move.up": [] }),
+        takesEdits: true,
+      }),
+    );
+    expect(html).not.toContain("<img");
+    expect(html).toContain("&lt;img src=x onerror=1&gt;");
+    for (const name of ["__proto__", "toString", "constructor"]) expect(html).toContain(name);
   });
 });

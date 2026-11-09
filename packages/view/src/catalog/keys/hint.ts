@@ -6,12 +6,12 @@ import {
   ariaKeyShortcuts,
   type KeyEntry,
   type KeyPress,
-  type KeyTable,
   keyActionOf,
   vocabularyEntry,
 } from "@askboard/contract";
 import { STRINGS, type StringKey } from "../../strings/index.ts";
 import type { Say } from "../port.ts";
+import type { KeyInEffect } from "./effective.ts";
 import { type KeyPlatform, keyLabel } from "./label.ts";
 
 /** The text of an entry's label: the string it names, else the label itself (a test checks each is a key). */
@@ -28,9 +28,19 @@ export type Hint = {
   readonly aria: string;
 };
 
-/** The hint of an entry; none for a keyless one, which gets no tooltip and no `aria-keyshortcuts`. */
-export const hintOf = (entry: KeyEntry, platform: KeyPlatform, say: Say): Hint | undefined =>
-  entry.keys.length === 0
+/** An entry of a table, or one in effect, which also says whose keys it holds. */
+export type AnyKeyEntry = KeyEntry | KeyInEffect;
+
+// Whether the user's file gave the entry's keys: a removed action (`[]`) is not a keyless one.
+const isUsers = (entry: AnyKeyEntry): boolean => "source" in entry && entry.source === "user";
+
+/**
+ * The hint of an entry. A table's keyless entry has none: no tooltip and no `aria-keyshortcuts`
+ * (decision 6). An action the user's file removed the keys of keeps its hint, with its name, no
+ * key cap and an empty `aria` (decision 19).
+ */
+export const hintOf = (entry: AnyKeyEntry, platform: KeyPlatform, say: Say): Hint | undefined =>
+  entry.keys.length === 0 && !isUsers(entry)
     ? undefined
     : {
         name: labelText(say, entry.label),
@@ -44,11 +54,12 @@ export const KEYS_OPEN_ENTRY: KeyEntry = vocabularyEntry("keys.open", "list", "p
 });
 
 /**
- * Whether a press opens the keys panel: `?`, with or without Shift as the layout needs it, outside
- * a text field and while no input method composes (the matcher's rules for `keys.open`).
+ * Whether a press opens the keys panel: the keys of `keys.open` in effect (`?` unless the user's
+ * file gives it others, `keysOpenEntryOf`), outside a text field and while no input method
+ * composes (the matcher's rules). With no key in effect nothing opens it.
  */
-export const opensKeysPanel = (press: KeyPress): boolean =>
-  keyActionOf([KEYS_OPEN_ENTRY], KEYS_OPEN_ENTRY.part, press, false) !== undefined;
+export const opensKeysPanel = (press: KeyPress, entry: KeyEntry = KEYS_OPEN_ENTRY): boolean =>
+  keyActionOf([entry], entry.part, press, false) !== undefined;
 
 /** The groups of the panel, in order. */
 export const PANEL_GROUPS = ["cursor", "selection", "move", "edit", "other"] as const;
@@ -73,8 +84,15 @@ export const groupOf = (action: string): PanelGroup => {
   return EDIT_FAMILIES.has(family) ? "edit" : "other";
 };
 
-/** One row of the panel. */
-export type PanelRow = { readonly name: string; readonly caps: readonly string[] };
+/**
+ * One row of the panel: no cap is an action the user removed the keys of, and `customised` marks an
+ * action whose keys come from the user's file; the mark is left out where none does.
+ */
+export type PanelRow = {
+  readonly name: string;
+  readonly caps: readonly string[];
+  readonly customised?: true;
+};
 
 /** One group of the panel. */
 export type PanelGroupRows = {
@@ -83,25 +101,32 @@ export type PanelGroupRows = {
   readonly rows: readonly PanelRow[];
 };
 
+const rowOf = (entry: AnyKeyEntry, platform: KeyPlatform, say: Say): PanelRow => ({
+  name: labelText(say, entry.label),
+  caps: entry.keys.map((binding) => keyLabel(binding, platform, say)),
+  ...(isUsers(entry) ? { customised: true as const } : {}),
+});
+
 /**
  * The panel's groups for a table: each entry that has keys, in the table's order, in the group of
  * its action; an item that takes no edits lists only the entries that still act (`readOnly`,
- * review 1.6 S-3). A group with no row is left out, and a keyless entry is never listed.
+ * review 1.6 S-3). A group with no row is left out. A table's keyless entry is never listed, while
+ * an action the user's file removed the keys of is, with no key; each action whose keys the user's
+ * file gave is marked.
  */
 export const panelGroups = (
-  table: KeyTable,
+  table: readonly AnyKeyEntry[],
   takesEdits: boolean,
   platform: KeyPlatform,
   say: Say,
 ): readonly PanelGroupRows[] => {
-  const listed = table.filter((entry) => entry.keys.length > 0 && (takesEdits || entry.readOnly));
+  const listed = table.filter(
+    (entry) => (entry.keys.length > 0 || isUsers(entry)) && (takesEdits || entry.readOnly),
+  );
   return PANEL_GROUPS.flatMap((id) => {
     const rows = listed
       .filter((entry) => groupOf(entry.action) === id)
-      .map((entry) => ({
-        name: labelText(say, entry.label),
-        caps: entry.keys.map((binding) => keyLabel(binding, platform, say)),
-      }));
+      .map((entry) => rowOf(entry, platform, say));
     return rows.length === 0 ? [] : [{ id, title: say(GROUP_TITLES[id]), rows }];
   });
 };

@@ -29,6 +29,7 @@ import {
   componentFor,
   type DerivedValues,
   type ItemProps,
+  useKeyTable,
   useStrings,
 } from "../catalog/port.ts";
 import { nestedWidgetItemsOf } from "../nested-items.ts";
@@ -136,16 +137,17 @@ const ItemFrame = ({
   const pending = status === "pending";
   const text = useStrings();
   const facts = componentFacts(type);
+  const keys = useKeyTable(facts?.keys);
   const className = pending ? "invisible" : undefined;
   return (
     <div data-askboard-item={itemId} className="relative">
-      {facts?.keys === undefined ? (
+      {keys === undefined ? (
         <div className={className}>{children}</div>
       ) : (
         <KeysFrame
           itemId={itemId}
-          table={facts.keys}
-          name={facts.name}
+          table={keys}
+          name={facts?.name}
           takesEdits={takesEdits}
           className={className}
         >

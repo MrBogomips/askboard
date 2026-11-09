@@ -8,6 +8,7 @@ import {
   WIDGET_TYPES,
 } from "@askboard/contract";
 import { t } from "../../strings/index.ts";
+import { keysOpenEntryOf, keyTableOf } from "./effective.ts";
 import {
   groupOf,
   hintOf,
@@ -78,6 +79,12 @@ describe("labelText", () => {
   test("a string key is looked up, anything else stays as it is", () => {
     expect(labelText(en, "ranking.keep")).toBe("Keep this order");
     expect(labelText(en, "no.such.key")).toBe("no.such.key");
+  });
+
+  test("a name from the prototype chain is no string key (own properties only)", () => {
+    for (const name of ["__proto__", "constructor", "toString", "hasOwnProperty"]) {
+      expect(labelText(en, name)).toBe(name);
+    }
   });
 });
 
@@ -184,5 +191,142 @@ describe("opensKeysPanel (spec: The keys panel; EXPERIENCE: `?` outside text fie
   test("no other key does", () => {
     expect(opensKeysPanel(press({ key: "/" }))).toBe(false);
     expect(opensKeysPanel(press({ key: "Escape" }))).toBe(false);
+  });
+});
+
+// The user's keys in the hint and the panel (keyboard-shortcuts-help, task 10.2; view spec: The keys
+// panel shows the user's changes): a removed action keeps its tooltip with no key, a changed one is
+// marked, and a table's keyless entry is still left out.
+describe("the keys in effect: hintOf", () => {
+  const overridden = keyTableOf(PROBE_TABLE(), { "move.up": [], "move.top": ["Mod+Alt+ArrowUp"] });
+  const of = (action: string) => {
+    const found = overridden.find((entry) => entry.action === action);
+    if (found === undefined) throw new Error(`no ${action}`);
+    return found;
+  };
+
+  test("a replaced action shows and announces its new keys", () => {
+    expect(hintOf(of("move.top"), "other", en)).toEqual({
+      name: "To top",
+      caps: ["Ctrl+Alt+↑"],
+      aria: "Control+Alt+ArrowUp Meta+Alt+ArrowUp",
+    });
+    expect(hintOf(of("move.top"), "mac", en)?.caps).toEqual(["⌥⌘↑"]);
+  });
+
+  test("a user-removed action keeps a hint: its name, no key and no aria-keyshortcuts", () => {
+    expect(hintOf(of("move.up"), "other", en)).toEqual({ name: "Move up", caps: [], aria: "" });
+  });
+
+  test("a table's keyless entry, in effect or not, still has none", () => {
+    const keyless = overridden.find((entry) => entry.action === "probe.menu");
+    expect(keyless?.source).toBe("table");
+    expect(keyless === undefined ? "missing" : hintOf(keyless, "other", en)).toBeUndefined();
+  });
+
+  test("the Keys button's entry, removed, has a hint with its name and no key", () => {
+    const removed = keysOpenEntryOf({ "keys.open": [] });
+    expect(hintOf(removed, "other", en)).toEqual({ name: "Keys", caps: [], aria: "" });
+    const bound = keysOpenEntryOf({ "keys.open": ["Mod+Alt+Enter"] });
+    expect(hintOf(bound, "other", en)).toEqual({
+      name: "Keys",
+      caps: ["Ctrl+Alt+Enter"],
+      aria: "Control+Alt+Enter Meta+Alt+Enter",
+    });
+  });
+});
+
+function PROBE_TABLE(): readonly KeyEntry[] {
+  return [
+    vocabularyEntry("cursor.down", "list", "navigation"),
+    vocabularyEntry("move.up", "list", "tool"),
+    vocabularyEntry("move.top", "list", "tool"),
+    vocabularyEntry("select.none", "list", "pointer", { readOnly: true }),
+    vocabularyEntry("keys.open", "list", "panel"),
+    ownEntry("probe.menu", "toolbar", [], "menu", { readOnly: true, label: "kanban.moveTo" }),
+  ];
+}
+
+describe("the keys in effect: panelGroups", () => {
+  const rowsOf = (
+    groups: ReturnType<typeof panelGroups>,
+  ): readonly (readonly [string, readonly string[], boolean])[] =>
+    groups.flatMap((group) =>
+      group.rows.map((row) => [row.name, row.caps, row.customised === true] as const),
+    );
+  const effective = keyTableOf(PROBE_TABLE(), {
+    "move.top": ["Mod+Alt+ArrowUp"],
+    "move.up": [],
+    "select.none": [],
+  });
+
+  test("with no overrides the rows are today's: no mark, no empty row", () => {
+    const plain = panelGroups(keyTableOf(PROBE_TABLE(), undefined), true, "other", en);
+    expect(plain).toEqual(panelGroups(PROBE_TABLE(), true, "other", en));
+    expect(rowsOf(plain).every(([, , customised]) => !customised)).toBe(true);
+  });
+
+  test("marks each action whose keys changed, and lists a removed one with no key", () => {
+    expect(rowsOf(panelGroups(effective, true, "other", en))).toEqual([
+      ["Go down", ["↓"], false],
+      ["Select none", [], true],
+      ["Move up", [], true],
+      ["To top", ["Ctrl+Alt+↑"], true],
+      ["Show the keys", ["?"], false],
+    ]);
+  });
+
+  test("a table's keyless entry is still left out, a removed one is not", () => {
+    const names = rowsOf(panelGroups(effective, true, "other", en)).map(([name]) => name);
+    expect(names).not.toContain("Move to…");
+    expect(names).toContain("Move up");
+  });
+
+  test("an item that takes no edits lists a removed action only when its entry is readOnly", () => {
+    const names = rowsOf(panelGroups(effective, false, "other", en)).map(([name]) => name);
+    expect(names).toContain("Select none");
+    expect(names).not.toContain("Move up");
+    expect(names).not.toContain("To top");
+  });
+
+  test("the mark follows the user's source, not the keys: the same keys given are still the user's", () => {
+    const same = keyTableOf(PROBE_TABLE(), { "cursor.down": ["ArrowDown"] });
+    expect(rowsOf(panelGroups(same, true, "other", en))[0]).toEqual(["Go down", ["↓"], true]);
+  });
+});
+
+describe("opensKeysPanel with the keys in effect", () => {
+  const press = (fields: Partial<KeyPress> = {}): KeyPress => ({
+    key: "?",
+    hold: "none",
+    composing: false,
+    inText: false,
+    ...fields,
+  });
+  const bound = keysOpenEntryOf({ "keys.open": ["Mod+Alt+Enter"] });
+  const removed = keysOpenEntryOf({ "keys.open": [] });
+
+  test("a rebound key opens it, and `?` opens nothing", () => {
+    expect(opensKeysPanel(press({ key: "Enter", hold: "mod+alt" }), bound)).toBe(true);
+    expect(opensKeysPanel(press(), bound)).toBe(false);
+  });
+
+  test("given no key, none opens it", () => {
+    expect(opensKeysPanel(press(), removed)).toBe(false);
+    expect(opensKeysPanel(press({ key: "Enter", hold: "mod+alt" }), removed)).toBe(false);
+  });
+
+  test("the text-field and composing rules hold for a rebound key", () => {
+    expect(opensKeysPanel(press({ key: "Enter", hold: "mod+alt", inText: true }), bound)).toBe(
+      false,
+    );
+    expect(opensKeysPanel(press({ key: "Enter", hold: "mod+alt", composing: true }), bound)).toBe(
+      false,
+    );
+  });
+
+  test("another modifier on the rebound key does not open it", () => {
+    expect(opensKeysPanel(press({ key: "Enter", hold: "mod" }), bound)).toBe(false);
+    expect(opensKeysPanel(press({ key: "Enter", hold: "alt+shift" }), bound)).toBe(false);
   });
 });
