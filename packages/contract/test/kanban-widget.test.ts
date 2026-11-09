@@ -212,7 +212,7 @@ describe("Kanban changes", () => {
     );
   });
 
-  test("several moved cards give one set each, in the cards' order", () => {
+  test("several cards moved to one column give one set each, in the cards' order", () => {
     const edited = {
       ...ITEM.props,
       cards: ITEM.props.cards.map((one) => ({ ...one, column: "done" })),
@@ -223,6 +223,31 @@ describe("Kanban changes", () => {
       "board.write-docs.column",
     ]);
     expect(check(changes)).toEqual([]);
+  });
+
+  test("cards moved to different columns give their sets column by column, the flat diff's operations in another order", () => {
+    const [fixLogin, writeDocs, releaseNotes] = ITEM.props.cards;
+    // Each card keeps its index, so each stands where the sent order puts it in its new column.
+    const edited = {
+      ...ITEM.props,
+      cards: [{ ...fixLogin, column: "done" }, writeDocs, { ...releaseNotes, column: "doing" }],
+    };
+    const changes = elementChanges("board", ITEM.props, edited, KANBAN_SHAPE);
+    // The groups in code-unit order of their IDs: `doing` before `done`, not the cards' order.
+    expect(changes).toEqual([
+      { op: "set", target: "board.release-notes.column", value: "doing" },
+      { op: "set", target: "board.fix-login.column", value: "done" },
+    ]);
+    const flat = elementChanges("board", ITEM.props, edited, { elements: "cards" });
+    expect(flat).toEqual([
+      { op: "set", target: "board.fix-login.column", value: "done" },
+      { op: "set", target: "board.release-notes.column", value: "doing" },
+    ]);
+    const byTarget = (a: { target: string }, b: { target: string }) =>
+      a.target < b.target ? -1 : a.target > b.target ? 1 : 0;
+    expect([...changes].sort(byTarget)).toEqual([...flat].sort(byTarget));
+    expect(check(changes)).toEqual([]);
+    expect(applyElementChanges("board", ITEM.props, changes, KANBAN_SHAPE)).toEqual(edited);
   });
 
   test("the reversal of a Kanban with one card per column gives no change, and an in-column reorder a move the check passes", () => {

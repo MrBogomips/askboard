@@ -28,7 +28,7 @@ The generic diff SHALL take a flat list whose elements name their group in a fie
 - **THEN** both edited lists give the same changes, a `move` of `a2` then a `move` of `b2`, and the diff of the list they rebuild against the sent list gives those changes again
 
 ### Requirement: The inverse of a grouped list
-Applied in order to the sent list, a `move` or an `add` going right after `after`, or first in the list without it, a grouped list's changes SHALL rebuild every group's edited order. An `after` that is not in the moved element's group at that point, or an element whose group field is not a string, SHALL make the inverse fail, naming the operation; a grouped shape that also names children SHALL make the diff and the inverse fail (AD-20, NFR-10).
+Applied in order to the sent list, a `move` or an `add` going right after `after`, or first in the list without it, a grouped list's changes SHALL rebuild every group's edited order. An `after` that is not in the placed element's group at that point, or a group field that is not a string on an element a `move` or an `add` places, SHALL make the inverse fail, naming the operation; a grouped shape that also names children SHALL make the diff and the inverse fail (AD-20, NFR-10).
 
 #### Scenario: An after in another group
 - **WHEN** changes holding a `move` of `a` with `after` naming an element of another group are applied to a grouped list

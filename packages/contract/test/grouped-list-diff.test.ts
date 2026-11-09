@@ -399,6 +399,11 @@ describe("the round trip of a grouped list", () => {
     const sent = list("a1:a", "a2:a", "b1:b", "b2:b");
     const edited = list("b2:b", "b1:b", "a2:a", "a1:a");
     const changes = diff(sent, edited);
+    // The scenario's own changes: a move of a2, then a move of b2.
+    expect(changes).toEqual([
+      { op: "move", target: "probe.a2" },
+      { op: "move", target: "probe.b2" },
+    ]);
     const rebuilt = apply(sent, changes);
     expect(orderOf(rebuilt, "a")).toEqual(["a2", "a1"]);
     expect(orderOf(rebuilt, "b")).toEqual(["b2", "b1"]);

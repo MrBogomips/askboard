@@ -50,7 +50,7 @@ describe("the Table in the registry", () => {
 });
 
 describe("the minors the Table binds", () => {
-  test("the four widened sets are one minor past form-widget's, and the sets carry the constants", () => {
+  test("the Table's sets are at or past its minors, and the sets carry the constants", () => {
     // Form-widget's were input 1.11, output 1.10, tool envelopes 1.11 and board document 1.10.
     expect({
       input: INPUT_FORMAT_VERSION,

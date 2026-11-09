@@ -2,7 +2,7 @@
 // output format's next minor"; design decision 8): the output format takes one minor past `main`'s
 // (1.11, at the base ac9f891f) for the Kanban's `move`, every other set keeps `main`'s. The number
 // is bound here and in the constant only (askboard-contract-versioning, Rule 1); the rebase task
-// moves both, and the next change that widens the output format moves the pin in table-sets.test.ts.
+// moves both, and the next change that widens the output format moves the pin in this file.
 
 import { describe, expect, test } from "bun:test";
 import {
