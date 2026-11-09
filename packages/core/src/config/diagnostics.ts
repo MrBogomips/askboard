@@ -1,9 +1,17 @@
 // The configuration's diagnostics (settings-languages design decision 4): AskBoard's own text,
-// written once per session, naming the file, the code, the JSON pointer and Ajv's keyword. A key
-// from a file is quoted as JSON, so no control character reaches the terminal; no value is named,
-// so an `editor` never reaches stderr.
+// written once per session, naming the file, the code, the JSON pointer and Ajv's keyword. Every
+// text a file chose (a JSON pointer, which holds the name of the property that failed, an unknown
+// key, a Snapshot folder, an action, a combination) goes through `quoteFileText`: quoted as JSON,
+// with DEL, the C1 controls, U+2028, U+2029 and the bidirectional controls escaped as well, so each
+// diagnostic is one line that no file can colour, split or reorder (keyboard-shortcuts-help, review
+// 8.6, X-1 and X-2). No value of an `editor` is named, so it never reaches stderr.
 
-import type { FileProblem, SettingsFile, SettingWarning } from "@askboard/contract";
+import {
+  type FileProblem,
+  quoteFileText,
+  type SettingsFile,
+  type SettingWarning,
+} from "@askboard/contract";
 import type { FolderResult } from "./ports.ts";
 import type { SettingsInEffect } from "./settings.ts";
 
@@ -13,27 +21,33 @@ const where = (file: SettingsFile, name: keyof typeof FILE_NAMES): string =>
   file.path ?? FILE_NAMES[name];
 
 const problemText = ({ code, pointer, keyword, error }: FileProblem): string =>
-  [code, pointer && `at ${pointer}`, keyword && `(${keyword})`, error && `(${error})`]
+  [
+    code,
+    pointer && `at ${quoteFileText(pointer)}`,
+    keyword && `(${keyword})`,
+    error && `(${error})`,
+  ]
     .filter(Boolean)
     .join(" ");
 
 const WARNINGS: Readonly<Record<SettingWarning["code"], (warning: SettingWarning) => string>> = {
-  "unknown-key": ({ key }) => `holds the unknown key ${JSON.stringify(key)}, which is ignored.`,
+  "unknown-key": ({ key }) => `holds the unknown key ${quoteFileText(key)}, which is ignored.`,
   "project-editor-ignored": () =>
     "sets editor, which AskBoard reads from the user file only: it is ignored.",
   "editor-file-writable-by-others": () =>
     "can be written by another user, or a folder above it can, or another user owns one: its editor is ignored.",
   "snapshot-folder-replaced": ({ value }) =>
-    `sets snapshotFolder to ${JSON.stringify(value)}, which leaves the project: .askboard/snapshots is used instead.`,
+    `sets snapshotFolder to ${quoteFileText(value ?? "")}, which leaves the project: .askboard/snapshots is used instead.`,
   "project-keys-ignored": () =>
     "sets keys, which AskBoard reads from the user file only: it is ignored.",
-  // The action and the combination come from a file: JSON-quoted, so no control character gets out.
+  // The action, the combination and the other action come from a file: quoted by `quoteFileText`,
+  // so no control character, separator or bidirectional control gets out.
   "keys-not-applied": ({ rule, action, binding, with: other }) => {
     const parts = [
       `does not apply its keys (every key is the default): rule ${rule}`,
-      `action ${JSON.stringify(action)}`,
-      ...(binding === undefined ? [] : [`combination ${JSON.stringify(binding)}`]),
-      ...(other === undefined ? [] : [`with ${JSON.stringify(other)}`]),
+      `action ${quoteFileText(action ?? "")}`,
+      ...(binding === undefined ? [] : [`combination ${quoteFileText(binding)}`]),
+      ...(other === undefined ? [] : [`with ${quoteFileText(other)}`]),
     ];
     return `${parts.join(", ")}.`;
   },
