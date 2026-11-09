@@ -95,7 +95,13 @@ const scan = (dir: string): Scan => {
   checkAnchors(dir);
   const files: string[] = [];
   const folders: string[] = [];
-  if (lstat(dir)?.isDirectory()) walk(dir, dir, files, folders);
+  const found = lstat(dir);
+  // A folder that exists and is no directory (a file, a FIFO) is not an empty one: refusing it here,
+  // in the scan that precedes every write, leaves both skill folders as they were (review 5.6, X-4).
+  if (found !== undefined && !found.isDirectory()) {
+    throw new Error(`skills/${basename(dir)} is not a directory`);
+  }
+  if (found !== undefined) walk(dir, dir, files, folders);
   return { files: files.sort(), folders: folders.sort() };
 };
 

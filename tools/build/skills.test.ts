@@ -5,6 +5,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import {
   existsSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -331,6 +332,51 @@ describe("symlinks", () => {
     log = [];
     expect(await run()).toBe(1);
     expect(listing(outside)).toEqual({ "secret.txt": "keep" });
+  });
+});
+
+// Review 5.6, X-4: a skill folder that exists and is not a directory stops the command before any
+// write, in both modes and whichever of the two it is, so the other folder is never rewritten.
+describe("a skill folder that is not a directory", () => {
+  const folders = [
+    { name: "askboard", at: () => dir, other: () => helpDir() },
+    { name: "askboard-help", at: () => helpDir(), other: () => dir },
+  ];
+  const kinds = [
+    { kind: "regular file", make: (path: string) => writeFileSync(path, "not a folder") },
+    {
+      kind: "FIFO",
+      make: (path: string) => {
+        const made = Bun.spawnSync(["mkfifo", path]);
+        if (made.exitCode !== 0) throw new Error("mkfifo failed");
+      },
+    },
+  ];
+
+  for (const { name, at, other } of folders) {
+    for (const { kind, make } of kinds) {
+      for (const args of [[], ["--check"]]) {
+        test(`${kind} for skills/${name}: ${args.length === 0 ? "build" : "check"} exits 1 naming it and writes nothing`, async () => {
+          await run();
+          write(join(other(), "references", "stray.md"), "extra");
+          const before = listing(other());
+          rmSync(at(), { recursive: true });
+          make(at());
+          log = [];
+          expect(await run(...args)).toBe(1);
+          expect(said()).toContain(`skills/${name} is not a directory`);
+          const kept = lstatSync(at());
+          expect(kept.isDirectory()).toBe(false);
+          expect(listing(other())).toEqual(before);
+        });
+      }
+    }
+  }
+
+  test("a folder that does not exist yet still scans empty", async () => {
+    expect(await run("--check")).toBe(1);
+    expect(said()).toContain("missing: skills/askboard/SKILL.md");
+    expect(said()).not.toContain("not a directory");
   });
 });
 
