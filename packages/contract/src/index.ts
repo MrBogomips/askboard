@@ -1143,7 +1143,8 @@ export {
 // binds to the same keys, a widget type's key table built from them, the pure matcher a handler maps
 // through, the check the registry runs, `aria-keyshortcuts` from a table, and the tables of the six
 // types that have one, each on its registry entry: the Ranking's as it is built here, the others as
-// their handlers take keys today.
+// their handlers take keys today. With them, the helper that shows text a configuration file chose
+// on one line, quoted and with its controls escaped (design decision 19).
 
 export {
   ariaKeyShortcuts,
@@ -1179,6 +1180,7 @@ export {
   vocabularyEntry,
   vocabularyLabel,
 } from "./keys/index.ts";
+export { escapeFileText, quoteFileText } from "./schemas/configuration/file-text.ts";
 export { CHART_KEYS, type ChartKeyAction } from "./widgets/chart/index.ts";
 export { GANTT_KEYS, type GanttKeyAction } from "./widgets/gantt/index.ts";
 export { KANBAN_KEYS, type KanbanKeyAction } from "./widgets/kanban/index.ts";
