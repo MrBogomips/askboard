@@ -413,6 +413,18 @@ describe("configure-keys.md's rules", () => {
     expect(() => rowWarningsBound(() => ({ $defs: { row: {} } }))).toThrow(/maxItems/);
   });
 
+  test("stderr lists the problems found at the session's first read, Settings those found when a board opens (S-45)", () => {
+    const line = lineWith("refuses the whole `keys`");
+    expect(line).toMatch(/stderr lists the problems found at its first read/);
+    expect(line).toMatch(/Settings[^.]*when a board opens/);
+    expect(line).toContain(`up to ${SETTING_ROW_WARNINGS_MAX}`);
+    // No line says stderr lists them without naming the first read.
+    const saying = text.split("\n").filter((each) => /stderr/.test(each));
+    expect(saying.length).toBeGreaterThan(0);
+    for (const each of saying) expect(each).toContain("first read");
+    expect(text).not.toMatch(/and the session's stderr lists them/);
+  });
+
   test("every example's title counts its combinations rightly, and none is another action's default", () => {
     const words = ["One", "Two", "Three", "Four"];
     const rows = actionRows(WIDGET_TYPES);

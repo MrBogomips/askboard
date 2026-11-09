@@ -93,11 +93,13 @@ describe("a board reads the user's keys again", () => {
     await valid(core);
   });
 
-  test("keys refused at the second read give that board the defaults and the warnings", async () => {
-    const { core, setUser } = open({ user: { version, keys: TOP } });
+  test("Keys refused at a later read (core spec): that board takes the defaults, its settings carry the warning, and stderr writes no new line", async () => {
+    const { core, setUser, diagnosed } = open({ user: { version, keys: TOP } });
     await core.settings();
+    expect(diagnosed).toHaveLength(0);
     setUser({ version, theme: "dark", keys: CONFLICT });
     const board = await core.settingsForBoard();
+    expect(diagnosed).toHaveLength(0);
     expect(board.rows.keys).toEqual({
       from: "default",
       writable: false,

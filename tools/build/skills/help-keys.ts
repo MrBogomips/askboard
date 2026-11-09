@@ -174,7 +174,7 @@ export const configureKeysText = (
     "",
     "## When it applies",
     "",
-    `- Any problem refuses the whole \`keys\`: every widget keeps its default keys, Settings lists the problems (up to ${rowBound}) and the session's stderr lists them. Fix the file; there is no partial change.`,
+    `- Any problem refuses the whole \`keys\`: every widget keeps its default keys. The session's stderr lists the problems found at its first read of the file, and Settings those found when a board opens (up to ${rowBound}). Fix the file; there is no partial change.`,
     where.applies,
   ].join("\n");
 };

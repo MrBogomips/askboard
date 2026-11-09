@@ -44,5 +44,5 @@ Two combinations for one action:
 
 ## When it applies
 
-- Any problem refuses the whole `keys`: every widget keeps its default keys, Settings lists the problems (up to 8) and the session's stderr lists them. Fix the file; there is no partial change.
+- Any problem refuses the whole `keys`: every widget keeps its default keys. The session's stderr lists the problems found at its first read of the file, and Settings those found when a board opens (up to 8). Fix the file; there is no partial change.
 - A change applies to the next board opened, not to one already open. No widget takes the user's keys yet, so nothing changes on the board until one does.
