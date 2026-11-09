@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Grouped lists in the generic diff
-The generic diff SHALL take a flat list whose elements name their group in a field the shape declares, order counting within a group only. Group by group, in the code-unit order of the group values, for each element in edited order it SHALL give an `add`, or its `set`s then a `move` when outside its group's longest run in sent order; then the `remove`s. An `add` or `move` SHALL name as `after` its group's preceding element, omitted for the first, never a `parent` (AD-20, FR-20).
+The generic diff SHALL take a flat list whose elements name their group in a declared field, order counting per group. Group by group, in code-unit order of group values, each element in edited order SHALL give an `add`, or its `set`s then a `move` when outside its group's longest run in sent order, a tie going to the run keeping most elements whose group is unchanged; then the `remove`s. An `add` or `move` SHALL name as `after` its group's preceding element, never a `parent` (AD-20, FR-20).
 
 #### Scenario: A card reordered in its column
 - **WHEN** the diff runs over a grouped list whose group `todo` held `a`, `b`, `c` and now holds `c`, `a`, `b`
@@ -18,6 +18,10 @@ The generic diff SHALL take a flat list whose elements name their group in a fie
 #### Scenario: A card moved to another group elsewhere
 - **WHEN** `b` moves from `todo` to the top of `doing`, above an element that precedes it in the sent list
 - **THEN** the diff gives a `set` of `b`'s group field, then a `move` of `b` with no `after`, and applying them gives `doing` with `b` first
+
+#### Scenario: A card moved into another column is the one moved
+- **WHEN** the sent list is `a` in `todo`, then `b` and `c` in `done`, and `a` moves into `done` between `b` and `c`, so that keeping `b` and `c` in place and keeping `a` and `c` are runs of equal length
+- **THEN** the diff gives a `set` of `a`'s group field to `done`, then a `move` of `a` after `b`, no change names `b` or `c`, and the diff of the list they rebuild against the sent list gives those changes again
 
 #### Scenario: Groups in the order of their values
 - **WHEN** the user adds `n` to `todo` and `m` to `doing`, whatever the interleaving of the two groups in the flat edited list

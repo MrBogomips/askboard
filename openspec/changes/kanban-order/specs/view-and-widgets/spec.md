@@ -74,6 +74,10 @@ A card SHALL move by drag to the place under the pointer, in its own column or a
 - **WHEN** the user drags `c` above `a` in `todo`, in Chromium or WebKit
 - **THEN** the line shows above `a` during the drag, `todo` then lists `c` then `a`, and `c` takes the change highlight
 
+#### Scenario: A drag into another column marks the dragged card only
+- **WHEN** the user drags `a` from `todo` into `done`, right below `b`, a card the sent order puts after `a`, in Chromium or WebKit
+- **THEN** `done` lists `b` then `a`, only `a` takes the change highlight, and the counter reads "Your changes: 1 moved"
+
 #### Scenario: Moved back
 - **WHEN** the user then drags each moved card back to its place
 - **THEN** the draft holds no value for the item and no card shows the change highlight
