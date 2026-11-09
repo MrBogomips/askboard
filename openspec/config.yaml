@@ -23,6 +23,7 @@ rules:
     - Each task names its tests first and carries a Verify clause.
     - End each implementation group with a review checkpoint task. It is a spec review of the group's range. It adds a security review when the group touches the board host or its local API, hooks, the mod, the contract's schemas or validators, the view's sandbox or page policy, the file system or the network.
     - Keep each as-built note to about five lines. Record what was built, the test counts and the deviations.
+    - The documents task writes the change's record in its own file `docs/as-built/<change-id>.md` (what it built, where the code lives, the names and seams it added, the versions it bound; no status), never in CLAUDE.md, which changes only when a rule it states changes.
 
 # Per-operation guidance, advisory, for apply and archive.
 operations:
@@ -33,4 +34,4 @@ operations:
       - Raise the implementer's effort to high for contract and core groups, for rebase conflicts and for a second attempt at a task.
   archive:
     guidance:
-      - Archive only after the pull request is merged. Every Verify task must be ticked or have its reason recorded. The CLAUDE.md Status and "In code since" lines must describe the change as built. The PRD, the spine and the UX documents must carry the updates the change states.
+      - Archive only after the pull request is merged. Every Verify task must be ticked or have its reason recorded. The change's as-built note `docs/as-built/<change-id>.md` must describe the change as built; the archive does not edit CLAUDE.md. The PRD, the spine and the UX documents must carry the updates the change states.

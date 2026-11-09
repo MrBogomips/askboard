@@ -72,7 +72,8 @@ and the base of the next one.
    5. The kaizen retrospective of the development workflow, then the pull request. Its body says
       `Closes #n`, or `Refs #n` when the Issue spans several changes (the last one says `Closes`).
 5. **Before `/opsx:archive`:** the pull request is merged; every Verify task is ticked or its reason
-   recorded; the CLAUDE.md Status and "In code since" lines describe the change as built; the PRD,
+   recorded; the change's as-built note `docs/as-built/<change-id>.md` describes it as built (the
+   change never edits CLAUDE.md for its own record, and the archive does not touch it); the PRD,
    spine and UX documents carry the updates the change states. The archive pull request says
    `Refs #n` and never reopens the Issue.
 

@@ -1,7 +1,7 @@
 # AskBoard: rules for coding agents
 
 These rules bind every coding agent (Claude Code, Codex) that works in this repository; `CLAUDE.md`
-imports this file. Read `CLAUDE.md` as well: it holds the project overview and status, the design
+imports this file. Read `CLAUDE.md` as well: it holds the project overview and where its state lives, the design
 documents, the invariants every change respects, the stack, the development commands and CI. This
 file does not repeat them. Write Issues, comments, commits, pull requests and artifacts in English.
 
@@ -121,6 +121,9 @@ its screenshots attached. It sends the coordinating session only the Issue numbe
   `operations`), which the workflow reads.
 - A proposal cites `Issue: #n` beside the FR, NFR and AD IDs it serves, one line per Issue it
   resolves.
+- A change records what it built in its own note, `docs/as-built/<change-id>.md` (CLAUDE.md,
+  Working documents), never in `CLAUDE.md` or this file: they change only when a rule they state
+  changes, so parallel changes do not conflict on them. What a change leaves to the PO is an Issue.
 - Archive a change only after its pull request is merged.
 
 ## Git and pull requests
