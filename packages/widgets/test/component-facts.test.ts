@@ -8,6 +8,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import {
   APPROVAL_DECISIONS,
+  KEY_TABLES_ON_BOARD,
   TABLE_SHAPE,
   WIDGET_TYPES,
   type WidgetType,
@@ -151,6 +152,7 @@ console.log(JSON.stringify(WIDGET_TYPES.map((entry, at) => {
     shape: facts?.shape?.(entry.example.item.props),
     confirmsRevision: facts?.confirmsRevision,
     revisionBound: facts?.revisionBound,
+    keys: facts?.keys,
     hasCheck: facts?.check !== undefined,
     fits: facts?.fits === undefined ? undefined : probes[at].map(
       (result) => facts.fits(result, entry.example.item.props),
@@ -174,6 +176,7 @@ type Facts = {
   shape?: unknown;
   confirmsRevision?: true;
   revisionBound?: true;
+  keys?: unknown;
   hasCheck?: boolean;
   fits?: readonly boolean[];
   valueFits?: readonly boolean[];
@@ -437,6 +440,24 @@ describe("a chunk's fact `revisionBound`", () => {
         entry.edits,
         `${entry.type} edits, so its shape already makes it read-only`,
       ).toBeUndefined();
+    }
+  });
+});
+
+// A chunk registers its type's key table with the shell as `keys` exactly when the contract lists
+// the type in `KEY_TABLES_ON_BOARD` (keyboard-shortcuts-help, decisions 14 and 20; review 5.6,
+// S-31), and then the registry entry's table: the generated skills claim the keys panel for the
+// listed types only, so the list and the chunks cannot part.
+describe("a chunk's fact `keys`", () => {
+  test("is registered exactly for the types KEY_TABLES_ON_BOARD lists, and is the entry's table", async () => {
+    const facts = await registered();
+    for (const [at, entry] of WIDGET_TYPES.entries()) {
+      const listed = KEY_TABLES_ON_BOARD.includes(entry.type);
+      expect(
+        facts[at]?.keys !== undefined,
+        `${entry.type}: keys registered exactly when listed`,
+      ).toBe(listed);
+      if (listed) expect(facts[at]?.keys).toEqual(entry.keys);
     }
   });
 });

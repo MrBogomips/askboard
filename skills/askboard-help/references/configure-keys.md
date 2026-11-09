@@ -1,6 +1,6 @@
 # Changing the keys
 
-The user can replace or remove the keys of an action, in the user configuration file only. A change holds in every widget that has the action. The board has no control for it.
+The user can replace or remove the keys of an action, in the user configuration file only. The board has no control for it. The board applies them in no widget yet: no widget takes them yet, so a change has no effect on it for now.
 
 ## Where
 
@@ -42,4 +42,4 @@ Two combinations for one action:
 ## When it applies
 
 - Any problem refuses the whole `keys`: every widget keeps its default keys, Settings shows each problem and the session's stderr lists it. Fix the file; there is no partial change.
-- A change applies to the next board opened, not to one already open, and in the widgets with a Keys button; the keys panel shows the keys in effect, with a changed action marked.
+- A change applies to the next board opened, not to one already open. No widget takes the user's keys yet, so nothing changes on the board until one does.

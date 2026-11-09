@@ -1153,6 +1153,7 @@ export {
   KEY_COMBINATION_MAX_CHARS,
   KEY_HOLDS,
   KEY_SHOWS,
+  KEY_TABLES_ON_BOARD,
   KEY_VOCABULARY,
   type KeyBinding,
   type KeyCombinationRead,

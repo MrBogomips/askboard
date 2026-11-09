@@ -372,8 +372,10 @@ describe("the pointer to the help skill", () => {
     expect(skill.length).toBeLessThanOrEqual(9000);
   });
 
-  test("the Ranking's reference lists its keys and says the keys panel shows the keys in effect", () => {
-    const ranking = generateSkill().files.get("references/widgets/ranking.md") ?? "";
+  test("the Ranking's reference lists its keys and, the board showing its panel, says the panel shows the keys in effect", () => {
+    const ranking =
+      generateSkill({ keyTablesOnBoard: ["ranking"] }).files.get("references/widgets/ranking.md") ??
+      "";
     expect(ranking).toContain("| Move up | list | Alt+Shift+↑ (⌥⇧↑) |");
     expect(ranking).toContain("| Keep this order | list | Enter (↩) |");
     expect(ranking).toContain("keys in effect");

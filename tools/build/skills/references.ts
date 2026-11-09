@@ -109,7 +109,11 @@ const answerLines = (entry: WidgetType, resolve: Resolve): string[] => {
 };
 
 /** The reference of one registered widget type. */
-export const renderWidgetReference = (entry: WidgetType, resolve: Resolve): Rendered => {
+export const renderWidgetReference = (
+  entry: WidgetType,
+  resolve: Resolve,
+  onBoard?: readonly string[],
+): Rendered => {
   if (entry.skill === undefined) {
     throw new Error(`the widget type "${entry.type}" has no teaching text (its \`skill\`)`);
   }
@@ -120,7 +124,7 @@ export const renderWidgetReference = (entry: WidgetType, resolve: Resolve): Rend
   const shape = entry.wording.expected[`${entry.type}.props`];
   const example: ExampleBody = { kind: "item", value: item };
   const fields = fieldLines(entry.props as Schema, resolve);
-  const keys = keysSection(entry);
+  const keys = keysSection(entry, onBoard);
   // The sections, each after one blank line: a type whose props have no fields (the Approval's
   // `{}`) has no Fields section.
   const sections = [

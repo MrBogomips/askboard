@@ -7,6 +7,7 @@
 import {
   CONFIGURATION_VERSION,
   KEY_COMBINATION_MAX_CHARS,
+  KEY_TABLES_ON_BOARD,
   type KeyOverrides,
   keyCombinationText,
   keyOverridesProblems,
@@ -14,7 +15,7 @@ import {
   parseKeyCombination,
   type WidgetType,
 } from "@askboard/contract";
-import { actionLine, actionRows } from "./keys.ts";
+import { actionLine, actionRows, typeName } from "./keys.ts";
 
 /** An example of the `keys` member, with what it shows. */
 export type KeyExample = { readonly title: string; readonly overrides: KeyOverrides };
@@ -73,16 +74,42 @@ const exampleBlock = ({ title, overrides }: KeyExample): string =>
 const modAltKeys = (): string =>
   MOD_ALT_KEYS.map((key) => `\`${keyCombinationText({ key, hold: "mod+alt" })}\``).join(", ");
 
+// The listed types by their English names, as "the Ranking", "the Ranking and the Gantt".
+const reached = (widgets: readonly WidgetType[], onBoard: readonly string[]): string => {
+  const names = onBoard.map((type) => {
+    const entry = widgets.find((candidate) => candidate.type === type);
+    return `the ${entry === undefined ? type : typeName(entry)}`;
+  });
+  return names.length < 2 ? names.join("") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
+};
+
+// What the reference says of where the user's keys reach, from the types the board gives a panel
+// (review 5.6, S-31): the paragraph under "Format" and the line of "When it applies".
+const reach = (widgets: readonly WidgetType[], onBoard: readonly string[]) =>
+  onBoard.length === 0
+    ? {
+        scope:
+          "The board applies them in no widget yet: no widget takes them yet, so a change has no effect on it for now.",
+        applies:
+          "- A change applies to the next board opened, not to one already open. No widget takes the user's keys yet, so nothing changes on the board until one does.",
+      }
+    : {
+        scope: `A change holds only in ${reached(widgets, onBoard)}, the widgets the board gives a Keys button, and in no other.`,
+        applies: `- A change applies to the next board opened, not to one already open, and only in ${reached(widgets, onBoard)}; the keys panel (the Keys button) shows the keys in effect, with a changed action marked.`,
+      };
+
 /** `references/configure-keys.md`. Throws, naming the example, on one the check refuses. */
 export const configureKeysText = (
   widgets: readonly WidgetType[],
   examples: readonly KeyExample[] = KEY_EXAMPLES,
+  onBoard: readonly string[] = KEY_TABLES_ON_BOARD,
 ): string => {
   checked(examples, widgets);
+  const where = reach(widgets, onBoard);
   return [
     "# Changing the keys",
     "",
-    "The user can replace or remove the keys of an action, in the user configuration file only. A change holds in every widget that has the action. The board has no control for it.",
+    `The user can replace or remove the keys of an action, in the user configuration file only. The board has no control for it. ${where.scope}`,
     "",
     "## Where",
     "",
@@ -107,7 +134,7 @@ export const configureKeysText = (
     "## When it applies",
     "",
     "- Any problem refuses the whole `keys`: every widget keeps its default keys, Settings shows each problem and the session's stderr lists it. Fix the file; there is no partial change.",
-    "- A change applies to the next board opened, not to one already open, and in the widgets with a Keys button; the keys panel shows the keys in effect, with a changed action marked.",
+    where.applies,
   ].join("\n");
 };
 

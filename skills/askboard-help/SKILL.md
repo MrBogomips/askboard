@@ -21,7 +21,7 @@ This skill answers a user's questions about using the AskBoard board. The files 
 - **Decline and Explain.** Under "More" on each question. "Decline" closes the question as declined, with an optional reason in the note; it can be revised or undone. "Explain" sends the agent the ready-made follow-up "Why are you asking, and what changes with each option?".
 - **Follow-up questions.** Under each question, the user can ask the agent a follow-up; the agent's reply arrives in the same thread, and a marker shows a reply that came while the question was out of view.
 - **When the agent changes a question.** If the agent updates a question where the user has unsent work, a notice says so and offers "Keep mine" (the user's work stays, and the answer is sent for the earlier version) or "Reload, losing my work" (the agent's version replaces it).
-- **Read-only.** An answered question, a closed or discarded ask, a board that moved to another tab and a Snapshot do not take edits. Only the keys that move around or open the keys panel still act there.
+- **Read-only.** An answered question, a closed or discarded ask, a board that moved to another tab and a Snapshot do not take edits. Only the keys that move around, and those that open the keys panel of a widget that has one, still act there.
 - **Snapshots.** The "Snapshot" button saves an offline, view-only copy of the board to a file; unsent work is not in it. The agent can take one too.
 - **Language and live updates.** The board shows the language the agent set for the ask; it offers no switch, and another language means a new ask. The agent can add or change questions while the board is open, and the board shows them at once.
 - **Note for the agent.** Every question has an optional free-text note.
@@ -34,7 +34,7 @@ This skill answers a user's questions about using the AskBoard board. The files 
 - The date field's calendar takes the keys react-day-picker documents: the arrow keys move the focus by a day or a week, Home and End go to the start and the end of the week, Page Up and Page Down to the previous and the next month, Shift with them to the previous and the next year, Enter or Space picks the day.
 - Menus and other controls take their usual keys: arrows to move, Enter or Space to choose, Escape to close.
 
-A widget with keys of its own lists them in its reference below, and the board's keys panel (the Keys button, or `?`) shows the keys in effect, which the user may have changed.
+A widget with a Keys button shows the keys in effect in its keys panel (the button, or `?`), which the user may have changed; a widget's reference below says whether the board shows one for it, and lists its default keys either way.
 
 ## References
 

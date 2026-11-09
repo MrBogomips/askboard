@@ -5,6 +5,7 @@
 // the board's `keyLabel` writes them (a test holds the two together). Pure.
 
 import {
+  KEY_TABLES_ON_BOARD,
   KEY_VOCABULARY,
   type KeyBinding,
   type KeyEntry,
@@ -88,17 +89,34 @@ const qualifier = ({ when, shows }: KeyEntry): string =>
     ...(shows === "native" ? ["a control's own keys, not changeable"] : []),
   ].join(", ");
 
-const PANEL_NOTE =
+export const PANEL_NOTE =
   "These are the default keys. The board's keys panel (the Keys button, or `?`) shows the keys in effect, which the user may have changed in the user configuration file.";
 
-/** The Keys section of a widget type's reference: a table of its entries that have keys; empty when it has none. */
-export const keysSection = (entry: WidgetType): string => {
+/** A widget type's English name: its noun without the article ("Gantt"). */
+export const typeName = (entry: WidgetType): string => entry.noun.replace(/^an? /i, "");
+
+// What a Keys section says of the panel: the sentence for a type whose chunk registers its table
+// with the board, else that the board shows none for it yet and the user's keys do not reach it
+// (review 5.6, S-31). It claims the panel for no other type.
+const panelNote = (entry: WidgetType, onBoard: readonly string[]): string =>
+  onBoard.includes(entry.type)
+    ? PANEL_NOTE
+    : `The board shows no keys panel for the ${typeName(entry)} yet, and the user's key changes do not reach it: these are its default keys.`;
+
+/**
+ * The Keys section of a widget type's reference: a table of its entries that have keys; empty when
+ * it has none. `onBoard` lists the types whose table the board shows (the contract's list).
+ */
+export const keysSection = (
+  entry: WidgetType,
+  onBoard: readonly string[] = KEY_TABLES_ON_BOARD,
+): string => {
   const rows = withKeys(entry.keys);
   if (rows.length === 0) return "";
   return [
     "## Keys",
     "",
-    PANEL_NOTE,
+    panelNote(entry, onBoard),
     "",
     "| Action | Where | Keys (macOS) |",
     "|---|---|---|",

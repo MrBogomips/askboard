@@ -49,6 +49,8 @@ export type SkillInputs = {
   readonly actionGlosses: Readonly<Record<string, string>>;
   /** The input format's ask schema, whose `language` and `locale` the language section lists. */
   readonly askSchema: Schema;
+  /** The types whose chunk registers its key table with the board; the contract's list. */
+  readonly keyTablesOnBoard: readonly string[];
 };
 
 export type GeneratedSkill = {
@@ -132,7 +134,10 @@ export const generateSkill = (inputs: Partial<SkillInputs> = {}): GeneratedSkill
   const rendered = new Map<string, { text: string; examples: readonly ExampleBody[] }>();
   rendered.set("references/context.md", renderContextReference(resolve));
   for (const entry of widgets) {
-    rendered.set(`references/widgets/${entry.type}.md`, renderWidgetReference(entry, resolve));
+    rendered.set(
+      `references/widgets/${entry.type}.md`,
+      renderWidgetReference(entry, resolve, inputs.keyTablesOnBoard),
+    );
   }
   for (const definition of molecules) {
     rendered.set(

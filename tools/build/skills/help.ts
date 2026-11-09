@@ -12,7 +12,7 @@ import {
 import { MOLECULE_SKILLS, type MoleculeSkill, READY_MOLECULES } from "@askboard/molecules";
 import { fill } from "./fill.ts";
 import { configureKeysText, KEY_EXAMPLES, type KeyExample, keyActionsText } from "./help-keys.ts";
-import { keysSection } from "./keys.ts";
+import { keysSection, typeName } from "./keys.ts";
 import { DISK_TEMPLATES, type Templates } from "./templates.ts";
 
 /** The files of `skills/askboard-help/`, by path. The help skill holds no example. */
@@ -25,6 +25,8 @@ export type HelpInputs = {
   readonly moleculeSkills: Readonly<Record<string, MoleculeSkill>>;
   readonly templates: Templates;
   readonly keyExamples: readonly KeyExample[];
+  /** The types whose chunk registers its key table with the board; the contract's list. */
+  readonly keyTablesOnBoard: readonly string[];
   /** AskBoard's tool names as the session names them (`mcp__plugin_askboard_askboard__ask`). */
   readonly toolNames: readonly string[];
 };
@@ -37,14 +39,14 @@ const sentence = (text: string): string => {
   return /[.:!?]$/.test(trimmed) ? trimmed : `${trimmed}.`;
 };
 
-const widgetTitle = (entry: WidgetType): string => entry.noun.replace(/^an? /i, "");
+const widgetTitle = typeName;
 
-const widgetReference = (entry: WidgetType): string => {
+const widgetReference = (entry: WidgetType, onBoard: readonly string[] | undefined): string => {
   const { help, skill } = entry;
   if (help === undefined) {
     throw new Error(`the widget type "${entry.type}" has no help text (its \`help\`)`);
   }
-  const keys = keysSection(entry);
+  const keys = keysSection(entry, onBoard);
   return [
     `# ${widgetTitle(entry)}`,
     "",
@@ -124,7 +126,10 @@ export const generateHelpSkill = (inputs: Partial<HelpInputs> = {}): GeneratedHe
   const files = new Map<string, string>();
   files.set("SKILL.md", withNewline(help ?? ""));
   for (const entry of widgets) {
-    files.set(`references/widgets/${entry.type}.md`, withNewline(widgetReference(entry)));
+    files.set(
+      `references/widgets/${entry.type}.md`,
+      withNewline(widgetReference(entry, inputs.keyTablesOnBoard)),
+    );
   }
   for (const definition of molecules) {
     files.set(
@@ -134,7 +139,9 @@ export const generateHelpSkill = (inputs: Partial<HelpInputs> = {}): GeneratedHe
   }
   files.set(
     "references/configure-keys.md",
-    withNewline(configureKeysText(widgets, inputs.keyExamples ?? KEY_EXAMPLES)),
+    withNewline(
+      configureKeysText(widgets, inputs.keyExamples ?? KEY_EXAMPLES, inputs.keyTablesOnBoard),
+    ),
   );
   files.set("references/key-actions.md", withNewline(keyActionsText(widgets)));
   return { files };

@@ -15,7 +15,7 @@ import { MOLECULE_SKILLS, READY_MOLECULES } from "@askboard/molecules";
 import { budgetReport, HELP_SKILL, parseFrontmatter } from "./budgets.ts";
 import { generateHelpSkill, SESSION_TOOL_PREFIX } from "./help.ts";
 import { KEY_EXAMPLES } from "./help-keys.ts";
-import { actionRows } from "./keys.ts";
+import { actionRows, PANEL_NOTE } from "./keys.ts";
 
 const help = generateHelpSkill();
 const file = (path: string): string => {
@@ -54,7 +54,9 @@ describe("the files", () => {
     expect(file("references/widgets/ranking.md")).toContain(
       "| Keep this order | list | Enter (↩) |",
     );
-    expect(file("references/widgets/ranking.md")).toContain("keys in effect");
+    expect(file("references/widgets/ranking.md")).toContain(
+      "shows no keys panel for the Ranking yet",
+    );
     expect(file("references/widgets/approval.md")).not.toContain("## Keys");
     expect(file("references/widgets/approval.md")).toContain("no keys of its own");
   });
@@ -181,6 +183,45 @@ describe("key-actions.md", () => {
   test("marks the actions that cannot be changed", () => {
     expect(text).toContain("`gantt.criticalPath`");
     expect(text).toMatch(/gantt\.criticalPath.*not changeable/);
+  });
+});
+
+describe("the keys panel in the help skill", () => {
+  const on = generateHelpSkill({ keyTablesOnBoard: ["ranking"] });
+  const at = (skillFiles: typeof help, path: string) => skillFiles.files.get(path) ?? "";
+
+  test("a listed type's reference holds the panel sentence, an unlisted one's says there is none yet", () => {
+    expect(at(on, "references/widgets/ranking.md")).toContain(PANEL_NOTE);
+    expect(at(on, "references/widgets/gantt.md")).toContain(
+      "shows no keys panel for the Gantt yet",
+    );
+    expect(at(on, "references/widgets/gantt.md")).not.toContain("Keys button");
+  });
+
+  test("configure-keys.md names the listed types as the only ones the user's keys reach", () => {
+    const text = at(on, "references/configure-keys.md");
+    expect(text).toContain("only in the Ranking");
+    expect(text).not.toContain("every widget that has the action");
+    expect(text).toContain("the Keys button");
+  });
+
+  test("with an empty list, configure-keys.md says no widget takes the user's keys yet and claims no panel", () => {
+    const text = file("references/configure-keys.md");
+    expect(text).toContain("no widget takes them yet");
+    expect(text).not.toContain("every widget that has the action");
+    expect(text).not.toMatch(/Keys button|keys panel shows/);
+  });
+
+  test("several listed types are named in order", () => {
+    const two = generateHelpSkill({ keyTablesOnBoard: ["ranking", "gantt"] });
+    expect(at(two, "references/configure-keys.md")).toContain("only in the Ranking and the Gantt");
+  });
+
+  test("SKILL.md words the panel for a widget with a Keys button", () => {
+    expect(skill).toContain("A widget with a Keys button");
+    expect(skill).not.toContain(
+      "A widget with keys of its own lists them in its reference below, and the board's keys panel",
+    );
   });
 });
 

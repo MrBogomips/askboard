@@ -10,6 +10,7 @@ import {
   GANTT_KEYS,
   isVocabularyAction,
   KANBAN_KEYS,
+  KEY_TABLES_ON_BOARD,
   type KeyBinding,
   type KeyEntry,
   type KeyTable,
@@ -548,5 +549,23 @@ describe("the registry", () => {
         for (const { hold } of keys) expect(hold).not.toBe("other");
       }
     }
+  });
+});
+
+// The types whose chunk registers its key table with the board (design decisions 9, 14 and 20;
+// review 5.6, S-31): the board shows a Keys button and a panel for them only, and takes the user's
+// keys there. A retrofit appends its types; `component-facts.test.ts` ties the list to the chunks.
+describe("KEY_TABLES_ON_BOARD", () => {
+  test("is a frozen list of registered type names, each with a key table", () => {
+    expect(Object.isFrozen(KEY_TABLES_ON_BOARD)).toBe(true);
+    for (const type of KEY_TABLES_ON_BOARD) {
+      const entry = WIDGET_TYPES.find((candidate) => candidate.type === type);
+      expect(entry?.keys, `${type} has a key table`).toBeDefined();
+    }
+    expect(new Set(KEY_TABLES_ON_BOARD).size).toBe(KEY_TABLES_ON_BOARD.length);
+  });
+
+  test("is empty until a retrofit registers a table with the board (task 4.4 appends the Ranking)", () => {
+    expect(KEY_TABLES_ON_BOARD).toEqual([]);
   });
 });

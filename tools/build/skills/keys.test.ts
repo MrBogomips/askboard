@@ -7,7 +7,15 @@ import { KEY_HOLDS, KEY_VOCABULARY, type KeyBinding, WIDGET_TYPES } from "@askbo
 import { keyLabel } from "@askboard/view/catalog";
 import { t } from "@askboard/view/strings";
 import { contractSchemaResolver } from "./fields.ts";
-import { actionLine, actionName, actionRows, keyForms, keysSection, keysText } from "./keys.ts";
+import {
+  actionLine,
+  actionName,
+  actionRows,
+  keyForms,
+  keysSection,
+  keysText,
+  PANEL_NOTE,
+} from "./keys.ts";
 import { renderWidgetReference } from "./references.ts";
 
 const widget = (type: string) => {
@@ -64,7 +72,7 @@ describe("keyForms", () => {
 });
 
 describe("the Ranking's Keys section", () => {
-  const text = keysSection(widget("ranking"));
+  const text = keysSection(widget("ranking"), ["ranking"]);
 
   test("lists Move up, To top and Keep this order with their keys in both forms", () => {
     expect(text).toContain("| Move up | list | Alt+Shift+↑ (⌥⇧↑) |");
@@ -74,9 +82,11 @@ describe("the Ranking's Keys section", () => {
     expect(text).toContain("| Keep this order | list | Enter (↩) |");
   });
 
-  test("says that the keys panel shows the keys in effect", () => {
+  test("says that the keys panel shows the keys in effect, for a type the board lists", () => {
+    expect(text).toContain(PANEL_NOTE);
     expect(text).toContain("keys panel");
     expect(text).toContain("keys in effect");
+    expect(text).not.toContain("shows no keys panel");
   });
 
   test("is empty for a type without a table, and holds no keyless entry", () => {
@@ -91,11 +101,46 @@ describe("the Ranking's Keys section", () => {
   });
 
   test("is in the reference of the type, before its example", () => {
-    const reference = renderWidgetReference(widget("ranking"), contractSchemaResolver([])).text;
+    const reference = renderWidgetReference(widget("ranking"), contractSchemaResolver([]), [
+      "ranking",
+    ]).text;
     expect(reference).toContain(text);
     expect(reference.indexOf("## Keys")).toBeLessThan(reference.indexOf("## Example"));
     const none = renderWidgetReference(widget("approval"), contractSchemaResolver([])).text;
     expect(none).not.toContain("## Keys");
+  });
+});
+
+describe("the keys panel only where the board shows it", () => {
+  const SENTENCE = "The board shows no keys panel for the Gantt yet";
+
+  test("a type the list leaves out says that the board shows no panel for it and the user's keys do not reach it", () => {
+    for (const listed of [[], ["ranking"]]) {
+      const text = keysSection(widget("gantt"), listed);
+      expect(text).toContain(SENTENCE);
+      expect(text).toContain("the user's key changes do not reach it");
+      expect(text).toContain("default keys");
+      // The one sentence apart, no claim of a panel or a Keys button.
+      const rest = text.replace(SENTENCE, "");
+      expect(rest).not.toMatch(/keys panel|Keys button|keys in effect/);
+      expect(text).toContain("| Action | Where | Keys (macOS) |");
+    }
+  });
+
+  test("the default list is the contract's, empty for now: no type claims the panel", () => {
+    expect(keysSection(widget("ranking"))).toContain("shows no keys panel for the Ranking yet");
+    expect(keysSection(widget("ranking"))).not.toContain(PANEL_NOTE);
+  });
+
+  test("a widget reference takes the list as it takes the entry", () => {
+    const on = renderWidgetReference(widget("ranking"), contractSchemaResolver([]), ["ranking"]);
+    expect(on.text).toContain(PANEL_NOTE);
+    const off = renderWidgetReference(widget("ranking"), contractSchemaResolver([]), []);
+    expect(off.text).toContain("shows no keys panel for the Ranking yet");
+  });
+
+  test("a type with no table has no section whatever the list", () => {
+    expect(keysSection(widget("approval"), ["approval"])).toBe("");
   });
 });
 

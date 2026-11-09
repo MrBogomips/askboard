@@ -1,6 +1,7 @@
 // The key vocabulary, the matcher, the table check and the ARIA form (keyboard-shortcuts-help).
 
 export { ariaKeyShortcuts } from "./aria.ts";
+export { KEY_TABLES_ON_BOARD } from "./board.ts";
 export { keyTableProblems } from "./check.ts";
 export { effectiveKeys } from "./effective.ts";
 export { type KeyPress, keyActionOf, type Modifiers, type PressHold, pressHold } from "./match.ts";

@@ -33,7 +33,7 @@ Item type `chart`: props are a Chart's props {kind, categories, series, title?, 
 
 ## Keys
 
-These are the default keys. The board's keys panel (the Keys button, or `?`) shows the keys in effect, which the user may have changed in the user configuration file.
+The board shows no keys panel for the Chart yet, and the user's key changes do not reach it: these are its default keys.
 
 | Action | Where | Keys (macOS) |
 |---|---|---|
