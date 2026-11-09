@@ -586,13 +586,16 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(last?.rev).toBe(2);
         expect(last?.values?.roadmap).toBeDefined();
 
+        const draftsBefore = sentDrafts(run).length;
         await reloaded(board, run);
-        await changeNotice(board).waitFor({ timeout: STEP_TIMEOUT_MS });
-        await changeNotice(board)
-          .getByRole("button", { name: "Keep mine", exact: true })
-          .waitFor({ timeout: STEP_TIMEOUT_MS });
-        // The value itself cannot come back on a Timeline-less revision after a reload (Issue #96);
-        // the work and its notice are still there for the user to choose.
+        await Bun.sleep(MIRROR_SETTLE_MS);
+        // Open behaviour of Issue #96: work held only on an item the agent's revision removed is
+        // dropped without a word after a reload (view spec: "A reload drops work only a removed item
+        // held"), so no notice shows and the mirrored draft keeps no entry for the question.
+        expect(await changeNotice(board).count()).toBe(0);
+        for (const draft of sentDrafts(run).slice(draftsBefore)) {
+          expect(draft.questions.plan).toBeUndefined();
+        }
         expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,
