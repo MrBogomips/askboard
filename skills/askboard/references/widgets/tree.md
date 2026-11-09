@@ -22,6 +22,37 @@ Item type `tree`: props are a Tree's props {columns?, nodes, pert?, openDepth?}.
 - Edits: `changes` lists what the user changed, one operation for each, naming an element by its ID in `target` (`<item>.<element>` or `<item>.<element>.<field>`). Only what changed is sent; `fetch` returns the whole item.
 - Derived: `derived` carries the item totals and each node's expected and spread, with pert, by address, none in an answer naming an earlier revision (see answers); never compute them.
 
+## Keys
+
+These are the default keys. The board's keys panel (the Keys button, or `?`) shows the keys in effect, which the user may have changed in the user configuration file.
+
+| Action | Where | Keys (macOS) |
+|---|---|---|
+| Go up | grid | ↑ (↑) |
+| Go down | grid | ↓ (↓) |
+| Go left | grid | ← (←) |
+| Go right | grid | → (→) |
+| Go to the first | grid | Home (Home) |
+| Go to the last | grid | End (End) |
+| Edit | grid | Enter and F2 (↩ and F2) |
+| Select | grid | Space (Space) |
+| Extend selection up | grid | Shift+↑ (⇧↑) |
+| Extend selection down | grid | Shift+↓ (⇧↓) |
+| Undo adjust | grid | Ctrl+Z (⌘Z) |
+| Move up | grid | Alt+Shift+↑ (⌥⇧↑) |
+| Move down | grid | Alt+Shift+↓ (⌥⇧↓) |
+| Indent | grid | Alt+Shift+→ (⌥⇧→) |
+| Outdent | grid | Alt+Shift+← (⌥⇧←) |
+| Delete | grid | Delete and Backspace (⌦ and ⌫) |
+| Confirm the edit | editor | Enter (↩) |
+| Cancel the edit | editor | Esc (Esc) |
+| Previous tool | toolbar | ← (←) |
+| Next tool | toolbar | → (→) |
+| First tool | toolbar | Home (Home) |
+| Last tool | toolbar | End (End) |
+| Cancel | delete-question | Esc (Esc) |
+| Cancel | group-question | Esc (Esc) |
+
 ## Example
 
 ```json item
