@@ -68,7 +68,7 @@
     },
     {
       "name": "update",
-      "description": "Change an open ask by item ID: add, change, delete or reopen an item; record an answer the user gave you outside the board; reply to a follow-up, naming its cursor; or close the ask. A question that already has an answer can only be reopened, which starts a new revision.",
+      "description": "Change an open ask by item ID: add a question or an area; change an item's props, each key you send replacing its value whole (to add a widget to a question, change the question's `items`, sent whole); delete or reopen an item; record an answer the user gave you outside the board; reply to a follow-up, naming its question in `itemId` and its cursor in `followUp`; or close the ask. A question that already has an answer can only be reopened, which starts a new revision.",
       "inputSchema": {
         "type": "object",
         "properties": {

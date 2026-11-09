@@ -26,6 +26,7 @@ import {
   renderWidgetReference,
 } from "./references.ts";
 import { DISK_TEMPLATES, type Templates } from "./templates.ts";
+import { ACTION_GLOSSES, actionLines, UPDATE_EXAMPLES } from "./updates.ts";
 
 /** The templates as they stand on disk. */
 export const TEMPLATES: Templates = DISK_TEMPLATES;
@@ -39,6 +40,12 @@ export type SkillInputs = {
   readonly molecules: readonly MoleculeDefinition[];
   readonly moleculeSkills: Readonly<Record<string, MoleculeSkill>>;
   readonly templates: Templates;
+  /** The input format's update schema, whose actions the updates reference lists. */
+  readonly updateSchema: Schema;
+  /** The gloss of each action of `updateSchema`, by its `action` value. */
+  readonly actionGlosses: Readonly<Record<string, string>>;
+  /** The input format's ask schema, whose `language` and `locale` the language section lists. */
+  readonly askSchema: Schema;
 };
 
 export type GeneratedSkill = {
@@ -108,6 +115,29 @@ const collectExample = (): ExampleBody => {
   };
 };
 
+const isSchema = (value: unknown): value is Schema =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+// The values of an ask field's `enum`, as a list in words: "`a` and `b`", "`a`, `b` and `c`". Fails,
+// naming the field, when the input format has no such enum (agent-facing-gaps, decision 6).
+const enumList = (ask: Schema, field: string): string => {
+  const properties = isSchema(ask.properties) ? ask.properties : {};
+  const property = properties[field];
+  const values = isSchema(property) && Array.isArray(property.enum) ? property.enum : [];
+  const quoted = values.filter((v): v is string => typeof v === "string").map((v) => `\`${v}\``);
+  if (quoted.length === 0) {
+    throw new Error(`the input format's ask has no enum for the field "${field}"`);
+  }
+  const last = quoted.at(-1) as string;
+  return quoted.length === 1 ? last : `${quoted.slice(0, -1).join(", ")} and ${last}`;
+};
+
+const schemaNamed = (resolve: (id: string) => Schema | undefined, id: string): Schema => {
+  const found = resolve(id);
+  if (found === undefined) throw new Error(`the input format has no schema ${id}`);
+  return found;
+};
+
 const withNewline = (text: string): string => `${text.replace(/\n+$/, "")}\n`;
 
 /** The files of `skills/askboard/` and their examples. Throws, naming it, on a gap in the teaching. */
@@ -120,6 +150,8 @@ export const generateSkill = (inputs: Partial<SkillInputs> = {}): GeneratedSkill
     molecules.map(({ parameters }) => parameters as Schema),
     widgets,
   );
+  const updateSchema = inputs.updateSchema ?? schemaNamed(resolve, "urn:askboard:input:update");
+  const askSchema = inputs.askSchema ?? schemaNamed(resolve, "urn:askboard:input:ask");
   const collect = collectExample();
 
   const rendered = new Map<string, { text: string; examples: readonly ExampleBody[] }>();
@@ -135,7 +167,7 @@ export const generateSkill = (inputs: Partial<SkillInputs> = {}): GeneratedSkill
   }
 
   const prose = fill(
-    { skill: templates.skill, answers: templates.answers },
+    { skill: templates.skill, answers: templates.answers, updates: templates.updates },
     {
       askingRules: askingRules(),
       itemIndex: itemIndex(widgets, molecules),
@@ -145,6 +177,12 @@ export const generateSkill = (inputs: Partial<SkillInputs> = {}): GeneratedSkill
       snapshotFolder: SNAPSHOT_FOLDER,
       snapshotElement: SNAPSHOT_DATA_ELEMENT,
       collectExample: exampleBlock(collect),
+      languages: enumList(askSchema, "language"),
+      locales: enumList(askSchema, "locale"),
+      actions: actionLines(updateSchema, inputs.actionGlosses ?? ACTION_GLOSSES).join("\n"),
+      askExample: exampleBlock(UPDATE_EXAMPLES.ask),
+      changeExample: exampleBlock(UPDATE_EXAMPLES.change),
+      replyExample: exampleBlock(UPDATE_EXAMPLES.reply),
     },
   );
 
@@ -156,6 +194,11 @@ export const generateSkill = (inputs: Partial<SkillInputs> = {}): GeneratedSkill
   };
   add("SKILL.md", prose.skill ?? "", []);
   add("references/answers.md", prose.answers ?? "", [collect]);
+  add("references/updates.md", prose.updates ?? "", [
+    UPDATE_EXAMPLES.ask,
+    UPDATE_EXAMPLES.change,
+    UPDATE_EXAMPLES.reply,
+  ]);
   add("references/items.md", catalogueText(widgets, molecules, skills), []);
   for (const [path, { text, examples: own }] of rendered) add(path, text, own);
   return { files, examples };

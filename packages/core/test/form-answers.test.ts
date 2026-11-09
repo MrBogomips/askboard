@@ -398,7 +398,12 @@ describe("an update that would leave a field the board cannot hold (review S-1)"
       now: "2026-11-08T10:00:00Z",
       model,
       log: new EventLog(),
-      widgets: { source: undefined, expansion: new Map(), references: new Map() },
+      widgets: {
+        source: undefined,
+        expansion: new Map(),
+        references: new Map(),
+        expanded: new Map(),
+      },
       types: TYPES,
     };
     return { model, context };

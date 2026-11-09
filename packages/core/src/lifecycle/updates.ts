@@ -237,12 +237,13 @@ const inUseRefusal = (
   ids: readonly string[],
   except?: string,
   sending: ReadonlySet<string> = new Set(),
+  sentItems = false,
 ): Refusal | undefined => {
   const { model } = context;
   const used = ids.find(
     (id) => model.inUse(id, except) || (!sending.has(id) && referenceHeld(context, id)),
   );
-  if (used === undefined) return undefined;
+  if (used === undefined) return sentItems ? expandedHeldRefusal(context, ids) : undefined;
   const holder = model.heldBy(used);
   // An expanded ID is no item the agent can name: the refusal names its reference's ID instead.
   const entry = context.widgets.expansion.get(used);
@@ -257,6 +258,22 @@ const inUseRefusal = (
   return refuse("in-use", `the ID "${used}" is in use in the ask${deleted}${by}${reuse}`, used);
 };
 
+// The refusal of an item the agent sends whose ID a molecule reference of the ask once expanded to,
+// held for the ask's life though the reference was dropped: two owners of one ID would make `fetch`
+// and the answer's addressing read the wrong one (agent-facing-gaps review 3.3, X-1). Only for
+// items the agent sends: a question's own expanded items are no new IDs.
+const expandedHeldRefusal = (
+  context: UpdateContext,
+  ids: readonly string[],
+): Refusal | undefined => {
+  const { expanded } = context.widgets;
+  const id = ids.find((candidate) => expanded.has(candidate));
+  if (id === undefined) return undefined;
+  const reference = expanded.get(id);
+  const detail = `the ID "${id}" is in use in the ask, held by the expansion of the molecule reference "${reference}"; item IDs are never reused`;
+  return refuse("in-use", detail, id);
+};
+
 const add = (context: UpdateContext, action: Action<"add">): Step => {
   const { item } = action;
   const taken = inUseRefusal(
@@ -264,12 +281,15 @@ const add = (context: UpdateContext, action: Action<"add">): Step => {
     idsHeldBy(item),
     undefined,
     new Set(referencesIn([item]).keys()),
+    true,
   );
   if (taken !== undefined) return taken;
   const misplaced = placementProblem(context, action);
   if (misplaced !== undefined) return misplaced;
   const expanded = expandAdded(context.model, context.widgets, item, context.types);
-  if (!expanded.ok) return refuse("props", expanded.detail, expanded.itemId ?? item.id);
+  if (!expanded.ok) {
+    return refuse(expanded.inUse ? "in-use" : "props", expanded.detail, expanded.itemId ?? item.id);
+  }
   const { parentId, after } = action;
   context.model.add(expanded.item, {
     ...(parentId === undefined ? {} : { parentId }),
@@ -289,7 +309,8 @@ const change = (context: UpdateContext, action: Action<"change">): Step => {
   const problems = itemProblems(context, { type: "question", id: itemId, props: merged });
   if (problems !== undefined) return refuse("props", problems, itemId);
   const sending = new Set(referencesIn([{ type: "question", id: itemId, props: merged }]).keys());
-  const taken = inUseRefusal(context, itemIdsOf(merged), itemId, sending);
+  const sentItems = Object.hasOwn(props, "items");
+  const taken = inUseRefusal(context, itemIdsOf(merged), itemId, sending, sentItems);
   if (taken !== undefined) return taken;
   const replacement = !Object.hasOwn(props, "items")
     ? { ok: true as const, props: merged as QuestionProps }
@@ -311,7 +332,14 @@ const changeWidget = (context: UpdateContext, itemId: string, props: Record<stri
   if (stands !== undefined) return { ...stands, itemId };
   const changed = widgetProps(context, holder, props);
   if (!changed.ok) return refuse("props", changed.detail, changed.itemId ?? itemId);
-  const taken = inUseRefusal(context, itemIdsOf(changed.props), question.id);
+  // A layout's change brings items in as a question's does: only the IDs it brings in are checked
+  // against the expanded IDs the ask held, since the stored props hold the question's own live ones.
+  const stored = new Set(itemIdsOf(model.propsOf(question)));
+  const brought = holder.reference === undefined;
+  const incoming = itemIdsOf(changed.props).filter((id) => !stored.has(id));
+  const taken =
+    inUseRefusal(context, itemIdsOf(changed.props), question.id) ??
+    (brought ? expandedHeldRefusal(context, incoming) : undefined);
   if (taken !== undefined) return taken;
   const rev = model.revise(question, changed.props);
   return { action: "change", itemId, rev } as const;
