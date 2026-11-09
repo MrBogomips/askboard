@@ -7,6 +7,7 @@ import {
   type LifecycleBoardState,
 } from "@askboard/contract";
 import {
+  ganttPlanBoardDocument,
   lifecycleBoardDocument,
   plainChoiceBoardDocument,
   settingsWithEveryKey,
@@ -239,6 +240,199 @@ describe("an answer from the view becomes an answer act only if it can be (AD-10
       items: [{ ...question, props: { ...question.props, multiSelect: true } }],
     };
     expect(answerActFor(ready(multiple), two).ok).toBe(true);
+  });
+});
+
+describe("an item that fails stops every act of its question (document-review, design decision 15; Issue #103)", () => {
+  const when = "2026-11-08T09:41:27.123Z";
+  const [{ id: question }] = ganttPlanBoardDocument.items;
+  const planState: LifecycleBoardState = {
+    ask: "waiting",
+    questions: [{ itemId: question, rev: 1, state: "open" }],
+  };
+  // The board of one question `plan`, holding a Tree and a Gantt plan, which counted as visible.
+  const visible = (): BoardModel =>
+    withViewMessage(
+      withHostMessage(
+        withHostMessage(EMPTY_MODEL, {
+          version,
+          type: "board",
+          document: ganttPlanBoardDocument,
+        } as unknown as HostMessage),
+        { version, type: "state", state: planState } as unknown as HostMessage,
+      ),
+      { type: "ready", itemId: question },
+    );
+  const failing = (itemId: string): BoardModel =>
+    withViewMessage(visible(), { type: "item-error", itemId, error: "boom" });
+  const acts: readonly ViewAct[] = [
+    { type: "answer", itemId: question, rev: 1, values: { schedule: { size: 1 } }, when },
+    { type: "postpone", itemId: question, rev: 1 },
+    { type: "note", itemId: question, rev: 1, note: "x", when },
+  ];
+
+  test("at the head, the question's acts go", () => {
+    for (const act of acts) expect(actsFor(visible(), [act]).ok).toBe(true);
+  });
+
+  test("a widget item of the question that failed refuses each act, naming the failure", () => {
+    for (const itemId of ["schedule", "wbs"]) {
+      const model = failing(itemId);
+      for (const act of acts) {
+        expect(actsFor(model, [act])).toEqual({
+          ok: false,
+          detail: "the question's item failed in the view",
+        });
+      }
+    }
+  });
+
+  // The same board at revision 2, where "Keep mine" (`ignore`, `keptRev: 1`) is a well-formed act, so
+  // only the failure can refuse it (a malformed act would hide a widened exemption: re-review 6.27 X-1).
+  const atRevisionTwo = (model: BoardModel): BoardModel => ({
+    ...model,
+    document: {
+      ...ganttPlanBoardDocument,
+      items: ganttPlanBoardDocument.items.map((item) => ({ ...item, rev: 2 })),
+    } as unknown as BoardDocument,
+    state: {
+      ask: "waiting",
+      questions: [{ itemId: question, rev: 2, state: "open" }],
+    } as LifecycleBoardState,
+  });
+  const failedMessage = "the question's item failed in the view";
+  const reloadAct = (rev: number): ViewAct => ({
+    type: "edit-choice",
+    itemId: question,
+    rev,
+    edit: "reload",
+  });
+  const keepMine: ViewAct = {
+    type: "edit-choice",
+    itemId: question,
+    rev: 2,
+    edit: "ignore",
+    keptRev: 1,
+  };
+  const others = (rev: number): readonly ViewAct[] => [
+    ...acts.map((act) => ({ ...act, rev }) as ViewAct),
+    { type: "decline", itemId: question, rev } as ViewAct,
+  ];
+
+  test("but the reload choice goes, and no other edit choice, decline or note (document-review 6.26, 6.28)", () => {
+    for (const itemId of ["schedule", "wbs"]) {
+      const model = atRevisionTwo(failing(itemId));
+      expect(actsFor(model, [reloadAct(2)]).ok).toBe(true);
+      for (const act of [...others(2), keepMine]) {
+        expect(actsFor(model, [act])).toEqual({ ok: false, detail: failedMessage });
+      }
+    }
+  });
+
+  test("a question that failed before any ready takes the reload choice and nothing else (document-review 6.28)", () => {
+    // A reload or a takeover onto a revision whose item throws at mount: failed, never visible.
+    const never = (itemId: string): BoardModel =>
+      withViewMessage(
+        { ...atRevisionTwo(visible()), visible: new Set<string>() },
+        { type: "item-error", itemId, error: "boom" },
+      );
+    for (const itemId of ["schedule", "wbs"]) {
+      const model = never(itemId);
+      expect(model.visible.size).toBe(0);
+      expect(actsFor(model, [reloadAct(2)]).ok).toBe(true);
+      for (const act of [...others(2), keepMine]) {
+        expect(actsFor(model, [act])).toEqual({ ok: false, detail: failedMessage });
+      }
+    }
+  });
+
+  test("the reload choice of a question that never counted as visible and did not fail is still refused (AD-10)", () => {
+    const model = { ...atRevisionTwo(visible()), visible: new Set<string>() };
+    expect(actsFor(model, [reloadAct(2)])).toEqual({
+      ok: false,
+      detail: "the question never counted as visible",
+    });
+  });
+
+  test("the reload choice names the current revision only (document-review 6.28)", () => {
+    const model = atRevisionTwo(failing("schedule"));
+    expect(actsFor(model, [reloadAct(1)])).toEqual({
+      ok: false,
+      detail: "the question is at revision 2, not 1",
+    });
+  });
+
+  test("and refuses the whole command that holds acts for it, naming the first", () => {
+    const checked = actsFor(failing("schedule"), [acts[1] as ViewAct, acts[2] as ViewAct]);
+    expect(checked).toEqual({
+      ok: false,
+      detail: "act 1: the question's item failed in the view",
+    });
+  });
+});
+
+describe("an item inside a layout that fails stops every act of its question (document-review, re-review 6.23 S-2; Issue #103)", () => {
+  const when = "2026-11-08T09:41:27.123Z";
+  const [question] = plainChoiceBoardDocument.items;
+  const field = (id: string) => ({ type: "text-field", id, props: { label: id } });
+  // The question `database` holding a TextField in a Group and one in the second panel of Tabs.
+  const nested = {
+    ...plainChoiceBoardDocument,
+    items: [
+      {
+        ...question,
+        props: {
+          ...question.props,
+          items: [
+            { type: "group", id: "details", props: { title: "Details", items: [field("name")] } },
+            {
+              type: "tabs",
+              id: "panels",
+              props: {
+                tabs: [
+                  { id: "one", title: "One", items: [field("first")] },
+                  { id: "two", title: "Two", items: [field("second")] },
+                ],
+              },
+            },
+          ],
+        },
+      },
+    ],
+  } as unknown as BoardDocument;
+  const visible = (): BoardModel =>
+    withViewMessage(
+      withHostMessage(withHostMessage(EMPTY_MODEL, { version, type: "board", document: nested }), {
+        version,
+        type: "state",
+        state: waiting,
+      }),
+      { type: "ready", itemId: question.id },
+    );
+  const failing = (itemId: string): BoardModel =>
+    withViewMessage(visible(), { type: "item-error", itemId, error: "boom" });
+  const acts: readonly ViewAct[] = [
+    { type: "postpone", itemId: question.id, rev: 1 },
+    { type: "note", itemId: question.id, rev: 1, note: "x", when },
+  ];
+
+  test("at the head, the question's acts go", () => {
+    for (const act of acts) expect(actsFor(visible(), [act]).ok).toBe(true);
+  });
+
+  test("a TextField inside a Group or a Tabs panel that failed refuses each act", () => {
+    for (const itemId of ["name", "first", "second"]) {
+      for (const act of acts) {
+        expect(actsFor(failing(itemId), [act])).toEqual({
+          ok: false,
+          detail: "the question's item failed in the view",
+        });
+      }
+    }
+  });
+
+  test("an item the document does not hold refuses nothing", () => {
+    expect(actsFor(failing("elsewhere"), [acts[0] as ViewAct]).ok).toBe(true);
   });
 });
 

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { RESULT_VERSIONS, SCHEMA_IDS } from "@askboard/contract";
 import {
   APPROVAL_FIXTURE_ITEM,
+  documentReviewAct,
   RANKING_FIXTURE_ITEM,
   RESULT_WIDGETS_RESULTS,
   RESULT_WIDGETS_SESSION,
@@ -139,6 +140,121 @@ describe(`the three result widgets in the ${CONFIGURATION} configuration`, () =>
           result: RESULT_WIDGETS_RESULTS.priorities,
         },
       });
+      board.socket.terminate();
+      expect(await session.end()).toBe(0);
+    },
+  );
+});
+
+// A Document review answered with annotations whose quotes hold line breaks and an emoji
+// (document-review, task 7.4; design decision 14, last row): the quotes, the comment and the
+// replacement travel unchanged through the board's socket, the log, the mod's push or `collect`,
+// and `fetch` of the item, in each configuration.
+const REVIEW_ITEM = {
+  type: "document-review",
+  id: "release-notes",
+  props: {
+    title: "Release notes",
+    markdown:
+      "## Release 0.2\n\nThe board remembers drafts.\n\nFirst line\nsecond line \u{1F680} shipped.",
+  },
+};
+const REVIEW_RESULT = {
+  annotations: [
+    {
+      id: "u-1",
+      target: {
+        selector: {
+          type: "quote",
+          exact: "drafts.\n\nFirst line\nsecond line \u{1F680}",
+          prefix: "remembers ",
+          suffix: " shipped.",
+        },
+      },
+      body: { text: "Say why.\nTwo lines \u{1F642}." },
+    },
+    {
+      id: "u-2",
+      target: { selector: { type: "quote", exact: "Release 0.2" } },
+      body: { replacement: "Release 0.3\n\u{1F680}" },
+    },
+  ],
+};
+const REVIEW_ASK = {
+  askId,
+  title: "Review the notes",
+  items: [
+    {
+      type: "question",
+      id: question,
+      props: { text: "Is the text right?", items: [REVIEW_ITEM] },
+    },
+  ],
+};
+const REVIEW_ACT = {
+  ...documentReviewAct,
+  actionId: "tK9nB2vQx7MsD4wYe1aJcZ",
+  acts: [
+    {
+      type: "answer",
+      itemId: question,
+      rev: 1,
+      results: { [REVIEW_ITEM.id]: REVIEW_RESULT },
+      when: "2026-11-08T09:30:00Z",
+    },
+  ],
+} as typeof documentReviewAct;
+
+describe(`a Document review with line breaks and an emoji in its quotes in the ${CONFIGURATION} configuration`, () => {
+  test(
+    CONFIGURATION === "mod-and-hooks"
+      ? "one answer holding a comment and a suggested edit is pushed by the mod unchanged, and collect and fetch agree"
+      : "one answer holding a comment and a suggested edit is collected unchanged, and fetch returns the item's result",
+    async () => {
+      const pushing = CONFIGURATION === "mod-and-hooks";
+      const { session } = pushing
+        ? await startClaudeSession({ mod: {} })
+        : { session: await startSession() };
+      const call = callOf(session);
+      const asked = pushing
+        ? (await callAs(session, undefined, "ask", REVIEW_ASK)).outcome
+        : await session.call("ask", REVIEW_ASK);
+      const result = checked("askResult", asked) as unknown as AskResultJson;
+      const board = await connectBoard(result.board);
+      board.send(REVIEW_ACT);
+      await nextOfType(board, "done");
+
+      const expected = { [REVIEW_ITEM.id]: REVIEW_RESULT };
+      let pushed: readonly Event[] | undefined;
+      if (pushing) {
+        const mod = session.mod;
+        if (mod === undefined) throw new Error("this session has no mod host");
+        const push = await mod.until((record) => record.pushes[0], "a push");
+        const message = pushedMessage(push.text);
+        pushed = (message.asks[0]?.events ?? []) as readonly Event[];
+        expect(pushed).toHaveLength(1);
+        expect(pushed[0]).toMatchObject({ type: "answer", itemId: question, rev: 1 });
+        expect(pushed[0]?.results).toEqual(expected);
+      }
+      const collected = checked(
+        "collectResult",
+        await call("collect", { asks: [{ askId, after: `${result.epoch}.0` }] }),
+      );
+      const events = eventsOf(collected);
+      expect(events).toHaveLength(1);
+      expect(events[0]).toMatchObject({ type: "answer", itemId: question, rev: 1 });
+      expect(events[0]?.results).toEqual(expected);
+      if (pushed !== undefined) expect(events).toEqual(pushed);
+
+      const fetched = checked(
+        "fetchResult",
+        await call("fetch", { askId, itemId: REVIEW_ITEM.id }),
+      );
+      expect(fetched).toMatchObject({
+        state: "answered",
+        item: { type: "document-review", id: REVIEW_ITEM.id, questionId: question },
+      });
+      expect((fetched.item as Json).result).toEqual(REVIEW_RESULT);
       board.socket.terminate();
       expect(await session.end()).toBe(0);
     },

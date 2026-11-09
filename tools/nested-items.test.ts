@@ -213,6 +213,11 @@ const VIEW_READS: readonly Read[] = [
     count: 2,
   },
   {
+    file: "packages/view/src/board-page/model.ts",
+    text: "nestedWidgetItemsOf(question.props.items)",
+    reason: HANDED,
+  },
+  {
     file: "packages/view/src/board-page/references.ts",
     text: "nestedWidgetItemsOf(question.props.items)",
     reason: HANDED,
@@ -236,6 +241,12 @@ const VIEW_READS: readonly Read[] = [
     file: "packages/view/src/shell/agent-change.ts",
     text: "valueItemsOf(shown.props.items)",
     reason: HANDED,
+  },
+  {
+    file: "packages/view/src/shell/agent-change.ts",
+    text: "area.props.items",
+    reason: VIEW_AREA,
+    count: 2,
   },
   {
     file: "packages/view/src/shell/board-content.ts",

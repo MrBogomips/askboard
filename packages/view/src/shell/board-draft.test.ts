@@ -11,6 +11,7 @@ import {
   type ViewDocument,
   type ViewQuestion,
 } from "../view-document.ts";
+import { createRevisions, shownOfBoard } from "./agent-change.ts";
 import {
   answerContentOf,
   connectDrafts,
@@ -770,5 +771,135 @@ describe("results beside the draft record (widget-registry, design decision 9)",
       accepting,
     );
     expect(other.results.valueOf("sketch")).toEqual({ pick: "b" });
+  });
+});
+
+// A record restored into a view that has seen the revision its work was made on (document-review,
+// task 6.18, row 10): the work names `b` (a TextField), `c` (a NumberField) and `t` (a Table), which
+// revision 2 removes. A view that saw revision 1 restores it; a reloaded page never did and drops it.
+describe("restoring work made on an item a later revision removed (task 6.18; design decision 15)", () => {
+  const [first] = plainChoiceBoardDocument.items;
+  const item = (id: string, type: string, extra: object = {}): never =>
+    ({ type, id, props: { label: id, ...extra } }) as never;
+  const questionOf = (items: readonly never[], rev: number): ViewQuestion =>
+    ({
+      ...first,
+      id: "plan",
+      rev,
+      props: { ...first?.props, text: "Plan?", options: [{ label: "Yes" }], items },
+    }) as unknown as ViewQuestion;
+  const table = item("t", "table", {
+    columns: [{ field: "rate", type: "number", label: "Rate" }],
+    rows: [{ id: "r1", rate: 1 }],
+  });
+  const REV1 = questionOf(
+    [item("a", "text-field"), item("b", "text-field"), item("c", "number-field"), table],
+    1,
+  );
+  const REV2 = questionOf([item("a", "text-field")], 2);
+  const documentOf = (question: ViewQuestion): ViewDocument =>
+    ({ ...plainChoiceBoardDocument, items: [question] }) as unknown as ViewDocument;
+  const state: LifecycleBoardState = {
+    ask: "waiting",
+    questions: [{ itemId: "plan", rev: 2, state: "open" }],
+  } as unknown as LifecycleBoardState;
+  const RECORD: DraftRecord = {
+    delivery: "immediate",
+    questions: {
+      plan: {
+        rev: 1,
+        values: { b: { size: 3 } },
+        results: { b: "first" },
+        entries: { c: "12x" },
+        cellEntries: { t: { "r1.rate": "abc" } },
+      },
+    },
+  };
+  const restore = (record: DraftRecord, seen: boolean) => {
+    const values = createDraftStore();
+    const results = createDraftStore();
+    const entries = createDraftStore();
+    const cellEntries = createDraftStore();
+    const board = createBoardDraft("immediate");
+    const revisions = createRevisions();
+    if (seen) revisions.record(documentOf(REV1));
+    revisions.record(documentOf(REV2));
+    restoreDraft(
+      record,
+      documentOf(REV2),
+      state,
+      values,
+      board,
+      results,
+      undefined,
+      entries,
+      cellEntries,
+      revisions,
+    );
+    const shownOf = shownOfBoard(board, revisions);
+    return {
+      values,
+      results,
+      entries,
+      cellEntries,
+      board,
+      record: () =>
+        draftRecordOf(
+          documentOf(REV2),
+          values.record(),
+          board.get(),
+          results.record(),
+          entries.record(),
+          cellEntries.record(),
+          shownOf,
+        ),
+    };
+  };
+
+  test("a view that saw revision 1 keeps a value, a result, an entry and a cell entry on them", () => {
+    const held = restore(RECORD, true);
+    expect(held.values.valueOf("b")).toEqual({ size: 3 });
+    expect(held.results.valueOf("b")).toBe("first");
+    expect(held.entries.valueOf("c")).toBe("12x");
+    expect(held.cellEntries.valueOf("t")).toEqual(new Map([["r1.rate", "abc"]]));
+    expect(held.board.work("plan")).toEqual({ rev: 1 });
+    expect(held.record()).toEqual(RECORD);
+  });
+
+  test("a view that never saw it drops them and leaves the question no work", () => {
+    const held = restore(RECORD, false);
+    expect(held.values.valueOf("b")).toBeUndefined();
+    expect(held.results.valueOf("b")).toBeUndefined();
+    expect(held.entries.valueOf("c")).toBeUndefined();
+    expect(held.cellEntries.valueOf("t")).toBeUndefined();
+    expect(held.board.work("plan")).toBeUndefined();
+    expect(held.record().questions).toEqual({});
+  });
+
+  test("entry-only and cell-entry-only work follow the same rule", () => {
+    const entryOnly: DraftRecord = {
+      delivery: "immediate",
+      questions: { plan: { rev: 1, entries: { c: "12x" } } },
+    };
+    const cellsOnly: DraftRecord = {
+      delivery: "immediate",
+      questions: { plan: { rev: 1, cellEntries: { t: { "r1.rate": "abc" } } } },
+    };
+    expect(restore(entryOnly, true).record()).toEqual(entryOnly);
+    expect(restore(cellsOnly, true).record()).toEqual(cellsOnly);
+    expect(restore(entryOnly, false).board.work("plan")).toBeUndefined();
+    expect(restore(cellsOnly, false).board.work("plan")).toBeUndefined();
+  });
+
+  test("work on an item both revisions hold is restored either way", () => {
+    const both: DraftRecord = {
+      delivery: "immediate",
+      questions: { plan: { rev: 1, results: { a: "kept" } } },
+    };
+    for (const seen of [true, false]) {
+      const held = restore(both, seen);
+      expect(held.results.valueOf("a")).toBe("kept");
+      expect(held.board.work("plan")).toEqual({ rev: 1 });
+    }
   });
 });

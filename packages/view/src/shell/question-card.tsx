@@ -51,9 +51,11 @@ import {
   keepMine,
   postpone,
   pressAnswer,
+  pressDecline,
   reloadQuestion,
   selectRecommendedOption,
   sendFollowUp,
+  startFromPrevious,
 } from "./card-acts.ts";
 import { entriesWithCells } from "./cell-entries.ts";
 import { ChangeNotice, ReopenedNotice } from "./change-notice.tsx";
@@ -76,11 +78,9 @@ import {
 import { type ReasonRequests, reasonAskedAfter, reasonOf } from "./reason.ts";
 import { type RenderContext, RenderItem } from "./renderer.tsx";
 import {
-  asksFirst,
   type Confirmation,
   confirmationOf,
   type FocusTarget,
-  press,
   settleConfirmation,
 } from "./revision-confirm.ts";
 import type { SizeNotices } from "./size-notices.ts";
@@ -185,8 +185,11 @@ const useCard = ({ question, state, lock, context }: CardProps) => {
   // The revision the card works on: the one the work was made on, while it is earlier.
   const shown = workingQuestion(question, work, revisions);
   const heldAct = work?.held?.act;
-  // A field blocks: an entry, a value that fails its check, an empty required field.
-  const blocked = holdsBlock(shown, heldEntries, heldResults);
+  // The items that take no edit while the card shows a revision its answer does not name.
+  const readOnlyItems = readOnlyItemsOf(question, shown, work);
+  // A field blocks: an entry, a value that fails its check, an empty required field; an item the
+  // card makes read-only is no field (document-review, design decision 15).
+  const blocked = holdsBlock(shown, heldEntries, heldResults, undefined, readOnlyItems);
   const card = cardState({
     status,
     draft: answerContentOf(shown, values, work, heldResults),
@@ -217,12 +220,11 @@ const useCard = ({ question, state, lock, context }: CardProps) => {
     status,
     pending,
     shown,
-    // The items that take no edit while the card shows a revision its answer does not name.
-    readOnlyItems: readOnlyItemsOf(question, shown, work),
+    readOnlyItems,
     card,
     blocked,
     actions,
-    answerHint: answerHint(shown, heldEntries, heldResults, language),
+    answerHint: answerHint(shown, heldEntries, heldResults, language, undefined, readOnlyItems),
     followUp,
     choosing,
     placement,
@@ -398,7 +400,13 @@ export const QuestionCard = (props: CardProps) => {
   const { header, text: questionText } = shown.props;
   const mark = markOf(question.id, state, context.board.get().questions);
   // An answer or decline names the revision the work was made on; the other acts the current one.
-  const acting: AnswerContext = { ...context, delivery };
+  // Its gates read the revision the card shows (document-review, design decision 15; Issue #92).
+  const acting: AnswerContext = {
+    ...context,
+    delivery,
+    readOnlyOf: () => readOnlyItems,
+    shownOf: () => shown,
+  };
   const focusHeading = focusHeadingOf(question.id);
   // "Answer" and Decline on a verdict the agent has received wait for the user's confirmation, in
   // a modal dialog (design decision 6): confirming acts as the button does, Cancel changes nothing.
@@ -408,7 +416,7 @@ export const QuestionCard = (props: CardProps) => {
   const afterClose = useRef<FocusTarget<HTMLElement> | undefined>(undefined);
   const chosen = useRef(false);
   const askDecline = (control: HTMLElement | undefined, run: () => void): boolean => {
-    const next = press(asksFirst("decline", question, status, work?.held?.act), run);
+    const next = pressDecline(question, acting, status, work?.held?.act, run);
     chosen.current = false;
     setWaiting(confirmationOf("decline", next, control));
     return next === undefined;
@@ -456,6 +464,9 @@ export const QuestionCard = (props: CardProps) => {
   const opened = context.opened !== undefined;
   const readOnly = opened || card.readOnly;
   const usable = !opened && status !== undefined && load === "visible" && lock === undefined;
+  // "Reload, losing my work" stays on a card whose item failed: the agent's revision may replace it.
+  const reloadable =
+    !opened && status !== undefined && lock === undefined && (usable || load === "failed");
   const reopened = status?.state === "open" || status?.state === "postponed" ? status : undefined;
   const layout = layoutOf(renderedOf(shown));
   const placeable = couldSplit(layout.context);
@@ -487,7 +498,7 @@ export const QuestionCard = (props: CardProps) => {
           item={item}
           component={component}
           questionId={question.id}
-          itemIds={itemIdsOf(question)}
+          itemIds={itemIdsOf(shown)}
           context={context}
           disabled={readOnly}
           readOnlyItems={readOnlyItems}
@@ -526,6 +537,7 @@ export const QuestionCard = (props: CardProps) => {
           }
           stake={changesLabel(changeCountOf(shown, values, work, results), language)}
           busy={!usable || choosing !== undefined}
+          reloadBusy={!reloadable || choosing !== undefined}
           onReload={() => reloadQuestion(question, acting)}
           onKeep={() => keepMine(question, acting, shown, readOnlyItems)}
         />
@@ -536,7 +548,7 @@ export const QuestionCard = (props: CardProps) => {
           disabled={readOnly || pending}
           onStart={() => {
             const previous = reopened.previous;
-            if (previous !== undefined) fillFrom(question, contentOf(previous), context);
+            if (previous !== undefined) startFromPrevious(question, contentOf(previous), acting);
           }}
         />
       )}

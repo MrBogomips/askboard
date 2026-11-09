@@ -9,10 +9,14 @@
 
 import { type TextItem, textPropsProblems } from "@askboard/contract";
 import { useLayoutEffect, useMemo, useRef } from "react";
+import {
+  MARKDOWN,
+  markExternal,
+  mountMarkdown,
+  PLAIN,
+  renderMarkdown,
+} from "../../markdown/index.ts";
 import { type ItemProps, register, useHosted, useOpenLink, useReadyAfterLayout } from "../port.ts";
-import { MARKDOWN, PLAIN } from "./classes.ts";
-import { markExternal, mountMarkdown } from "./links.ts";
-import { renderMarkdown } from "./markdown.ts";
 
 /** The catalog name, which is the Text item's type. */
 const TEXT = "text";

@@ -55,7 +55,7 @@ describe("the fetch outcome deleted", () => {
 
 describe("the tool envelopes' minor", () => {
   test("is the minor agent-facing-gaps binds, and the set carries the constant", () => {
-    expect(TOOL_ENVELOPES_VERSION).toBe("1.13");
+    expect(TOOL_ENVELOPES_VERSION).toBe("1.14");
     expect(SCHEMA_SETS.find(({ name }) => name === "tool-envelopes")?.version).toBe(
       TOOL_ENVELOPES_VERSION,
     );

@@ -77,10 +77,11 @@ const refusedByCheck = (item: Item) => accepted(item) && problemsOf(item).length
 const fromJson = (json: string): unknown => JSON.parse(json);
 
 describe("the layouts in the registry", () => {
-  test("follow the shipped types, in the order stack, row, group, tabs, before the PickField and the Table", () => {
-    expect(TYPES.slice(-6, -2).map(({ type }) => type)).toEqual(["stack", "row", "group", "tabs"]);
-    expect(TYPES.at(-2)?.type).toBe("pick-field");
-    expect(TYPES.at(-1)?.type).toBe("table");
+  test("follow the shipped types, in the order stack, row, group, tabs, before the PickField, the Table and the Document review", () => {
+    const types = TYPES.map(({ type }) => type);
+    expect(types.slice(-7, -3)).toEqual(["stack", "row", "group", "tabs"]);
+    // The PickField, then the Table, then the Document review (each change's registration).
+    expect(types.slice(-3)).toEqual(["pick-field", "table", "document-review"]);
     expect(TYPES).toEqual([...WIDGET_TYPES]);
   });
 

@@ -16,12 +16,20 @@ const isTarget = (value: unknown): value is ClickTarget =>
 const isAnchor = (value: unknown): value is Anchor =>
   typeof value === "object" && value !== null && "getAttribute" in value;
 
+// An element a widget adds beside the agent's content (the Document review's pins and replacement
+// text) carries this attribute (`UI_ATTRIBUTE` in `widgets`): a click on it is never a click on a
+// link, whatever surrounds it (review X-1 of 6.5; AD-8, NFR-5).
+const WIDGET_UI = "[data-review-ui]";
+
 /**
  * The `href` of the anchor a click landed on, when the anchor is inside the container: markdown's
- * only anchors are the sanitizer's, with an `http:` or `https:` `href`.
+ * only anchors are the sanitizer's, with an `http:` or `https:` `href`. None for a target inside an
+ * element a widget added (`[data-review-ui]`), so that a pin or a suggested replacement never opens
+ * the link it might stand in.
  */
 export const anchorHref = (target: unknown, container: Container): string | undefined => {
   if (!isTarget(target)) return undefined;
+  if (target.closest(WIDGET_UI) !== null) return undefined;
   const anchor = target.closest("a[href]");
   if (!isAnchor(anchor) || !container.contains(anchor as never)) return undefined;
   return anchor.getAttribute("href") ?? undefined;

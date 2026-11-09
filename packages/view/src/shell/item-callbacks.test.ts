@@ -1,6 +1,8 @@
 import { describe, expect, mock, spyOn, test } from "bun:test";
 import { JSON_MAX_DEPTH } from "@askboard/contract";
 import type { BoardContent } from "../catalog/port.ts";
+import type { ViewQuestion } from "../view-document.ts";
+import { itemIdsOf } from "./board-draft.ts";
 import { createDraftStore } from "./draft-store.ts";
 import { itemCallbacks, itemResultOf, itemValueOf } from "./item-callbacks.ts";
 
@@ -379,5 +381,133 @@ describe("an item the card makes read-only", () => {
     expect(onBeforeChange).toHaveBeenCalledTimes(2);
     expect(complaint).not.toHaveBeenCalled();
     complaint.mockRestore();
+  });
+});
+
+// A result the item reports while the card makes it read-only (document-review, design decision
+// 15; keep-mine-shown-revision's decision 3 guarded values only): nothing reaches the results
+// store, a clearing included, and the console names the item and holds none of the result.
+describe("an item the card makes read-only reports a result", () => {
+  const setUp = (readOnlyItems: ReadonlySet<string>, itemId = "sketch") => {
+    const draft = createDraftStore();
+    const results = createDraftStore();
+    const entries = createDraftStore();
+    const onBeforeChange = mock(() => {});
+    const onError = mock((_error: unknown) => {});
+    const complaint = spyOn(console, "error").mockImplementation(() => {});
+    const callbacks = itemCallbacks({
+      draft,
+      results,
+      entries,
+      entryAllowed: true,
+      itemId,
+      questionId: "plan",
+      itemIds: ITEM_IDS,
+      readOnlyItems,
+      onBeforeChange,
+      onError,
+    });
+    return { results, entries, onBeforeChange, onError, complaint, ...callbacks };
+  };
+
+  test("a result writes nothing and the console names the item, with none of the result's text", () => {
+    const { results, entries, onBeforeChange, onError, complaint, onResultChange } = setUp(
+      new Set(["sketch"]),
+    );
+    onResultChange({ annotations: [{ id: "u-1", exact: "SECRET QUOTE" }] });
+    expect(results.record().size).toBe(0);
+    expect(entries.record().size).toBe(0);
+    expect(onBeforeChange).not.toHaveBeenCalled();
+    expect(onError).not.toHaveBeenCalled();
+    expect(complaint).toHaveBeenCalledTimes(1);
+    const line = String(complaint.mock.calls[0]?.join(" "));
+    expect(line).toContain('"sketch"');
+    expect(line).not.toContain("SECRET QUOTE");
+    complaint.mockRestore();
+  });
+
+  test("a clearing does not clear the held result either", () => {
+    const { results, onBeforeChange, complaint, onResultChange } = setUp(new Set(["sketch"]));
+    results.set("sketch", { kept: true });
+    onResultChange(undefined);
+    expect(results.valueOf("sketch")).toEqual({ kept: true });
+    expect(onBeforeChange).not.toHaveBeenCalled();
+    expect(complaint).toHaveBeenCalledTimes(1);
+    complaint.mockRestore();
+  });
+
+  test("with no results store the refusal is still said", () => {
+    const complaint = spyOn(console, "error").mockImplementation(() => {});
+    const { onResultChange } = itemCallbacks({
+      draft: createDraftStore(),
+      itemId: "sketch",
+      questionId: "plan",
+      itemIds: ITEM_IDS,
+      readOnlyItems: new Set(["sketch"]),
+      onError: () => {},
+    });
+    onResultChange({ pick: "a" });
+    expect(complaint).toHaveBeenCalledTimes(1);
+    complaint.mockRestore();
+  });
+
+  test("an item outside the set writes and clears as before, with the set given", () => {
+    const { results, onBeforeChange, complaint, onResultChange } = setUp(new Set(["second"]));
+    onResultChange({ pick: "a" });
+    expect(results.valueOf("sketch")).toEqual({ pick: "a" });
+    onResultChange(undefined);
+    expect(results.valueOf("sketch")).toBeUndefined();
+    expect(onBeforeChange).toHaveBeenCalledTimes(2);
+    expect(complaint).not.toHaveBeenCalled();
+    complaint.mockRestore();
+  });
+});
+
+// The writer gate takes the IDs of the revision the card shows (document-review, task 6.19; design
+// decision 15): the card passes `itemIdsOf(shown)`, and a linked edit may write exactly those.
+describe("the linked-edit writer gate, with the item IDs the card passes", () => {
+  const questionHolding = (rev: number, ...ids: readonly string[]): ViewQuestion =>
+    ({
+      id: "plan",
+      rev,
+      type: "question",
+      props: { text: "Plan", items: ids.map((id) => ({ type: "probe", id, props: {} })) },
+    }) as unknown as ViewQuestion;
+  // Revision 1 holds the Tree `t` and the Gantt `g`; revision 2 holds `g` and a new item `d`.
+  const first = questionHolding(1, "t", "g");
+  const second = questionHolding(2, "g", "d");
+  const said = (onError: { mock: { calls: unknown[][] } }): string =>
+    String(onError.mock.calls[0]?.[0]);
+  const over = (shown: ViewQuestion) => {
+    const draft = createDraftStore();
+    const onError = mock((_error: unknown) => {});
+    const callbacks = itemCallbacks({
+      draft,
+      itemId: "t",
+      questionId: "plan",
+      itemIds: itemIdsOf(shown),
+      onError,
+    });
+    return { draft, onError, ...callbacks };
+  };
+
+  test("writes the Tree and its plan when the shown revision holds both", () => {
+    const { draft, onError, onValuesChange } = over(first);
+    onValuesChange({ t: probe(1), g: probe(2) });
+    expect(draft.valueOf("t")).toEqual({ size: 1 });
+    expect(draft.valueOf("g")).toEqual({ size: 2 });
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  test("an item only the other revision holds goes to the item's error path and writes nothing", () => {
+    const { draft, onError, onValuesChange } = over(second);
+    onValuesChange({ t: probe(1), g: probe(2) });
+    expect(draft.record().size).toBe(0);
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(said(onError)).toContain('"t"');
+    const kept = over(first);
+    kept.onValuesChange({ g: probe(2), d: probe(3) });
+    expect(kept.draft.record().size).toBe(0);
+    expect(said(kept.onError)).toContain('"d"');
   });
 });

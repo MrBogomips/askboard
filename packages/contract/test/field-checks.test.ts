@@ -271,6 +271,14 @@ describe("the wording of a failure", () => {
     expect(fieldCheckMessage({ code: "pattern" })).toContain("pattern");
     expect(fieldCheckMessage({ code: "min-items", min: 2 })).toContain("at least 2");
     expect(fieldCheckMessage({ code: "max-items", max: 4 })).toContain("at most 4");
+    // The Document review's (document-review, design decision 8): which `ask-core` never raises,
+    // since the type declares no `fieldCheck`, and the view words in its own table.
+    expect(fieldCheckMessage({ code: "detached", count: 1 })).toBe(
+      "holds 1 annotation the document no longer places",
+    );
+    expect(fieldCheckMessage({ code: "detached", count: 3 })).toBe(
+      "holds 3 annotations the document no longer places",
+    );
   });
 });
 
@@ -282,6 +290,7 @@ describe("the prop each failure is a check of", () => {
       pattern: { code: "pattern" },
       "min-items": { code: "min-items", min: 2 },
       "max-items": { code: "max-items", max: 4 },
+      detached: { code: "detached", count: 2 },
     };
     const props: Record<FieldCheckFailure["code"], string> = {
       required: "required",
@@ -289,6 +298,7 @@ describe("the prop each failure is a check of", () => {
       pattern: "pattern",
       "min-items": "minItems",
       "max-items": "maxItems",
+      detached: "annotations",
     };
     for (const code of Object.keys(named) as FieldCheckFailure["code"][]) {
       expect(fieldCheckProp(named[code]), code).toBe(props[code]);

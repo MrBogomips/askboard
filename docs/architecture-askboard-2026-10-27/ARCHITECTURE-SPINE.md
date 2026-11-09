@@ -43,6 +43,7 @@ sources:
   - 'OpenSpec change keep-mine-shown-revision, proposal.md, open question 4: no derived values in an answer naming an earlier revision (accepted under the PO''s unattended handoff, 2026-11-08)'
   - 'OpenSpec change table-widget, proposal.md, open questions 1, 3, 4 and 6: the Table on its own grid, column formulas with row references and single reads, totals as item fields, cell entries in the draft (accepted under the PO''s unattended handoff, 2026-11-08)'
   - 'OpenSpec change agent-facing-gaps, proposal.md and design decision 7: AD-6 names `deleted` among the typed results that are not errors (Issues #73 and #75, 2026-11-09)'
+  - 'OpenSpec change document-review, proposal.md, open questions 5 and 12: suggested edits in the annotation body, the Markdown renderer shared with the widgets (accepted under the PO''s unattended handoff, 2026-11-08)'
   - 'OpenSpec change result-bound, design.md, decisions 1, 2 and 6: the unresolved-pointer warnings of `ask` and `update` get their own 10,000 characters, a closing warning counts the rest, and AD-6 says so (accepted under the PO''s unattended handoff, 2026-11-09)'
 companions: ['SOLUTION-DESIGN.md']
 ---
@@ -116,7 +117,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
     - `ask-core` imports only `contract` and `compute`.
     - Every adapter imports `ask-core` ports and `contract`, never another adapter.
     - The session process entry point (`packages/server/src/main.ts`, with the files beside it outside the server unit folders) composes the units: it may import `ask-core`, `contract`, every server unit and `hooks`, whose hook mode (`askboard hook <event>`) and local API client run from the same executable (AD-19), and no unit imports it.
-    - `view` imports only `contract` and `compute`. `widgets` imports only `contract`, `compute` and `view`'s `CatalogRenderer` port. A server unit imports `view` only for `assemble` (AD-9).
+    - `view` imports only `contract` and `compute`. `widgets` imports only `contract`, `compute`, `view`'s `CatalogRenderer` port and `view`'s Markdown renderer, each provided at run time by one chunk (AD-9). A server unit imports `view` only for `assemble` (AD-9).
     - `compute` and `ask-core` use no DOM, Node-only or Bun-only API.
     - CI fails on any import that crosses the dependency diagram.
   - **Run time:** `mod`, `hooks` and `bench` are out-of-process clients. They talk to the session process only through schemas in `contract` (AD-7).
@@ -268,7 +269,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
       - diagram anchors as node or edge IDs as written in the diagram source, else the quoted label;
       - diff anchors as side (`old` or `new`), file path and line on that side;
       - text anchors as quote or position selectors.
-    - **Annotations:** they share one shape modelled on the W3C Web Annotation Data Model, a target (item ID plus selector) and a body. Its fields are fixed in `contract` before the first annotating widget is built: `{id, target: {selector}, body: {text}}`, the item ID being the key of the answer's `results`, with one selector type per kind of position above (`element` and `label` for diagrams and graphs, `region` for images, `line` for diffs, `quote` and `position` for text).
+    - **Annotations:** they share one shape modelled on the W3C Web Annotation Data Model, a target (item ID plus selector) and a body. Its fields are fixed in `contract` before the first annotating widget is built: `{id, target: {selector}, body: {text?, replacement?}}`, a body holding a comment, a suggested edit that replaces the target's text (an empty one deleting it), or both, the item ID being the key of the answer's `results`, with one selector type per kind of position above (`element` and `label` for diagrams and graphs, `region` for images, `line` for diffs, `quote` and `position` for text).
     - **Values:**
       - calendar dates are RFC 3339 `full-date` strings;
       - durations are integer days against the item's working calendar, which is optional and defaults to Monday to Friday with no holidays;
@@ -332,7 +333,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
     - A component is ready when its asynchronous work has settled and its content has been laid out once. A question counts as visible when all its items are ready. A container that hides items, such as Tabs, still mounts them, hidden, so they report ready.
     - Each item renders inside an error boundary. An item that throws shows an error state and reports the error to the board page, and its question never counts as visible (AD-10).
   - **Build and assembly:**
-    - At build time, `view` publishes a manifest: a shell chunk, library chunks for code that several components use, and one chunk per catalog component, each with its SHA-256, its styles, the licence notices of the code it contains and the chunks it needs. The widgets in `packages/widgets` are catalog components like the atoms in `view`: the view build bundles each as a component chunk of the same manifest, and a widget imports from `view` only the `CatalogRenderer` port. Nothing is bundled at run time. Every chunk is a classic script, so a chunk that holds `import.meta` fails the build.
+    - At build time, `view` publishes a manifest: a shell chunk, library chunks for code that several components use, and one chunk per catalog component, each with its SHA-256, its styles, the licence notices of the code it contains and the chunks it needs. The widgets in `packages/widgets` are catalog components like the atoms in `view`: the view build bundles each as a component chunk of the same manifest, and a widget imports from `view` only the `CatalogRenderer` port and the Markdown renderer, which a library chunk provides to every chunk that renders Markdown. Nothing is bundled at run time. Every chunk is a classic script, so a chunk that holds `import.meta` fails the build.
     - One pure function exported by `view`, `assemble(boardDocument, manifest)`, builds both a board's srcdoc (called by the board page) and every Snapshot (called by `snapshot`), with its CSP. It inlines the shell and the chunks the board's items need, with the library chunks those need in turn.
     - In a Snapshot, `assemble` carries each diagram that has a kept render as its light and dark SVG, which a small chunk shows as a `blob:` image, and leaves that diagram's renderer chunk out. A diagram with no kept render gets its renderer chunk.
     - The view renders each diagram in both themes and sends the SVG text to the board page as a typed view message. `board-host` keeps the latest render per item and board revision, as data: it never serves one as a page (AD-8).
@@ -810,7 +811,7 @@ askboard/
     core/                # ask-core: asks, revisions, board documents, event logs, drafts, ports (BoardAddress, MoleculeSource, SourceFiles, Config, SnapshotWriter, FormulaEngine use)
     compute/             # buildGraph, FormulaEngine port and adapter, PERT, CPM scheduling
     server/              # session process: mcp-tools, board-host (board listener, local API), excerpts, molecule-source, snapshot, notifier, hook mode
-    view/                # board page, assemble, view shell, CatalogRenderer port, atoms, layouts
+    view/                # board page, assemble, view shell, CatalogRenderer port, Markdown renderer, atoms, layouts
     widgets/             # the 18 catalogue widgets as catalog components
     molecules/           # ready-made molecules as input-format data
     mod/                 # Claude Code mod: push transport, pending-asks status

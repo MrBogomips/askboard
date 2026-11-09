@@ -16,6 +16,7 @@ import {
 import { t } from "../strings/index.ts";
 import { questionsOf, type ViewDocument, type ViewQuestion } from "../view-document.ts";
 import type { ViewAct, ViewLock } from "../view-protocol.ts";
+import type { ReadOnlyOf, ShownOf } from "./agent-change.ts";
 import {
   answerContentOf,
   type BoardDraft,
@@ -23,6 +24,7 @@ import {
   type Delivery,
   itemIdsOf,
   type QuestionWork,
+  releaseAllHeld,
 } from "./board-draft.ts";
 import {
   type AnswerContext,
@@ -34,13 +36,16 @@ import {
   revisionFor,
   withDerived,
 } from "./card-acts.ts";
-import { entriesWithCells } from "./cell-entries.ts";
 import type { DerivedStore } from "./derived-store.ts";
 import type { DraftRecord, DraftStore } from "./draft-store.ts";
 import { holdsBlock } from "./field-block.ts";
 import { contentOf } from "./question-state.ts";
+import type { QuestionStatus } from "./ready-tracker.ts";
 import { type FactsOf, reasonOf } from "./reason.ts";
 import { questionsToConfirm } from "./revision-confirm.ts";
+
+/** The ready tracker's status of a question (AD-9, AD-10). */
+export type LoadOf = (questionId: string) => QuestionStatus;
 
 /** A question with an act held for Submit, and the work that carries it. */
 export type HeldWork = {
@@ -70,11 +75,13 @@ const actOf = (
   when: string,
   reported: DerivedStore["reported"],
   results?: DraftRecord,
+  shownOf?: ShownOf,
 ): ViewAct[] => {
   const itemId = question.id;
   switch (work.held.act) {
     case "answer": {
-      const held = answerContentOf(question, values, work, results);
+      // The items of the revision the card shows, even one a later revision removed (Issue #93).
+      const held = answerContentOf(shownOf?.(question) ?? question, values, work, results);
       const content = namesEarlierRevision(question, work)
         ? held
         : withDerived(held, reported, itemIdsOf(question));
@@ -128,12 +135,13 @@ export const submitActsOf = (
   at: Date,
   reported: DerivedStore["reported"],
   results?: DraftRecord,
+  shownOf?: ShownOf,
 ): ViewAct[] => {
   const when = at.toISOString();
   return held
     .flatMap((each): Ordered[] => [
       ...undoOf(each),
-      { order: each.work.held.order, acts: actOf(each, values, when, reported, results) },
+      { order: each.work.held.order, acts: actOf(each, values, when, reported, results, shownOf) },
     ])
     .sort((a, b) => a.order - b.order)
     .flatMap(({ acts }) => acts);
@@ -155,6 +163,12 @@ export type SubmitInputs = {
   readonly results?: ReadonlyMap<string, unknown> | undefined;
   /** The facts of each widget type, whose `check` decides (the registered ones when none). */
   readonly facts?: FactsOf | undefined;
+  /** The items of a question the card makes read-only; the field block skips them (decision 15). */
+  readonly readOnlyOf?: ReadOnlyOf | undefined;
+  /** The question as its card shows it: the field block reads that revision (Issue #92). */
+  readonly shownOf?: ShownOf | undefined;
+  /** The ready tracker's status of each question: a held act on one still loading waits, one that failed is left out (Issue #103). */
+  readonly load?: LoadOf | undefined;
 };
 
 export type SubmitState = {
@@ -179,6 +193,8 @@ export const heldWithBlock = (
   entries: ReadonlyMap<string, unknown> | undefined,
   results: ReadonlyMap<string, unknown> | undefined,
   facts?: FactsOf,
+  readOnlyOf?: ReadOnlyOf,
+  shownOf?: ShownOf,
 ): ViewQuestion | undefined =>
   entries === undefined && results === undefined
     ? undefined
@@ -187,13 +203,64 @@ export const heldWithBlock = (
           (each) =>
             each.question.id === question.id &&
             each.work.held.act === "answer" &&
-            holdsBlock(question, entries ?? new Map(), results ?? new Map(), facts),
+            holdsBlock(
+              shownOf?.(question) ?? question,
+              entries ?? new Map(),
+              results ?? new Map(),
+              facts,
+              readOnlyOf?.(question),
+            ),
         ),
       );
 
+/**
+ * The held acts that take part in Submit: those of a question whose item failed do not (AD-9,
+ * AD-10; EXPERIENCE.md, Submit). Such a question's card cannot answer, and the board page refuses
+ * its acts, so its held acts are released (`releaseFailed`) and Submit sends the others. With no
+ * `load`, every one takes part.
+ */
+const sendable = (held: readonly HeldWork[], load: LoadOf | undefined): readonly HeldWork[] =>
+  load === undefined ? held : held.filter(({ question }) => load(question.id) !== "failed");
+
+/**
+ * The first question, in board order, with an act held for Submit that is still loading (AD-9,
+ * AD-10): nothing is answered on a partial board, so Submit waits for it (Issue #103). A failed
+ * question never waits: its acts are not Submit's (`sendable`). With no `load`, nothing is read.
+ */
+export const heldUnusable = (
+  document: ViewDocument,
+  held: readonly HeldWork[],
+  load: LoadOf | undefined,
+): ViewQuestion | undefined =>
+  load === undefined
+    ? undefined
+    : questionsOf(document).find(
+        (question) =>
+          held.some((each) => each.question.id === question.id) && load(question.id) === "loading",
+      );
+
+/**
+ * Takes back the held acts of every question whose item failed, an undo held beneath one included,
+ * and keeps its work in the draft: a failed card offers no way to take them back itself, and a
+ * restored draft would hold them again (document-review, design decision 15, Appendix row 44; the
+ * ready mark an edit releases is the same `releaseHeld` of the board draft).
+ */
+export const releaseFailed = (
+  document: ViewDocument,
+  board: BoardDraft,
+  load: LoadOf | undefined,
+): void => {
+  if (load === undefined) return;
+  for (const question of questionsOf(document)) {
+    const work = board.work(question.id);
+    if (work?.held === undefined || load(question.id) !== "failed") continue;
+    board.edit(question.id, work.rev, releaseAllHeld);
+  }
+};
+
 /** Whether Submit can go, and what stops it (EXPERIENCE.md, Submit). */
 export const submitStateOf = (inputs: SubmitInputs): SubmitState => {
-  const held = heldWorkOf(inputs.document, inputs.board);
+  const held = sendable(heldWorkOf(inputs.document, inputs.board), inputs.load);
   const ids = held.map(({ question }) => question.id);
   const blocked = questionsOf(inputs.document)
     .map((question) => question.id)
@@ -205,18 +272,40 @@ export const submitStateOf = (inputs: SubmitInputs): SubmitState => {
     inputs.lock !== undefined ||
     blocked.length > 0 ||
     ids.some(inputs.sending) ||
-    heldWithBlock(inputs.document, held, inputs.entries, inputs.results, inputs.facts) !==
-      undefined;
+    heldUnusable(inputs.document, held, inputs.load) !== undefined ||
+    heldWithBlock(
+      inputs.document,
+      held,
+      inputs.entries,
+      inputs.results,
+      inputs.facts,
+      inputs.readOnlyOf,
+      inputs.shownOf,
+    ) !== undefined;
   return { held: held.length, blocked, disabled };
 };
+
+/**
+ * Whether "Immediate" waits: leaving submitted delivery with held work asks first, and waits
+ * whenever Submit waits (EXPERIENCE.md, Mode-switch confirmation).
+ */
+export const immediateBlocked = (submit: SubmitState, delivery: Delivery): boolean =>
+  submit.held > 0 && delivery === "submitted" && submit.disabled;
 
 /** The bar's count of agent-change notices on held work, which jumps to the first. */
 export const updatesLabel = (count: number, language: Locale = "en-US"): string =>
   t(language, "bar.updates", { count });
 
-/** Whether any question has a recommended option: "Select recommended" shows only then. */
-export const hasRecommendation = (document: ViewDocument): boolean =>
-  questionsOf(document).some((question) => recommendedOf(question) !== undefined);
+/**
+ * Whether any question has a recommended option: "Select recommended" shows only then. A question
+ * counts by the revision the card shows (`shownOf`), the one `selectRecommended` reads, so the
+ * button shows exactly when pressing it can select something (document-review, design decision 15;
+ * Issue #93).
+ */
+export const hasRecommendation = (document: ViewDocument, shownOf?: ShownOf): boolean =>
+  questionsOf(document).some(
+    (question) => recommendedOf(shownOf?.(question) ?? question) !== undefined,
+  );
 
 // Whether the user has chosen something on the question: an option, or "Other…".
 const hasChoice = (question: ViewQuestion, values: DraftRecord, work: QuestionWork | undefined) => {
@@ -242,6 +331,8 @@ export const selectRecommended = (
     cellEntries,
     board,
     facts,
+    readOnlyOf,
+    shownOf,
   }: {
     readonly draft: DraftStore;
     readonly results?: DraftStore | undefined;
@@ -249,12 +340,15 @@ export const selectRecommended = (
     readonly cellEntries?: DraftStore | undefined;
     readonly board: BoardDraft;
     readonly facts?: AnswerContext["facts"];
+    readonly readOnlyOf?: ReadOnlyOf | undefined;
+    readonly shownOf?: ShownOf | undefined;
   },
   skip: (questionId: string) => boolean,
 ): number => {
   let count = 0;
   for (const question of questionsOf(document)) {
-    const recommended = recommendedOf(question);
+    // The option the card shows as recommended, on the revision the card shows (Issue #93).
+    const recommended = recommendedOf(shownOf?.(question) ?? question);
     const status = state.questions.find((each) => each.itemId === question.id)?.state;
     const work = board.work(question.id);
     const held = work?.held?.act;
@@ -269,8 +363,16 @@ export const selectRecommended = (
       board,
       facts,
       delivery: board.get().delivery,
+      shownOf,
     });
-    const blocked = blockedBy(question, { results, entries, cellEntries, facts });
+    const blocked = blockedBy(question, {
+      results,
+      entries,
+      cellEntries,
+      facts,
+      readOnlyOf,
+      shownOf,
+    });
     if (board.get().delivery === "submitted" && !lacksReason && !blocked) {
       const order = nextHeldOrder(board);
       board.edit(question.id, question.rev, (current) => ({
@@ -294,13 +396,15 @@ export const heldMissingReason = (
   values: DraftRecord,
   results: DraftRecord | undefined,
   facts?: FactsOf,
+  shownOf?: ShownOf,
 ): ViewQuestion | undefined => {
   for (const question of questionsOf(document)) {
     const entry = held.find((each) => each.question.id === question.id);
     if (entry === undefined || entry.work.held.act !== "answer") continue;
     const content = answerContentOf(question, values, entry.work, results);
     if (
-      reasonOf(question, results ?? new Map(), undefined, facts) !== undefined &&
+      reasonOf(shownOf?.(question) ?? question, results ?? new Map(), undefined, facts) !==
+        undefined &&
       !noteHoldsReason(content.note)
     ) {
       return question;
@@ -311,6 +415,8 @@ export const heldMissingReason = (
 
 /** What a press of Submit comes to: a question whose reason is missing, the acts to send, or the acts and the questions to ask about first. */
 export type SubmitPress =
+  /** A held act's question is still loading: nothing is sent, and the board goes to the question. */
+  | { readonly kind: "unusable"; readonly questionId: string }
   | { readonly kind: "needs-reason"; readonly questionId: string }
   /** A held answer's question holds a blocking field: nothing is sent, and the board goes to the question. */
   | { readonly kind: "field-block"; readonly questionId: string }
@@ -323,8 +429,9 @@ export type SubmitPress =
     };
 
 /**
- * A press of Submit (design decision 6): the last reason check over every held answer comes
- * before anything else; one that fails sends nothing and leaves every act held, naming the
+ * A press of Submit (design decision 6): a held act on a question that is still loading comes
+ * first and sends nothing, naming the question (Issue #103); the last reason check over every held
+ * answer comes before anything else; one that fails sends nothing and leaves every act held, naming the
  * question the board goes to; a held answer whose question holds a blocking field sends nothing either.
  * Then, when a held answer or decline would replace a received
  * verdict, the questions to ask about with the acts; otherwise the one command, every held act in
@@ -343,22 +450,32 @@ export const submitPress = (
     readonly facts?: FactsOf | undefined;
     /** The entries the fields hold, by item ID. */
     readonly entries?: ReadonlyMap<string, unknown> | undefined;
+    /** The items of a question the card makes read-only; the field block skips them (decision 15). */
+    readonly readOnlyOf?: ReadOnlyOf | undefined;
+    /** The question as its card shows it: the gates read that revision (Issue #92). */
+    readonly shownOf?: ShownOf | undefined;
+    /** The ready tracker's status of each question: a held act on one still loading waits, one that failed is left out. */
+    readonly load?: LoadOf | undefined;
   },
 ): SubmitPress => {
-  const { results, facts, state, entries } = options;
-  const held = heldWorkOf(document, board);
-  const missing = heldMissingReason(document, held, values, results, facts);
+  const { results, facts, state, entries, readOnlyOf, shownOf, load } = options;
+  const held = sendable(heldWorkOf(document, board), load);
+  const unusable = heldUnusable(document, held, load);
+  if (unusable !== undefined) return { kind: "unusable", questionId: unusable.id };
+  const missing = heldMissingReason(document, held, values, results, facts, shownOf);
   if (missing !== undefined) return { kind: "needs-reason", questionId: missing.id };
-  const blocked = heldWithBlock(document, held, entries, results, facts);
+  const blocked = heldWithBlock(document, held, entries, results, facts, readOnlyOf, shownOf);
   if (blocked !== undefined) return { kind: "field-block", questionId: blocked.id };
-  const acts = submitActsOf(held, values, at, reported, results);
-  const questions = state === undefined ? [] : questionsToConfirm(document, held, state, facts);
+  const acts = submitActsOf(held, values, at, reported, results, shownOf);
+  const questions =
+    state === undefined ? [] : questionsToConfirm(document, held, state, facts, shownOf);
   return questions.length === 0 ? { kind: "send", acts } : { kind: "confirm", acts, questions };
 };
 
 /** What the confirmation's Submit comes to, once pressed again against the held work as it is. */
 export type ConfirmedPress =
   | { readonly kind: "blocked" }
+  | { readonly kind: "unusable"; readonly questionId: string }
   | { readonly kind: "needs-reason"; readonly questionId: string }
   | { readonly kind: "field-block"; readonly questionId: string }
   | { readonly kind: "ask"; readonly questions: readonly ViewQuestion[] }
@@ -377,7 +494,9 @@ export const confirmedPress = (
   now: SubmitPress,
 ): ConfirmedPress => {
   if (disabled) return { kind: "blocked" };
-  if (now.kind === "needs-reason" || now.kind === "field-block") return now;
+  if (now.kind === "needs-reason" || now.kind === "field-block" || now.kind === "unusable") {
+    return now;
+  }
   if (now.kind === "send") return now;
   const same =
     now.questions.length === asked.length &&

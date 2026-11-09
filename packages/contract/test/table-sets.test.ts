@@ -42,8 +42,9 @@ const roles = TABLE_FIXTURE_ITEM as unknown as { type: string; id: string; props
 const inGroup = { type: "group", id: "box", props: { title: "Box", items: [roles] } };
 
 describe("the Table in the registry", () => {
-  test("is the last entry, after every shipped type, and the registry holds together", () => {
-    expect(WIDGET_TYPES.at(-1)).toBe(TABLE_WIDGET);
+  test("is right after the PickField, with later registrations after it, and the registry holds together", () => {
+    const types = WIDGET_TYPES.map(({ type }) => type);
+    expect(types.indexOf("table")).toBe(types.indexOf("pick-field") + 1);
     expect(WIDGET_TYPES.filter(({ type }) => type === "table")).toHaveLength(1);
     expect(widgetRegistryProblems(WIDGET_TYPES)).toEqual([]);
   });
