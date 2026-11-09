@@ -2,7 +2,13 @@
 
 ## Why
 
-Issue: #70 (end-to-end check V1 of 2026-11-08, severity M). After the agent reopens an answered question, its widgets show the agent's values, not the user's last answer, and nothing says so. An answer that changes something else then drops the earlier edits, because `changes` are computed against the agent's revision (AD-20). "Start from my previous answer" does not help with edits either: it brings back the choice, notes and results but no widget value (`fillFrom`, `packages/view/src/shell/card-acts.ts:500`), so EXPERIENCE's "moves it into the draft" fails for every edit widget. The same gap loses edits when the user revises an answered question and leaves one of its edited widgets alone: the card shows that widget's answered value, but the revised answer omits it (design.md, Context).
+Issue: #70 (end-to-end check V1 of 2026-11-08, severity M).
+
+Issue: #105 (a result the agent's revision no longer takes stays shown after a revision starts, severity M).
+
+Issue: #107 (a result the user clears, or a value the user returns to the agent's version, during a revision comes back on screen, severity M).
+
+Issues #105 and #107 were found in this change's own reviews of the revision's start (tasks 2.10 to 2.14) and are fixed here. After the agent reopens an answered question, its widgets show the agent's values, not the user's last answer, and nothing says so. An answer that changes something else then drops the earlier edits, because `changes` are computed against the agent's revision (AD-20). "Start from my previous answer" does not help with edits either: it brings back the choice, notes and results but no widget value (`fillFrom`, `packages/view/src/shell/card-acts.ts:500`), so EXPERIENCE's "moves it into the draft" fails for every edit widget. The same gap loses edits when the user revises an answered question and leaves one of its edited widgets alone: the card shows that widget's answered value, but the revised answer omits it (design.md, Context).
 
 ## What Changes
 
@@ -11,6 +17,7 @@ Issue: #70 (end-to-end check V1 of 2026-11-08, severity M). After the agent reop
 - **`ask-core` says what is unchanged.** The board state's current and previous answers name the question and the items whose props equal those of the revision the answer names, whenever that revision is earlier than the question's current one; an answer on the current revision names none, since all is unchanged, so the board state of an answered question stays as it is. `board-host` and the Snapshot pass the list on. The board page cannot know this after a reload.
 - **On connect, `board-host` sends a held draft record before the board state**, no longer after it, so the board page's first update to the view carries the restore whenever there is one, and the prefill never runs ahead of the user's restored work (design decision 9).
 - **The draft record remembers the prefill**, so a reload never repeats it over what the user undid. A marker alone counts as no unsent work.
+- **A revision shows what it sends** (Issues #105, #107). A result the revision's props no longer take is not shown or sent; a result the user clears, and a value returned to the agent's version, stay cleared, on screen and in the answer.
 - **Derived values** follow keep-mine-shown-revision's rule (#66). A reopened question's answer names its current revision, so it carries the derived values computed from what the board shows.
 - **Versions:** the board protocol and the Snapshot data, each at the next minor after `main`'s (design decision 7).
 - **Documents:** EXPERIENCE (Reopened question, its Voice and Tone rows) and DESIGN.md (Reopened question) drop "nothing carried over". Spine AD-10 and AD-20 and PRD FR-6 are amended in place. CLAUDE.md names the change once merged.

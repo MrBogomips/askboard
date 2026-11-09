@@ -2,7 +2,14 @@ import { describe, expect, test } from "bun:test";
 import type { DraftRecord, LifecycleBoardState } from "@askboard/contract";
 import { plainChoiceBoardDocument } from "@askboard/contract/fixtures";
 import type { ViewDocument, ViewQuestion, WidgetItem } from "../view-document.ts";
-import { connectDrafts, createBoardDraft, draftRecordOf, restoreDraft } from "./board-draft.ts";
+import { changePending, createRevisions, workingQuestion } from "./agent-change.ts";
+import {
+  connectDrafts,
+  createBoardDraft,
+  draftRecordOf,
+  moveMarks,
+  restoreDraft,
+} from "./board-draft.ts";
 import { createDraftStore } from "./draft-store.ts";
 import { prefillReopened, reopenPrefills } from "./reopen-prefill.ts";
 
@@ -304,6 +311,100 @@ describe("after a restore, as the shell runs them", () => {
   });
 });
 
+// The mark alone is no unsent work (design decision 4): when the agent moves the question past a
+// work that holds nothing but the mark, the mark moves to the new revision, so the card shows the
+// agent's change at once with no notice, and the question is never filled again (S-1 of review 4.3).
+describe("a prefill undone by hand, then the agent changes the question (S-1 of review 4.3)", () => {
+  const NEXT = REV + 1;
+  const renamed = { ...timeline, props: { lanes: [{ id: "web", label: "Website" }] } };
+  const later: ViewQuestion = {
+    ...question,
+    rev: NEXT,
+    props: { ...question.props, items: [renamed, kanban] },
+  };
+  const laterDocument = { ...document, items: [later] } as unknown as ViewDocument;
+  const laterState = stateOf({ state: "open", previous });
+  const kept = new Map();
+
+  const undone = () => {
+    const run = setUp();
+    prefillReopened(document, stateOf(), run);
+    run.draft.set("roadmap", undefined);
+    run.draft.set("board", undefined);
+    run.draft.set("database", undefined);
+    expect(run.board.work("database")).toEqual({ rev: REV, prefilled: true });
+    return run;
+  };
+  const move = (run: ReturnType<typeof setUp>) =>
+    moveMarks(
+      laterDocument,
+      run.draft.record(),
+      run.board,
+      run.results.record(),
+      run.entries.record(),
+    );
+
+  test("the mark moves to the new revision, so no notice is pending and the card shows the revision", () => {
+    const run = undone();
+    expect(changePending(later, run.board.work("database"), kept)).toBe(true);
+    move(run);
+    const work = run.board.work("database");
+    expect(work).toEqual({ rev: NEXT, prefilled: true });
+    expect(changePending(later, work, kept)).toBe(false);
+    const revisions = createRevisions();
+    revisions.record(document);
+    revisions.record(laterDocument);
+    expect(workingQuestion(later, work, revisions)).toBe(later);
+  });
+
+  test("the work is not forgotten: equal props at the new revision are not filled again", () => {
+    const run = undone();
+    move(run);
+    prefillReopened(laterDocument, laterState, run);
+    expect(run.draft.record().size).toBe(0);
+    expect(run.board.work("database")).toEqual({ rev: NEXT, prefilled: true });
+  });
+
+  test("work that holds a value is real work: the mark stays on its revision and the notice is pending", () => {
+    const run = undone();
+    run.draft.set("roadmap", moved);
+    move(run);
+    expect(run.board.work("database")).toEqual({ rev: REV, prefilled: true });
+    expect(changePending(later, run.board.work("database"), kept)).toBe(true);
+  });
+
+  test("work that holds more than the mark stays on its revision", () => {
+    const run = undone();
+    run.board.edit("database", REV, (work) => ({ ...work, note: "typed" }));
+    move(run);
+    expect(run.board.work("database")).toEqual({ rev: REV, prefilled: true, note: "typed" });
+  });
+
+  test("a question at its work's revision, or with no work, is left alone", () => {
+    const run = setUp();
+    moveMarks(document, run.draft.record(), run.board);
+    expect(run.board.work("database")).toBeUndefined();
+    prefillReopened(document, stateOf(), run);
+    moveMarks(document, run.draft.record(), run.board);
+    expect(run.board.work("database")).toEqual({ rev: REV, prefilled: true });
+  });
+
+  test("the user undoing the last value on a card still showing the earlier revision moves the mark too", () => {
+    let shown = document;
+    const run = setUp();
+    connectDrafts(() => shown, run.draft, run.board, run.results, run.entries, run.cellEntries);
+    prefillReopened(document, stateOf(), run);
+    shown = laterDocument;
+    move(run);
+    // The prefilled values are held: the work stays on its revision, and the notice counts them.
+    expect(run.board.work("database")).toEqual({ rev: REV, prefilled: true });
+    run.draft.set("roadmap", undefined);
+    run.draft.set("board", undefined);
+    run.draft.set("database", undefined);
+    expect(run.board.work("database")).toEqual({ rev: NEXT, prefilled: true });
+  });
+});
+
 // The shell's wiring is read from its source: `index.tsx` boots on import, so no unit test runs it.
 describe("the shell's calls (design decisions 3, 4 and 9)", () => {
   const source = async (name: string): Promise<string> =>
@@ -321,6 +422,18 @@ describe("the shell's calls (design decisions 3, 4 and 9)", () => {
     // No call before the handler, so the boot data alone fills nothing (a Snapshot has only that).
     expect(text.slice(0, handler)).not.toContain("prefillReopened(");
     expect(text.slice(0, handler)).not.toContain("reopenPrefills(");
+  });
+
+  test("the mark moves past an agent change inside the update handler, with the update's document, before the view takes it (S-1 of review 4.3)", async () => {
+    const text = await source("./index.tsx");
+    const handler = text.indexOf("channel.onUpdate(");
+    const move = text.indexOf("moveMarks(", handler);
+    const set = text.indexOf("view.set({ document", handler);
+    expect(move).toBeGreaterThan(handler);
+    expect(set).toBeGreaterThan(move);
+    expect(text.indexOf("moveMarks(", move + 1)).toBe(-1);
+    const call = text.slice(move, text.indexOf(");", move));
+    expect(call).toContain("document,");
   });
 
   test("the update's lock goes to the prefill, so a read-only card is never filled (X-2 of review 2.5)", async () => {

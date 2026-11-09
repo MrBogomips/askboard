@@ -49,6 +49,7 @@ import {
   createBoardDraft,
   draftRecordOf,
   itemIdsOf,
+  moveMarks,
   type QuestionWork,
   restoreDraft,
   resultIdsOf,
@@ -56,7 +57,7 @@ import {
 import { BoardLanguage } from "./board-language.tsx";
 import { nextAfterRemoval, presentationOf } from "./board-view.ts";
 import { dropWork } from "./card-acts.ts";
-import { clearCellEntries, dropStaleCellEntries } from "./cell-entries.ts";
+import { clearCellEntries, dropStaleCellEntries, entriesWithCells } from "./cell-entries.ts";
 import { NO_CHANNEL, openChannel, type ViewChannel } from "./channel.ts";
 import { createDerivedStore } from "./derived-store.ts";
 import { createDraftStore, type DraftStore } from "./draft-store.ts";
@@ -274,6 +275,15 @@ const boot = (): void => {
       });
       dropStaleEntries(document, entries);
       dropStaleCellEntries(document, cellEntries);
+      // A prefill's mark alone is no unsent work: when the agent moves the question past it, the mark
+      // follows, so the change shows at once with no notice (design decision 4).
+      moveMarks(
+        document,
+        draft.record(),
+        board,
+        results.record(),
+        entriesWithCells(entries.record(), cellEntries.record()),
+      );
       tracker.include(questionItemsOf(document));
       attention.documentChanged(document);
     }

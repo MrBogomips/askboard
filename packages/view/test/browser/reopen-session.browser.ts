@@ -14,7 +14,12 @@
 //     and "Start from my previous answer" carry the Timeline alone, and the answer is accepted;
 // (e) a prefill undone by hand is not filled again by a reload;
 // (f) a Gantt reopened unchanged answers the derived values of the plan it shows;
-// (g) a closed ask: nothing is filled after a reload and leaving the page asks nothing.
+// (g) a closed ask: nothing is filled after a reload and leaving the page asks nothing;
+// (h) the board opened after the reopen, with no draft record held for the question (design
+//     decision 9): filled, with the carried line, and the mark mirrored;
+// (i) case (e)'s steps and an agent change before any reload: the change shows at once, with no
+//     agent-change notice (the mark alone is no unsent work, design decision 4), and a reload
+//     fills nothing.
 //
 // Run one engine by hand: ASKBOARD_E2E_ENGINES=webkit ASKBOARD_E2E_TARGET=session-process bun test ./packages/view/test/browser/reopen-session.browser.ts
 
@@ -47,6 +52,7 @@ import {
   answerOf,
   card,
   lifecycleScenario,
+  mirrored,
   openBoard,
   optionOf,
   promptArmed,
@@ -430,6 +436,105 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         // The Gantt's own edit travels as `changes` (an answer event has no `values`).
         expect(((first?.changes ?? []) as readonly unknown[]).length).toBeGreaterThan(0);
         expect(second?.changes).toEqual(first?.changes);
+        expectNoCspProblem(run);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "(h) the board opened after the reopen, with no draft record held for the question: filled once, with the carried line and the mark mirrored",
+      async () => {
+        const run = await start(lifecycleScenario(timelineAsk, dist));
+        const first = await openBoard(run, ["plan"]);
+        await moveCheckout(first, "mobile");
+        await answerAndCollect(run, first);
+        await eventually(
+          async () => (await promptArmed(first)) === false,
+          "no unsent work after the answer",
+        );
+        // The tab goes, and the agent reopens with no board open: the next tab is the first to see it.
+        await first.page.close();
+        await reopen(run);
+        const draftsBefore = sentDrafts(run).length;
+
+        const board = await openBoard(run, ["plan"]);
+        await lineShows(board, CARRIED);
+        await eventually(
+          async () => Bun.deepEquals(await checkoutShown(board), MOVED, true),
+          "the moved entry with its mark",
+        );
+        await mirrored(
+          run,
+          (record) => record.questions.plan?.prefilled === true,
+          "the mark of the prefill",
+        );
+        expect(sentDrafts(run).length).toBeGreaterThan(draftsBefore);
+        const [second] = await answerAndCollect(run, board);
+        expect(second).toMatchObject({ rev: 2 });
+        expect(targetsOf(second)).toEqual(CHECKOUT_MOVED);
+        expectNoCspProblem(run);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "(i) a prefill undone by hand, then the agent renames a lane before any reload: the change shows at once with no agent-change notice, and a reload fills nothing",
+      async () => {
+        const run = await start(lifecycleScenario(timelineAsk, dist));
+        const board = await openBoard(run, ["plan"]);
+        await moveCheckout(board, "mobile");
+        await answerAndCollect(run, board);
+
+        await reopen(run);
+        await lineShows(board, CARRIED);
+        await eventually(
+          async () => Bun.deepEquals(await checkoutShown(board), MOVED, true),
+          "the prefilled move",
+        );
+        await moveCheckout(board, "web");
+        await eventually(
+          async () => Bun.deepEquals(await checkoutShown(board), AS_SENT, true),
+          "the move undone",
+        );
+        await eventually(() => {
+          const work = sentDrafts(run).at(-1)?.questions.plan;
+          return work?.prefilled === true && work.values?.roadmap === undefined;
+        }, "the mark mirrored with no Timeline value");
+
+        await run.session.update([
+          {
+            action: "change",
+            itemId: "roadmap",
+            props: {
+              ...timelineItem().props,
+              lanes: [{ id: "web", label: "Website" }, timelineItem().props.lanes[1]],
+            },
+          },
+        ]);
+        await eventually(
+          async () =>
+            (
+              (await board.view
+                .locator('[data-timeline-lane-label="web"]')
+                .first()
+                .textContent()) ?? ""
+            ).includes("Website"),
+          "the lane's new label, at once",
+        );
+        expect(await changeNotice(board).count()).toBe(0);
+        expect(
+          await card(board, "plan")
+            .getByText(/Your \d+ changes? on this question/)
+            .count(),
+        ).toBe(0);
+        expect(await promptArmed(board)).toBe(false);
+
+        await reloaded(board, run);
+        await reopenedNotice(board).waitFor({ timeout: STEP_TIMEOUT_MS });
+        await Bun.sleep(QUIET_MS);
+        expect(await changeNotice(board).count()).toBe(0);
+        expect(await checkoutShown(board)).toEqual(AS_SENT);
+        expect(await promptArmed(board)).toBe(false);
         expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,

@@ -1,7 +1,7 @@
 {
   "approval": 20124,
   "board-graph": 10738,
-  "board-page": 983332,
+  "board-page": 983560,
   "chart": 595019,
   "choice": 18035,
   "compute": 43928,
@@ -22,7 +22,7 @@
   "react": 223595,
   "row": 4710,
   "scale": 18440,
-  "shell": 192318,
+  "shell": 192628,
   "stack": 2561,
   "table": 79157,
   "tabs": 7961,

@@ -373,7 +373,8 @@ export type CurrentAnswer = {
    * question's current one, the IDs of the question and of its items, at any depth, whose props
    * equal those of the revision the answer names; possibly empty, which says nothing is unchanged.
    * Absent, every item is unchanged on a current answer and none on a previous one (NFR-10). Never
-   * logged and never sent to the agent.
+   * logged, and in no `fetch`, `collect` or tool result; a Snapshot's data holds it as the live
+   * board receives it, for the agent that reads the Snapshot.
    */
   readonly unchanged?: readonly string[];
   readonly declined?: true;

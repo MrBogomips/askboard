@@ -305,6 +305,39 @@ export const hasAnswerWork = (
 // Work holding nothing but its revision.
 const isBare = (work: QuestionWork): boolean => Object.keys(work).every((key) => key === "rev");
 
+// Work holding nothing but its revision and the prefill's mark.
+const isMarkOnly = (work: QuestionWork): boolean =>
+  work.prefilled === true && Object.keys(work).every((key) => key === "rev" || key === "prefilled");
+
+/**
+ * Moves the mark of a prefill to the question's current revision when the work holds nothing else
+ * and the stores hold no value, result or entry of the question: the mark alone is no unsent work
+ * (reopen-start-from-answer, design decision 4), so an agent change past it shows at once, with no
+ * agent-change notice, and the readers of work presence (`changePending`, `workingQuestion`) see
+ * the current revision. The work is kept, never forgotten, so the question is not filled again
+ * over what the user undid when the agent sends props equal to the answer's. Work that holds
+ * anything else stays on its revision, and the notice counts it as before.
+ */
+export const moveMarks = (
+  document: ViewDocument,
+  values: ValueRecord,
+  board: BoardDraft,
+  results: ValueRecord = NO_RESULTS,
+  entries: ValueRecord = NO_RESULTS,
+): void => {
+  for (const question of questionsOf(document)) {
+    const work = board.work(question.id);
+    if (
+      work !== undefined &&
+      isMarkOnly(work) &&
+      work.rev < question.rev &&
+      !hasValues(question, values, results, entries)
+    ) {
+      board.edit(question.id, question.rev, (held) => ({ ...held, rev: question.rev }));
+    }
+  }
+};
+
 /**
  * Keeps the two stores together: a value the user puts in starts the question's work at its
  * revision, an edit to a ready answer's values makes it not ready, and work that holds nothing
@@ -347,6 +380,8 @@ export const connectDrafts = (
   };
   const prune = () => {
     const record = values.record();
+    // A prefill's mark left alone on a card that shows an earlier revision moves to the current one.
+    moveMarks(documentOf(), record, board, resultsNow(), entriesNow());
     for (const question of questionsOf(documentOf())) {
       const work = board.work(question.id);
       if (
