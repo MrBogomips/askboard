@@ -78,12 +78,13 @@ Inside a group, tasks run in their order. Task notes and commit bodies say `Refs
 
 ## 3. Records and the pull request
 
-- [ ] 3.1 Update the documents (design decision 6). Tests: none (documents). Make these edits:
+- [x] 3.1 Update the documents (design decision 6). Tests: none (documents). Make these edits:
   - the spine, AD-6, Schemas and validation: the warnings sentence gains ", each kind within its share of the result bound: past it, one closing warning counts the rest", amended in place; a `sources` line for this change; `updated:` set to this task's date;
   - CHANGELOG, `## Unreleased`, `### Fixed`: one line citing Issue #98 (the unresolved-pointer warnings of `ask` and `update` stay within 10,000 characters, a closing warning counting any left out, so an `ask` result stays within 30,000);
   - `docs/as-built/result-bound.md`: the change's as-built note (PR #109's rules, `docs/as-built/README.md` once merged): where the code lives (`core/src/warning-bound.ts`, `core/src/context/warnings.ts`), the names (`boundedWarnings`, `boundedUnresolvedWarnings`, `UNRESOLVED_WARNINGS_MAX_CHARS`), the warning order, the worst totals measured in 2.1, and that no set moved. No status, no merge date. Write nothing in CLAUDE.md: a change's record goes in `docs/as-built/<change-id>.md`, never in CLAUDE.md, whether or not #109 has merged.
 
   Verify: each new text stands once (`grep -c -F`); `git diff origin/main -- CLAUDE.md` is empty; `openspec validate --all --strict --no-interactive` passes.
+  - Note (Refs #98): AD-6 amended in place (the warnings sentence of Schemas and validation), one `sources` line, `updated: '2026-11-09'`; CHANGELOG `## Unreleased` / `### Fixed` one line; new `docs/as-built/result-bound.md` (the `docs/as-built/` folder is not on this branch yet: only the note is added, no README). Each new text counted once with `grep -c -F`; `git diff origin/main -- CLAUDE.md` empty.
 - [ ] 3.2 Rebase onto `origin/main` (askboard-contract-versioning, Rebase procedure). Resolve `core/src/ask.ts` (agent-facing-gaps), the spine's `sources` and `updated:`, and CHANGELOG by keeping both sides, `main`'s first (Merge points); if #109 has merged, keep `docs/as-built/result-bound.md` beside the others and follow its README. Re-check every borrowed name. Tests: the full suite. Verify:
   - `git grep` finds each borrowed name of 0.2 on the rebased head;
   - `git diff origin/main...HEAD -- packages/contract/src` is empty, and every `*_VERSION` and `*_FORMAT` constant equals main's;
