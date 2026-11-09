@@ -1,7 +1,9 @@
 // The presentation keys a board reads and writes (settings-languages design decision 6): a board
 // gets the user file's presentation keys as they are now, over the rest of the first read, and
 // writes one presentation key, with a schema value, into the user file as it is now, keeping every
-// other key in its order (AD-14, FR-35).
+// other key in its order (AD-14, FR-35). The user's `keys` are read again with them (keyboard-
+// shortcuts-help, design decision 19): checked as at first use, with the project's warning the
+// first read's.
 
 import {
   CONFIGURATION_VERSION,
@@ -16,15 +18,23 @@ import type { SettingsInEffect } from "./settings.ts";
 
 const PRESENTATION: ReadonlySet<string> = new Set(PRESENTATION_KEYS);
 
-/** The settings a board opens with: `fresh`'s presentation keys and user file over `first`. */
+/**
+ * The settings a board opens with: `fresh`'s presentation keys, `keys` and user file over `first`.
+ * `fresh` was merged with the first read's project file, so its `keys` row holds the project's
+ * warning from that read and the user's `keys` as they are now, under task 9.1's rules.
+ */
 export const boardSettings = (
   first: SettingsInEffect,
   fresh: SettingsInEffect,
 ): SettingsInEffect => {
-  const rows = Object.fromEntries(PRESENTATION_KEYS.map((key) => [key, fresh.rows[key]]));
-  const values = Object.fromEntries(PRESENTATION_KEYS.map((key) => [key, fresh.values[key]]));
+  const read = [...PRESENTATION_KEYS, "keys"] as const;
+  const rows = Object.fromEntries(read.map((key) => [key, fresh.rows[key]]));
+  const values = Object.fromEntries(
+    read.flatMap((key) => (fresh.values[key] === undefined ? [] : [[key, fresh.values[key]]])),
+  );
+  const { keys: _firstKeys, ...kept } = first.values;
   return {
-    values: { ...first.values, ...values },
+    values: { ...kept, ...values },
     rows: { ...first.rows, ...rows },
     files: { user: fresh.files.user, project: first.files.project },
     warnings: fresh.warnings,
