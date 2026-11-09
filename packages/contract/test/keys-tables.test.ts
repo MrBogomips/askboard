@@ -271,7 +271,7 @@ describe("each table's readOnly, part by part (decision 2, review 1.6 S-3)", () 
           "select.none",
         ],
       },
-      toolbar: { readOnly: NAV_TOOLBAR, edits: [] },
+      toolbar: { readOnly: [], edits: NAV_TOOLBAR },
     });
   });
 
@@ -365,7 +365,7 @@ describe("each table's readOnly, part by part (decision 2, review 1.6 S-3)", () 
         readOnly: ["cursor.up", "cursor.down", "cursor.left", "cursor.right"],
         edits: [],
       },
-      toolbar: { readOnly: NAV_TOOLBAR, edits: ["kanban.moveTo"] },
+      toolbar: { readOnly: [], edits: [...NAV_TOOLBAR, "kanban.moveTo"] },
     });
   });
 
@@ -376,8 +376,13 @@ describe("each table's readOnly, part by part (decision 2, review 1.6 S-3)", () 
         edits: [],
       },
       toolbar: {
-        readOnly: NAV_TOOLBAR,
-        edits: ["timeline.moveEarlier", "timeline.moveLater", "timeline.moveToLane"],
+        readOnly: [],
+        edits: [
+          ...NAV_TOOLBAR,
+          "timeline.moveEarlier",
+          "timeline.moveLater",
+          "timeline.moveToLane",
+        ],
       },
     });
   });
