@@ -25,6 +25,18 @@ const WARNINGS: Readonly<Record<SettingWarning["code"], (warning: SettingWarning
     "can be written by another user, or a folder above it can, or another user owns one: its editor is ignored.",
   "snapshot-folder-replaced": ({ value }) =>
     `sets snapshotFolder to ${JSON.stringify(value)}, which leaves the project: .askboard/snapshots is used instead.`,
+  "project-keys-ignored": () =>
+    "sets keys, which AskBoard reads from the user file only: it is ignored.",
+  // The action and the combination come from a file: JSON-quoted, so no control character gets out.
+  "keys-not-applied": ({ rule, action, binding, with: other }) => {
+    const parts = [
+      `does not apply its keys (every key is the default): rule ${rule}`,
+      `action ${JSON.stringify(action)}`,
+      ...(binding === undefined ? [] : [`combination ${JSON.stringify(binding)}`]),
+      ...(other === undefined ? [] : [`with ${JSON.stringify(other)}`]),
+    ];
+    return `${parts.join(", ")}.`;
+  },
 };
 
 const warningText = (settings: SettingsInEffect, warning: SettingWarning): string =>

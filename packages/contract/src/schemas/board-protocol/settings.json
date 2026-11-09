@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:askboard:board-protocol:settings",
   "title": "Settings",
-  "description": "board-host to board page: the settings in effect, before the board on every connect and again after each write (AD-14, FR-35; settings-languages, design decision 6). Every key has its row: its value, where it comes from, whether the board may write it, the other file's value when both set it, and its warnings. The two files follow, each with its status, then the warnings no row holds, and, after a write, its outcome. Warnings and problems are codes with their file, key or pointer; the board page words them in the ask's language.",
+  "description": "board-host to board page: the settings in effect, before the board on every connect and again after each write (AD-14, FR-35; settings-languages, design decision 6). Every key has its row: its value, where it comes from, whether the board may write it, the other file's value when both set it, and its warnings; the user's key overrides have a row of their own, optional (keyboard-shortcuts-help, design decision 19). The two files follow, each with its status, then the warnings no row holds, and, after a write, its outcome. Warnings and problems are codes with their file, key or pointer; the board page words them in the ask's language.",
   "type": "object",
   "properties": {
     "version": {
@@ -157,6 +157,30 @@
               }
             }
           }
+        },
+        "keys": {
+          "description": "The user's key overrides, in effect for the next board (keyboard-shortcuts-help, design decision 19): the user file's keys that passed the key-override check, else no value and, when the check refused them, a keys-not-applied warning for each problem. Never written by a board, and never from the project file, whose keys are ignored.",
+          "type": "object",
+          "$ref": "#/$defs/row",
+          "properties": {
+            "value": {
+              "$ref": "urn:askboard:configuration:config#/properties/keys"
+            },
+            "from": {
+              "enum": ["user", "default"]
+            },
+            "writable": {
+              "const": false
+            },
+            "other": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "$ref": "urn:askboard:configuration:config#/properties/keys"
+                }
+              }
+            }
+          }
         }
       },
       "required": [
@@ -261,7 +285,7 @@
       "additionalProperties": false
     },
     "warning": {
-      "description": "unknown-key: a key the configuration does not define; project-editor-ignored: the project file's editor never runs; editor-file-writable-by-others: the user file's editor is ignored; snapshot-folder-replaced: the value leaves the project and the default is in effect.",
+      "description": "unknown-key: a key the configuration does not define; project-editor-ignored: the project file's editor never runs; editor-file-writable-by-others: the user file's editor is ignored; snapshot-folder-replaced: the value leaves the project and the default is in effect; project-keys-ignored: the project file's keys never apply (keyboard-shortcuts-help); keys-not-applied: the user file's keys failed the key-override check and every key is the default, one warning per problem, naming its rule, the action and, where one is at fault, the combination and the other action of a conflict.",
       "type": "object",
       "properties": {
         "code": {
@@ -269,7 +293,9 @@
             "unknown-key",
             "project-editor-ignored",
             "editor-file-writable-by-others",
-            "snapshot-folder-replaced"
+            "snapshot-folder-replaced",
+            "project-keys-ignored",
+            "keys-not-applied"
           ]
         },
         "file": {
@@ -284,10 +310,53 @@
           "description": "The value replaced, for snapshot-folder-replaced.",
           "type": "string",
           "maxLength": 1024
+        },
+        "rule": {
+          "description": "The key-override rule that failed, for keys-not-applied.",
+          "enum": ["action", "native", "notation", "hold", "reserved", "conflict", "exit"]
+        },
+        "action": {
+          "description": "The action whose override failed, for keys-not-applied.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "binding": {
+          "description": "The combination at fault, as the file wrote it, for keys-not-applied.",
+          "type": "string",
+          "maxLength": 32
+        },
+        "with": {
+          "description": "The other action of a conflict, for keys-not-applied.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
         }
       },
       "required": ["code", "file", "key"],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "if": {
+        "properties": {
+          "code": {
+            "const": "keys-not-applied"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "rule": true,
+          "action": true
+        },
+        "required": ["rule", "action"]
+      },
+      "else": {
+        "properties": {
+          "rule": false,
+          "action": false,
+          "binding": false,
+          "with": false
+        }
+      }
     },
     "file": {
       "description": "A configuration file: its path as the panel shows it, absent when there is no such file to read, and whether it applied. A file not applied names its problem: unreadable, with the system's error code; not-json; version, a major other than 1; schema, with the JSON pointer and the keyword that failed.",

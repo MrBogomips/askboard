@@ -70,6 +70,8 @@ export const STRING_KEYS = [
   "settings.warningProjectEditor",
   "settings.warningWritableByOthers",
   "settings.warningSnapshotFolder",
+  "settings.warningProjectKeys",
+  "settings.warningKeysNotApplied",
   "state.waiting",
   "state.partly",
   "state.answered",

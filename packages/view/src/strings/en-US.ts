@@ -66,6 +66,8 @@ export const EN_US = {
   "settings.warningProjectEditor": "The project's editor is ignored",
   "settings.warningWritableByOthers": "{file} can be written by others: its editor is ignored",
   "settings.warningSnapshotFolder": "{value} in {file} is outside the project: the default is used",
+  "settings.warningProjectKeys": "The project's keys are ignored",
+  "settings.warningKeysNotApplied": "Your keys in {file} are not applied: {detail}",
   "state.waiting": "Waiting",
   "state.partly": "Partly answered {answered}/{total}",
   "state.answered": "Answered",

@@ -84,7 +84,7 @@ const LABELS: Readonly<Record<PresentationKey, StringKey>> = {
   contextPlacement: "settings.contextPlacement",
 };
 
-const ROWS: readonly (readonly [ConfigurationKey, StringKey])[] = [
+const ROWS: readonly (readonly [Exclude<ConfigurationKey, "keys">, StringKey])[] = [
   ["defaultLanguage", "settings.defaultLanguage"],
   ["askingRule", "settings.askingRules"],
   ["snapshotFolder", "settings.snapshotFolder"],
@@ -103,6 +103,8 @@ const WARNINGS = {
   "project-editor-ignored": "settings.warningProjectEditor",
   "editor-file-writable-by-others": "settings.warningWritableByOthers",
   "snapshot-folder-replaced": "settings.warningSnapshotFolder",
+  "project-keys-ignored": "settings.warningProjectKeys",
+  "keys-not-applied": "settings.warningKeysNotApplied",
 } as const satisfies Record<SettingWarning["code"], StringKey>;
 
 const pathOf = (message: SettingsMessage, file: SettingsFileName): string =>
@@ -148,6 +150,9 @@ const warningText = (warning: SettingWarning, language: Locale, message: Setting
     key: warning.key,
     file: pathOf(message, warning.file),
     value: warning.value ?? "",
+    detail: [warning.rule, warning.action, warning.binding, warning.with]
+      .filter((part) => part !== undefined)
+      .join(" · "),
   });
 
 const rowOf = (

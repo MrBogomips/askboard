@@ -12,9 +12,11 @@
 // decision 6); atoms' minor adds the entries of the input atoms to the draft record (design
 // decision 3); table-widget's minor adds the cell entries of a Table to it (design decision 8).
 // Reopen-start-from-answer's minor adds `unchanged` to the board state's answers and `prefilled` to
-// the draft record (design decisions 1 and 4).
+// the draft record (design decisions 1 and 4). Keyboard-shortcuts-help's minor adds the user's key
+// overrides to the settings in effect and two warning codes (design decision 19).
 
 import type { EditorOutcome, SourceStatus } from "../../context/resolution.ts";
+import type { KeyOverrideRule } from "../../keys/overrides.ts";
 import type { SchemaSet } from "../../versions.ts";
 import type { BoardDocument, LifecycleBoardDocument } from "../board-document/index.ts";
 import type {
@@ -48,7 +50,7 @@ import state from "./state.json" with { type: "json" };
 import time from "./time.json" with { type: "json" };
 import version from "./version.json" with { type: "json" };
 
-export const BOARD_PROTOCOL_VERSION = "1.9";
+export const BOARD_PROTOCOL_VERSION = "1.10";
 
 export const boardProtocol: SchemaSet = {
   name: "board-protocol",
@@ -510,7 +512,9 @@ export type SettingWarningCode =
   | "unknown-key"
   | "project-editor-ignored"
   | "editor-file-writable-by-others"
-  | "snapshot-folder-replaced";
+  | "snapshot-folder-replaced"
+  | "project-keys-ignored"
+  | "keys-not-applied";
 
 export type SettingWarning = {
   readonly code: SettingWarningCode;
@@ -518,6 +522,14 @@ export type SettingWarning = {
   readonly key: string;
   /** The value replaced, for `snapshot-folder-replaced`. */
   readonly value?: string;
+  /** The key-override rule that failed, for `keys-not-applied`. */
+  readonly rule?: KeyOverrideRule;
+  /** The action whose override failed, for `keys-not-applied`. */
+  readonly action?: string;
+  /** The combination at fault, as the file wrote it, for `keys-not-applied`. */
+  readonly binding?: string;
+  /** The other action of a conflict, for `keys-not-applied`. */
+  readonly with?: string;
 };
 
 /** One key in effect; `value` is absent only for `editor` and `defaultMinimumMargin`. */
@@ -531,9 +543,10 @@ export type SettingRow<T> = {
   readonly warnings?: readonly [SettingWarning, ...SettingWarning[]];
 };
 
+/** Every key's row; the user's `keys` row is optional (keyboard-shortcuts-help). */
 export type SettingsRows = {
-  readonly [K in ConfigurationKey]: SettingRow<ConfigurationValues[K]>;
-};
+  readonly [K in Exclude<ConfigurationKey, "keys">]: SettingRow<ConfigurationValues[K]>;
+} & { readonly keys?: SettingRow<ConfigurationValues["keys"]> };
 
 export type FileProblemCode = "unreadable" | "not-json" | "version" | "schema";
 

@@ -51,6 +51,24 @@
       "type": "number",
       "minimum": 0,
       "maximum": 100
+    },
+    "keys": {
+      "description": "The user's key overrides (keyboard-shortcuts-help, design decisions 16 and 18): for an action, the combinations that replace its keys, [] to remove them. The schema bounds the shape only: the combinations' notation and which keys an action may take are the contract's key-override check, which ask-core runs on the user file; the project file's keys are ignored.",
+      "type": "object",
+      "maxProperties": 64,
+      "propertyNames": {
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "additionalProperties": {
+        "type": "array",
+        "maxItems": 4,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        }
+      }
     }
   },
   "required": ["version"]

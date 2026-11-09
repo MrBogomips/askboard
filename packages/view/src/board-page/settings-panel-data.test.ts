@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import type { Locale, SettingsMessage } from "@askboard/contract";
-import { settingsSaved, settingsWithEveryKey } from "@askboard/contract/fixtures";
+import {
+  settingsKeysIgnored,
+  settingsKeysNotApplied,
+  settingsSaved,
+  settingsWithEveryKey,
+} from "@askboard/contract/fixtures";
 import type { ViewPresentation } from "../view-protocol.ts";
 import { languageIndicator, panelData } from "./settings-panel-data.ts";
 
@@ -148,5 +153,29 @@ describe("the files not applied and the warnings no row holds", () => {
     expect(data().warnings).toEqual([
       "fontSize is not a known key of ~/.config/askboard/config.json",
     ]);
+  });
+});
+
+// The warnings of the user's keys (keyboard-shortcuts-help, board protocol): enough wording for the
+// panel to show them; task 10.3 words them in full and adds the Keys row.
+describe("the warnings of the user's keys", () => {
+  test("the project's keys ignored, in each language", () => {
+    expect(data(settingsKeysIgnored).warnings).toEqual(["The project's keys are ignored"]);
+    expect(data(settingsKeysIgnored, "it-IT").warnings).toEqual([
+      "I tasti del progetto sono ignorati",
+    ]);
+  });
+
+  test("keys not applied, naming the rule, the action, the combination and the other action", () => {
+    const message: SettingsMessage = {
+      ...settingsWithEveryKey,
+      warnings: settingsKeysNotApplied.keys.keys?.warnings ?? [],
+    };
+    expect(data(message).warnings).toEqual([
+      "Your keys in ~/.config/askboard/config.json are not applied: conflict · move.top · Alt+Shift+ArrowUp · move.up",
+    ]);
+    const [italian] = data(message, "it-IT").warnings;
+    expect(italian).toContain("conflict · move.top · Alt+Shift+ArrowUp · move.up");
+    expect(italian).not.toContain("Your keys");
   });
 });

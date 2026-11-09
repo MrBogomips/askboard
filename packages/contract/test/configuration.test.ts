@@ -131,12 +131,72 @@ describe("the editor key is an argument vector", () => {
   });
 });
 
+// keyboard-shortcuts-help task 8.4 (contract spec: The configuration schema set; design decisions 16
+// and 18): `keys` maps actions to combinations, bounded in shape only; its meaning is the key-override
+// check's, so a combination the check refuses still passes the schema.
+describe("the keys key", () => {
+  const keys = {
+    "move.top": ["Mod+Alt+ArrowUp"],
+    "move.bottom": ["Mod+Alt+ArrowDown"],
+    "select.all": [],
+  };
+
+  test("overrides with the PO's example validate, with and without the other keys", () => {
+    expect(problemsOf(file({ keys }))).toEqual([]);
+    expect(problemsOf(file({ theme: "dark", keys, editor: ["code"] }))).toEqual([]);
+    expect(problemsOf(file({ keys: {} }))).toEqual([]);
+  });
+
+  test("a combination the check refuses passes the schema: F1 for the keys panel", () => {
+    expect(problemsOf(file({ keys: { "keys.open": ["F1"] } }))).toEqual([]);
+    expect(problemsOf(file({ keys: { "ranking.teleport": ["nonsense"] } }))).toEqual([]);
+  });
+
+  test("the bounds: 64 actions, names of 64 characters, 4 combinations of 1 to 32 characters", () => {
+    const actions = Object.fromEntries(Array.from({ length: 64 }, (_, at) => [`a${at}`, ["F2"]]));
+    expect(problemsOf(file({ keys: actions }))).toEqual([]);
+    expect(problemsOf(file({ keys: { ["n".repeat(64)]: ["F2"] } }))).toEqual([]);
+    expect(problemsOf(file({ keys: { a: ["F2", "F3", "F4", "F5"] } }))).toEqual([]);
+    expect(problemsOf(file({ keys: { a: ["k".repeat(32)] } }))).toEqual([]);
+  });
+
+  test.each([
+    ["a list", ["move.top"]],
+    ["a text", "move.top"],
+    ["null", null],
+    ["65 actions", Object.fromEntries(Array.from({ length: 65 }, (_, at) => [`a${at}`, ["F2"]]))],
+    ["a name of 65 characters", { ["n".repeat(65)]: ["F2"] }],
+    ["an empty name", { "": ["F2"] }],
+    ["5 combinations", { a: ["F2", "F3", "F4", "F5", "F6"] }],
+    ["an action given a text", { a: "F2" }],
+    ["a combination that is a number", { a: [2] }],
+    ["a combination that is null", { a: [null] }],
+    ["an empty combination", { a: [""] }],
+    ["a combination of 33 characters", { a: ["k".repeat(33)] }],
+    ["an action given an object", { a: { 0: "F2" } }],
+  ])("%s fails, naming keys", (_, value) => {
+    const problems = problemsOf(file({ keys: value }));
+    expect(problems.length).toBeGreaterThan(0);
+    for (const problem of problems) expect(problem.path).toStartWith("/keys");
+  });
+
+  test("the schema holds no pattern: the combinations' meaning is the check's", () => {
+    const [schema] = configurationSet.schemas as [{ properties: { keys: unknown } }];
+    expect(JSON.stringify(schema.properties.keys)).not.toContain("pattern");
+    expect(JSON.stringify(schema.properties.keys)).toContain("keyboard-shortcuts-help");
+  });
+
+  test("the user's keys are no presentation key", () => {
+    expect(PRESENTATION_KEYS as readonly string[]).not.toContain("keys");
+  });
+});
+
 describe("the keys", () => {
   test("the presentation keys are exactly theme, density and contextPlacement", () => {
     expect(PRESENTATION_KEYS).toEqual(["theme", "density", "contextPlacement"]);
   });
 
-  test("the configuration keys are AD-14's eight, the presentation keys first", () => {
+  test("the configuration keys are AD-14's eight and the user's keys, the presentation keys first", () => {
     expect(CONFIGURATION_KEYS).toEqual([
       "theme",
       "density",
@@ -146,6 +206,7 @@ describe("the keys", () => {
       "snapshotFolder",
       "editor",
       "defaultMinimumMargin",
+      "keys",
     ]);
   });
 
@@ -169,13 +230,12 @@ describe("the keys", () => {
 });
 
 describe("the set", () => {
-  test("is owned by ask-core, at 1.0, and passes the schema checks", () => {
+  test("is owned by ask-core, at the constant, and passes the schema checks", () => {
     expect(configurationSet).toMatchObject({
       name: "configuration",
       owner: "ask-core",
-      version: "1.0",
+      version: CONFIGURATION_VERSION,
     });
-    expect(CONFIGURATION_VERSION).toBe("1.0");
     expect(SCHEMA_SET_OWNERS[configurationSet.name]).toBe(configurationSet.owner);
     expect(schemaSetProblems([configurationSet])).toEqual([]);
   });

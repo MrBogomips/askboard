@@ -71,6 +71,8 @@ export const IT_IT = {
     "{file} può essere modificato da altri: il suo editor è ignorato",
   "settings.warningSnapshotFolder":
     "{value} in {file} è fuori dal progetto: si usa il valore predefinito",
+  "settings.warningProjectKeys": "I tasti del progetto sono ignorati",
+  "settings.warningKeysNotApplied": "I tuoi tasti in {file} non sono applicati: {detail}",
   "state.waiting": "In attesa",
   "state.partly": "Risposte parziali {answered}/{total}",
   "state.answered": "Con risposta",
