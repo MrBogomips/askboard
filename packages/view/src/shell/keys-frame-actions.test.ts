@@ -4,6 +4,7 @@ import {
   type FrameElements,
   keyDownOf,
   type Measurable,
+  noteClose,
   openFrom,
   restoreFocus,
   stopKey,
@@ -28,6 +29,7 @@ const frame = (): FrameElements => ({
   button: { current: null },
   anchor: { current: null },
   opener: { current: null },
+  closedBy: { current: undefined },
 });
 
 describe("openFrom", () => {
@@ -126,10 +128,36 @@ describe("stopKey and restoreFocus", () => {
     expect(stopped).toBe(1);
   });
 
-  test("restoreFocus prevents Radix's choice and focuses the opener", () => {
+  test("after a close by Escape or by Close, restoreFocus prevents Radix's choice and focuses the opener", () => {
+    for (const reason of ["escape", "close"] as const) {
+      const elements = frame();
+      const row = spot("row");
+      elements.opener.current = row;
+      noteClose(elements, reason)();
+      let prevented = 0;
+      restoreFocus(elements)({ preventDefault: () => (prevented += 1) });
+      expect(prevented).toBe(1);
+      expect(row.focused).toBe(1);
+    }
+  });
+
+  test("after a close from an interaction outside, it prevents Radix's move and focuses nothing", () => {
     const elements = frame();
     const row = spot("row");
     elements.opener.current = row;
+    noteClose(elements, "outside")();
+    let prevented = 0;
+    restoreFocus(elements)({ preventDefault: () => (prevented += 1) });
+    expect(prevented).toBe(1);
+    expect(row.focused).toBe(0);
+  });
+
+  test("the recorded reason is cleared at each open: an outside close never leaks into the next", () => {
+    const elements = frame();
+    const row = spot("row");
+    noteClose(elements, "outside")();
+    openFrom(elements, () => {})(row);
+    expect(elements.closedBy.current).toBeUndefined();
     let prevented = 0;
     restoreFocus(elements)({ preventDefault: () => (prevented += 1) });
     expect(prevented).toBe(1);

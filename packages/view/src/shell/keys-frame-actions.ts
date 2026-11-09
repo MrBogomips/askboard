@@ -13,11 +13,15 @@ export type Measurable = { getBoundingClientRect(): DOMRect };
 
 type Cell<Value> = { current: Value };
 
-/** The frame's three elements: the Keys button, the panel's anchor, and where the focus was. */
+/** How the panel closed: Escape, the Close button, or an interaction outside it (a click or a focus elsewhere). */
+export type CloseReason = "escape" | "close" | "outside";
+
+/** The frame's elements: the Keys button, the panel's anchor, where the focus was, and how the panel closed. */
 export type FrameElements = {
   readonly button: Cell<HTMLElement | null>;
   readonly anchor: Cell<Measurable | null>;
   readonly opener: Cell<HTMLElement | null>;
+  readonly closedBy: Cell<CloseReason | undefined>;
 };
 
 /** An element that can take the focus back. */
@@ -31,6 +35,7 @@ export const openFrom =
   (elements: FrameElements, setOpen: (open: boolean) => void) =>
   (from: HTMLElement | null): void => {
     elements.opener.current = from;
+    elements.closedBy.current = undefined;
     elements.anchor.current = elements.button.current ?? from;
     setOpen(true);
   };
@@ -62,10 +67,19 @@ export const keyDownOf =
 /** Keeps a key typed in the panel in it: React events bubble through the portal to the widget. */
 export const stopKey = (event: { stopPropagation(): void }): void => event.stopPropagation();
 
-/** Gives the focus back to the element that held it before the panel opened, not to Radix's choice. */
+/** Records how the panel is closing, for `restoreFocus` (Radix's close handlers call it before the close). */
+export const noteClose = (elements: FrameElements, reason: CloseReason) => (): void => {
+  elements.closedBy.current = reason;
+};
+
+/**
+ * Takes the focus move from Radix. After Escape or "Close" the focus goes back to the element that
+ * held it before the panel opened; after an interaction outside it stays where that interaction put
+ * it (a click on another item's field), which Radix's own move to the opener would take away.
+ */
 export const restoreFocus =
   (elements: FrameElements) =>
   (event: { preventDefault(): void }): void => {
     event.preventDefault();
-    elements.opener.current?.focus();
+    if (elements.closedBy.current !== "outside") elements.opener.current?.focus();
   };

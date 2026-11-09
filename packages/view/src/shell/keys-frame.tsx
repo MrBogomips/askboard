@@ -4,7 +4,8 @@
 // when the key was not prevented, no input method composes and the target is not a text field (the
 // nearest frame wins, since it prevents the key), shows it as a non-modal Radix Popover named
 // "<Widget> keys" with the focus moving in, and returns the focus on Escape or "Close" to the
-// element that held it before it opened.
+// element that held it before it opened; a close from an interaction outside (a click or a focus
+// elsewhere) leaves the focus where that interaction put it.
 
 import type { KeyTable } from "@askboard/contract";
 import { Popover } from "radix-ui";
@@ -17,6 +18,7 @@ import {
   type FrameElements,
   keyDownOf,
   type Measurable,
+  noteClose,
   openFrom,
   restoreFocus,
   stopKey,
@@ -52,6 +54,7 @@ export const KeysFrame = ({
     button: { current: null },
     anchor: { current: null },
     opener: { current: null },
+    closedBy: { current: undefined },
   }).current;
   const opening = useMemo(() => openFrom(elements, setOpen), [elements]);
   const control = useMemo(() => controlOf(elements, opening), [elements, opening]);
@@ -74,13 +77,17 @@ export const KeysFrame = ({
             align="end"
             sideOffset={4}
             className={PANEL}
+            onEscapeKeyDown={noteClose(elements, "escape")}
+            onInteractOutside={noteClose(elements, "outside")}
             onCloseAutoFocus={restoreFocus(elements)}
           >
             {/* Keys typed in the panel stay in it: React events bubble through the portal to the widget. */}
             {/* biome-ignore lint/a11y/noStaticElementInteractions: it only stops a bubbling key; it has no role of its own. */}
             <div className="flex flex-col gap-sm" onKeyDown={stopKey}>
               <KeysPanelBody table={table} takesEdits={takesEdits} />
-              <Popover.Close className={CLOSE}>{text("keys.panel.close")}</Popover.Close>
+              <Popover.Close className={CLOSE} onClick={noteClose(elements, "close")}>
+                {text("keys.panel.close")}
+              </Popover.Close>
             </div>
           </Popover.Content>
         </Popover.Portal>

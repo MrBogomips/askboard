@@ -234,6 +234,42 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
+      "a click on another item's text field closes the panel and leaves the focus in that field",
+      async () => {
+        const run = await host(
+          dist,
+          atomDocument([probe("first", "one"), probe("second", "two")]),
+          { userAgent: LINUX_UA },
+        );
+        await readyIn(run);
+        await list(run.board, "second").focus();
+        await run.board.page.keyboard.press("?");
+        await panel(run.board).waitFor({ timeout: STEP_TIMEOUT_MS });
+        const field = run.board.view.locator('[data-probe-text="first"]');
+        await field.click();
+        await panel(run.board).waitFor({ state: "hidden", timeout: STEP_TIMEOUT_MS });
+        await eventually(() => isFocused(field), "the focus to stay in the field clicked");
+        expect(await isFocused(list(run.board, "second"))).toBe(false);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "Close returns the focus to the element that held it before the panel opened",
+      async () => {
+        const run = await host(dist, one, { userAgent: LINUX_UA });
+        await readyIn(run);
+        await list(run.board).focus();
+        await run.board.page.keyboard.press("?");
+        await panel(run.board).waitFor({ timeout: STEP_TIMEOUT_MS });
+        await panel(run.board).getByRole("button", { name: "Close", exact: true }).click();
+        await panel(run.board).waitFor({ state: "hidden", timeout: STEP_TIMEOUT_MS });
+        await eventually(() => isFocused(list(run.board)), "the focus to return to the list");
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
       "an item inside a Group opens its own panel on `?`: the nearest frame wins",
       async () => {
         const group = {
