@@ -355,6 +355,27 @@ describe("a warning of the user's keys that lacks its optional fields (security 
     ]);
   });
 
+  test("a rule named after the prototype chain is no rule: the generic wording, never a throw (X-8)", () => {
+    const names = ["toString", "constructor", "__proto__", "hasOwnProperty", "valueOf"];
+    for (const rule of names) {
+      for (const language of ["en-US", "it-IT"] as const) {
+        const fields = { rule, action: "move.top", binding: "Home", with: "move.up" };
+        const message = JSON.parse(JSON.stringify(lacking({}))) as SettingsMessage;
+        const warning = { code: "keys-not-applied", file: "user", key: "keys", ...fields };
+        const withRule = {
+          ...message,
+          keys: {
+            ...message.keys,
+            keys: { from: "default", writable: false, warnings: [warning] },
+          },
+        } as unknown as SettingsMessage;
+        const generic = data(lacking({}), language).keys.warnings;
+        expect(data(withRule, language).keys.warnings).toEqual(generic);
+      }
+    }
+    expect(data(lacking({}), "en-US").keys.warnings[0]).toContain("a key does not pass the check");
+  });
+
   test("a message with a warning of another code lacking its fields renders too", () => {
     const message: SettingsMessage = {
       ...settingsWithEveryKey,
