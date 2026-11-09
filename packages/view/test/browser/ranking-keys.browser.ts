@@ -113,7 +113,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     const { host } = useWidgetHost(engine);
 
     test(
-      "Space on the second row, then Shift+ArrowDown twice, selects the second to the fourth, the fourth current, and the toolbar reads 3 selected",
+      "Space on the second row, then Shift+ArrowDown twice, selects the second to the fourth, the fourth current, and the toolbar reads 3 selected; Shift+ArrowUp then makes the third current and still reads 3 selected",
       async () => {
         const { board } = await open(host);
         await rowOf(board, "b").focus();
@@ -127,6 +127,11 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           async () => (await count(board).textContent())?.trim() === "3 selected",
           "3 selected",
         );
+        // A range only grows: Shift+ArrowUp goes back a row without taking one back.
+        await board.page.keyboard.press("Shift+ArrowUp");
+        await expectCurrent(board, "c");
+        await expectSelected(board, ["b", "c", "d"]);
+        expect((await count(board).textContent())?.trim()).toBe("3 selected");
       },
       TEST_TIMEOUT_MS,
     );

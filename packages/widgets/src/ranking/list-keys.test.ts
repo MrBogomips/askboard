@@ -8,7 +8,7 @@ import {
   moveOrder,
   toolbarMoveOfPress,
 } from "./list-keys.ts";
-import { extend, NO_SELECTION, toggle } from "./selection.ts";
+import { extend, NO_SELECTION, type RowSelection, toggle } from "./selection.ts";
 
 // The Ranking's list and toolbar keys through the key table (view-and-widgets spec: Ranking at the
 // keyboard, Ranking row selection, A common key vocabulary, The user's keys on the board; design
@@ -104,6 +104,61 @@ describe("selecting", () => {
   test("the selection keys change nothing in a read-only Ranking, though they are taken", () => {
     expect(take(" ", NONE, { disabled: true })).toEqual({ taken: true });
     expect(take("ArrowDown", SHIFT, { disabled: true })).toEqual({ taken: true });
+  });
+});
+
+// A range only grows (view-and-widgets spec: Ranking row selection, "A range only grows"; design
+// decision 8; review 4.6, S-51): it runs from the anchor and only adds, so Shift+ArrowUp after two
+// Shift+ArrowDown does not take a row back, and the anchor is the row last toggled or clicked.
+describe("a range only grows", () => {
+  const press = (
+    key: string,
+    flags: typeof NONE,
+    state: { current: string; selection: RowSelection },
+  ) => {
+    const change = take(key, flags, state);
+    return {
+      current: change?.current ?? state.current,
+      selection: change?.selection ?? state.selection,
+    };
+  };
+
+  test("Space on the second row, Shift+ArrowDown twice, then Shift+ArrowUp keeps the second to the fourth selected, the third current, the anchor the second", () => {
+    let state = { current: "b", selection: selectionOf("b") };
+    state = press("ArrowDown", SHIFT, state);
+    state = press("ArrowDown", SHIFT, state);
+    expect([...state.selection.ids].sort()).toEqual(["b", "c", "d"]);
+    state = press("ArrowUp", SHIFT, state);
+    expect([...state.selection.ids].sort()).toEqual(["b", "c", "d"]);
+    expect(state.current).toBe("c");
+    expect(state.selection.anchor).toBe("b");
+  });
+
+  test("Shift+ArrowDown with no anchor starts at the current row and makes it the anchor", () => {
+    const change = take("ArrowDown", SHIFT);
+    expect(idsOf(change)).toEqual(["c", "d"]);
+    expect(change?.selection?.anchor).toBe("c");
+  });
+
+  test("Shift+ArrowUp past the anchor adds the rows above it and keeps those below", () => {
+    let state = { current: "c", selection: selectionOf("c") };
+    state = press("ArrowDown", SHIFT, state);
+    state = press("ArrowUp", SHIFT, state);
+    state = press("ArrowUp", SHIFT, state);
+    expect([...state.selection.ids].sort()).toEqual(["b", "c", "d"]);
+    expect(state.selection.anchor).toBe("c");
+  });
+
+  test("Shift+click with no anchor selects the clicked row alone and makes it the anchor", () => {
+    const next = extend(NO_SELECTION, ORDER, "c");
+    expect(idsOf({ taken: true, selection: next })).toEqual(["c"]);
+    expect(next.anchor).toBe("c");
+  });
+
+  test("selecting none clears the anchor", () => {
+    const change = take("Escape", NONE, { selection: selectionOf("b", "d") });
+    expect(change?.selection?.anchor).toBeUndefined();
+    expect(change?.selection?.ids.size).toBe(0);
   });
 });
 
