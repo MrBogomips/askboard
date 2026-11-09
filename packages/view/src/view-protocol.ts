@@ -23,6 +23,8 @@ import {
   FOLLOW_UP_MAX_CHARS,
   ID_PATTERN,
   JSON_MAX_DEPTH,
+  KEY_COMBINATION_MAX_CHARS,
+  type KeyOverrides,
   LINK_URL_MAX_CHARS,
   type LifecycleBoardState,
   NOTE_MAX_CHARS,
@@ -305,6 +307,13 @@ export type ViewUpdate = {
   readonly origin?: HeaderOrigin;
   readonly agent?: AgentStatus;
   readonly presentation?: ViewPresentation;
+  /**
+   * The user's key overrides, applied (keyboard-shortcuts-help, design decision 19): the `keys` row
+   * of the settings, from the user file, that passed the contract's key-override check; none when
+   * the user file gives none, when the check refused them or when the file is the project's. Never
+   * in a Snapshot's data.
+   */
+  readonly keys?: KeyOverrides;
   /** How many times the settings panel has closed: the view focuses "Settings" on each. */
   readonly settingsClosed?: number;
   /** How the latest Snapshot request the view sent ended (snapshot design decision 8). */
@@ -600,6 +609,39 @@ const settingProblems = (args: Record<string, unknown>, at = "/arguments"): Prob
     : [{ path: `${at}/value`, message: `is not a value "${String(key)}" allows` }];
 };
 
+/** The bounds of the configuration schema's `keys` (keyboard-shortcuts-help, design decision 18). */
+const KEYS_MAX_ACTIONS = 64;
+const KEYS_NAME_MAX_CHARS = 64;
+const KEYS_MAX_COMBINATIONS = 4;
+
+const isCombinationList = (value: unknown): value is readonly string[] =>
+  Array.isArray(value) &&
+  value.length <= KEYS_MAX_COMBINATIONS &&
+  value.every(
+    (text) =>
+      typeof text === "string" && text.length >= 1 && text.length <= KEY_COMBINATION_MAX_CHARS,
+  );
+
+/**
+ * Whether the view can read this as the user's key overrides: an object of at most 64 own actions,
+ * each named by 1 to 64 characters, each a list of at most 4 combinations of 1 to 32 characters. The
+ * shape only: that the keys are admissible is the board page's check, which passes on all of the
+ * overrides or none (`keyOverridesProblems`), and an action's meaning is the contract's.
+ */
+export const isKeyOverrides = (value: unknown): value is KeyOverrides => {
+  if (!isRecord(value)) return false;
+  const actions = Object.keys(value);
+  return (
+    actions.length <= KEYS_MAX_ACTIONS &&
+    actions.every(
+      (action) =>
+        action.length >= 1 &&
+        action.length <= KEYS_NAME_MAX_CHARS &&
+        isCombinationList(value[action]),
+    )
+  );
+};
+
 /** The most a height can be: a bound, so that no message names a panel off any screen. */
 export const INSET_MAX = 10_000;
 
@@ -876,6 +918,7 @@ export const UPDATE_FIELDS = {
   origin: { check: isHeaderOrigin, atBoot: true },
   agent: { check: isAgentStatus, atBoot: true },
   presentation: { check: isPresentation, atBoot: true },
+  keys: { check: isKeyOverrides },
   settingsClosed: { check: isCount },
   snapshot: { check: isSnapshotFeedback },
 } as const satisfies UpdateFields;

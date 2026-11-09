@@ -862,6 +862,61 @@ describe("the presentation in an update (settings-languages, task 8.2)", () => {
   });
 });
 
+describe("the user's keys in an update (keyboard-shortcuts-help, task 10.1)", () => {
+  const keys = { "move.top": ["Mod+Alt+ArrowUp"], "select.all": [] } as const;
+  const updateWith = (value: unknown) =>
+    readViewUpdate({ type: "state", state: waiting, keys: value });
+
+  test("go with the state and read back", () => {
+    const update = { type: "state", state: waiting, keys } as const;
+    expect(readViewUpdate(viewUpdateResult(update).structuredContent)).toEqual(update);
+  });
+
+  test("the entry is not atBoot: a Snapshot's and a booted view's data carry none", () => {
+    expect("atBoot" in UPDATE_FIELDS.keys).toBe(false);
+  });
+
+  test("an empty object is a valid, empty set of overrides", () => {
+    expect(updateWith({})).toEqual({ type: "state", state: waiting, keys: {} });
+  });
+
+  test("at most 64 actions, each with at most 4 combinations of 1 to 32 characters", () => {
+    const actions = (count: number) =>
+      Object.fromEntries(Array.from({ length: count }, (_, at) => [`own.action${at}`, []]));
+    expect(updateWith(actions(64))).toBeDefined();
+    expect(updateWith(actions(65))).toBeUndefined();
+    expect(updateWith({ a: ["a", "b", "c", "d"] })).toBeDefined();
+    expect(updateWith({ a: ["a", "b", "c", "d", "e"] })).toBeUndefined();
+    expect(updateWith({ a: ["x".repeat(32)] })).toBeDefined();
+    expect(updateWith({ a: ["x".repeat(33)] })).toBeUndefined();
+    expect(updateWith({ a: [""] })).toBeUndefined();
+    expect(updateWith({ ["x".repeat(64)]: [] })).toBeDefined();
+    expect(updateWith({ ["x".repeat(65)]: [] })).toBeUndefined();
+    expect(updateWith({ "": [] })).toBeUndefined();
+  });
+
+  test("anything else is no update: a list, a number, a text, null, a list holding a non-string", () => {
+    for (const wrong of [
+      ["move.top"],
+      3,
+      "move.top",
+      null,
+      { "move.top": "Mod+Alt+ArrowUp" },
+      { "move.top": 3 },
+      { "move.top": [3] },
+      { "move.top": [null] },
+      { "move.top": [["Mod+Alt+ArrowUp"]] },
+      { "move.top": { 0: "Mod+Alt+ArrowUp" } },
+    ]) {
+      expect(updateWith(wrong)).toBeUndefined();
+    }
+  });
+
+  test("a name that is no action is still a name: the check leaves its meaning to the board page", () => {
+    expect(updateWith(JSON.parse('{"__proto__":["Mod+Alt+ArrowUp"]}'))).toBeDefined();
+  });
+});
+
 describe("the settings panel closing in an update (settings-languages, task 8.4)", () => {
   test("goes with the state as a count and reads back", () => {
     const update = { type: "state", state: waiting, settingsClosed: 2 } as const;
