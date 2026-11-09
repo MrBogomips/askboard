@@ -8,6 +8,7 @@ import type {
   UnresolvedPointerWarning,
   UnresolvedReason,
 } from "@askboard/contract";
+import { boundedWarnings } from "../warning-bound.ts";
 
 export const UNRESOLVED_MESSAGES: Readonly<Record<UnresolvedReason, string>> = {
   "no-root":
@@ -24,16 +25,71 @@ export const UNRESOLVED_MESSAGES: Readonly<Record<UnresolvedReason, string>> = {
   timeout: "The file was not read within the send's time budget.",
 };
 
-/** The warnings of these questions' resolved props, in board order then item order. */
+/**
+ * The most characters the JSON text of an ask's or update's `unresolved-pointer` warnings may take:
+ * a third of `RESULT_MAX_CHARS` (AD-6), beside the `formula` warnings' third, which leaves the rest
+ * of a result its room (result-bound, design decision 1).
+ */
+export const UNRESOLVED_WARNINGS_MAX_CHARS = 10_000;
+
+/**
+ * The closing warning for `first`, the first warning left out, with `left` warnings after it: its
+ * item, pointer and reason, and fixed words that count the rest and point to `fetch`, which returns
+ * every pointer's reason. The words name the item and the reason, never a path (AD-12).
+ */
+export const closingUnresolvedWarning = (
+  first: UnresolvedPointerWarning,
+  left: number,
+): UnresolvedPointerWarning => {
+  const { itemId, pointer, reason } = first;
+  const head = `The pointer of ${itemId} did not resolve (${reason})`;
+  const message =
+    left === 0
+      ? `${head}; its message is left out.`
+      : left === 1
+        ? `${head}, and 1 more unresolved pointer is left out: fetch its question to read its reason.`
+        : `${head}, and ${left} more unresolved pointers are left out: fetch their questions to read each one's reason.`;
+  return { code: "unresolved-pointer", itemId, pointer, reason, message };
+};
+
+/**
+ * The warnings within `max` characters of JSON text, measured as `JSON.stringify` writes them. A
+ * list within `max` is returned as it is. Past it, the warnings kept in order leave room for the
+ * longest closing warning any warning of the list would give, measured with the list's length as
+ * its count, and one closing warning stands for the first warning left out and counts the rest, so
+ * that the kept, the closing one and the count make up the list. Pure, plain ECMAScript.
+ */
+export const boundedUnresolvedWarnings = (
+  warnings: readonly UnresolvedPointerWarning[],
+  max: number,
+): readonly UnresolvedPointerWarning[] =>
+  boundedWarnings(warnings, {
+    max,
+    room: warnings.reduce(
+      (most, warning) =>
+        Math.max(most, JSON.stringify(closingUnresolvedWarning(warning, warnings.length)).length),
+      0,
+    ),
+    closing: closingUnresolvedWarning,
+  });
+
+/**
+ * The warnings of these questions' resolved props, in board order then item order, within
+ * `UNRESOLVED_WARNINGS_MAX_CHARS` of JSON text: past it, one closing warning counts the rest. The
+ * board document still marks every unresolved item.
+ */
 export const unresolvedWarnings = (
   questions: readonly { readonly props: BoardQuestionProps }[],
-): UnresolvedPointerWarning[] =>
-  questions.flatMap(({ props }) =>
-    (props.items ?? []).flatMap((item) => {
-      const { props: itemProps } = item;
-      if (!("status" in itemProps) || itemProps.status !== "unresolved") return [];
-      const { pointer, reason } = itemProps;
-      const message = UNRESOLVED_MESSAGES[reason];
-      return [{ code: "unresolved-pointer", itemId: item.id, pointer, reason, message }];
-    }),
+): readonly UnresolvedPointerWarning[] =>
+  boundedUnresolvedWarnings(
+    questions.flatMap(({ props }) =>
+      (props.items ?? []).flatMap((item): UnresolvedPointerWarning[] => {
+        const { props: itemProps } = item;
+        if (!("status" in itemProps) || itemProps.status !== "unresolved") return [];
+        const { pointer, reason } = itemProps;
+        const message = UNRESOLVED_MESSAGES[reason];
+        return [{ code: "unresolved-pointer", itemId: item.id, pointer, reason, message }];
+      }),
+    ),
+    UNRESOLVED_WARNINGS_MAX_CHARS,
   );

@@ -64,7 +64,7 @@ describe("past the bound", () => {
     const room = max - json(small.slice(0, 2));
     expect(room).toBeGreaterThan(0);
     const result = boundedWarnings(small, options(max, room));
-    expect(result).toEqual([small[0], small[1], closing(small[2] as Plain, 0)]);
+    expect(result).toEqual([...small.slice(0, 2), closing(small[2] as Plain, 0)]);
   });
 
   test("a list is not changed", () => {

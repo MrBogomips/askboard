@@ -8,10 +8,13 @@ import {
   CONTEXT_READS_MAX,
   CONTEXT_RESOLVE_BUDGET_MS,
   type ContextItem,
+  POINTER_MAX_CHARS,
   UNRESOLVED_REASONS,
+  type UnresolvedReason,
 } from "@askboard/contract";
 import { ONE_PIXEL_PNG } from "@askboard/contract/fixtures";
 import { validateBoardDocument } from "@askboard/contract/validate";
+import { UNRESOLVED_MESSAGES } from "../src/context/warnings.ts";
 import {
   ADR_POINTER,
   boardItemsOf,
@@ -378,6 +381,92 @@ describe("warnings", () => {
         message: expect.any(String),
       },
     ]);
+  });
+
+  // The bound on the warnings (result-bound, core spec "The closing unresolved-pointer warning"; Refs #98).
+  describe("the bound on the unresolved-pointer warnings", () => {
+    const UNRESOLVED_BOUND = 10_000;
+
+    /** `count` excerpts of pointers of `length` characters, each answered `reason`. */
+    const manyExcerpts = (
+      count: number,
+      pointerOf: (n: number) => string,
+      reason: UnresolvedReason,
+    ) => {
+      const pointers = Array.from({ length: count }, (_, n) => pointerOf(n));
+      const answers = Object.fromEntries(
+        pointers.map((pointer) => [
+          pointer,
+          { resolveExcerpt: { status: "unresolved" as const, reason } },
+        ]),
+      );
+      const items = pointers.map((pointer, n) => excerpt(`ex-${n}`, pointer));
+      return { answers, items } as const;
+    };
+
+    const warningsOf = (outcome: Awaited<ReturnType<typeof created>>["outcome"]) =>
+      ((outcome.kind === "created" && outcome.warnings) || []).filter(
+        (warning) => warning.code === "unresolved-pointer",
+      );
+
+    const unresolvedIds = (core: Parameters<typeof boardItemsOf>[0]) =>
+      (boardItemsOf(core, CONTEXT_ASK_ID) ?? [])
+        .filter((item) => "status" in item.props && item.props.status === "unresolved")
+        .map((item) => item.id);
+
+    test("forty long pointers on an ask: the warnings stay within the bound, a closing one counts the rest, the board marks all 40", async () => {
+      const { answers, items } = manyExcerpts(
+        40,
+        (n) => `../${String(n).padStart(2, "0")}${"d".repeat(POINTER_MAX_CHARS - 5)}`,
+        "outside-root",
+      );
+      expect(
+        items.every((item) => "pointer" in item.props && item.props.pointer.length === 1_024),
+      ).toBe(true);
+      const { core, outcome } = await created({ answers }, contextAsk(items));
+      const warnings = warningsOf(outcome);
+      expect(JSON.stringify(warnings).length).toBeLessThanOrEqual(UNRESOLVED_BOUND);
+      const closing = warnings.at(-1);
+      const kept = warnings.length - 1;
+      expect(kept).toBeGreaterThan(0);
+      expect(warnings.map((warning) => warning.itemId).slice(0, kept)).toEqual(
+        items.slice(0, kept).map((item) => item.id),
+      );
+      expect(closing?.itemId).toBe(`ex-${kept}`);
+      expect(closing?.message).toBe(
+        `The pointer of ex-${kept} did not resolve (outside-root), and ${40 - kept - 1} more unresolved pointers are left out: fetch their questions to read each one's reason.`,
+      );
+      expect(unresolvedIds(core)).toHaveLength(40);
+    });
+
+    test("pointers that JSON escapes: ten images of 1,024 control characters, each invalid-pointer, a closing warning counting the rest", async () => {
+      const controls = "\u0001".repeat(POINTER_MAX_CHARS);
+      const images: ContextItem[] = Array.from({ length: 10 }, (_, n) => ({
+        type: "image",
+        id: `img-${n}`,
+        props: { pointer: controls, alt: `Image ${n}` },
+      }));
+      const answers = {
+        [controls]: { resolveImage: { status: "unresolved", reason: "invalid-pointer" } },
+      } as const;
+      const { core, outcome } = await created({ answers }, contextAsk(images));
+      expect(outcome.kind).toBe("created");
+      const warnings = warningsOf(outcome);
+      expect(JSON.stringify(warnings).length).toBeLessThanOrEqual(UNRESOLVED_BOUND);
+      expect(warnings.at(-1)?.message).toContain("more unresolved pointers are left out");
+      expect(warnings.at(-1)?.reason).toBe("invalid-pointer");
+      expect(unresolvedIds(core)).toHaveLength(10);
+    });
+
+    test("under the bound: five missing files give five warnings with their own messages, none closing", async () => {
+      const { answers, items } = manyExcerpts(5, (n) => `docs/missing-${n}.md#Intro`, "not-found");
+      const { outcome } = await created({ answers }, contextAsk(items));
+      const warnings = warningsOf(outcome);
+      expect(warnings).toHaveLength(5);
+      expect(warnings.map((warning) => warning.message)).toEqual(
+        Array(5).fill(UNRESOLVED_MESSAGES["not-found"]),
+      );
+    });
   });
 
   test.each(UNRESOLVED_REASONS)(
