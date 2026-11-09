@@ -27,7 +27,7 @@ None.
 
 ## Impact
 
-- Code: `packages/core/src/context/warnings.ts` (the bound and the closing warning), a new pure module `packages/core/src/warning-bound.ts` that `graph-check.ts`'s `boundedFormulaWarnings` and the new `boundedUnresolvedWarnings` call, and the two call sites in `packages/core/src/ask.ts` (`update`, `contextWarnings`). No change in `packages/server/src`: `mcp-tools` already puts `no-hooks` first and passes `ask-core`'s list through. Tests in `packages/core/test` and `packages/server/test/mcp-tools`.
+- Code: `packages/core/src/context/warnings.ts` (the bound and the closing warning), a new pure module `packages/core/src/warning-bound.ts` that `graph-check.ts`'s `boundedFormulaWarnings` and the new `boundedUnresolvedWarnings` call. The two callers in `packages/core/src/ask.ts` (`update`, `contextWarnings`) are unchanged: `unresolvedWarnings` returns the bounded list. No change in `packages/server/src`: `mcp-tools` already puts `no-hooks` first and passes `ask-core`'s list through. Tests in `packages/core/test` and `packages/server/test/mcp-tools`.
 - Versions: none. The closing warning is an ordinary `unresolved-pointer` warning (output format since 1.2); no schema, message, warning code or dependency changes (design decision 5).
 - IDs served: FR-8 (context, unresolved pointers), FR-14 (formula warnings, unchanged), NFR-10 (fail closed: the agent is told the list was cut, and the board keeps every mark). ADs: AD-6 (amended in place), AD-10, AD-12, AD-13. No UX surface.
 

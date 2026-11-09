@@ -101,6 +101,27 @@ describe("past the bound", () => {
     );
   });
 
+  test("the room holds the closing warning of any warning in the list, wherever it stands", () => {
+    const controls = "\u0001".repeat(POINTER_MAX_CHARS);
+    const listWithLongAt = (position: number) => {
+      const list = Array.from({ length: 35 }, (_, n) => warning(n));
+      list.splice(position, 0, warning(position, controls, "invalid-pointer"));
+      return list;
+    };
+    for (let position = 0; position <= 35; position++) {
+      const result = boundedUnresolvedWarnings(
+        listWithLongAt(position),
+        UNRESOLVED_WARNINGS_MAX_CHARS,
+      );
+      expect(json(result)).toBeLessThanOrEqual(UNRESOLVED_WARNINGS_MAX_CHARS);
+    }
+    const list = listWithLongAt(30);
+    const result = boundedUnresolvedWarnings(list, UNRESOLVED_WARNINGS_MAX_CHARS);
+    expect(result).toHaveLength(22);
+    expect(result.slice(0, 21)).toEqual(list.slice(0, 21));
+    expect(result.at(-1)).toEqual(closingUnresolvedWarning(list[21] as never, 14));
+  });
+
   test("ten pointers of 1,024 characters that JSON escapes give one closing warning counting 9", () => {
     const controls = "\u0001".repeat(POINTER_MAX_CHARS);
     const list = Array.from({ length: 10 }, (_, n) => warning(n, controls, "invalid-pointer"));

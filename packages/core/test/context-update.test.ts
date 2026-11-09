@@ -254,8 +254,9 @@ describe("warnings and limits", () => {
   test("an update past the bound: 60 excerpts of 300-character pointers, the warnings within 10,000 characters, the last counting the rest", async () => {
     const pointers = Array.from(
       { length: 60 },
-      (_, n) => `${String(n).padStart(2, "0")}${"m".repeat(293)}.md`,
+      (_, n) => `${String(n).padStart(2, "0")}${"m".repeat(295)}.md`,
     );
+    expect(pointers.every((pointer) => pointer.length === 300)).toBe(true);
     const missing = { status: "unresolved", reason: "not-found" } as const;
     const fakes = contextCoreWith({
       answers: Object.fromEntries(pointers.map((p) => [p, { resolveExcerpt: missing }])),
