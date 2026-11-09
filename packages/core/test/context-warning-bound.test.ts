@@ -249,16 +249,15 @@ describe("the room measures every closing warning the cut could write (re-review
     expect(json(result)).toBe(9_988);
   });
 
-  test("on the existing 26 x 477 case the output is unchanged: 16 kept and the plural closing warning", () => {
+  test("on the existing 26 x 477 case the output is unchanged: 14 kept and the plural closing warning counting 11", () => {
     const list = Array.from({ length: 26 }, (_, n) => {
       const id = String(n).padStart(2, "0");
       return { ...warning(n, `${id}${"m".repeat(472)}.md`, "not-found"), itemId: `ex-${id}` };
     });
     const result = boundedUnresolvedWarnings(list, UNRESOLVED_WARNINGS_MAX_CHARS);
-    expect(result.slice(0, -1)).toEqual(list.slice(0, result.length - 1));
-    expect(result.at(-1)).toEqual(
-      closingUnresolvedWarning(list[result.length - 1] as never, 26 - result.length),
-    );
+    expect(result).toHaveLength(15);
+    expect(result.slice(0, -1)).toEqual(list.slice(0, 14));
+    expect(result[14]).toEqual(closingUnresolvedWarning(list[14] as never, 11));
   });
 });
 

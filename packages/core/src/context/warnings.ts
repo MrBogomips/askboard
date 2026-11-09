@@ -56,7 +56,7 @@ export const closingUnresolvedWarning = (
  * the warnings kept in order leave room for the longest closing warning any warning of the list
  * could give and the comma before it: `closing` measured with the list's length as its count (the
  * cut's largest) and with a count of 1 (its other words), whichever is longer, so the bound holds
- * whatever the words. One closing warning stands for the first warning left out and counts the
+ * whatever the singular and plural words. One closing warning stands for the first warning left out and counts the
  * rest, so that the kept, the closing one and the count make up the list. Pure, plain ECMAScript.
  */
 export const boundedUnresolvedWith = (
