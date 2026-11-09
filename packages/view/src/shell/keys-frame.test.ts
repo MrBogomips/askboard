@@ -30,6 +30,17 @@ register("keys-with-table", Stub, { keys: TABLE, name: "change.widgetRanking" })
 register("keys-with-table-unnamed", Stub, { keys: TABLE });
 register("keys-without-table", Stub);
 
+// A table whose entries span the cases of "A read-only Ranking": moves, which need edits, and the
+// cursor, selection and panel keys, which do not.
+const MOVES_TABLE: readonly KeyEntry[] = [
+  vocabularyEntry("cursor.down", "list", "navigation"),
+  vocabularyEntry("select.toggle", "list", "pointer", { readOnly: true }),
+  vocabularyEntry("move.up", "list", "tool"),
+  vocabularyEntry("move.top", "list", "tool"),
+  vocabularyEntry("keys.open", "list", "panel"),
+];
+register("keys-with-moves", Stub, { keys: MOVES_TABLE, name: "change.widgetRanking" });
+
 const draw = (type: string, disabled = false, readOnlyItems?: ReadonlySet<string>) => {
   const board: BoardContent = { items: [], draft: new Map(), shown: new Map() };
   const context: RenderContext = {
@@ -121,5 +132,44 @@ describe("the panel's content", () => {
     const html = body(true);
     const names = [...html.matchAll(/<span>([^<]*)<\/span><span class/g)].map((m) => m[1]);
     expect(names).toEqual(["Go down", "Select", "Move up"]);
+  });
+});
+
+// What the frame says of its item (`data-askboard-keys-edits`) is the flag the renderer gave it;
+// the panel (a portal, which the static renderer does not draw) lists by that flag, so each case
+// draws the panel's content with the flag read from the frame's own output, never given by the test.
+const FLAG = /data-askboard-keys-edits="(true|false)"/;
+const listedBy = (type: string, disabled: boolean, readOnlyItems?: ReadonlySet<string>): string => {
+  const flag = FLAG.exec(draw(type, disabled, readOnlyItems))?.[1];
+  expect(flag).toBeDefined();
+  return renderToStaticMarkup(
+    createElement(KeysPanelBody, { table: MOVES_TABLE, takesEdits: flag === "true" }),
+  );
+};
+
+describe("what an item frame lists by the item's state (A read-only Ranking)", () => {
+  test("an item neither disabled nor read-only lists the moves", () => {
+    const html = listedBy("keys-with-moves", false);
+    for (const name of ["Move up", "To top", "Go down", "Select", "Show the keys"]) {
+      expect(html).toContain(name);
+    }
+  });
+
+  test("a read-only item that is not disabled lists no move and its readOnly entries", () => {
+    const html = listedBy("keys-with-moves", false, new Set(["x"]));
+    expect(html).not.toContain("Move up");
+    expect(html).not.toContain("To top");
+    expect(html).toContain("Show the keys");
+    expect(html).toContain("Select");
+  });
+
+  test("an item read-only elsewhere in the board still lists the moves", () => {
+    expect(listedBy("keys-with-moves", false, new Set(["other"]))).toContain("Move up");
+  });
+
+  test("a disabled item lists no move", () => {
+    const html = listedBy("keys-with-moves", true);
+    expect(html).not.toContain("Move up");
+    expect(html).toContain("Show the keys");
   });
 });

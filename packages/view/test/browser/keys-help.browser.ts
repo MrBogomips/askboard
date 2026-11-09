@@ -300,12 +300,13 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await eventually(
           async () => (await run.board.view.getByText("Closed", { exact: false }).count()) > 0,
           "the view to show the lock",
-        ).catch(() => undefined);
+        );
         await keysButton(run.board).click();
         await panel(run.board).waitFor({ timeout: STEP_TIMEOUT_MS });
         const text = (await panel(run.board).textContent()) ?? "";
         expect(text).toContain("Go down");
         expect(text).toContain("Select");
+        expect(text).toContain("Show the keys");
         expect(text).not.toContain("Move up");
         expect(text).not.toContain("To top");
         expect(text).not.toContain("Next tool");

@@ -64,7 +64,7 @@ export const KeysFrame = ({
   return (
     <KeysPanelContext.Provider value={control}>
       {/* biome-ignore lint/a11y/noStaticElementInteractions: the frame only hears keys the widget inside it left unprevented, to open the panel on `?`; it has no role of its own. */}
-      <div className={className} onKeyDown={onKeyDown}>
+      <div className={className} onKeyDown={onKeyDown} data-askboard-keys-edits={takesEdits}>
         {children}
       </div>
       <Popover.Root open={open} onOpenChange={setOpen} modal={false}>
