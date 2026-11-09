@@ -193,6 +193,9 @@ const ganttAsk = {
   items: [scheduleQuestion],
 } as const;
 
+/** Past the board page's 300 ms draft mirror debounce. */
+const MIRROR_SETTLE_MS = 600;
+
 for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
   describe(`${engine}: a reopened question starts from the previous answer, on the session process`, () => {
     const { start } = useEngine(engine);
@@ -263,6 +266,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const board = await openBoard(run, ["plan"]);
         await moveCheckout(board, "mobile");
         await answerAndCollect(run, board);
+        // Past the mirror's debounce, so the user's own move is already in the records.
+        await Bun.sleep(MIRROR_SETTLE_MS);
+        const draftsBefore = sentDrafts(run).length;
 
         await run.session.update([
           { action: "reopen", itemId: "plan" },
@@ -289,16 +295,21 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         // Nothing fills it late: the question stays as the agent sent it.
         await Bun.sleep(QUIET_MS);
         expect(await checkoutShown(board)).toEqual(AS_SENT);
-        expect(sentDrafts(run).every((record) => record.questions.plan?.prefilled !== true)).toBe(
-          true,
-        );
+        expect(
+          sentDrafts(run)
+            .slice(draftsBefore)
+            .every((record) => record.questions.plan?.prefilled !== true),
+        ).toBe(true);
 
         await reopenedNotice(board).getByRole("button", { name: START }).click();
         await Bun.sleep(QUIET_MS / 3);
         expect(await checkoutShown(board)).toEqual(AS_SENT);
         expect(await entryOf(board, "launch").getAttribute("data-change")).toBeNull();
+        await Bun.sleep(MIRROR_SETTLE_MS);
         expect(
-          sentDrafts(run).every((record) => record.questions.plan?.values?.roadmap === undefined),
+          sentDrafts(run)
+            .slice(draftsBefore)
+            .every((record) => record.questions.plan?.values?.roadmap === undefined),
         ).toBe(true);
         expectNoCspProblem(run);
       },
@@ -416,7 +427,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const [second] = await answerAndCollect(run, board, GANTT_QUESTION);
         expect(second).toMatchObject({ rev: 2 });
         expect(second?.derived).toEqual(moved);
-        expect(second?.values).toEqual(first?.values);
+        // The Gantt's own edit travels as `changes` (an answer event has no `values`).
+        expect(((first?.changes ?? []) as readonly unknown[]).length).toBeGreaterThan(0);
+        expect(second?.changes).toEqual(first?.changes);
         expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,

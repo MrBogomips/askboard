@@ -6,9 +6,8 @@ All notable changes to AskBoard are recorded here, newest first, in the layout o
 
 ### Fixed
 
-- A question the agent reopens starts from your previous answer when the agent changed nothing else in it and every part of the answer still fits: its choice, notes, results and the edits to its widgets (a moved Timeline entry, a Kanban card, a Gantt task) are in the draft, nothing is sent, and a line under "Reopened by the agent" says so. Otherwise it starts from the agent's version, and the line says that and points to "Start from my previous answer". Before, a reopened question showed the agent's values, and an answer that changed something else dropped the earlier edits.
+- A question the agent reopens starts from your previous answer when the agent changed nothing else in it and every part of the answer still fits, and is filled once (a reload or a takeover does not fill it again over what you undid, and a closed ask is never filled): its choice, notes, results and the edits to its widgets (a moved Timeline entry, a Kanban card, a Gantt task) are in the draft, nothing is sent, and a line under "Reopened by the agent" says so. Otherwise it starts from the agent's version, and the line says that and points to "Start from my previous answer". Before, a reopened question showed the agent's values, and an answer that changed something else dropped the earlier edits.
 - "Start from my previous answer" and the first edit of an answered question bring back the edits to the question's widgets, except those of an item the agent has changed since: an answer carries what the card shows, so a revised answer no longer omits an edited widget it left alone.
-- A reload or a takeover no longer fills a reopened question a second time over what you undid, and no longer fills a closed ask.
 - The board protocol and the Snapshot data each take one minor: the board state says which items an answer on an earlier revision shares with the current one, and the draft record marks a revision the board filled.
 
 ## 0.1.0 - 2026-11-07
