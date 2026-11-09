@@ -397,9 +397,17 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       "the keys panel lists To top with Alt+Shift+Home and Ctrl+Shift+↑ on Linux; the Keys button and ? open it, and a bare ? in the list is not the page's",
       async () => {
         const { board } = await open(host);
+        const url = board.page.url();
+        await recordPrevented(board);
         await rowOf(board, "c").focus();
         await board.page.keyboard.press("?");
         await panel(board).waitFor({ timeout: STEP_TIMEOUT_MS });
+        // The list leaves a bare `?` alone and the frame takes it: the key reached the window with
+        // its default prevented, so it is the panel's and not the page's (review 4.6, S-56).
+        expect((await prevented(board)).filter(({ key }) => key === "?")).toEqual([
+          { key: "?", prevented: true },
+        ]);
+        expect(board.page.url()).toBe(url);
         const text = (await panel(board).textContent()) ?? "";
         expect(text).toContain("To top");
         expect(text).toContain("Alt+Shift+Home");
