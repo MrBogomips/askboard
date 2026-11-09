@@ -17,12 +17,12 @@ import {
 } from "@askboard/contract";
 import type { FileState } from "./file.ts";
 import type { Config } from "./ports.ts";
-import { screened } from "./rules.ts";
+import { ROW_WARNINGS_MAX, screened } from "./rules.ts";
 
-/** Each key's value in effect; `editor` and `defaultMinimumMargin` only when one is. */
+/** Each key's value in effect; `editor`, `defaultMinimumMargin` and `keys` only when one is. */
 export type EffectiveValues = {
   readonly [K in keyof typeof CONFIGURATION_DEFAULTS]: ConfigurationValues[K];
-} & Partial<Pick<ConfigurationValues, "editor" | "defaultMinimumMargin">>;
+} & Partial<Pick<ConfigurationValues, "editor" | "defaultMinimumMargin" | "keys">>;
 
 export type SettingsInEffect = {
   readonly values: EffectiveValues;
@@ -91,7 +91,7 @@ export const mergeSettings = ({ user, project, paths }: FileStates): SettingsInE
   for (const key of CONFIGURATION_KEYS) {
     const row = withWarnings(
       rowOf(key, fromProject.values, fromUser.values),
-      dropped.filter((warning) => warning.key === key),
+      dropped.filter((warning) => warning.key === key).slice(0, ROW_WARNINGS_MAX),
     );
     rows[key] = row;
     if (row.value !== undefined) values[key] = row.value;
