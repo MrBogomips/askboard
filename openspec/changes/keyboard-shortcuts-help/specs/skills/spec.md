@@ -81,15 +81,26 @@ The benchmark report SHALL list the skills each arm's sessions started with and 
 - **THEN** it holds the molecule's help text and names the widget types it expands into, without a link
 
 ### Requirement: Keys from the key tables
-For each widget type with a key table, `askboard`'s widget reference and `askboard-help`'s SHALL list its default keys from the table, each action by its English board string and each key as on Linux, with the macOS form beside it, and SHALL say that the board's keys panel shows the keys in effect, so that a table changed without regenerating fails the skill check (NFR-12, AD-6).
+For each widget type with a key table, `askboard`'s widget reference and `askboard-help`'s SHALL list its default keys from the table, each action by its English board string and each key as on Linux, with the macOS form beside it, so that a table changed without regenerating fails the skill check (NFR-12, AD-6).
 
 #### Scenario: The Ranking's keys
 - **WHEN** the generator runs on the shipped registry
-- **THEN** both Ranking references list "Move up" with Alt+Shift+↑ and ⌥⇧↑, "To top" with Alt+Shift+Home and Ctrl+Shift+↑, ⌥⇧Home and ⌘⇧↑, and "Keep this order" with Enter and ↩
+- **THEN** both Ranking references list "Move up" with Alt+Shift+↑ and ⌥⇧↑, "To top" with Alt+Shift+Home and Ctrl+Shift+↑, ⌥⇧Home and ⇧⌘↑, and "Keep this order" with Enter and ↩
 
 #### Scenario: A table changed without regenerating
 - **WHEN** a key table changes and the skill check runs before the generator
 - **THEN** the check fails naming the two references of that type
+
+### Requirement: The keys panel only where the board shows it
+For a widget type whose chunk registers its key table with the board, as the contract's list of such types records, both skills' references SHALL say that the board's keys panel shows the keys in effect; for any other type with a key table they SHALL say that the board shows no keys panel for it yet and that the user's key changes do not reach it, and SHALL claim neither (NFR-12, FR-29).
+
+#### Scenario: The keys panel where the board shows it
+- **WHEN** the generator runs on the shipped registry, the Ranking being the type whose chunk registers its key table
+- **THEN** both Ranking references say that the board's keys panel shows the keys in effect
+
+#### Scenario: A table the board does not show yet
+- **WHEN** the generator runs on the shipped registry
+- **THEN** both Gantt references list the Gantt's default keys, say that the board shows no keys panel for the Gantt yet and that the user's key changes do not reach it, and make no unconditional claim of a keys panel
 
 ### Requirement: The asking skill points to the help skill
 `askboard`'s `SKILL.md` SHALL tell the agent that a question from the user about using the board, its widgets or its keys goes to the `askboard-help` skill, never into an ask (FR-29).
@@ -99,7 +110,11 @@ For each widget type with a key table, `askboard`'s widget reference and `askboa
 - **THEN** it names `askboard-help` for questions on using the board
 
 ### Requirement: The help skill teaches the key configuration
-`askboard-help` SHALL explain where the user's key overrides go, how they are written, the rules they meet, what a refused file does, that a project file's overrides are ignored, and where and when they apply. It SHALL list every action an override may name with its default keys, generated from the key tables, and each of its examples SHALL pass the key-override check (NFR-12, FR-29, AD-14).
+`askboard-help` SHALL explain where the user's key overrides go, how they are written, the rules they meet, what a refused file does, that a project file's overrides are ignored, and where and when they apply, naming the widget types whose chunk registers its key table with the board as the only ones they reach. It SHALL list every action an override may name with its default keys, generated from the key tables, and each of its examples SHALL pass the key-override check (NFR-12, FR-29, AD-14).
+
+#### Scenario: Where the user's keys apply
+- **WHEN** `askboard-help`'s key configuration reference is read
+- **THEN** it names the Ranking as the widget the user's keys reach, and no other widget type
 
 #### Scenario: Every action
 - **WHEN** the generator runs on the shipped registry
