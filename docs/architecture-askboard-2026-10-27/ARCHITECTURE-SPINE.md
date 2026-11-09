@@ -7,7 +7,7 @@ paradigm: 'hexagonal (ports and adapters) around an ask core, one process per Cl
 scope: 'AskBoard first version: MCP server and board host per Claude Code session, sandboxed view and widgets, compute graph, Claude Code mod and hooks, shipped skills and agents, Snapshots, light benchmark, plugin packaging and operations'
 status: final
 created: '2026-10-27'
-updated: '2026-11-08'
+updated: '2026-11-09'
 binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14, FR-15, FR-18, FR-19, FR-20, FR-21, FR-22, FR-23, FR-24, FR-25, FR-26, FR-27, FR-28, FR-29, FR-30, FR-31, FR-32, FR-33, FR-34, FR-35, NFR-1, NFR-2, NFR-3, NFR-4, NFR-5, NFR-6, NFR-7, NFR-8, NFR-9, NFR-10, NFR-11, AXFX FR-36, AXFX FR-37, AXFX FR-38, AXFX FR-39, AXFX FR-40, AXFX FR-41, AXFX NFR-1, AXFX NFR-2, AXFX NFR-3, AXFX NFR-5, AXFX NFR-8]
 sources:
   - 'AskBoard PRD (prd-askboard-2026-10-25/prd.md, final)'
@@ -43,6 +43,7 @@ sources:
   - 'OpenSpec change keep-mine-shown-revision, proposal.md, open question 4: no derived values in an answer naming an earlier revision (accepted under the PO''s unattended handoff, 2026-11-08)'
   - 'OpenSpec change table-widget, proposal.md, open questions 1, 3, 4 and 6: the Table on its own grid, column formulas with row references and single reads, totals as item fields, cell entries in the draft (accepted under the PO''s unattended handoff, 2026-11-08)'
   - 'OpenSpec change document-review, proposal.md, open questions 5 and 12: suggested edits in the annotation body, the Markdown renderer shared with the widgets (accepted under the PO''s unattended handoff, 2026-11-08)'
+  - 'OpenSpec change result-bound, design.md, decisions 1, 2 and 6: the unresolved-pointer warnings of `ask` and `update` get their own 10,000 characters, a closing warning counts the rest, and AD-6 says so (accepted under the PO''s unattended handoff, 2026-11-09)'
 companions: ['SOLUTION-DESIGN.md']
 ---
 
@@ -217,7 +218,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
     - The skills' reference files, examples and asking-rule texts are generated from `contract` and `molecules` at build time. CI fails when a shipped file differs from its generated form, or when an example fails validation.
     - The server validates every request against `contract`.
       - A request the agent must fix returns `isError` text naming the item ID and the expected shape, under 4,000 characters, with the first problems first.
-      - A problem confined to one item that leaves the board usable is a typed warning in a successful result: an unresolved pointer (FR-8), a formula error (FR-14).
+      - A problem confined to one item that leaves the board usable is a typed warning in a successful result: an unresolved pointer (FR-8), a formula error (FR-14), each kind within its share of the result bound: past it, one closing warning counts the rest.
   - **Re-sending an ask:**
     - `ask` with the ID of an open ask returns that ask's board only when the request is identical and comes from the owner. Identical means deep-equal after RFC 8785 canonicalization to the first accepted request. It then opens no tab and sends no notice.
     - Any other `ask` with the ID of an open, closed or discarded ask is refused, naming the ID as in use.

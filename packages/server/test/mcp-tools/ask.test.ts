@@ -21,6 +21,7 @@ import {
   runtimeClock,
   textOf,
 } from "./helpers.ts";
+import { worstCore, worstPlanItems, worstPointerItems } from "./worst-ask.ts";
 
 // MCP adapter spec: Validation errors, The ask result, A session without hooks, No board can be
 // shown (task 5.2).
@@ -408,5 +409,74 @@ describe("the worst plan the contract admits", () => {
     expect(json.warnings[0]?.code).toBe("no-hooks");
     expect(json.warnings.at(-1)?.message).toMatch(/more formula warnings are left out\.$/);
     expect(validateAgainst(SCHEMA_IDS.askResult, json).ok).toBe(true);
+  });
+});
+
+// The mcp-adapter spec's "The worst ask the contract admits" (result-bound, Refs #98): the plan above
+// and 200 excerpts and images with escaped pointers, through the real `ask-core`, whose port finds
+// none of them.
+describe("the worst ask the contract admits", () => {
+  const worstAsk = {
+    askId: ASK_ID,
+    items: [
+      {
+        type: "question",
+        id: "plan",
+        props: { text: "Does this fit?", items: [...worstPlanItems(), ...worstPointerItems()] },
+      },
+    ],
+  };
+
+  test("is created, under the result limit, valid, with no-hooks first and a closing warning of each other kind", async () => {
+    const { result } = await call(worstCore(), worstAsk);
+    expect(result.isError).toBeFalsy();
+    const text = textOf(result);
+    expect(text.length).toBeLessThan(RESULT_MAX_CHARS);
+    const json = jsonOf(result) as { state: string; warnings: { code: string; message: string }[] };
+    expect(json.state).toBe("waiting");
+    expect(validateAgainst(SCHEMA_IDS.askResult, json).ok).toBe(true);
+    const codes = json.warnings.map((warning) => warning.code);
+    // no-hooks, then the unresolved-pointer warnings, then the formula warnings.
+    expect(codes[0]).toBe("no-hooks");
+    const firstFormula = codes.indexOf("formula");
+    expect(codes.slice(1, firstFormula).every((code) => code === "unresolved-pointer")).toBe(true);
+    expect(codes.slice(firstFormula).every((code) => code === "formula")).toBe(true);
+    const unresolved = json.warnings.slice(1, firstFormula);
+    // Each escaped pointer is a warning of about 6,400 characters: none fits beside its closing warning.
+    expect(unresolved).toHaveLength(1);
+    expect(unresolved[0]?.message).toContain("and 199 more unresolved pointers are left out: ");
+    expect(JSON.stringify(unresolved).length).toBeLessThanOrEqual(10_000);
+    expect(json.warnings.at(-1)?.message).toMatch(/more formula warnings are left out\.$/);
+  });
+
+  // The most the unresolved share can take: an escaped warning of about 3,470 characters kept,
+  // then an escaped one that closes the list with the longest closing warning.
+  test("with its unresolved share filled, the result stays under the result limit", async () => {
+    const [plain, ...escaped] = worstPointerItems() as { props: { pointer: string } }[];
+    (plain as { props: { pointer: string } }).props.pointer =
+      `${String.fromCharCode(1).repeat(490)}${"p".repeat(200)}`;
+    const filled = {
+      askId: ASK_ID,
+      items: [
+        {
+          type: "question",
+          id: "plan",
+          props: { text: "Does this fit?", items: [...worstPlanItems(), plain, ...escaped] },
+        },
+      ],
+    };
+    const { result } = await call(worstCore(), filled);
+    expect(result.isError).toBeFalsy();
+    const text = textOf(result);
+    // Design decision 3: about 20,830 characters at most, with a 256-character board token (this link's is shorter).
+    expect(text.length).toBeLessThan(20_830);
+    const json = jsonOf(result) as { warnings: { code: string; reason?: string }[] };
+    expect(validateAgainst(SCHEMA_IDS.askResult, json).ok).toBe(true);
+    const unresolved = json.warnings.filter((warning) => warning.code === "unresolved-pointer");
+    expect(unresolved.map((warning) => warning.reason)).toEqual([
+      "invalid-pointer",
+      "invalid-pointer",
+    ]);
+    expect(JSON.stringify(unresolved).length).toBeLessThanOrEqual(10_000);
   });
 });

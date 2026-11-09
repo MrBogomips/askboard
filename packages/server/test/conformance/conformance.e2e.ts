@@ -46,6 +46,7 @@ import {
   GIT_USER,
   isEmpty,
   isRunning,
+  listeningPorts,
   manifestOf,
   RUNTIME,
   type Session,
@@ -108,13 +109,6 @@ const portIsFree = (port: number): boolean => {
   } catch {
     return false;
   }
-};
-
-const firstFreePort = (): number => {
-  for (let port = BOARD_PORT_RANGE.first; port <= BOARD_PORT_RANGE.last; port += 1) {
-    if (portIsFree(port)) return port;
-  }
-  throw new Error("the board port range is full");
 };
 
 const askOf = (askId: string) => ({ ...PLAIN_CHOICE, askId });
@@ -182,10 +176,9 @@ const answerOf = (choice: readonly string[]) => ({
 
 describe("before the first ask", () => {
   test("server/discover alone opens no port, writes no file, starts no process", async () => {
-    const free = firstFreePort();
     const session = await startSession();
     await session.client.discover();
-    expect(portIsFree(free)).toBe(true);
+    expect(listeningPorts(session.pid)).toEqual([]);
     expect(session.opened()).toEqual([]);
     expect(await session.end()).toBe(0);
     expect(isRunning(session.pid)).toBe(false);
@@ -217,7 +210,6 @@ describe("before the first ask", () => {
 
 describe("the approved plain-choice example, end to end", () => {
   test("ask, board, answer, collect and exit give the approved results", async () => {
-    const free = firstFreePort();
     const session = await startSession();
     const asked = await session.call("ask", PLAIN_CHOICE);
     expect(asked.isError).toBe(false);
@@ -228,7 +220,8 @@ describe("the approved plain-choice example, end to end", () => {
     );
     expect(asked.json).toMatchObject({ warnings: [{ code: "no-hooks" }] });
     const link = linkParts(result.board);
-    expect(link.port).toBe(free);
+    // The process listens on the board's port alone (and the helper sees a listener at all).
+    expect(listeningPorts(session.pid)).toEqual([link.port]);
 
     // The board opens in the browser: the link is the opener's one argument.
     expect(await session.nextOpened()).toEqual([result.board]);
@@ -291,12 +284,11 @@ describe("the approved plain-choice example, end to end", () => {
 
   for (const name of ["uj1-diff-graph", "uj3-sales-review"]) {
     test(`${name}, still beyond the input format, is refused and creates nothing`, async () => {
-      const free = firstFreePort();
       const session = await startSession();
       const asked = await session.call("ask", approved("asks", name));
       expect(asked.isError).toBe(true);
       expect(asked.text).toContain("not created");
-      expect(portIsFree(free)).toBe(true);
+      expect(listeningPorts(session.pid)).toEqual([]);
       expect(session.opened()).toEqual([]);
       expect(await session.end()).toBe(0);
     });
@@ -596,12 +588,11 @@ describe("no board can be shown", () => {
     ["on CI without BROWSER", { env: { CI: "true" }, without: ["BROWSER"] }, "ci"],
   ] as const) {
     test(`${what}, ask is unavailable and opens no port`, async () => {
-      const free = firstFreePort();
       const session = await startSession(options);
       const asked = await session.call("ask", PLAIN_CHOICE);
       expect(asked.json).toMatchObject({ outcome: "unavailable", reason, askId: ASK_ID });
       expect(validateAgainst(SCHEMA_IDS.askUnavailable, asked.json).ok).toBe(true);
-      expect(portIsFree(free)).toBe(true);
+      expect(listeningPorts(session.pid)).toEqual([]);
       expect(session.opened()).toEqual([]);
       expect(await session.end()).toBe(0);
     });
@@ -634,13 +625,12 @@ describe("the view build", () => {
     ["damaged", damaged, "VIEW_FILE_INVALID"],
   ] as const) {
     test(`a ${what} view build fails the ask with its own error, creating nothing`, async () => {
-      const free = firstFreePort();
       const session = await startSession({ bundle: bundleWith(files()) });
       const asked = await session.call("ask", PLAIN_CHOICE);
       expect(asked.isError).toBe(true);
       expect(asked.text).toContain("view build is missing or damaged");
       expect(asked.text).not.toContain("Send it again");
-      expect(portIsFree(free)).toBe(true);
+      expect(listeningPorts(session.pid)).toEqual([]);
       expect(session.opened()).toEqual([]);
       expect(await session.end()).toBe(0);
       expect(await session.stderr()).toStartWith(
