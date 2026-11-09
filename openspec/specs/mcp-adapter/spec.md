@@ -6,18 +6,22 @@ The MCP adapter is how agents reach AskBoard: the session process's tools over s
 ## Requirements
 
 ### Requirement: Tool list
-The session process SHALL list exactly `ask`, `update`, `collect`, `fetch` and `snapshot`, in that order, with the input schemas, descriptions and annotations of the approved model contract, and the list SHALL NOT change during a session. Each description, and the server instructions, SHALL stay within 4,096 characters, and each full tool name within 128.
+The session process SHALL list exactly `ask`, `update`, `collect`, `fetch` and `snapshot`, in that order, with the input schemas, descriptions and annotations of the approved model contract, as amended by the amendments the contract records, and the list SHALL NOT change during a session. Each description, and the server instructions, SHALL stay within 4,096 characters, and each full tool name within 128.
 
 #### Scenario: Listing the tools
 - **WHEN** a client lists the tools
-- **THEN** it receives `ask`, `update`, `collect`, `fetch` and `snapshot`, in that order, matching the approved definitions of the contract fixtures
+- **THEN** it receives `ask`, `update`, `collect`, `fetch` and `snapshot`, in that order, matching the approved definitions of the contract fixtures with the recorded amendments applied
 
 #### Scenario: A definition grows too long
 - **WHEN** a tool description or the server instructions exceed 4,096 characters
 - **THEN** the adapter's tests fail
 
+#### Scenario: The update description names reply's fields
+- **WHEN** a client reads the `update` tool's description
+- **THEN** it says that a reply names its question in `itemId` and its follow-up's cursor in `followUp`, and that a widget joins a question through a change of the question's `items`, sent whole
+
 ### Requirement: Server instructions for the tools listed
-The server instructions SHALL be the approved model contract's instructions, keeping only the lines that apply to the tools listed.
+The server instructions SHALL be the approved model contract's instructions, as amended by the amendments the contract records, keeping only the lines that apply to the tools listed.
 
 #### Scenario: No instruction names a missing tool
 - **WHEN** a client reads the server instructions
@@ -25,7 +29,11 @@ The server instructions SHALL be the approved model contract's instructions, kee
 
 #### Scenario: The instructions are the approved text
 - **WHEN** a client reads the server instructions
-- **THEN** they equal the approved `server-instructions.md`, uncut
+- **THEN** they equal the approved `server-instructions.md` with the recorded amendments applied, uncut
+
+#### Scenario: The follow-up line names the question
+- **WHEN** a client reads the server instructions' line on follow-ups
+- **THEN** it says that the `reply` names the question's `itemId` and the follow-up's cursor
 
 ### Requirement: No side effect before the first request
 The session process SHALL open no port, write no file and start no process until it receives a request other than `server/discover` (AD-2).
@@ -152,7 +160,7 @@ An update `ask-core` refuses SHALL return `isError` text under 4,000 characters 
 - **THEN** the result is `discarded`, never an error that the ask is unknown
 
 ### Requirement: Fetching an item
-`fetch` SHALL return one item of an open or closed ask as `ask-core` holds it now: its type, `rev` and props, and for a question its state and current answer in full. It SHALL return nothing from the draft record, SHALL NOT raise `received`, and an item ID the ask does not hold SHALL be an error naming it (FR-20, AD-6).
+`fetch` SHALL return one item of an open or closed ask as `ask-core` holds it now: its type, `rev` and props, and for a question its state and current answer in full. It SHALL return nothing from the draft record, SHALL NOT raise `received`, and an item ID the ask does not hold and never deleted SHALL be an error naming it (FR-20, AD-6).
 
 #### Scenario: Fetching after a revision
 - **WHEN** the user answered `database` with `PostgreSQL`, then revised it to `SQLite`, and the agent fetches `database`
@@ -161,6 +169,14 @@ An update `ask-core` refuses SHALL return `isError` text under 4,000 characters 
 #### Scenario: Fetching a closed ask
 - **WHEN** an agent fetches a question of an ask it closed
 - **THEN** the result holds the question and its answer as they were at the close
+
+#### Scenario: An item the ask never held
+- **WHEN** an agent fetches `budget` from an ask that has never held an item `budget`
+- **THEN** the result is an error naming the ask and `budget`
+
+#### Scenario: An item a change dropped
+- **WHEN** the agent changed question `plan`'s `items` to a list without the TextField `owner`, then fetches `owner`
+- **THEN** the result is an error naming the ask and `owner`, never the outcome `deleted`
 
 ### Requirement: Fetch pages
 When an item's value does not fit one result, `fetch` SHALL return consecutive slices of its RFC 8785 JSON text, each under the contract's page size, with a `continuation` naming the item's `rev` and the next offset, and none on the last slice. A continuation for a value that changed since SHALL be refused, saying to fetch again (open question 5).
@@ -189,11 +205,15 @@ The session process SHALL take the client version from the protocol's client inf
 - **THEN** the `ask` proceeds, and stderr holds one diagnostic saying that the version is unknown
 
 ### Requirement: Unresolved pointers in ask and update results
-The results of `ask` and `update` SHALL carry one `unresolved-pointer` warning for each pointer of the revisions the call created that did not resolve, beside any other warning, and the call SHALL succeed (AD-6, FR-8).
+The results of `ask` and `update` SHALL carry one `unresolved-pointer` warning for each pointer of the revisions the call created that did not resolve, within `ask-core`'s bound on them, a closing warning counting any left out, beside any other warning, and the call SHALL succeed (AD-6, FR-8).
 
 #### Scenario: An update that adds a missing image
 - **WHEN** an `update` adds an image whose file does not exist
 - **THEN** the update is applied, and its result carries a warning naming the image, its pointer and reason `not-found`
+
+#### Scenario: Many missing excerpts
+- **WHEN** an agent asks with 40 excerpts whose pointers of 1,024 characters lead outside the project folder
+- **THEN** the `ask` result holds the board link, the `unresolved-pointer` warnings that fit and one closing warning counting the rest, and `fetch` of the question returns every excerpt's pointer, status and reason
 
 ### Requirement: Fetch omits excerpt text and image bytes
 A `fetch` result SHALL carry each excerpt's pointer, title, status, reason and line range, each image's pointer, alt text, status and media type, and each reference as the board document holds it, but never an excerpt's text, written or read, nor an image's bytes (AD-6).
@@ -287,3 +307,37 @@ The `ask` and `update` results SHALL carry each `formula` warning the send-time 
 #### Scenario: Fetching a too-large answer
 - **WHEN** an agent fetches the question of an answer logged with `tooLarge: true`
 - **THEN** the result, in pages if needed, holds the answer's edited values and derived values
+
+### Requirement: Warnings of ask and update results within the result size
+The warnings of an `ask` result SHALL be the no-hooks warning when it applies, then the `unresolved-pointer` warnings, then the `formula` warnings, each kind within its own bound, so that an `ask` result stays under 30,000 characters whatever the input format admits; an `update` result's warnings SHALL keep the same order and bounds (AD-6).
+
+#### Scenario: The worst ask the contract admits
+- **WHEN** an agent in a session without hooks asks with 200 excerpts and images whose pointers are 1,024 characters that JSON escapes, and a Gantt plan whose every task names 50 predecessors that are no task
+- **THEN** the ask is created, and its result's text is under 30,000 characters, valid against the ask result's schema, with the no-hooks warning first and a closing warning of each other kind
+
+#### Scenario: The same on update
+- **WHEN** an `update` changes that ask's question so that its excerpts and its plan are sent again
+- **THEN** the update is applied, and its result's warnings, of both kinds, each with its closing warning, take at most 20,000 characters
+
+### Requirement: A deleted item in fetch
+`fetch` of an item the agent deleted, or of an item at any depth inside a question or area it deleted, SHALL return the typed result `deleted`, naming the ask and the item, never an error. It SHALL carry the versions and the epoch, and `unchecked: true` while the ask has no owner (FR-5, FR-6, AD-6, AD-10).
+
+#### Scenario: A deleted question
+- **WHEN** the agent deletes question `erp-export` with `update`, then fetches `erp-export`
+- **THEN** the result is the typed outcome `deleted` naming the ask and `erp-export`, and it is not marked as an error
+
+#### Scenario: An item inside a deleted question
+- **WHEN** the agent deletes question `plan`, which holds a Group `owner-group` holding the TextField `owner`, then fetches `owner`
+- **THEN** the result is the outcome `deleted` naming `owner`
+
+#### Scenario: A molecule reference inside a deleted question
+- **WHEN** the agent deletes the UJ-2 question `plan`, which holds the molecule references `wbs` and `schedule`, then fetches `wbs`, and then `wbs__tree`
+- **THEN** `wbs` gives the outcome `deleted` naming `wbs`, and `wbs__tree`, an expanded ID the agent never sent, gives the error for an item the ask never held
+
+#### Scenario: A deleted item of an unchecked ask
+- **WHEN** an ask sent with no agent record has a question deleted, and the agent fetches it
+- **THEN** the outcome `deleted` carries `unchecked: true`
+
+#### Scenario: A discarded ask still wins
+- **WHEN** the ask that held a deleted question is discarded, and the agent fetches that question
+- **THEN** the result is the outcome `discarded` naming the ask

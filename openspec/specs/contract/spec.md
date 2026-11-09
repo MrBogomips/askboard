@@ -1394,7 +1394,7 @@ A registered type that gives a result SHALL declare its result schema, `urn:askb
 - **THEN** it fails with the rule `result-empty`, naming the entry and the empty value
 
 ### Requirement: The annotation shape
-The output format SHALL define the annotation `{id, target: {selector}, body: {text}}`, its item being the key of the answer's `results`: `id` an element ID, `text` of 1 to 2,000 characters, and `selector` one of `element` (`id`), `label` (`label`, optional `occurrence`), `region` (`value`, `xywh=percent:x,y,w,h`), `line` (`side` `old` or `new`, `path`, `line`), `quote` (`exact`, optional `prefix`, `suffix`) and `position` (`start`, `end`) (AD-7).
+The output format SHALL define the annotation `{id, target: {selector}, body}`, its item being the key of the answer's `results`: `id` an element ID, `body` as "The annotation body" says, and `selector` one of `element` (`id`), `label` (`label`, optional `occurrence`), `region` (`value`, `xywh=percent:x,y,w,h`), `line` (`side` `old` or `new`, `path`, `line`), `quote` (`exact`, optional `prefix`, `suffix`) and `position` (`start`, `end`) (AD-7).
 
 #### Scenario: One annotation of each selector
 - **WHEN** six annotations, one per selector type, are validated
@@ -2439,3 +2439,190 @@ The Snapshot data SHALL take the minor after the one `main` holds when this chan
 #### Scenario: The versions
 - **WHEN** the contract's schema sets are listed
 - **THEN** `snapshot-data` names `main`'s minor plus one, and every other set names `main`'s version
+
+### Requirement: The fetch outcome deleted
+The tool envelopes SHALL define, beside `fetch`'s typed result `discarded`, the typed result `deleted`, which names the ask and the item (`itemId`) and may carry `unchecked: true`. `itemId` and `unchecked` SHALL appear only with `deleted` (AD-6, AD-10).
+
+#### Scenario: A deleted outcome validates
+- **WHEN** a `fetch` outcome with the versions, the epoch, `askId`, `itemId` `erp-export` and `outcome` `deleted` is validated
+- **THEN** it passes, and passes with `unchecked: true` too
+
+#### Scenario: A deleted outcome without its item
+- **WHEN** a `fetch` outcome `deleted` without `itemId` is validated
+- **THEN** it fails, naming `itemId`
+
+#### Scenario: A discarded outcome stays as it was
+- **WHEN** a `fetch` outcome `discarded` of the previous minor is validated, and one `discarded` carrying `itemId` is validated
+- **THEN** the first passes and the second fails
+
+### Requirement: Amendments to the approved texts
+The contract SHALL record each amendment to an approved tool description or to the server instructions with the change that made it, the date of the PO's approval, the text replaced and the text that replaces it. The texts served SHALL equal the approved texts with the recorded amendments applied, in order (AD-6).
+
+#### Scenario: The served texts follow the record
+- **WHEN** the contract's tests apply the recorded amendments to the approved `tools.json` and `server-instructions.md`
+- **THEN** the results equal the tool definitions and the server instructions the contract exports
+
+#### Scenario: An amendment that no longer applies
+- **WHEN** an amendment's replaced text is not found exactly once in the text it amends
+- **THEN** the contract's tests fail, naming the amendment's change and target
+
+### Requirement: The approved examples stay as archived
+An amendment SHALL leave the approved examples, and their copies among the contract's fixtures, byte-identical to the archived `review-model-contract` examples; the amendment record SHALL be the only place where an approved text differs from what was served before it.
+
+#### Scenario: Fixture copies untouched
+- **WHEN** an amendment to the `update` description is recorded
+- **THEN** the fixture `tools.json` still equals the archived one byte for byte
+
+### Requirement: Document review items
+The registry SHALL hold `document-review`, whose props hold `markdown`, the document: 1 to 10,000 characters holding no control or bidirectional formatting character other than a line feed or a tab. The props MAY hold `title`, 1 to 120 characters, and SHALL hold nothing else (FR-11, AD-7).
+
+#### Scenario: A document in a question
+- **WHEN** an ask holds a Document review `{markdown: "## Release 0.2\n\nThe board **remembers** drafts.", title: "Release notes"}`
+- **THEN** it passes
+
+#### Scenario: A control character
+- **WHEN** a Document review's `markdown` holds a carriage return, U+0000 or U+202E
+- **THEN** validation fails, naming the item and `markdown`, and the character as an escape such as `\u202E`
+
+#### Scenario: A document too long
+- **WHEN** a Document review's `markdown` holds 10,001 characters
+- **THEN** validation fails, naming the item and `markdown`, and the limit
+
+#### Scenario: A field the type does not take
+- **WHEN** a Document review's props hold `format: "plain"`, `__proto__` or `constructor` as a key
+- **THEN** validation fails, naming the item and the field
+
+### Requirement: Document review results
+A Document review's result SHALL be `{annotations}`: 1 to 100 annotations, each with a view-made ID unique in the result and a `quote` selector whose `exact` holds a character other than white space and is no longer than the item's document. `exact`, `prefix` and `suffix` SHALL hold no character the document refuses, and a suggested edit's `replacement` SHALL differ from its `exact` (FR-11, FR-18, AD-7, AD-10).
+
+#### Scenario: A comment and a suggested edit
+- **WHEN** a result holds `{id: "u-1", target: {selector: {type: "quote", exact: "remembers", prefix: "The board ", suffix: " drafts."}}, body: {text: "Say how long."}}` and `{id: "u-2", target: {selector: {type: "quote", exact: "drafts"}}, body: {replacement: "unsent answers"}}`
+- **THEN** it passes for the item above
+
+#### Scenario: Another selector
+- **WHEN** an annotation's selector is a `position` or a `region`
+- **THEN** it fails at the annotation's selector, naming the item
+
+#### Scenario: IDs the view did not make
+- **WHEN** an annotation's ID is `c1`, `__proto__` or `constructor`, or two annotations share an ID
+- **THEN** it fails, naming the item and the annotation
+
+#### Scenario: A quote that cannot come from the document
+- **WHEN** an annotation's `exact` is white space only, longer than the item's document, or holds U+202E
+- **THEN** it fails, naming the item and the annotation
+
+#### Scenario: A suggestion that changes nothing
+- **WHEN** a suggested edit's `replacement` equals its `exact`
+- **THEN** it fails, naming the item and the annotation
+
+#### Scenario: Nothing annotated
+- **WHEN** a result `{annotations: []}` is checked
+- **THEN** it fails at `/annotations`
+
+### Requirement: A quote's place in a text
+The contract SHALL give the one rule that places a quote in a text: its `prefix`, `exact` and `suffix`, joined, SHALL occur exactly once, and its place is that occurrence's `exact`. A quote that occurs nowhere SHALL be missing and one that occurs more than once ambiguous, and neither SHALL get a place. Of two annotations whose places overlap, the later in the result SHALL get none (AD-7, AD-10).
+
+#### Scenario: Found once
+- **WHEN** a quote `{exact: "drafts", prefix: "remembers "}` is placed in "The board remembers drafts. Old drafts stay."
+- **THEN** its place is the first "drafts"
+
+#### Scenario: Missing or ambiguous
+- **WHEN** the quote `{exact: "drafts"}` is placed in a text without "drafts", or in one holding it twice
+- **THEN** it is missing, or ambiguous, and has no place
+
+#### Scenario: Two places that overlap
+- **WHEN** two annotations whose quotes place them on overlapping text are placed, in the result's order
+- **THEN** the first has its place and the second is detached as overlapping
+
+### Requirement: Quoting a passage
+Quoting a passage of a text SHALL give its exact text with up to 32 characters of context on each side, widened up to 200 until the quote occurs once, never splitting a character. It SHALL refuse a passage that is blank, longer than 2,000 characters, or that occurs more than once with 200 characters of context (AD-7, NFR-10).
+
+#### Scenario: A repeated word
+- **WHEN** the second of two equal sentences' last word is quoted in a text where their 32 characters of context are equal too
+- **THEN** the context widens until the quote occurs once, and placing the quote gives back the quoted passage
+
+#### Scenario: A passage that cannot be told apart
+- **WHEN** a sentence is quoted that a text repeats with the same 200 characters before and after
+- **THEN** quoting refuses it as repeated
+
+#### Scenario: Bounds
+- **WHEN** a passage of white space, or of 2,001 characters, is quoted
+- **THEN** quoting refuses it, saying which
+
+#### Scenario: A character outside the basic plane
+- **WHEN** a passage starts or ends next to an emoji and its context would cut one
+- **THEN** the context keeps or leaves out the whole emoji
+
+### Requirement: The Document review's teaching text
+The Document review's registry entry SHALL carry its teaching text: when to use it (a Markdown document the user comments on and suggests edits to), that a quote gives the text as the board shows it, Markdown marks removed, that a `replacement` replaces `exact` and an empty one deletes it, that a quote the agent cannot find is asked about, never guessed, and that an untouched item gives no result; and an example item that validates (FR-29, AD-6).
+
+#### Scenario: The generated reference
+- **WHEN** the skill is generated
+- **THEN** `references/items.md` holds its use, `SKILL.md` links its reference, and the reference names `markdown`, `title`, the direction marks it refuses, the result's `annotations`, `replacement` and the example, which `AskCore.ask` accepts
+
+### Requirement: The annotation body
+An annotation's body SHALL hold `text`, a comment of 1 to 2,000 characters, `replacement`, a suggested edit of 0 to 4,000 characters that replaces the target's text (an empty one deleting it), or both, and nothing else. A widget type MAY take fewer of them in its result (AD-7).
+
+#### Scenario: A comment
+- **WHEN** an annotation's body is `{text: "Say how long."}`
+- **THEN** it passes
+
+#### Scenario: A suggested edit
+- **WHEN** an annotation's body is `{replacement: ""}`, or `{replacement: "unsent answers", text: "Clearer."}`
+- **THEN** it passes
+
+#### Scenario: An empty body
+- **WHEN** an annotation's body is `{}`, holds `motivation`, or holds a `replacement` of 4,001 characters
+- **THEN** it fails, naming the body
+
+### Requirement: The Document review in the sets' next minors
+The input format, the output format, the tool envelopes and the board document SHALL each take the next minor after the one `main` holds, admitting the Document review's items and result and the annotation's `replacement`; every other set SHALL keep `main`'s version (AD-7).
+
+#### Scenario: The previous minor
+- **WHEN** an ask holding a Document review is validated by the input format's previous minor
+- **THEN** it fails, naming the item and its type
+
+#### Scenario: A fetch of a Document review alone
+- **WHEN** a `fetch` result holds a Document review item with its `result`
+- **THEN** it validates, and the same item with a Chart's result fails at `/item/result`
+
+#### Scenario: Sets this change leaves alone
+- **WHEN** the version constants are read after this change
+- **THEN** the board protocol, the Snapshot data, the view manifest, the configuration, the local API and the session file equal `main`'s
+
+### Requirement: Unchanged items in the board state's answers
+The board protocol's board state SHALL admit, in a question's current and previous answer, `unchanged`: a list of unique item IDs, possibly empty, with no count bound of its own, as `values` and `results` have none. The Snapshot data, which holds that board state, SHALL admit it too. Each set SHALL take the next minor after `main`'s and still accept a message of the previous minor (AD-7, AD-20).
+
+#### Scenario: A previous answer with unchanged items
+- **WHEN** a board state names `unchanged: ["plan", "roadmap"]` in question `plan`'s previous answer
+- **THEN** it validates
+
+#### Scenario: Nothing unchanged
+- **WHEN** a board state names `unchanged: []` in a previous answer
+- **THEN** it validates
+
+#### Scenario: A malformed list
+- **WHEN** a board state names a list holding the same ID twice, or an ID the input format refuses, in an answer
+- **THEN** validation fails, naming the field
+
+### Requirement: What the unchanged list means
+`unchanged` SHALL name what is unchanged since the revision the answer names, which is earlier than the question's current one; an empty list SHALL mean nothing is. A current answer without `unchanged` SHALL mean the answer names the question's current revision, so everything is unchanged. A previous answer without it SHALL mean nothing is unchanged (AD-20, NFR-10).
+
+#### Scenario: A current answer without the list
+- **WHEN** a board state's current answer for question `plan` holds no `unchanged`
+- **THEN** it validates, and it says the answer names `plan`'s current revision
+
+#### Scenario: A previous answer without the list
+- **WHEN** a board state's previous answer for question `plan` holds no `unchanged`
+- **THEN** it validates, and a reader holds none of `plan`'s items unchanged
+
+### Requirement: The prefill mark in the draft record
+The draft record SHALL admit, per question, `prefilled: true`: the board filled that question's work on its revision from the previous answer. It SHALL hold no other value. The draft record is in the board protocol, which takes the same minor as the board state's `unchanged` (AD-7, AD-20).
+
+#### Scenario: A marked question
+- **WHEN** a draft record holds question `plan` at `rev` 2 with `prefilled: true` and no values
+- **THEN** it validates
+
+#### Scenario: Any other value
+- **WHEN** it holds `prefilled: false`
+- **THEN** validation fails, naming the field

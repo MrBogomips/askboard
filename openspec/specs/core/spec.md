@@ -551,11 +551,15 @@ The root a pointer resolves against SHALL be the `root` of the ask's origin when
 - **THEN** the excerpt is unresolved with reason `no-root`, whatever the origin's root says
 
 ### Requirement: An unresolved pointer never blocks the board
-A pointer that does not resolve SHALL leave the ask created or the update applied, its item marked unresolved with its reason in the board document, and SHALL add one `unresolved-pointer` warning naming the item to that call's result (FR-8, AD-6).
+A pointer that does not resolve SHALL leave the ask created or the update applied, its item marked unresolved with its reason in the board document, and SHALL add one `unresolved-pointer` warning naming the item to that call's result, in board order, while the JSON text of the call's `unresolved-pointer` warnings stays within `UNRESOLVED_WARNINGS_MAX_CHARS` (10,000 characters) (FR-8, AD-6).
 
 #### Scenario: One good and one missing excerpt
 - **WHEN** an ask holds an excerpt pointing at an existing heading and one pointing at a missing file
 - **THEN** the ask is created, the first excerpt is resolved, the second is unresolved with reason `not-found`, and the result carries one warning, for the second
+
+#### Scenario: Under the bound
+- **WHEN** an ask holds five excerpts whose pointers name missing files
+- **THEN** the result carries five `unresolved-pointer` warnings, each with its reason's own message, and none is a closing one
 
 ### Requirement: Agent-written excerpts are kept as written
 An excerpt given as `text` SHALL reach the board document exactly as the agent wrote it, read nothing from disk, and count as resolved (FR-8).
@@ -1294,3 +1298,116 @@ When an ask or an update leaves a Gantt plan naming an ID that is no leaf of its
 #### Scenario: An update that replaces the work packages
 - **WHEN** after an ask of a Tree and its plan the agent sends an update whose `change` of the Tree replaces its 150 leaves with 150 new IDs, and leaves the plan as it was
 - **THEN** the update is applied, its result holds one warning about the plan, naming `schedule`, the first five old IDs and "145 more", and the result's JSON text is under `RESULT_MAX_CHARS`
+
+### Requirement: The closing unresolved-pointer warning
+When the bound leaves any unresolved pointer out, the last `unresolved-pointer` warning SHALL be the first one left out, with its item, pointer and reason and a message of fixed words that counts the warnings after it, at least one. The warnings SHALL be kept in order while they leave room for the longest closing warning the list could give. Their JSON text, the closing one included, SHALL stay within the bound, and the board document SHALL still mark every unresolved item (AD-6, AD-10, FR-8).
+
+#### Scenario: Forty long pointers on an ask
+- **WHEN** an ask holds 40 excerpts, each with a pointer of 1,024 characters to a file outside the project folder
+- **THEN** the ask is created, the JSON text of its `unresolved-pointer` warnings is at most 10,000 characters, the last one's message says how many more are left out, the warnings kept, the closing one and that count make up the 40, and the board document marks all 40 excerpts unresolved
+
+#### Scenario: Pointers that JSON escapes
+- **WHEN** an ask holds 10 images whose pointers are 1,024 control characters each, which no file can match
+- **THEN** the ask is created, each image is unresolved with reason `invalid-pointer`, and the JSON text of its `unresolved-pointer` warnings is at most 10,000 characters, a closing warning counting the rest
+
+#### Scenario: An update past the bound
+- **WHEN** an `update` adds a question with 60 excerpts whose pointers of 300 characters name missing files
+- **THEN** the update is applied, and its `unresolved-pointer` warnings take at most 10,000 characters, the last one counting the rest
+
+#### Scenario: A list past the room only by its last pointer is kept whole
+- **WHEN** the warnings of an ask's unresolved pointers, all but the last, leave the room for the closing warning within the bound, and the last warning takes part of that room
+- **THEN** the JSON text of every warning is within the bound, every warning is kept with its reason's own message, and none is a closing one
+
+### Requirement: Expanded IDs are held against items
+`ask-core` SHALL hold every ID a molecule reference of the ask has expanded to, for as long as the ask lives, against the IDs of the items an `add` or a `change` sends. It SHALL refuse an `add` whose molecule reference would expand to an ID the ask holds, held or deleted, naming the ID as in use, as `change` already does (FR-5, AD-9).
+
+#### Scenario: A plain item named like an expanded ID
+- **WHEN** on the UJ-2 ask the agent's `change` of `plan` drops the reference `schedule`, then an `add` sends a question holding a Toggle `schedule__plan`
+- **THEN** the update is refused, naming `schedule__plan` as in use
+
+#### Scenario: A reference that would expand to a deleted ID
+- **WHEN** the agent deletes a question holding a plain Toggle `wbs__tree`, then adds a question holding the molecule reference `wbs`
+- **THEN** the update is refused, naming `wbs__tree` as in use
+
+### Requirement: Document review results through ask-core
+`ask-core` SHALL check a Document review's result against the item's props in the revision the answer names, refusing a fault with the log unchanged, nothing kept and nothing published. It SHALL NOT place a quote in the document's text, which only the board renders. An accepted result SHALL be logged under the answer's `results` and returned by `fetch` of the item (AD-10, AD-20, FR-18, FR-20).
+
+#### Scenario: A comment and a suggested edit answered
+- **WHEN** an answer naming revision 1 carries a Document review's result with a comment and a suggested edit
+- **THEN** the answer event holds the result under the item's ID, and `fetch` of the item returns it as its `result`
+
+#### Scenario: A quote longer than the revision's document
+- **WHEN** the agent has shortened the document in revision 2, and an answer naming revision 2 carries a quote longer than the new document
+- **THEN** it is refused, naming the item and the annotation, with the log unchanged and nothing published
+
+#### Scenario: A quote the text does not hold
+- **WHEN** an answer carries a well-formed quote that the document's text does not hold
+- **THEN** `ask-core` logs it, since only the board places quotes, and the answer is the user's own act on the board
+
+#### Scenario: Annotations too large for one answer
+- **WHEN** an answer carries 100 annotations whose replacements make its results longer than an answer event holds
+- **THEN** the event says `tooLarge` and carries no results, and `fetch` of the item returns them in pages
+
+### Requirement: What an answer's revision shares with the current one
+The board state SHALL give a question's current and previous answer the item IDs unchanged since the revision the answer names, when it is earlier than the current one: a logged answer's, or the one current when a recorded answer was reopened. The IDs SHALL be the question's own when its props are equal whole, and each item's at any depth that is equal, as "How unchanged items are compared" says; the list MAY be empty (AD-20).
+
+#### Scenario: Reopened with no other change
+- **WHEN** the agent reopens question `plan`, answered at `rev` 1, holding a Timeline `roadmap` inside a Group `side`
+- **THEN** `plan`'s previous answer lists `plan`, `side` and `roadmap` as unchanged
+
+#### Scenario: Reopened and changed
+- **WHEN** the agent then changes `roadmap`'s lanes
+- **THEN** `plan`'s previous answer lists `side` only, neither `plan` nor `roadmap`
+
+#### Scenario: A recorded answer reopened
+- **WHEN** the agent records an answer to question `offer` at `rev` 2 and then reopens it with no other change
+- **THEN** `offer`'s previous answer lists `offer` as unchanged
+
+#### Scenario: Reopened and changed throughout
+- **WHEN** the agent reopens question `plan` and, in the same `update`, changes its text and every item in it
+- **THEN** `plan`'s previous answer names `unchanged: []`
+
+#### Scenario: An answer kept on an earlier revision
+- **WHEN** the agent changes question `plan`'s Kanban while the user holds work on `rev` 1, and the user keeps their work and answers naming `rev` 1
+- **THEN** `plan`'s current answer lists the items equal in both revisions, without the Kanban
+
+#### Scenario: Not in the log or the tools
+- **WHEN** the agent reads `fetch` of the reopened question and `collect` returns its events
+- **THEN** neither holds the unchanged IDs
+
+### Requirement: How unchanged items are compared
+Props SHALL be compared canonically as the board shows them: each revision's props with the context they point to (excerpts, images, file references) resolved for that revision. A layout SHALL be compared with each item inside it replaced by its ID, so a Group whose members changed only inside is listed, and one that gained or lost a member is not. Memoised comparisons SHALL be kept only for the question's current revision (NFR-10, AD-9, AD-20).
+
+#### Scenario: Context changed under the same props
+- **WHEN** a reopened question's item points to an excerpt whose text changed between the answer's revision and the current one, its props unchanged
+- **THEN** that item's ID and the question's are not in the list
+
+#### Scenario: A new member of a Group
+- **WHEN** the agent's revision adds an item inside a Group and changes nothing else
+- **THEN** the other members' IDs are in the list, and the Group's and the new item's are not, since the Group's list of members changed
+
+### Requirement: Unresolved pointers in the comparison
+A pointer whose read timed out or was too large at either revision SHALL count as changed, since the comparison cannot tell; a pointer unresolved for another reason (not found, no root, outside the root) SHALL compare as itself (NFR-10, AD-10).
+
+#### Scenario: A read that timed out
+- **WHEN** an item's excerpt read timed out at the answer's revision and again at the reopen
+- **THEN** that item's ID and the question's are not in the list
+
+#### Scenario: A file that is still missing
+- **WHEN** an item's file reference was not found at the answer's revision and is still not found at the reopen, nothing else changed
+- **THEN** that item's ID is in the list
+
+### Requirement: When an answer carries its unchanged items
+An answer that names the question's current revision SHALL carry no unchanged list, so the board state of an answered question stays as it was. When `ask-core` cannot compare the answer's revision with the current one, it SHALL give an empty list, never none (NFR-10). A Snapshot's board state SHALL carry the same lists as the live board's (AD-15, AD-20).
+
+#### Scenario: An answer on the current revision
+- **WHEN** the user answers question `plan` and the agent changes nothing after
+- **THEN** `plan`'s current answer in the board state holds no `unchanged`, and the board state is the one it was before this change
+
+#### Scenario: A revision ask-core no longer holds
+- **WHEN** a question's previous answer names a revision whose props `ask-core` does not hold
+- **THEN** that answer names `unchanged: []`
+
+#### Scenario: In a Snapshot
+- **WHEN** the agent takes a Snapshot of an ask holding a reopened question
+- **THEN** the data's board state names the previous answer's unchanged IDs as the live board receives them
