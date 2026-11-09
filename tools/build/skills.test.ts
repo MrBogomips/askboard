@@ -219,6 +219,55 @@ describe("--check", () => {
     expect(said()).toContain("SKILL.md");
   });
 
+  // Review 5.6, S-34: a widget registered without regenerating fails for each skill, naming its
+  // two files by path; each skill given alone names its own and not the other's.
+  describe("a widget registered without regenerating, in both skills", () => {
+    const widgets = [
+      ...WIDGET_TYPES,
+      {
+        ...PROBE_WIDGET,
+        skill: { use: "a pick among options" },
+        help: { mouse: "Pick one.", answer: "The option." },
+      },
+    ];
+    const ASKBOARD = ["skills/askboard/references/widgets/probe.md", "skills/askboard/SKILL.md"];
+    const HELP = [
+      "skills/askboard-help/references/widgets/probe.md",
+      "skills/askboard-help/SKILL.md",
+    ];
+
+    const checked = async (asking: boolean, helping: boolean) => {
+      await run();
+      log = [];
+      const code = await main(
+        ["--check"],
+        (line) => log.push(line),
+        dir,
+        generateSkill(asking ? { widgets } : {}),
+        helpDir(),
+        generateHelpSkill(helping ? { widgets } : {}),
+      );
+      return code;
+    };
+
+    test("both generated with it: the four paths are named", async () => {
+      expect(await checked(true, true)).toBe(1);
+      for (const path of [...ASKBOARD, ...HELP]) expect(said()).toContain(path);
+    });
+
+    test("askboard alone names its two paths and not the help skill's", async () => {
+      expect(await checked(true, false)).toBe(1);
+      for (const path of ASKBOARD) expect(said()).toContain(path);
+      for (const path of HELP) expect(said()).not.toContain(path);
+    });
+
+    test("askboard-help alone names its two paths and not askboard's", async () => {
+      expect(await checked(false, true)).toBe(1);
+      for (const path of HELP) expect(said()).toContain(path);
+      for (const path of ASKBOARD) expect(said()).not.toContain(path);
+    });
+  });
+
   test("prints each figure with its budget, the always-loaded total included", async () => {
     await run();
     log = [];
