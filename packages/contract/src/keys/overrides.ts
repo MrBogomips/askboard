@@ -44,7 +44,8 @@ const KEYS_OPEN = "keys.open";
 // acts on a key no part prevented, so `Enter` would open the panel from a focused button instead of
 // pressing it (design decision 18, review 8.6). A key named as `parseKeyCombination` reads it;
 // the space bar is " ".
-const KEYS_OPEN_RESERVED_KEYS: ReadonlySet<string> = new Set([
+/** The keys `keys.open` may not take with no modifier or Shift alone. */
+export const KEYS_OPEN_RESERVED_KEYS: ReadonlySet<string> = new Set([
   "Enter",
   " ",
   "Escape",
@@ -95,18 +96,24 @@ const editorActions = (tables: readonly Registered[]): ReadonlySet<string> =>
 const isEscape = ({ key, hold }: KeyBinding): boolean => key === "Escape" && hold === "none";
 
 // The own actions whose default keys hold Escape: exits of a part (the Tree's two questions' cancels).
-const escapeActions = (tables: readonly Registered[]): ReadonlySet<string> =>
-  new Set(
-    tables.flatMap(({ table }) =>
-      table
-        .filter(
-          (entry) =>
-            !isVocabularyAction(entry.action) &&
-            entry.keys.some((binding) => typeof binding === "object" && isEscape(binding)),
-        )
-        .map((entry) => entry.action),
-    ),
+const escapeActions = (tables: readonly Registered[]): readonly string[] =>
+  tables.flatMap(({ table }) =>
+    table
+      .filter(
+        (entry) =>
+          !isVocabularyAction(entry.action) &&
+          entry.keys.some((binding) => typeof binding === "object" && isEscape(binding)),
+      )
+      .map((entry) => entry.action),
   );
+
+/**
+ * The exits an override may not leave with no key: `edit.cancel` and each own action whose default
+ * keys hold Escape in some registered table, sorted, frozen. The set `keyOverridesProblems` reports
+ * an `exit` problem for; the generated key configuration reference reads it (review 5.6, S-36).
+ */
+export const keyExitActions = (types: readonly WidgetType[] = WIDGET_TYPES): readonly string[] =>
+  Object.freeze([...new Set(["edit.cancel", ...escapeActions(registered(types))])].sort());
 
 // The problems of one action's override on its own: known, not native, each combination judged,
 // an exit not left bare. `text` collects each parsed binding's text as the user wrote it.
@@ -114,7 +121,7 @@ const actionProblems = (
   action: string,
   combinations: unknown,
   tables: readonly Registered[],
-  exits: ReadonlySet<string>,
+  exits: readonly string[],
   editors: ReadonlySet<string>,
 ): readonly KeyOverrideProblem[] => {
   const entries = tables.flatMap(({ table }) => table.filter((entry) => entry.action === action));
@@ -140,8 +147,7 @@ const actionProblems = (
     }
   }
   const bare = combinations.length === 0;
-  if (bare && (action === "edit.cancel" || exits.has(action)))
-    problems.push({ rule: "exit", action });
+  if (bare && exits.includes(action)) problems.push({ rule: "exit", action });
   return problems;
 };
 
@@ -285,7 +291,7 @@ export const keyOverridesProblems = (
     return [{ rule: "notation", action: "keys", binding: shownText(overrides) }];
   }
   const tables = registered(types);
-  const exits = escapeActions(tables);
+  const exits = keyExitActions(types);
   const editors = editorActions(tables);
   const actions = Object.keys(overrides);
   const found = actions.flatMap((action) =>

@@ -26,7 +26,7 @@ Two combinations for one action:
 
 ```json
 "keys": {
-  "edit.start": ["Enter", "F2", "Mod+Shift+Enter"]
+  "edit.start": ["F2", "Mod+Alt+Enter"]
 }
 ```
 
@@ -36,10 +36,13 @@ Two combinations for one action:
 - The key is a key name (`ArrowUp`, `Home`, `End`, `Enter`, `Escape`, `Delete`, `Backspace`, `PageUp`, `PageDown`, `F2`), a letter, `Space`, or `?` or `%` alone. `Ctrl`, `Cmd`, `Meta` and `Option` are not modifiers here.
 - `Mod+Alt` takes only `Mod+Alt+ArrowUp`, `Mod+Alt+ArrowDown`, `Mod+Alt+Home`, `Mod+Alt+End`, `Mod+Alt+Enter`.
 - Refused, because the browser or the system needs them: `Tab`, `F1`, `F3` to `F12`, `Mod` with any key but Z and A, `Mod+Shift` with any key but the arrows up and down and Enter, `Alt` alone (no hold has it), and a modifier on `?` or `%`.
-- Two actions of one part of a widget cannot share a key once the changes apply, and an exit cannot be left with no key (`edit.cancel`, and the Tree's `tree.cancelDelete` and `tree.cancelGroup`).
+- Refused, because the system needs them: `Alt+Shift` with a letter or `Space` (macOS composes a character from it and some Linux desktops switch the keyboard layout on it).
+- An action an editor takes (a text field's actions) refuses a key that types a character: a letter or `Space` with no modifier or `Shift`, and a printed character.
+- `keys.open` also refuses, with no modifier or Shift, the keys a control inside a question takes: `Enter`, `Space`, `Escape`, `ArrowUp`, `ArrowDown`, `ArrowLeft`, `ArrowRight`, `Home`, `End`, `PageUp`, `PageDown`, `Delete`, `Backspace`; and any key that another action of a widget takes, since it acts across the whole question.
+- Two actions of one part of a widget cannot share a key once the changes apply, and an exit cannot be left with no key (`edit.cancel`, `tree.cancelDelete`, `tree.cancelGroup`).
 - An action whose keys a control takes by itself (marked in the list) cannot be changed.
 
 ## When it applies
 
-- Any problem refuses the whole `keys`: every widget keeps its default keys, Settings shows each problem and the session's stderr lists it. Fix the file; there is no partial change.
+- Any problem refuses the whole `keys`: every widget keeps its default keys, Settings lists the problems (up to 8) and the session's stderr lists them. Fix the file; there is no partial change.
 - A change applies to the next board opened, not to one already open. No widget takes the user's keys yet, so nothing changes on the board until one does.

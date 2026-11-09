@@ -13,8 +13,10 @@ export {
   parseKeyCombination,
 } from "./notation.ts";
 export {
+  KEYS_OPEN_RESERVED_KEYS,
   type KeyOverrideProblem,
   type KeyOverrideRule,
+  keyExitActions,
   keyOverridesProblems,
 } from "./overrides.ts";
 export {

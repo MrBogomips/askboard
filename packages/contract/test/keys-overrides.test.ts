@@ -5,10 +5,13 @@
 
 import { describe, expect, test } from "bun:test";
 import {
+  KEY_VOCABULARY,
+  KEYS_OPEN_RESERVED_KEYS,
   type KeyOverrideProblem,
   type KeyOverrides,
   type KeyTable,
   keyBinding,
+  keyExitActions,
   keyOverridesProblems,
   ownEntry,
   vocabularyEntry,
@@ -496,6 +499,72 @@ describe("the exit rule", () => {
   test("an exit needs no key beyond the Escape of its own default: a vocabulary action that is no exit", () => {
     expect(check({ "cursor.up": [] })).toEqual([]);
     expect(check({ "edit.commit": [] })).toEqual([]);
+  });
+});
+
+// The exits as the contract computes them, which the generated key configuration reference reads
+// instead of copying (review 5.6, S-36; design decision 20).
+describe("keyExitActions", () => {
+  test("is edit.cancel and each own action whose default keys hold Escape, sorted and frozen", () => {
+    const exits = keyExitActions(WIDGET_TYPES);
+    expect(exits).toEqual(["edit.cancel", "tree.cancelDelete", "tree.cancelGroup"]);
+    expect(Object.isFrozen(exits)).toBe(true);
+    expect(exits).not.toContain("select.none");
+    expect([...exits]).toEqual([...exits].sort());
+    expect(keyExitActions()).toEqual(exits);
+  });
+
+  test("a probe type's own action on Escape is an exit; its other actions are not", () => {
+    const probe = typeOf("probe", [
+      ownEntry("probe.leave", "panel", [keyBinding("Escape")], "tool", { readOnly: false }),
+      ownEntry("probe.stay", "panel", [keyBinding("Enter")], "tool", { readOnly: false }),
+    ]);
+    expect(keyExitActions([probe])).toEqual(["edit.cancel", "probe.leave"]);
+    expect(keyExitActions([])).toEqual(["edit.cancel"]);
+  });
+
+  test("is the set keyOverridesProblems uses: an exit problem for each and for no other action", () => {
+    const probe = typeOf("probe", [
+      ownEntry("probe.leave", "panel", [keyBinding("Escape")], "tool", { readOnly: false }),
+    ]);
+    for (const types of [WIDGET_TYPES, [...WIDGET_TYPES, probe]]) {
+      const exits = new Set(keyExitActions(types));
+      const actions = new Set([
+        ...Object.keys(KEY_VOCABULARY),
+        ...types.flatMap(({ keys }) => (keys ?? []).map(({ action }) => action)),
+      ]);
+      for (const action of actions) {
+        const rules = check({ [action]: [] }, types).map(({ rule }) => rule);
+        expect(rules.includes("exit"), `${action} unbound`).toBe(exits.has(action));
+      }
+    }
+  });
+});
+
+describe("KEYS_OPEN_RESERVED_KEYS", () => {
+  test("is the keys a native control takes, the ones keys.open refuses with no modifier or Shift", () => {
+    expect([...KEYS_OPEN_RESERVED_KEYS].sort()).toEqual(
+      [
+        " ",
+        "ArrowDown",
+        "ArrowLeft",
+        "ArrowRight",
+        "ArrowUp",
+        "Backspace",
+        "Delete",
+        "End",
+        "Enter",
+        "Escape",
+        "Home",
+        "PageDown",
+        "PageUp",
+      ].sort(),
+    );
+    for (const key of KEYS_OPEN_RESERVED_KEYS) {
+      expect(check({ "keys.open": [key === " " ? "Space" : key] }).map((p) => p.rule)).toContain(
+        "reserved",
+      );
+    }
   });
 });
 

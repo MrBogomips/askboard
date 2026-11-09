@@ -5,7 +5,11 @@ import { describe, expect, test } from "bun:test";
 import {
   CONFIGURATION_VERSION,
   KEY_VOCABULARY,
+  KEYS_OPEN_RESERVED_KEYS,
+  keyBinding,
+  keyExitActions,
   keyOverridesProblems,
+  ownEntry,
   parseKeyCombination,
   TOOL_DEFINITIONS,
   WIDGET_TYPES,
@@ -13,8 +17,9 @@ import {
 import { PROBE_WIDGET } from "@askboard/contract/fixtures";
 import { MOLECULE_SKILLS, READY_MOLECULES } from "@askboard/molecules";
 import { budgetReport, HELP_SKILL, parseFrontmatter } from "./budgets.ts";
+import { contractSchemaResolver } from "./fields.ts";
 import { generateHelpSkill, SESSION_TOOL_PREFIX } from "./help.ts";
-import { KEY_EXAMPLES } from "./help-keys.ts";
+import { KEY_EXAMPLES, rowWarningsBound } from "./help-keys.ts";
 import { actionRows, PANEL_NOTE } from "./keys.ts";
 
 const help = generateHelpSkill();
@@ -311,6 +316,96 @@ describe("configure-keys.md", () => {
     const clash = [{ title: "Clash", overrides: { "move.top": ["Mod+w"], undo: ["Ctrl+z"] } }];
     expect(() => generateHelpSkill({ keyExamples: clash })).toThrow(/"Clash"/);
     expect(() => generateHelpSkill({ keyExamples: clash })).toThrow(/Ctrl\+z/);
+  });
+});
+
+// The rules configure-keys.md states, read from the contract where it holds the list (review 5.6,
+// S-35 and S-36; design decision 20).
+describe("configure-keys.md's rules", () => {
+  const text = file("references/configure-keys.md");
+  const lineWith = (part: string, from = text): string => {
+    const found = from.split("\n").find((line) => line.includes(part));
+    if (found === undefined) throw new Error(`no line with ${part}`);
+    return found;
+  };
+  const names = (line: string) => [...line.matchAll(/`([a-z]+\.[A-Za-z.]+)`/g)].map((m) => m[1]);
+  const escapeProbe = {
+    ...PROBE_WIDGET,
+    skill: { use: "a pick among options" },
+    help: { mouse: "Pick one.", answer: "The option." },
+    keys: [
+      ownEntry("probe.leave", "panel", [keyBinding("Escape")], "tool", {
+        readOnly: false,
+        label: "keys.action.undo",
+      }),
+    ],
+  };
+
+  test("the exits sentence lists exactly keyExitActions()", () => {
+    expect(names(lineWith("cannot be left with no key")).sort()).toEqual([...keyExitActions()]);
+  });
+
+  test("an exit added to a probe type changes the sentence, with no edit to the generator", () => {
+    const widgets = [...WIDGET_TYPES, escapeProbe as never];
+    const probed = generateHelpSkill({ widgets }).files.get("references/configure-keys.md") ?? "";
+    expect(names(lineWith("cannot be left with no key", probed)).sort()).toEqual([
+      ...keyExitActions(widgets),
+    ]);
+    expect(probed).toContain("`probe.leave`");
+  });
+
+  test("the refusals hold Alt+Shift with a letter or Space, an editor's typing keys and keys.open's reserved keys", () => {
+    expect(lineWith("`Alt+Shift` with a letter")).toContain("`Space`");
+    const typing = lineWith("types a character");
+    expect(typing).toMatch(/editor/);
+    expect(typing).toMatch(/letter|`Space`/);
+    const open = lineWith("`keys.open`");
+    for (const key of KEYS_OPEN_RESERVED_KEYS) {
+      expect(open).toContain(`\`${key === " " ? "Space" : key}\``);
+    }
+    expect(open).toMatch(/no modifier or Shift/);
+    expect(lineWith("another action")).toMatch(/takes/);
+  });
+
+  test("lists the problems Settings shows, up to the row's bound read from the board protocol schema", () => {
+    const schema = contractSchemaResolver()("urn:askboard:board-protocol:settings") as {
+      $defs: { row: { properties: { warnings: { maxItems: number } } } };
+    };
+    const bound = schema.$defs.row.properties.warnings.maxItems;
+    expect(rowWarningsBound()).toBe(bound);
+    const line = lineWith("refuses the whole `keys`");
+    expect(line).toContain(`up to ${bound}`);
+    expect(line).not.toContain("each problem");
+    const three = generateHelpSkill({ keyRowBound: 3 }).files.get("references/configure-keys.md");
+    expect(three).toContain("up to 3");
+    expect(() => rowWarningsBound(() => undefined)).toThrow(/settings/);
+    expect(() => rowWarningsBound(() => ({ $defs: { row: {} } }))).toThrow(/maxItems/);
+  });
+
+  test("every example's title counts its combinations rightly, and none is another action's default", () => {
+    const words = ["One", "Two", "Three", "Four"];
+    const rows = actionRows(WIDGET_TYPES);
+    for (const { title, overrides } of KEY_EXAMPLES) {
+      const count = words.findIndex((word) => title.startsWith(`${word} combination`)) + 1;
+      if (count > 0) {
+        for (const combinations of Object.values(overrides))
+          expect(combinations).toHaveLength(count);
+      }
+      for (const [action, combinations] of Object.entries(overrides)) {
+        for (const combination of combinations) {
+          const read = parseKeyCombination(combination);
+          if (!read.ok) throw new Error(read.reason);
+          for (const row of rows.filter((other) => other.action !== action)) {
+            const same = row.keys.some(
+              ({ key, hold }) => key === read.binding.key && hold === read.binding.hold,
+            );
+            expect(same, `${combination} is ${row.action}'s default`).toBe(false);
+          }
+        }
+      }
+    }
+    const two = KEY_EXAMPLES.find(({ title }) => title.startsWith("Two combinations"));
+    expect(Object.values(two?.overrides ?? {}).flat()).toHaveLength(2);
   });
 });
 

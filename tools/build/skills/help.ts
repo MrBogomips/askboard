@@ -27,6 +27,8 @@ export type HelpInputs = {
   readonly keyExamples: readonly KeyExample[];
   /** The types whose chunk registers its key table with the board; the contract's list. */
   readonly keyTablesOnBoard: readonly string[];
+  /** The most problems Settings lists for a refused `keys`; the board protocol's row bound. */
+  readonly keyRowBound: number;
   /** AskBoard's tool names as the session names them (`mcp__plugin_askboard_askboard__ask`). */
   readonly toolNames: readonly string[];
 };
@@ -140,7 +142,12 @@ export const generateHelpSkill = (inputs: Partial<HelpInputs> = {}): GeneratedHe
   files.set(
     "references/configure-keys.md",
     withNewline(
-      configureKeysText(widgets, inputs.keyExamples ?? KEY_EXAMPLES, inputs.keyTablesOnBoard),
+      configureKeysText(
+        widgets,
+        inputs.keyExamples ?? KEY_EXAMPLES,
+        inputs.keyTablesOnBoard,
+        inputs.keyRowBound,
+      ),
     ),
   );
   files.set("references/key-actions.md", withNewline(keyActionsText(widgets)));

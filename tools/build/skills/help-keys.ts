@@ -8,13 +8,16 @@ import {
   CONFIGURATION_VERSION,
   KEY_COMBINATION_MAX_CHARS,
   KEY_TABLES_ON_BOARD,
+  KEYS_OPEN_RESERVED_KEYS,
   type KeyOverrides,
   keyCombinationText,
+  keyExitActions,
   keyOverridesProblems,
   MOD_ALT_KEYS,
   parseKeyCombination,
   type WidgetType,
 } from "@askboard/contract";
+import { contractSchemaResolver, type Resolve } from "./fields.ts";
 import { actionLine, actionRows, typeName } from "./keys.ts";
 
 /** An example of the `keys` member, with what it shows. */
@@ -32,11 +35,31 @@ export const KEY_EXAMPLES: readonly KeyExample[] = [
   },
   {
     title: "Two combinations for one action",
-    overrides: { "edit.start": ["Enter", "F2", "Mod+Shift+Enter"] },
+    overrides: { "edit.start": ["F2", "Mod+Alt+Enter"] },
   },
 ];
 
 const FENCE = "```";
+
+const SETTINGS_SCHEMA = "urn:askboard:board-protocol:settings";
+
+/**
+ * How many warnings one settings row of the board protocol holds: the most problems of a refused
+ * `keys` that Settings can list (`$defs.row.properties.warnings.maxItems`). Throws when the schema
+ * has no such bound.
+ */
+export const rowWarningsBound = (resolve: Resolve = contractSchemaResolver()): number => {
+  const settings = resolve(SETTINGS_SCHEMA) as
+    | { $defs?: { row?: { properties?: { warnings?: { maxItems?: unknown } } } } }
+    | undefined;
+  if (settings === undefined)
+    throw new Error(`the board protocol has no schema ${SETTINGS_SCHEMA}`);
+  const bound = settings.$defs?.row?.properties?.warnings?.maxItems;
+  if (typeof bound !== "number") {
+    throw new Error("the settings row's warnings have no maxItems in the board protocol schema");
+  }
+  return bound;
+};
 
 // Fails, naming the example and its problems, on an example the overrides check refuses or whose
 // combinations do not read.
@@ -98,11 +121,24 @@ const reach = (widgets: readonly WidgetType[], onBoard: readonly string[]) =>
         applies: `- A change applies to the next board opened, not to one already open, and only in ${reached(widgets, onBoard)}; the keys panel (the Keys button) shows the keys in effect, with a changed action marked.`,
       };
 
+// The keys `keys.open` may not take with no modifier or Shift, as the notation writes them.
+const openReserved = (): string =>
+  [...KEYS_OPEN_RESERVED_KEYS]
+    .map((key) => `\`${keyCombinationText({ key, hold: "none" })}\``)
+    .join(", ");
+
+// The exits an override may not leave with no key, from the contract.
+const exitsText = (widgets: readonly WidgetType[]): string =>
+  keyExitActions(widgets)
+    .map((action) => `\`${action}\``)
+    .join(", ");
+
 /** `references/configure-keys.md`. Throws, naming the example, on one the check refuses. */
 export const configureKeysText = (
   widgets: readonly WidgetType[],
   examples: readonly KeyExample[] = KEY_EXAMPLES,
   onBoard: readonly string[] = KEY_TABLES_ON_BOARD,
+  rowBound: number = rowWarningsBound(),
 ): string => {
   checked(examples, widgets);
   const where = reach(widgets, onBoard);
@@ -128,12 +164,17 @@ export const configureKeysText = (
     "- The key is a key name (`ArrowUp`, `Home`, `End`, `Enter`, `Escape`, `Delete`, `Backspace`, `PageUp`, `PageDown`, `F2`), a letter, `Space`, or `?` or `%` alone. `Ctrl`, `Cmd`, `Meta` and `Option` are not modifiers here.",
     `- \`Mod+Alt\` takes only ${modAltKeys()}.`,
     "- Refused, because the browser or the system needs them: `Tab`, `F1`, `F3` to `F12`, `Mod` with any key but Z and A, `Mod+Shift` with any key but the arrows up and down and Enter, `Alt` alone (no hold has it), and a modifier on `?` or `%`.",
-    "- Two actions of one part of a widget cannot share a key once the changes apply, and an exit cannot be left with no key (`edit.cancel`, and the Tree's `tree.cancelDelete` and `tree.cancelGroup`).",
+    "- Refused, because the system needs them: `Alt+Shift` with a letter or `Space` (macOS composes a character from it and some Linux desktops switch the keyboard layout on it).",
+    "- An action an editor takes (a text field's actions) refuses a key that types a character: a letter or `Space` with no modifier or `Shift`, and a printed character.",
+    `- \`keys.open\` also refuses, with no modifier or Shift, the keys a control inside a question takes: ${openReserved()}; and any key that another action of a widget takes, since it acts across the whole question.`,
+    "- Two actions of one part of a widget cannot share a key once the changes apply, and an exit cannot be left with no key (" +
+      exitsText(widgets) +
+      ").",
     "- An action whose keys a control takes by itself (marked in the list) cannot be changed.",
     "",
     "## When it applies",
     "",
-    "- Any problem refuses the whole `keys`: every widget keeps its default keys, Settings shows each problem and the session's stderr lists it. Fix the file; there is no partial change.",
+    `- Any problem refuses the whole \`keys\`: every widget keeps its default keys, Settings lists the problems (up to ${rowBound}) and the session's stderr lists them. Fix the file; there is no partial change.`,
     where.applies,
   ].join("\n");
 };
