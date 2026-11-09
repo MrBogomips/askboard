@@ -1,0 +1,79 @@
+# Tasks
+
+Each task writes its tests first and sees them fail for the right reason before it implements (the repository's TDD rule). Terms used below:
+
+- "The check": `GITHUB_TOKEN=$(gh auth token) bun run check`.
+- "Coverage": at least 80% of lines and functions for every source file the task changes, read from `bun test --coverage`'s per-file table.
+- "Conformance": `bun packages/server/test/conformance/run.ts --runtime bun` and `--runtime node`, after `bun run build`.
+
+Order:
+
+- Group 0 runs first.
+- Group 1 (`core`) then group 2 (`mcp-tools` tests over the session's tools), which reads group 1's bound. They cannot run in parallel.
+- Group 3 runs last.
+
+Inside a group, tasks run in their order. Task notes and commit bodies say `Refs #98`.
+
+## 0. Base
+
+- [ ] 0.1 Record the PO's decisions (proposal, open questions 1 to 3). Under this task, record each answer: the proposed default, accepted under the PO's unattended handoff, unless the PO answered otherwise on Issue #98. Tests: none. Verify: three answers are recorded, with the date and the Issue comment they come from. An answer other than the default stops the work for `/opsx:update` before group 1:
+  - question 1 answered (b), one budget for both kinds, replaces decision 1 and the core delta's bound;
+  - question 2 answered (b), a new warning code, widens the output format and the tool envelopes ("next minor after main's", askboard-contract-versioning) and adds a contract group;
+  - question 3 answered otherwise changes only the words of task 1.2.
+- [ ] 0.2 Check names, versions and the baseline (askboard-contract-versioning, Rule 3; design.md, Context, Merge points and decision 5). Tests: none. Record each item under this task:
+  - Every name design.md borrows, checked with `git grep -n` on `origin/main`, with its file and line: `unresolvedWarnings`, `UNRESOLVED_MESSAGES`, `contextWarnings`, `boundedFormulaWarnings`, `formulaWarnings`, `checkedFormulaWarnings`, `FORMULA_WARNINGS_MAX_CHARS`, `FORMULA_WARNING_CLOSING_MAX_CHARS`, `NO_HOOKS_WARNING`, `RESULT_MAX_CHARS`, `POINTER_MAX_CHARS`, `BOARD_TOKEN_MAX_CHARS`, `UnresolvedPointerWarning`, `FormulaWarning`, `readPointer`.
+  - Every `*_VERSION` and `*_FORMAT` constant of `packages/contract/src`. This change moves none.
+  - The heads of the branches in Merge points, and whether any of them now edits `core/src/context/warnings.ts`, `core/src/graph-check.ts`, `core/src/ask.ts` near `update`'s warnings or `contextWarnings`, or `server/src/mcp-tools/ask.ts` or `update.ts`.
+  - A probe with `AskCore` (a scratch test, not committed): an ask whose image pointer is 1,024 U+0001 characters is created with that image `invalid-pointer`, not refused; the JSON length of its warning, of a warning with a 1,024-character plain pointer and of `NO_HOOKS_WARNING`; the length of the `ask` result's envelope with the real epoch, cursor and board link. Compare them with design.md's table (6,423, 1,303, 218, at most 609).
+  - The pass counts of `bun test packages/core` and `bun test packages/server`.
+
+  Verify: the note lists every name, version, head, probe length and count. A name that is missing or changed, another change editing those files, a refused control-character pointer, or a length above the design's, stops the work for `/opsx:update` (the design's worst totals move with them).
+
+## 1. The bound in `core` (Issue #98)
+
+- [ ] 1.1 Move the closing rule into one helper (design decision 4). Tests first, in a new `packages/core/test/warning-bound.test.ts`, over plain objects:
+  - a list whose JSON text fits `max` comes back as the same array;
+  - past `max`, the kept warnings are a prefix in order, the kept text plus `room` fits `max`, and one more would not; the last element is `closing(firstLeftOut, countAfter)`; kept + 1 + count equals the input's length;
+  - escapes count: a warning holding `"`, `\` and U+0001 is measured as `JSON.stringify` writes it;
+  - a first warning larger than the budget gives a list of the closing warning alone, with the full count.
+
+  Then write `core/src/warning-bound.ts` (`boundedWarnings(warnings, {max, room, closing})`, pure, plain ECMAScript) and make `boundedFormulaWarnings` call it with `FORMULA_WARNING_CLOSING_MAX_CHARS` and its own words. Verify: the new tests pass; `packages/core/test/graph-check-bound.test.ts` and `widget-graph.test.ts` pass unchanged (`git diff` shows neither file edited); `bun test packages/core` passes; coverage; the check passes.
+- [ ] 1.2 Bound the unresolved-pointer warnings (core spec: An unresolved pointer never blocks the board, "Under the bound"; The closing unresolved-pointer warning, every scenario; design decisions 1 and 2; proposal, open question 3). Tests first:
+  - in a new `packages/core/test/context-warning-bound.test.ts`, over `boundedUnresolvedWarnings`: `UNRESOLVED_WARNINGS_MAX_CHARS` is 10,000; the room is the longest closing warning of the list measured with the list's length as count; the three messages word for word (N more, 1 more, none after); the closing warning keeps `itemId`, `pointer` and `reason` of the first left out and validates against the output format's warning schema (`validateAgainst`); a list of ten 1,024-code-point escaped pointers gives one closing warning counting 9, within 10,000; the message holds no path but the pointer field;
+  - in `packages/core/test/context-ask.test.ts`: the scenarios "Forty long pointers on an ask" (also: `boardDocument` marks all 40 unresolved), "Pointers that JSON escapes", "Under the bound" (five warnings, none closing) and "One pointer past the bound" (no count);
+  - in `packages/core/test/context-update.test.ts`: "An update past the bound";
+  - the existing test "one per unresolved pointer, in item order across questions…" (`context-ask.test.ts:350`) passes unchanged.
+
+  Then add `UNRESOLVED_WARNINGS_MAX_CHARS` and `boundedUnresolvedWarnings` to `core/src/context/warnings.ts`, and have `unresolvedWarnings` return its bounded list, so `Ask.update` and `contextWarnings` share it. Verify: the tests pass, after failing first on the unbounded list; `bun test packages/core` passes; coverage; the check passes.
+- [ ] 1.3 Review checkpoint for group 1. Tests: none (review). A spec review by askboard-spec-reviewer and a security review by askboard-security-reviewer, over the group's range (askboard-review-protocol, group checkpoint). Spec: every core scenario has a test; decisions 1, 2 and 4 hold; the formula warnings' output on the worst plan of `widget-graph.test.ts` is identical before and after 1.1; no set moved. Security (askboard-threat-model): §3.4, recompute each warning kind's worst size from the contract's input limits against its share and `RESULT_MAX_CHARS`, escapes and lone surrogates included; NFR-10 and AD-10, the closing warning never claims fewer warnings than were left out and the board document still marks every unresolved item; AD-12, the closing words reveal no path or file existence; §3.7, no new regular expression. Verify: findings recorded under this task as S-n and X-n and fixed, each fix tests first, before group 2.
+
+## 2. The results of the tools (Issue #98)
+
+- [ ] 2.1 Pin the bound on the tools' results (mcp-adapter spec: Unresolved pointers in ask and update results, "Many missing excerpts"; Warnings of ask and update results within the result size, both scenarios; design decision 3). Tests first:
+  - in `packages/server/test/mcp-tools/context.test.ts`: "Many missing excerpts" through the `ask` handler, then `fetch` of the question returning all 40 pointers with status `unresolved` and their reason;
+  - in `packages/server/test/mcp-tools/ask.test.ts`, beside "the ask tool's result text is under the result limit, with its no-hooks warning" (`:395`): "The worst ask the contract admits" (an unchecked ask, 200 escaped-pointer excerpts and images, the worst plan of that test): the result's text is under `RESULT_MAX_CHARS`, valid against `SCHEMA_IDS.askResult`, `no-hooks` first, then the unresolved warnings ending in their closing one, then the formula warnings ending in theirs; record its length in the note (design: about 20,830 at most);
+  - in `packages/server/test/mcp-tools/update.test.ts`: "The same on update": the warnings' JSON text is at most 20,000 and each kind ends in its closing warning.
+
+  Then: nothing in `server/src` should need to change (design decision 3); if it does, record why. Verify: the tests pass, the first two after failing on a head without group 1 (a `git stash` of `core/src` or the range's base); `bun test packages/server` passes; conformance passes; the check passes.
+- [ ] 2.2 Review checkpoint for group 2. Tests: none (review). Spec review by askboard-spec-reviewer and security review by askboard-security-reviewer over the group's range: every mcp-adapter scenario has a test; the warning order is `no-hooks`, `unresolved-pointer`, `formula`; the measured worst `ask` result agrees with design decision 3; no `server/src` change, or the one recorded in 2.1 is justified; §3.4 for the whole result. Verify: findings recorded under this task as S-n and X-n and fixed, tests first, before group 3.
+
+## 3. Records and the pull request
+
+- [ ] 3.1 Update the documents (design decision 6). Tests: none (documents). Make these edits:
+  - the spine, AD-6, Schemas and validation: the warnings sentence gains ", each kind within its share of the result bound: past it, one closing warning counts the rest", amended in place; a `sources` line for this change; `updated:` set to this task's date;
+  - CHANGELOG, `## Unreleased`, `### Fixed`: one line citing Issue #98 (the unresolved-pointer warnings of `ask` and `update` stay within 10,000 characters, a closing warning counting any left out, so an `ask` result stays within 30,000);
+  - `docs/as-built/result-bound.md`: the change's as-built note (PR #109's rules, `docs/as-built/README.md` once merged): where the code lives (`core/src/warning-bound.ts`, `core/src/context/warnings.ts`), the names (`boundedWarnings`, `boundedUnresolvedWarnings`, `UNRESOLVED_WARNINGS_MAX_CHARS`), the warning order, the worst totals measured in 2.1, and that no set moved. No status, no merge date. Write nothing in CLAUDE.md: a change's record goes in `docs/as-built/<change-id>.md`, never in CLAUDE.md, whether or not #109 has merged.
+
+  Verify: each new text stands once (`grep -c -F`); `git diff origin/main -- CLAUDE.md` is empty; `openspec validate --all --strict --no-interactive` passes.
+- [ ] 3.2 Rebase onto `origin/main` (askboard-contract-versioning, Rebase procedure). Resolve `core/src/ask.ts` (agent-facing-gaps), the spine's `sources` and `updated:`, and CHANGELOG by keeping both sides, `main`'s first (Merge points); if #109 has merged, keep `docs/as-built/result-bound.md` beside the others and follow its README. Re-check every borrowed name. Tests: the full suite. Verify:
+  - `git grep` finds each borrowed name of 0.2 on the rebased head;
+  - `git diff origin/main...HEAD -- packages/contract/src` is empty, and every `*_VERSION` and `*_FORMAT` constant equals main's;
+  - `bun run check`, `bun run build`, conformance on both runtimes and `openspec validate --all --strict --no-interactive` pass.
+
+  Record main's SHA, the versions and the counts in the note.
+- [ ] 3.3 Run the pre-PR review. Tests: none (review). askboard-spec-reviewer and askboard-security-reviewer review `origin/main...HEAD` (askboard-review-protocol, pre-PR). Security: §3.4 over every result `ask` and `update` can return, with the worst sizes recomputed from the contract's limits; NFR-10 and AD-10 for the closing warnings; AD-12 for their words. Spec: every scenario tested; AD-6 amended as decision 6 says; no CLAUDE.md change; the as-built note matches the code. Verify: findings recorded under this task and fixed, tests first; the pull request body says `Closes #98`, names #113 and #114 as the bounds left open, lists what is left for the PO (open questions 1 to 3 on #98, at their defaults) and the checks run.
+
+## Workflow follow-up
+
+- `update`'s `applied` list goes to Issue #113, and the `collect` page of one large Submit to Issue #114 (a PO question); neither is part of this change.
+- Archive after the pull request merges, through the archive pull request (`Refs #98`).
