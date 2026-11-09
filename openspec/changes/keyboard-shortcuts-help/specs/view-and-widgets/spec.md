@@ -37,6 +37,10 @@ A widget with a key table SHALL take only the keys its table names, with exactly
 - **WHEN** a Chart has the focus and the user presses Alt+ArrowRight
 - **THEN** the current point does not change
 
+#### Scenario: Shift with Enter on the Gantt's column edge
+- **WHEN** the Task column's edge has the focus and the user presses Shift+Enter, then Shift+Home
+- **THEN** the column's width does not change and neither key's default action is prevented
+
 #### Scenario: No navigation, no scroll
 - **WHEN** the user presses every key of a Ranking's key table on its list, in Chromium, Firefox and WebKit
 - **THEN** the page has neither navigated nor scrolled
