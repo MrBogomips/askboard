@@ -20,6 +20,7 @@ import {
   useState,
 } from "react";
 import { useElementWidth } from "../gantt/use-element-width.ts";
+import { pressOfEvent } from "../shared/key-press.ts";
 import { FRAME } from "../shared/move-classes.ts";
 import { MoveToolbar } from "../shared/move-toolbar.tsx";
 import { usePointerDrag } from "../shared/pointer-drag.ts";
@@ -131,7 +132,7 @@ export const TimelineWidget = ({
   };
 
   const onKeyDown = (event: KeyboardEvent<SVGSVGElement>): void => {
-    const key = timelineKeyOf(event.key);
+    const key = timelineKeyOf(pressOfEvent(event));
     const from = current ?? stop;
     if (key === undefined || from === undefined) return;
     const next = neighbour(order, from, key);

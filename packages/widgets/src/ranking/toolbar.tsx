@@ -7,9 +7,10 @@
 
 import { type Say, useStrings } from "@askboard/view/catalog";
 import { type KeyboardEvent, useRef, useState } from "react";
-import { toolbarFocus, toolbarStop } from "../shared/toolbar-focus.ts";
+import { pressOfEvent } from "../shared/key-press.ts";
+import { toolbarFocus, toolbarPressMove, toolbarStop } from "../shared/toolbar-focus.ts";
 import { CHANGE_DOT, COUNTER, COUNTER_TEXT, TOOL, TOOLBAR, TOOLS } from "./classes.ts";
-import { type RankingTools, toolbarMoveOf } from "./keys.ts";
+import type { RankingTools } from "./keys.ts";
 import { counterText } from "./text.ts";
 
 type Tool = {
@@ -49,7 +50,7 @@ export const RankingToolbar = ({
   const words = counterText(held, moved, say);
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
-    const move = toolbarMoveOf(event.key);
+    const move = toolbarPressMove(pressOfEvent(event));
     if (move === undefined) return;
     event.preventDefault();
     buttons.current[toolbarFocus(enabled, at, move)]?.focus();

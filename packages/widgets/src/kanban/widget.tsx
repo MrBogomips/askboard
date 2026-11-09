@@ -9,6 +9,7 @@
 import type { KanbanProps } from "@askboard/contract";
 import { useStrings } from "@askboard/view/catalog";
 import { useMemo, useRef, useState } from "react";
+import { pressOfEvent } from "../shared/key-press.ts";
 import { FRAME } from "../shared/move-classes.ts";
 import { MoveToolbar } from "../shared/move-toolbar.tsx";
 import { KanbanCard } from "./card.tsx";
@@ -87,7 +88,7 @@ export const KanbanWidget = ({
   };
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>): void => {
-    const key = kanbanKeyOf(event.key);
+    const key = kanbanKeyOf(pressOfEvent(event));
     const from = current ?? stop;
     if (key === undefined || from === undefined) return;
     const next = neighbour(columns, from, key);

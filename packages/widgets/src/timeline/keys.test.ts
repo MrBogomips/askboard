@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { TIMELINE_FIXTURE_ITEM } from "@askboard/contract/fixtures";
+import { MODIFIED_FLAGS, pressOf, pressWith } from "../../test/key-presses.ts";
 import { otherLanes, timelineKeyOf, timelineTools } from "./keys.ts";
 
 // The Timeline at the keyboard (view-and-widgets spec: Timeline at the keyboard; design decision
@@ -10,16 +11,29 @@ const SENT = TIMELINE_FIXTURE_ITEM.props;
 const ONE_LANE = { lanes: SENT.lanes.slice(0, 1), entries: SENT.entries.slice(0, 1) };
 
 describe("timelineKeyOf", () => {
-  test("names Up, Down, Home and End and no other key", () => {
-    expect(["ArrowUp", "ArrowDown", "Home", "End"].map(timelineKeyOf)).toEqual([
-      "up",
-      "down",
-      "home",
-      "end",
-    ]);
+  test("names Up, Down, Home and End with no modifier and no other key", () => {
+    expect(
+      ["ArrowUp", "ArrowDown", "Home", "End"].map((key) => timelineKeyOf(pressWith(key))),
+    ).toEqual(["up", "down", "home", "end"]);
     for (const key of ["ArrowLeft", "ArrowRight", "Enter", " ", "a", "toString", "__proto__"]) {
-      expect(timelineKeyOf(key)).toBeUndefined();
+      expect(timelineKeyOf(pressWith(key))).toBeUndefined();
     }
+  });
+
+  test("Alt, Shift, Ctrl and Cmd with each of the four keys give nothing (spec: Keys left to the browser)", () => {
+    for (const key of ["ArrowUp", "ArrowDown", "Home", "End"]) {
+      for (const flags of MODIFIED_FLAGS) {
+        expect({ key, flags, entry: timelineKeyOf(pressOf(key, flags)) }).toEqual({
+          key,
+          flags,
+          entry: undefined,
+        });
+      }
+    }
+  });
+
+  test("a press during composition gives nothing", () => {
+    expect(timelineKeyOf({ ...pressWith("Home"), composing: true })).toBeUndefined();
   });
 });
 

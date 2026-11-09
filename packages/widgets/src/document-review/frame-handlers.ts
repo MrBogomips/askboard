@@ -1,7 +1,8 @@
 // The toolbar's handlers (document-review, design decision 9), as plain functions over structural
 // parts so that they are tested without a DOM: the elements only hand them to React.
 
-import { toolbarFocus, toolbarMoveOf } from "../shared/toolbar-focus.ts";
+import { type PressFields, pressOfEvent } from "../shared/key-press.ts";
+import { toolbarFocus, toolbarPressMove } from "../shared/toolbar-focus.ts";
 
 type Ref<T> = { current: T };
 type Focusable = { focus(): void };
@@ -13,11 +14,14 @@ export const recordTool =
     buttons.current[place] = node;
   };
 
-/** The horizontal arrows, Home and End move the focus among the enabled tools. */
+/**
+ * The horizontal arrows, Home and End, held with no modifier, move the focus among the enabled
+ * tools; with any other hold the key is the browser's and its default stays.
+ */
 export const toolbarKeys =
   (enabled: readonly boolean[], at: number, buttons: Ref<(Focusable | null)[]>) =>
-  (event: { readonly key: string; preventDefault(): void }): void => {
-    const move = toolbarMoveOf(event.key);
+  (event: PressFields & { preventDefault(): void }): void => {
+    const move = toolbarPressMove(pressOfEvent(event));
     if (move === undefined) return;
     event.preventDefault();
     buttons.current[toolbarFocus(enabled, at, move)]?.focus();
