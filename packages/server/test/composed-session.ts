@@ -7,7 +7,15 @@
 // argument vector, an ordinary one unless given (task 17.1), and the editor command board-host
 // starts on "Open in editor", none unless given (excerpts, task 5.5).
 
-import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -62,10 +70,16 @@ export const composedSessions = () => {
   Bun.spawnSync(["git", "init", "--quiet", project]);
   Bun.spawnSync(["git", "-C", project, "config", "user.name", "Paola Greco"]);
 
-  /** A script for BROWSER that writes its arguments to `record`. */
+  /**
+   * A script for BROWSER that writes its arguments to `record`. The files live in a folder of
+   * their own: a recorder that a test never waits for renames its file late, and the session's
+   * working folder, which some tests list before and after, must not see it (#117).
+   */
+  const recorders = join(folder, "recorders");
+  mkdirSync(recorders);
   const recorder = (name: string) => {
-    const record = join(folder, `${name}.txt`);
-    const script = join(folder, `${name}.sh`);
+    const record = join(recorders, `${name}.txt`);
+    const script = join(recorders, `${name}.sh`);
     writeFileSync(
       script,
       `#!/bin/sh\nprintf '%s\\n' "$@" > '${record}.part'\nmv '${record}.part' '${record}'\n`,
