@@ -17,6 +17,8 @@
 
 import { describe, expect, test } from "bun:test";
 import {
+  betweenDocument,
+  betweenItem,
   draftProps,
   kanbanAsk,
   kanbanDocument,
@@ -455,6 +457,37 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await expectCards(board, "done", ["c", "b"]);
         expect(await counterText(board)).not.toBe("No changes");
         expect(await board.view.locator('[data-change="moved"]').count()).toBeGreaterThan(0);
+        expect(run.browser.violations).toEqual([]);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a drag into another column below a card the sent order puts after it marks the dragged card only, and the counter reads 1 moved",
+      async () => {
+        const run = await host(dist, betweenDocument());
+        await readyIn(run);
+        const { board } = run;
+        await beginDrag(board, cardOf(board, "a"));
+        await dragOverCard(board, cardOf(board, "b"), "lower");
+        await expectLine(board, "c", "before");
+        await release(board);
+        await expectCards(board, "done", ["b", "a", "c"]);
+        await expectCards(board, "todo", []);
+        expect(await cardOf(board, "a").getAttribute("data-change")).toBe("moved");
+        expect(await cardOf(board, "b").getAttribute("data-change")).toBeNull();
+        expect(await cardOf(board, "c").getAttribute("data-change")).toBeNull();
+        expect(await board.view.locator('[data-change="moved"]').count()).toBe(1);
+        expect(await counterText(board)).toBe("Your changes: 1 moved");
+        const { cards } = betweenItem().props;
+        await draftIs(
+          run,
+          {
+            ...betweenItem().props,
+            cards: [cards[1], { ...cards[0], column: "done" }, cards[2]],
+          },
+          "the draft to hold a between b and c in done",
+        );
         expect(run.browser.violations).toEqual([]);
       },
       TEST_TIMEOUT_MS,

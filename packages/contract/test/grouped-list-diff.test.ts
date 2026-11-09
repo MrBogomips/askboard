@@ -112,6 +112,75 @@ describe("the diff of a grouped list", () => {
     expect(move).toEqual({ op: "move", target: "probe.b", after: "x" });
   });
 
+  test("a card moved into another group is the one moved, not the neighbour it lands beside", () => {
+    // Sent `a` in `todo`, then `b` and `c` in `done`; `a` lands in `done` between `b` and `c`, so
+    // that keeping `b` and `c` and keeping `a` and `c` are runs of equal length (kanban-order 3.6).
+    const sent = list("a:todo", "b:done", "c:done");
+    const edited = list("b:done", "a:done", "c:done");
+    const changes = diff(sent, edited);
+    expect(changes).toEqual([
+      { op: "set", target: "probe.a.column", value: "done" },
+      { op: "move", target: "probe.a", after: "b" },
+    ]);
+    for (const { target } of changes) expect(target).toMatch(/^probe\.a(\.column)?$/);
+    const rebuilt = apply(sent, changes);
+    expect(orderOf(rebuilt, "done")).toEqual(["b", "a", "c"]);
+    expect(diff(sent, rebuilt)).toEqual(changes);
+  });
+
+  test("the flat diff of the same lists, with no group named, is what it was", () => {
+    const sent = list("a:todo", "b:done", "c:done");
+    const edited = list("b:done", "a:done", "c:done");
+    expect(elementChanges(ITEM, sent, edited, { elements: "cards" })).toEqual([
+      { op: "move", target: "probe.b" },
+      { op: "set", target: "probe.a.column", value: "done" },
+    ]);
+  });
+
+  test("its mirror, a card sent after the others and dropped between two of them, is the same case", () => {
+    const sent = list("b:done", "c:done", "a:todo");
+    const edited = list("b:done", "a:done", "c:done");
+    const changes = diff(sent, edited);
+    expect(changes).toEqual([
+      { op: "set", target: "probe.a.column", value: "done" },
+      { op: "move", target: "probe.a", after: "b" },
+    ]);
+    expect(diff(sent, apply(sent, changes))).toEqual(changes);
+  });
+
+  test("a card that changed group is the one moved at the top and the bottom of the group too", () => {
+    const sent = list("a:todo", "b:done", "c:done", "d:done");
+    const first = diff(sent, list("a:done", "b:done", "c:done", "d:done"));
+    expect(first).toEqual([{ op: "set", target: "probe.a.column", value: "done" }]);
+    const last = diff(sent, list("b:done", "c:done", "d:done", "a:done"));
+    expect(last).toEqual([
+      { op: "set", target: "probe.a.column", value: "done" },
+      { op: "move", target: "probe.a", after: "d" },
+    ]);
+    // `a` stays where the sent order puts it among `b` and `d`; `c`, the longer run's odd one, moves.
+    const swapped = list("c:done", "a:done", "b:done", "d:done");
+    expect(diff(sent, swapped)).toEqual([
+      { op: "move", target: "probe.c" },
+      { op: "set", target: "probe.a.column", value: "done" },
+    ]);
+  });
+
+  test("a tie where no card, or every card, changed group keeps the plain longest run", () => {
+    // A swap of two neighbours: the same changes as before the tie-break.
+    const sent = list("a:todo", "b:todo", "x:done");
+    expect(diff(sent, list("b:todo", "a:todo", "x:done"))).toEqual([
+      { op: "move", target: "probe.b" },
+    ]);
+    // Every card came from another group: no card is the one that changed, the plain run decides.
+    const plain = diff(list("a:todo", "b:todo", "c:todo"), list("b:done", "a:done", "c:done"));
+    expect(plain).toEqual([
+      { op: "set", target: "probe.b.column", value: "done" },
+      { op: "move", target: "probe.b" },
+      { op: "set", target: "probe.a.column", value: "done" },
+      { op: "set", target: "probe.c.column", value: "done" },
+    ]);
+  });
+
   test("the sets of a card come before its move, a field's set among them", () => {
     const sent: Value = {
       cards: [
@@ -386,9 +455,47 @@ const roundTrips = (seed: number, count: number, groups: number, edits: number) 
   }
 };
 
+// One element dragged into another group, every group's other cards in the order the user kept: the
+// changes name that element alone (kanban-order 3.6), `set` and `move` of it, and rebuild the edit.
+const crossGroupNamesOnlyTheMovedCard = (
+  seed: number,
+  count: number,
+  groups: number,
+  edits: number,
+) => {
+  const random = generator(seed);
+  const sent = randomValue(random, count, groups);
+  for (let edit = 0; edit < edits; edit += 1) {
+    const card = sent.cards[random.int(count)] as Card;
+    const into = `g${(Number((card.column as string).slice(1)) + 1 + random.int(groups - 1)) % groups}`;
+    const edited = placed(sent, card.id, into, random.int(count));
+    const changes = diff(sent, edited);
+    const at = `seed ${seed} edit ${edit}: ${card.id} into ${into}`;
+    for (const change of changes) {
+      expect(change.target.split(".")[1], at).toBe(card.id);
+    }
+    expect(changes[0], at).toEqual({
+      op: "set",
+      target: `${ITEM}.${card.id}.column`,
+      value: into,
+    });
+    for (let group = 0; group < groups; group += 1) {
+      expect(orderOf(apply(sent, changes), `g${group}`), at).toEqual(orderOf(edited, `g${group}`));
+    }
+    expect(diff(sent, apply(sent, changes)), at).toEqual(changes);
+  }
+};
+
 describe("the round trip of a grouped list", () => {
   test("200 cards in 12 groups, 500 edits of moves within and between groups", () => {
     roundTrips(79, 200, 12, 500);
+  });
+
+  test("one card dragged into another group names that card alone, in 200 cards and in small lists", () => {
+    crossGroupNamesOnlyTheMovedCard(79, 200, 12, 500);
+    for (let seed = 1; seed <= 60; seed += 1) {
+      crossGroupNamesOnlyTheMovedCard(seed, 6 + (seed % 7), 2 + (seed % 3), 30);
+    }
   });
 
   test("small lists in few groups, where the edits interleave most", () => {

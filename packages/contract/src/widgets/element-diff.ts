@@ -291,13 +291,53 @@ const groupsOf = (after: Map<string, Placed>, shape: ListShape & { readonly grou
   return { members };
 };
 
+// The places in `values` of a longest increasing subsequence holding the most elements whose `kept`
+// flag is set (kanban-order, design decision 1's tie-break): by dynamic programming over the weight
+// `(count + 1) + flag` of each element, so that length decides first and the flags only break a tie
+// between runs of equal length. Where the flags do not differ, the plain `longestIncreasing`
+// decides, as before; among runs equal in both, the one ending last, each link going to the
+// latest equal predecessor. Quadratic in the group's size, which is the list's size at most.
+const longestKeeping = (values: readonly number[], kept: readonly boolean[]): Set<number> => {
+  if (kept.every(Boolean) || !kept.some(Boolean)) return longestIncreasing(values);
+  const weight = values.map((_, at) => values.length + 1 + (kept[at] ? 1 : 0));
+  const total: number[] = [];
+  const previous: number[] = [];
+  let last = -1;
+  values.forEach((value, at) => {
+    let best = -1;
+    for (let from = 0; from < at; from += 1) {
+      if (
+        (values[from] as number) < value &&
+        (best === -1 || (total[from] as number) >= (total[best] as number))
+      ) {
+        best = from;
+      }
+    }
+    total[at] = (best === -1 ? 0 : (total[best] as number)) + (weight[at] as number);
+    previous[at] = best;
+    if (last === -1 || (total[at] as number) >= (total[last] as number)) last = at;
+  });
+  const run = new Set<number>();
+  for (let at = last; at !== -1; at = previous[at] as number) run.add(at);
+  return run;
+};
+
 // The elements of a grouped list that stay: in each edited group, those, new ones apart, that form
-// a longest run in their sent order of the whole list, whatever group they were in.
-const groupStayers = (sent: Map<string, Placed>, members: Map<string, string[]>): Set<string> => {
+// a longest run in their sent order of the whole list, whatever group they were in; among the
+// longest runs, one holding the most elements that kept their group, so that an element that
+// changed group is the one that moves.
+const groupStayers = (
+  sent: Map<string, Placed>,
+  members: Map<string, string[]>,
+  field: string,
+): Set<string> => {
   const stay = new Set<string>();
-  for (const ids of members.values()) {
+  for (const [group, ids] of members) {
     const old = ids.filter((id) => sent.has(id));
-    const kept = longestIncreasing(old.map((id) => sent.get(id)?.at ?? 0));
+    const kept = longestKeeping(
+      old.map((id) => sent.get(id)?.at ?? 0),
+      old.map((id) => sent.get(id)?.element[field] === group),
+    );
     old.forEach((id, at) => {
       if (kept.has(at)) stay.add(id);
     });
@@ -313,7 +353,7 @@ const groupedChanges = (itemId: string, sent: object, edited: object, shape: Lis
   const before = indexOf(sent, shape, "sent");
   const after = indexOf(edited, shape, "edited");
   const { members } = groupsOf(after, shape as ListShape & { readonly group: string });
-  const stay = groupStayers(before, members);
+  const stay = groupStayers(before, members, shape.group as string);
   const changes: Change[] = [];
   // Group by group, in the order of the groups' names, so that the changes depend only on each
   // group's members and order: the value they rebuild gives the same changes again.

@@ -22,11 +22,14 @@ import {
   withWidgetTypes,
 } from "@askboard/contract/fixtures";
 import { widgetItemProblems } from "@askboard/contract/validate";
+import { type Say, say } from "@askboard/view/catalog";
 import { generator } from "../../test/tree-model.ts";
 import * as model from "./model.ts";
 import { valueFits } from "./props.ts";
+import { counterText } from "./text.ts";
 
 const TYPES = withWidgetTypes(KANBAN_WIDGET);
+const EN: Say = (key, slots) => say("en-US", key, slots);
 const ITEM = { type: "kanban", id: "board" } as const;
 
 // `todo` holds fix-login, add-sso, audit; `doing` write-docs, review; `done` release-notes; the
@@ -235,6 +238,57 @@ describe("movedOf", () => {
     const set = model.valueFor(SENT, model.moveTo(SENT, "audit", "done")) as KanbanProps;
     expect(model.movedOf(SENT, set)).toEqual(["audit"]);
     expect(model.movedOf(SENT, model.arranged(SENT, SENT))).toEqual([]);
+  });
+
+  test("a card dragged into another column below a card the sent order puts after it is the one marked", () => {
+    // `a` in `todo`, then `b` and `c` in `done`; `a` goes below `b` in `done` (kanban-order 3.6).
+    const sent: KanbanProps = {
+      columns: SENT.columns,
+      cards: [
+        { id: "a", label: "A", column: "todo" },
+        { id: "b", label: "B", column: "done" },
+        { id: "c", label: "C", column: "done" },
+      ],
+    };
+    const dropped = model.valueFor(sent, model.placeIn(sent, "a", "done", 1)) as KanbanProps;
+    expect(idsIn(dropped, "done")).toEqual(["b", "a", "c"]);
+    expect(changesOf(sent, dropped)).toEqual([
+      { op: "set", target: "board.a.column", value: "done" },
+      { op: "move", target: "board.a", after: "b" },
+    ]);
+    expect(model.movedOf(sent, dropped)).toEqual(["a"]);
+    expect(counterText(model.movedOf(sent, dropped).length, EN)).toBe("Your changes: 1 moved");
+  });
+
+  test("one placeIn into another column marks the dragged card only, at every slot of every card", () => {
+    for (let seed = 1; seed <= 100; seed++) {
+      const random = generator(seed);
+      const columns = Array.from({ length: 3 }, (_, at) => ({ id: `c${at}`, label: `C${at}` }));
+      const cards = Array.from({ length: 2 + random.int(10) }, (_, at) => ({
+        id: `k${at}`,
+        label: `Card ${at}`,
+        column: random.pick(columns).id,
+      }));
+      const sent: KanbanProps = { columns, cards };
+      for (const card of cards) {
+        for (const column of columns.filter(({ id }) => id !== card.column)) {
+          const others = cards.filter((held) => held.column === column.id).length;
+          for (let slot = 0; slot <= others; slot++) {
+            const value = model.valueFor(sent, model.placeIn(sent, card.id, column.id, slot));
+            const where = { seed, card: card.id, column: column.id, slot };
+            const list = changesOf(sent, value ?? sent);
+            expect({ ...where, moved: model.movedOf(sent, value ?? sent) }).toEqual({
+              ...where,
+              moved: [card.id],
+            });
+            expect({ ...where, changes: list.map(({ op }) => op).slice(0, 1) }).toEqual({
+              ...where,
+              changes: ["set"],
+            });
+          }
+        }
+      }
+    }
   });
 
   test("after a swap of two neighbours it names one card, the one the answer reports", () => {

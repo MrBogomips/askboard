@@ -69,6 +69,25 @@ export const orderItem = () => ({
 export const orderDocument = (language?: Locale): ViewDocument =>
   documentOf([orderItem()], language);
 
+/**
+ * A Kanban of `a` in `todo`, then `b` and `c` in `done` (kanban-order, task 3.6): `a` dragged below
+ * `b` lands where keeping `b` and `c` and keeping `a` and `c` are runs of equal length.
+ */
+export const betweenItem = () => ({
+  ...kanbanItem(),
+  props: {
+    ...kanbanItem().props,
+    cards: [
+      { id: "a", label: "Fix login", column: "todo" },
+      { id: "b", label: "Ship docs", column: "done" },
+      { id: "c", label: "Write tests", column: "done" },
+    ],
+  },
+});
+
+/** The question `plan` holding the Kanban of `betweenItem`. */
+export const betweenDocument = (): ViewDocument => documentOf([betweenItem()]);
+
 /** The question `plan` holding the Tree `wbs`, then the Kanban. */
 export const treeAndKanbanDocument: ViewDocument = documentOf([wbs, kanbanItem()]);
 

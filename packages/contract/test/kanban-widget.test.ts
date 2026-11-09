@@ -55,6 +55,7 @@ const cards = (count: number) =>
     label: `Card ${index}`,
     column: "todo",
   }));
+type Card = { id: string; label: string; column: string };
 const card = (extra: object = {}) => ({ id: "fix-login", label: "Fix", column: "todo", ...extra });
 
 describe("Kanban items", () => {
@@ -296,6 +297,28 @@ describe("Kanban changes", () => {
     );
     expect(changes).toEqual(KANBAN_PLACED_CHANGES);
     expect(check(changes)).toEqual([]);
+  });
+
+  test("a card dragged into another column below a card sent after it is its set then its move, and nothing else", () => {
+    // `a` (todo) lands in `done` between `b` and `c`, so that two runs tie (kanban-order 3.6).
+    const [a, b, c] = [
+      { id: "a", label: "A", column: "todo" },
+      { id: "b", label: "B", column: "done" },
+      { id: "c", label: "C", column: "done" },
+    ] as { id: string; label: string; column: string }[] as [Card, Card, Card];
+    const cards = [a, b, c];
+    const sent = { columns: COLUMNS, cards };
+    const edited = {
+      columns: COLUMNS,
+      cards: [b, { ...a, column: "done" }, c],
+    };
+    const changes = elementChanges("board", sent, edited, KANBAN_SHAPE);
+    expect(changes).toEqual([
+      { op: "set", target: "board.a.column", value: "done" },
+      { op: "move", target: "board.a", after: "b" },
+    ]);
+    expect(check(changes)).toEqual([]);
+    expect(applyElementChanges("board", sent, changes, KANBAN_SHAPE)).toEqual(edited);
   });
 
   test("each fixture's edited props are the normal form of its changes, which the check passes", () => {
