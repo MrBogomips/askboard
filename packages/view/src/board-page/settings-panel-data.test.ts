@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { changedKeyActions, type Locale, type SettingsMessage } from "@askboard/contract";
+import {
+  changedKeyActions,
+  escapeFileText,
+  type Locale,
+  type SettingsMessage,
+} from "@askboard/contract";
 import {
   keyOverridesExample,
   settingsKeysIgnored,
@@ -49,13 +54,25 @@ describe("the presentation controls", () => {
       write: { key: "density", outcome: "failed", reason: "EACCES", path: "/home/u/config.json" },
     };
     const controls = data(failed).controls;
-    expect(controls[1]?.error).toBe("Could not save density to /home/u/config.json: EACCES");
+    expect(controls[1]?.error).toBe(
+      `Could not save density to ${isolate("/home/u/config.json")}: EACCES`,
+    );
     expect(controls[0]?.error).toBeUndefined();
     expect(data(settingsSaved).controls.map((control) => control.error)).toEqual([
       undefined,
       undefined,
       undefined,
     ]);
+  });
+
+  test("show a failed write that names no path with the user file's, between the isolates", () => {
+    const failed: SettingsMessage = {
+      ...settingsWithEveryKey,
+      write: { key: "density", outcome: "failed", reason: "EACCES" },
+    };
+    expect(data(failed).controls[1]?.error).toBe(
+      `Could not save density to ${isolate("~/.config/askboard/config.json")}: EACCES`,
+    );
   });
 
   test("show a refused write without a path", () => {
@@ -78,11 +95,13 @@ describe("the behaviour rows", () => {
     ]);
     expect(rows[0]).toMatchObject({
       value: "it-IT",
-      source: ".askboard/config.json · defaultLanguage",
+      source: `${isolate(".askboard/config.json")} · defaultLanguage`,
     });
-    expect(rows[2]?.source).toBe("default · ~/.config/askboard/config.json · snapshotFolder");
+    expect(rows[2]?.source).toBe(
+      `default · ${isolate("~/.config/askboard/config.json")} · snapshotFolder`,
+    );
     expect(rows[2]?.warnings).toEqual([
-      `${isolate("../x")} in .askboard/config.json is outside the project: the default is used`,
+      `${isolate("../x")} in ${isolate(".askboard/config.json")} is outside the project: the default is used`,
     ]);
     expect(rows[3]?.value).toBe("code --goto {file}:{line}");
     expect(rows[3]?.warnings).toEqual(["The project's editor is ignored"]);
@@ -102,7 +121,7 @@ describe("the behaviour rows", () => {
       },
     };
     expect(data(placement).rows[1]?.alsoIn).toBe(
-      "also in ~/.config/askboard/config.json: none (not used)",
+      `also in ${isolate("~/.config/askboard/config.json")}: none (not used)`,
     );
   });
 
@@ -136,7 +155,7 @@ describe("the files not applied and the warnings no row holds", () => {
       },
     };
     expect(data(broken).notApplied).toEqual([
-      `.askboard/config.json is not applied: it does not match the schema at ${isolate("/density")}`,
+      `${isolate(".askboard/config.json")} is not applied: it does not match the schema at ${isolate("/density")}`,
     ]);
     expect(data().notApplied).toEqual([]);
   });
@@ -150,13 +169,13 @@ describe("the files not applied and the warnings no row holds", () => {
       },
     };
     expect(data(unreadable).notApplied).toEqual([
-      "~/.config/askboard/config.json is not applied: it cannot be read (EACCES)",
+      `${isolate("~/.config/askboard/config.json")} is not applied: it cannot be read (EACCES)`,
     ]);
   });
 
   test("an unknown key is a warning of the panel", () => {
     expect(data().warnings).toEqual([
-      `${isolate("fontSize")} is not a known key of ~/.config/askboard/config.json`,
+      `${isolate("fontSize")} is not a known key of ${isolate("~/.config/askboard/config.json")}`,
     ]);
   });
 });
@@ -171,7 +190,7 @@ describe("the Keys row", () => {
     expect(row).toEqual({
       label: "Keys",
       value: "Default keys",
-      source: "~/.config/askboard/config.json · keys",
+      source: `${isolate("~/.config/askboard/config.json")} · keys`,
       note: "Applies to boards opened after a change",
       warnings: [],
     });
@@ -180,7 +199,7 @@ describe("the Keys row", () => {
   test("with the user's keys it counts the actions changed, in the user file", () => {
     const row = data(settingsWithKeys).keys;
     expect(row.value).toBe("3 actions changed");
-    expect(row.source).toBe("~/.config/askboard/config.json · keys");
+    expect(row.source).toBe(`${isolate("~/.config/askboard/config.json")} · keys`);
     expect(row.warnings).toEqual([]);
     expect(Object.keys(keyOverridesExample)).toHaveLength(3);
   });
@@ -237,7 +256,7 @@ describe("the Keys row", () => {
     const shown = data(settingsKeysNotApplied);
     expect(shown.keys.value).toBe("Default keys");
     expect(shown.keys.warnings).toEqual([
-      `Your keys in ~/.config/askboard/config.json are not applied: ${isolate("Alt+Shift+ArrowUp")} for ${isolate("move.top")} is already the key of ${isolate("move.up")}`,
+      `Your keys in ${isolate("~/.config/askboard/config.json")} are not applied: ${isolate("Alt+Shift+ArrowUp")} for ${isolate("move.top")} is already the key of ${isolate("move.up")}`,
     ]);
     expect(shown.warnings).toEqual(data().warnings);
   });
@@ -245,7 +264,7 @@ describe("the Keys row", () => {
   test("the project's keys ignored, as the fixture holds them: the warning is on the Keys row", () => {
     const shown = data(settingsKeysIgnored);
     expect(shown.keys.warnings).toEqual([
-      "The project's keys in .askboard/config.json are ignored: only the user file sets them",
+      `The project's keys in ${isolate(".askboard/config.json")} are ignored: only the user file sets them`,
     ]);
     expect(shown.warnings).toEqual([]);
     expect(data(settingsKeysIgnored, "it-IT").keys.warnings[0]).toContain("sono ignorati");
@@ -332,7 +351,7 @@ describe("a warning of the user's keys that lacks its optional fields (security 
       }
     }
     expect(data(lacking({})).keys.warnings).toEqual([
-      "Your keys in ~/.config/askboard/config.json are not applied: a key does not pass the check",
+      `Your keys in ${isolate("~/.config/askboard/config.json")} are not applied: a key does not pass the check`,
     ]);
   });
 
@@ -346,7 +365,7 @@ describe("a warning of the user's keys that lacks its optional fields (security 
 });
 
 describe("file text in the panel (view spec: File text in the panel; review 8.6, X-1)", () => {
-  const HOSTILE = "a\nb\u001bc\u2028d\u202ee\u2069f";
+  const hostilePath = "a\nb\u001bc\u2028d\u202ee\u2069f";
   // Whether a code point is one a file must not get out raw: C0 and C1 controls, the separators, the bidi controls.
   const raw = (text: string): boolean =>
     Array.from(text).some((point) => {
@@ -372,7 +391,7 @@ describe("file text in the panel (view spec: File text in the panel; review 8.6,
         user: {
           path: "~/.config/askboard/config.json",
           status: "not-applied",
-          problem: { code: "schema", pointer: `/keys/${HOSTILE}`, keyword: "type" },
+          problem: { code: "schema", pointer: `/keys/${hostilePath}`, keyword: "type" },
         },
       },
       keys: {
@@ -394,7 +413,7 @@ describe("file text in the panel (view spec: File text in the panel; review 8.6,
     }) as SettingsMessage;
 
   test("a pointer, an action, a combination and the other action hold no control raw, each between an isolate pair", () => {
-    const shown = data(hostile({ action: HOSTILE, binding: HOSTILE, with: HOSTILE }));
+    const shown = data(hostile({ action: hostilePath, binding: hostilePath, with: hostilePath }));
     const [warning] = shown.keys.warnings;
     const [notice] = shown.notApplied;
     for (const text of [warning ?? "", notice ?? ""]) {
@@ -414,7 +433,7 @@ describe("file text in the panel (view spec: File text in the panel; review 8.6,
   test("an unknown key and a replaced folder are file text too", () => {
     const message: SettingsMessage = {
       ...settingsWithEveryKey,
-      warnings: [{ code: "unknown-key", file: "user", key: HOSTILE }],
+      warnings: [{ code: "unknown-key", file: "user", key: hostilePath }],
     };
     const [warning] = data(message).warnings;
     expect(raw(withoutOurIsolates(warning ?? ""))).toBe(false);
@@ -424,7 +443,7 @@ describe("file text in the panel (view spec: File text in the panel; review 8.6,
     const [warning] = data(hostile({ action: "{action}", binding: "{binding}", with: "{with}" }))
       .keys.warnings;
     expect(warning).toBe(
-      `Your keys in ~/.config/askboard/config.json are not applied: ${isolate("{binding}")} for ${isolate("{action}")} is already the key of ${isolate("{with}")}`,
+      `Your keys in ${isolate("~/.config/askboard/config.json")} are not applied: ${isolate("{binding}")} for ${isolate("{action}")} is already the key of ${isolate("{with}")}`,
     );
   });
 
@@ -432,5 +451,163 @@ describe("file text in the panel (view spec: File text in the panel; review 8.6,
     const [warning] = data(hostile({ action: "mover\u{1f600}", binding: "k", with: "w" })).keys
       .warnings;
     expect(warning).toContain(isolate("mover\u{1f600}"));
+  });
+});
+
+// File paths in the panel (task 10.11, review 10.5, X-7; view spec: The settings panel, scenario
+// "File text in the panel"): a path is text a folder's name chose, so every sentence and source
+// that names one shows it escaped and between one isolate pair, like any other file text.
+describe("a file's path in the panel", () => {
+  const hostilePath = (name: string): string => `/w/${name}\n\u202e\u2069/config.json`;
+  const projectPath = hostilePath("project");
+  const userPath = hostilePath("user");
+  const shown = (path: string): string => isolate(escapeFileText(path));
+  const SNAPSHOT = "../snap\n\u202e\u2069";
+  const keyWarning = {
+    code: "keys-not-applied",
+    file: "user",
+    key: "keys",
+    rule: "conflict",
+    action: "move.top",
+    binding: "Alt+Shift+ArrowUp",
+    with: "move.up",
+  } as const;
+
+  const hostile: SettingsMessage = {
+    ...settingsWithEveryKey,
+    keys: {
+      ...settingsWithEveryKey.keys,
+      keys: {
+        from: "default",
+        writable: false,
+        warnings: [keyWarning, { code: "project-keys-ignored", file: "project", key: "keys" }],
+      },
+      askingRule: {
+        value: "always",
+        from: "project",
+        writable: false,
+        other: { file: "user", value: "none" },
+      },
+      defaultLanguage: {
+        value: "it-IT",
+        from: "user",
+        writable: false,
+        other: { file: "project", value: "en-US" },
+      },
+      snapshotFolder: {
+        value: SNAPSHOT,
+        from: "project",
+        writable: false,
+        other: { file: "user", value: ".askboard/snapshots" },
+        warnings: [
+          { code: "snapshot-folder-replaced", file: "project", key: "snapshotFolder", value: "x" },
+        ],
+      },
+    },
+    files: {
+      user: { path: userPath, status: "applied" },
+      project: {
+        path: projectPath,
+        status: "not-applied",
+        problem: { code: "not-json", error: "Unexpected token" },
+      },
+    },
+    warnings: [{ code: "unknown-key", file: "project", key: "fontSize" }],
+    write: { key: "density", outcome: "failed", reason: "EACCES", path: userPath },
+  };
+
+  const strings = (value: unknown): string[] =>
+    typeof value === "string"
+      ? [value]
+      : typeof value === "object" && value !== null
+        ? Object.values(value).flatMap(strings)
+        : [];
+
+  test.each(["en-US", "it-IT"] as const)(
+    "every sentence that names a path holds it escaped, in %s",
+    (language) => {
+      const panel = data(hostile, language);
+      const all = strings(panel);
+      for (const text of all) {
+        expect(text).not.toMatch(/[\n\u202e]/);
+        // Every isolate opened is closed, and the file's own U+2069 is escaped, so it ends none early.
+        expect(text.split("\u2068").length).toBe(text.split("\u2069").length);
+      }
+      const holding = all.filter(
+        (text) =>
+          text.includes(escapeFileText(projectPath)) || text.includes(escapeFileText(userPath)),
+      );
+      expect(holding.length).toBeGreaterThanOrEqual(8);
+      for (const text of holding) {
+        const wrapped = text.includes(shown(projectPath)) || text.includes(shown(userPath));
+        expect({ text, wrapped }).toEqual({ text, wrapped: true });
+      }
+    },
+  );
+
+  test("each slot names its path between one isolate pair", () => {
+    const panel = data(hostile);
+    expect(panel.keys.source).toBe(`${shown(userPath)} · keys`);
+    expect(panel.keys.warnings.join("\n")).toContain(
+      `Your keys in ${shown(userPath)} are not applied`,
+    );
+    expect(panel.keys.warnings.join("\n")).toContain(
+      `The project's keys in ${shown(projectPath)} are ignored`,
+    );
+    expect(panel.notApplied[0]).toStartWith(`${shown(projectPath)} is not applied`);
+    expect(panel.controls[1]?.error).toBe(`Could not save density to ${shown(userPath)}: EACCES`);
+    const [language, asking, snapshot] = panel.rows;
+    expect(asking?.source).toBe(`${shown(projectPath)} · askingRule`);
+    expect(asking?.alsoIn).toBe(`also in ${shown(userPath)}: none (not used)`);
+    expect(language?.alsoIn).toBe(`also in ${shown(projectPath)}: en-US (not used)`);
+    expect(snapshot?.warnings[0]).toContain(`in ${shown(projectPath)} is outside the project`);
+    expect(panel.warnings[0]).toContain(`of ${shown(projectPath)}`);
+  });
+
+  test("the default's source names the user file between the isolates too", () => {
+    const row = data({
+      ...hostile,
+      keys: { ...hostile.keys, density: { from: "default", writable: true } },
+    });
+    expect(row.rows.every((each) => !/[\n\u202e]/.test(each.source))).toBe(true);
+    const unset: SettingsMessage = {
+      ...hostile,
+      keys: { ...hostile.keys, snapshotFolder: { from: "default", writable: false } },
+    };
+    expect(data(unset).rows[2]?.source).toBe(`default · ${shown(userPath)} · snapshotFolder`);
+  });
+
+  test("the project's Snapshot folder is escaped and isolated, in its row and as the other file's value", () => {
+    const [, , snapshot] = data(hostile).rows;
+    expect(snapshot?.value).toBe(isolate(escapeFileText(SNAPSHOT)));
+    const other: SettingsMessage = {
+      ...hostile,
+      keys: {
+        ...hostile.keys,
+        snapshotFolder: {
+          value: ".askboard/snapshots",
+          from: "user",
+          writable: false,
+          other: { file: "project", value: SNAPSHOT },
+        },
+      },
+    };
+    expect(data(other).rows[2]?.alsoIn).toBe(
+      `also in ${shown(projectPath)}: ${isolate(escapeFileText(SNAPSHOT))} (not used)`,
+    );
+  });
+
+  test("a path with none of them shows as today, between the isolates", () => {
+    const plain = data({
+      ...hostile,
+      files: {
+        user: { path: "/home/u/.config/askboard/config.json", status: "applied" },
+        project: { path: ".askboard/config.json", status: "applied" },
+      },
+      write: undefined,
+    });
+    expect(plain.keys.source).toBe(`${isolate("/home/u/.config/askboard/config.json")} · keys`);
+    expect(plain.rows[1]?.source).toBe(`${isolate(".askboard/config.json")} · askingRule`);
+    expect(plain.notApplied).toEqual([]);
   });
 });

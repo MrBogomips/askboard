@@ -37,8 +37,10 @@ const settingsButton = (board: Board, name = "Settings") =>
 const rowOf = (board: Board, key: string, name = "Settings") =>
   panel(board, name).locator(`[data-askboard-setting="${key}"]`);
 
+// The panel's text without the isolates (U+2068, U+2069) that keep a file's text apart from the
+// sentence around it, which a reader does not see.
 const textOf = async (locator: ReturnType<typeof panel>): Promise<string> =>
-  (await locator.textContent()) ?? "";
+  ((await locator.textContent()) ?? "").replace(/[\u2068\u2069]/g, "");
 
 const openPanel = async (board: Board, name = "Settings") => {
   await settingsButton(board, name).click({ timeout: STEP_TIMEOUT_MS });

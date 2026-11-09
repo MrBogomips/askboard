@@ -209,7 +209,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const board = await openBoard(run, ["plan"]);
         await openSettings(board);
         const keysRow = settingsPanel(board).locator('[data-askboard-setting="keys"]');
-        const text = (await keysRow.textContent()) ?? "";
+        // The path is file text: isolated from the sentence (U+2068, U+2069), which a reader does not see.
+        const text = ((await keysRow.textContent()) ?? "").replace(/[\u2068\u2069]/g, "");
         expect(text).toContain("2 actions changed");
         expect(text).toMatch(/config\.json · keys/);
         expect(text).toContain("Applies to boards opened after a change");

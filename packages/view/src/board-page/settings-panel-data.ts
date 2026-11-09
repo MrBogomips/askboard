@@ -119,8 +119,14 @@ const WARNINGS = {
 const isOther = (code: SettingWarning["code"]): code is keyof typeof WARNINGS =>
   Object.hasOwn(WARNINGS, code);
 
+// A file's path as a sentence shows it: the path is text a folder's name chose, so it is escaped
+// and isolated like any other file text (review 10.5, X-7).
 const pathOf = (message: SettingsMessage, file: SettingsFileName): string =>
-  message.files[file].path ?? (file === "user" ? USER_PATH : PROJECT_PATH);
+  isolated(message.files[file].path ?? (file === "user" ? USER_PATH : PROJECT_PATH));
+
+// A value as a row shows it: the Snapshot folder is text the project file chose.
+const shownValue = (key: ConfigurationKey, value: unknown): string =>
+  key === "snapshotFolder" ? isolated(String(value)) : textOf(value);
 
 const textOf = (value: unknown): string => (Array.isArray(value) ? value.join(" ") : String(value));
 
@@ -142,7 +148,7 @@ const controlOf = (
   const reason = write?.reason ?? "";
   let error: string | undefined;
   if (failed && write.outcome === "failed") {
-    const path = write.path ?? pathOf(message, "user");
+    const path = write.path === undefined ? pathOf(message, "user") : isolated(write.path);
     error = t(language, "settings.writeFailed", { key, path, reason });
   } else if (failed) {
     error = t(language, "settings.writeRefused", { key, reason });
@@ -191,14 +197,14 @@ const rowOf = (
   return {
     key,
     label,
-    value: row.value === undefined ? t(language, "settings.notSet") : textOf(row.value),
+    value: row.value === undefined ? t(language, "settings.notSet") : shownValue(key, row.value),
     source,
     ...(other === undefined
       ? {}
       : {
           alsoIn: t(language, "settings.alsoIn", {
             file: pathOf(message, other.file),
-            value: textOf(other.value),
+            value: shownValue(key, other.value),
           }),
         }),
     warnings: (row.warnings ?? []).map((warning) => warningText(warning, language, message)),
