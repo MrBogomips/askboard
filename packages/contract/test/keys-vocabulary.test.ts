@@ -152,6 +152,7 @@ describe("the entry builders", () => {
       keys: KEY_VOCABULARY["select.none"].keys,
       label: vocabularyLabel("select.none"),
       shows: "tool",
+      readOnly: false,
       when: "selected",
     });
     expect(Object.isFrozen(entry)).toBe(true);
@@ -168,19 +169,66 @@ describe("the entry builders", () => {
   });
 
   test("an own entry names its keys and, by default, a label key from its action", () => {
-    const entry = ownEntry("ranking.keep", "list", [keyBinding("Enter")], "tool");
+    const entry = ownEntry("ranking.keep", "list", [keyBinding("Enter")], "tool", {
+      readOnly: false,
+    });
     expect(entry).toEqual({
       action: "ranking.keep",
       part: "list",
       keys: [{ key: "Enter", hold: "none" }],
       label: "keys.action.ranking.keep",
       shows: "tool",
+      readOnly: false,
     });
-    expect(ownEntry("a.b", "p", [], "menu", "x.y").label).toBe("x.y");
+    expect(ownEntry("a.b", "p", [], "menu", { readOnly: false, label: "x.y" }).label).toBe("x.y");
     expect(keyBinding("Home")).toEqual({ key: "Home", hold: "none" });
+  });
+
+  test("an own entry states whether its keys act on an item that takes no edits, and is frozen", () => {
+    const acts = ownEntry("probe.look", "list", [keyBinding("l")], "navigation", {
+      readOnly: true,
+    });
+    expect(acts.readOnly).toBe(true);
+    expect(ownEntry("probe.look", "list", [], "tool", { readOnly: false }).readOnly).toBe(false);
+    expect(Object.isFrozen(acts)).toBe(true);
   });
 
   test("the label key of an action is `keys.action.` and the action", () => {
     expect(vocabularyLabel("cursor.up")).toBe("keys.action.cursor.up");
+  });
+});
+
+describe("the entries' readOnly (decision 2, review 1.6 S-3)", () => {
+  // The actions whose keys move, select or open without changing the answer: the cursor, the
+  // toolbar's roving focus and the panel.
+  const ACTING = new Set<string>([
+    "cursor.up",
+    "cursor.down",
+    "cursor.left",
+    "cursor.right",
+    "cursor.first",
+    "cursor.last",
+    "toolbar.previous",
+    "toolbar.next",
+    "toolbar.first",
+    "toolbar.last",
+    "keys.open",
+  ]);
+
+  test("a vocabulary entry defaults to true for cursor.*, toolbar.* and keys.open, false for the rest", () => {
+    const actions = Object.keys(KEY_VOCABULARY) as VocabularyAction[];
+    expect(actions.filter((action) => vocabularyEntry(action, "p", "tool").readOnly)).toEqual(
+      actions.filter((action) => ACTING.has(action)),
+    );
+    expect(actions.filter((action) => ACTING.has(action))).toHaveLength(ACTING.size);
+    expect(vocabularyEntry("select.toggle", "p", "pointer").readOnly).toBe(false);
+    expect(vocabularyEntry("select.none", "p", "tool").readOnly).toBe(false);
+  });
+
+  test("an option overrides the default, in both directions", () => {
+    expect(vocabularyEntry("cursor.up", "panel", "navigation", { readOnly: false }).readOnly).toBe(
+      false,
+    );
+    expect(vocabularyEntry("move.up", "list", "tool", { readOnly: true }).readOnly).toBe(true);
   });
 });

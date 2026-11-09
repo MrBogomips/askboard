@@ -25,6 +25,7 @@ const entry = (over: Partial<KeyEntry> & { action: string }): KeyEntry => ({
   keys: [],
   label: "keys.action.x",
   shows: "tool",
+  readOnly: false,
   ...over,
 });
 
@@ -40,15 +41,17 @@ describe("a vocabulary action's keys", () => {
     expect(keyTableProblems("probe", table)).toEqual([]);
   });
 
-  test("move up bound to Ctrl+ArrowUp is refused, naming the type and the action", () => {
-    const [problem, ...rest] = keyTableProblems("probe", [
+  test("move up bound to Ctrl+ArrowUp is refused, naming the type and the action, and the next entry's problem is still reported", () => {
+    const found = keyTableProblems("probe", [
       entry({ action: "move.up", keys: [b("ArrowUp", "mod")] }),
+      entry({ action: "edit.start", keys: [b("Enter")] }),
     ]);
-    expect(problem?.rule).toBe("keys");
-    expect(problem?.type).toBe("probe");
-    expect(problem?.message).toContain('"probe"');
-    expect(problem?.message).toContain("move.up");
-    expect(rest.length).toBeGreaterThanOrEqual(0);
+    expect(found.map(({ rule, type }) => `${type}:${rule}`)).toEqual(["probe:keys", "probe:keys"]);
+    expect(found[0]?.message).toContain('"probe"');
+    expect(found[0]?.message).toContain("move.up");
+    expect(found[1]?.message).toContain('"probe"');
+    expect(found[1]?.message).toContain("edit.start");
+    expect(found[1]?.message).toContain("F2");
   });
 
   test("a key added to an action is refused, naming the action and the key", () => {
@@ -78,15 +81,19 @@ describe("a vocabulary action's keys", () => {
     expect(added[0]).toContain("move.up");
   });
 
-  test("a keyless vocabulary action is refused: a left-out key", () => {
-    expect(messages([entry({ action: "move.up", keys: [] })])).toHaveLength(1);
+  test("a keyless vocabulary action is refused, naming the type and the action (decision 6)", () => {
+    const found = messages([entry({ action: "move.up", keys: [] })]);
+    expect(found).toHaveLength(1);
+    expect(found[0]).toContain('"probe"');
+    expect(found[0]).toContain("move.up");
+    expect(found[0]).toContain("left out");
   });
 });
 
 describe("delete's two pairs", () => {
   const PLAIN = [b("Delete"), b("Backspace")];
   const ALT = [b("Delete", "alt+shift"), b("Backspace", "alt+shift")];
-  const clear = ownEntry("probe.clear", "grid", PLAIN, "pointer");
+  const clear = ownEntry("probe.clear", "grid", PLAIN, "pointer", { readOnly: false });
 
   test("the plain pair alone passes (the Tree's today), and with the Alt+Shift pair", () => {
     expect(messages([entry({ action: "delete", keys: PLAIN })])).toEqual([]);
@@ -100,11 +107,34 @@ describe("delete's two pairs", () => {
     expect(refused).toHaveLength(1);
     expect(refused[0]).toContain("delete");
     // Another part's action does not count.
-    const apart = ownEntry("probe.clear", "list", PLAIN, "pointer");
+    const apart = ownEntry("probe.clear", "list", PLAIN, "pointer", { readOnly: false });
     expect(messages([apart, del])).toHaveLength(1);
     // A part that takes only one of the two does not either.
-    const half = ownEntry("probe.clear", "grid", [b("Delete")], "pointer");
+    const half = ownEntry("probe.clear", "grid", [b("Delete")], "pointer", { readOnly: false });
     expect(messages([half, del])).toHaveLength(1);
+  });
+
+  test("a key outside delete's four, Shift+Delete, is refused as a key added, naming the type, the action and the key", () => {
+    const found = messages([
+      entry({ action: "delete", keys: [b("Delete"), b("Backspace"), b("Delete", "shift")] }),
+    ]);
+    expect(found).toHaveLength(1);
+    expect(found[0]).toContain('"probe"');
+    expect(found[0]).toContain('"delete"');
+    expect(found[0]).toContain("Shift+Delete");
+    expect(found[0]).toContain("does not give it");
+  });
+
+  test("half of either pair is refused: Delete without Backspace, and Alt+Shift+Delete without its Backspace", () => {
+    const plain = messages([entry({ action: "delete", keys: [b("Delete")] })]);
+    expect(plain).toHaveLength(1);
+    expect(plain[0]).toContain("Backspace");
+    const alt = messages([
+      clear,
+      entry({ action: "delete", part: "grid", keys: [b("Delete", "alt+shift")] }),
+    ]);
+    expect(alt).toHaveLength(1);
+    expect(alt[0]).toContain("Alt+Shift+Backspace");
   });
 
   test("half a pair is a key left out", () => {
@@ -143,6 +173,7 @@ describe("a key the browser or the system needs", () => {
         "list",
         [{ key: "ArrowLeft", hold: "alt" as KeyBinding["hold"] }],
         "tool",
+        { readOnly: false },
       ),
     ]);
     expect(found).toHaveLength(1);
@@ -152,7 +183,9 @@ describe("a key the browser or the system needs", () => {
 
   test("Tab, Shift+Tab and Alt+Shift+Tab are refused", () => {
     for (const hold of ["none", "shift", "alt+shift"] as const) {
-      const found = messages([ownEntry("probe.t", "list", [b("Tab", hold)], "tool")]);
+      const found = messages([
+        ownEntry("probe.t", "list", [b("Tab", hold)], "tool", { readOnly: false }),
+      ]);
       expect(found).toHaveLength(1);
       expect(found[0]).toContain("Tab");
     }
@@ -160,52 +193,143 @@ describe("a key the browser or the system needs", () => {
 
   test("F1 and F3 to F12 are refused, F2 passes", () => {
     for (const key of ["F1", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12"]) {
-      expect(messages([ownEntry("probe.f", "list", [b(key)], "tool")])).toHaveLength(1);
+      expect(
+        messages([ownEntry("probe.f", "list", [b(key)], "tool", { readOnly: false })]),
+      ).toHaveLength(1);
     }
-    expect(messages([ownEntry("probe.f", "list", [b("F2")], "tool")])).toEqual([]);
+    expect(messages([ownEntry("probe.f", "list", [b("F2")], "tool", { readOnly: false })])).toEqual(
+      [],
+    );
   });
 
   test("Cmd or Ctrl takes only Z and A, as `mod`", () => {
-    expect(messages([ownEntry("probe.s", "list", [b("s", "mod")], "tool")])).toHaveLength(1);
-    expect(messages([ownEntry("probe.s", "list", [b("w", "mod")], "tool")])[0]).toContain("w");
-    expect(messages([ownEntry("probe.s", "list", [b("ArrowLeft", "mod")], "tool")])).toHaveLength(
-      1,
-    );
-    expect(messages([ownEntry("probe.s", "list", [b("z", "mod")], "tool")])).toEqual([]);
-    expect(messages([ownEntry("probe.s", "list", [b("a", "mod")], "tool")])).toEqual([]);
+    expect(
+      messages([ownEntry("probe.s", "list", [b("s", "mod")], "tool", { readOnly: false })]),
+    ).toHaveLength(1);
+    expect(
+      messages([ownEntry("probe.s", "list", [b("w", "mod")], "tool", { readOnly: false })])[0],
+    ).toContain("w");
+    expect(
+      messages([ownEntry("probe.s", "list", [b("ArrowLeft", "mod")], "tool", { readOnly: false })]),
+    ).toHaveLength(1);
+    expect(
+      messages([ownEntry("probe.s", "list", [b("z", "mod")], "tool", { readOnly: false })]),
+    ).toEqual([]);
+    expect(
+      messages([ownEntry("probe.s", "list", [b("a", "mod")], "tool", { readOnly: false })]),
+    ).toEqual([]);
   });
 
   test("Cmd or Ctrl with Shift takes only ArrowUp, ArrowDown and Enter", () => {
-    expect(messages([ownEntry("probe.r", "list", [b("z", "mod+shift")], "tool")])).toHaveLength(1);
-    expect(messages([ownEntry("probe.r", "list", [b("Home", "mod+shift")], "tool")])).toHaveLength(
-      1,
-    );
+    expect(
+      messages([ownEntry("probe.r", "list", [b("z", "mod+shift")], "tool", { readOnly: false })]),
+    ).toHaveLength(1);
+    expect(
+      messages([
+        ownEntry("probe.r", "list", [b("Home", "mod+shift")], "tool", { readOnly: false }),
+      ]),
+    ).toHaveLength(1);
     for (const key of ["ArrowUp", "ArrowDown", "Enter"]) {
-      expect(messages([ownEntry("probe.r", "list", [b(key, "mod+shift")], "tool")])).toEqual([]);
+      expect(
+        messages([ownEntry("probe.r", "list", [b(key, "mod+shift")], "tool", { readOnly: false })]),
+      ).toEqual([]);
     }
   });
 
   test("a printed character is `?` or `%` only", () => {
-    expect(messages([ownEntry("probe.c", "list", [b("!", "char")], "panel")])).toHaveLength(1);
-    expect(messages([ownEntry("probe.c", "list", [b("a", "char")], "panel")])).toHaveLength(1);
-    expect(messages([ownEntry("probe.c", "list", [b("?", "char")], "panel")])).toEqual([]);
-    expect(messages([ownEntry("probe.c", "list", [b("%", "char")], "panel")])).toEqual([]);
+    expect(
+      messages([ownEntry("probe.c", "list", [b("!", "char")], "panel", { readOnly: false })]),
+    ).toHaveLength(1);
+    expect(
+      messages([ownEntry("probe.c", "list", [b("a", "char")], "panel", { readOnly: false })]),
+    ).toHaveLength(1);
+    expect(
+      messages([ownEntry("probe.c", "list", [b("?", "char")], "panel", { readOnly: false })]),
+    ).toEqual([]);
+    expect(
+      messages([ownEntry("probe.c", "list", [b("%", "char")], "panel", { readOnly: false })]),
+    ).toEqual([]);
   });
 
   test("an upper-case letter key, an empty key and an unknown hold are refused", () => {
-    expect(messages([ownEntry("probe.u", "list", [b("Z", "mod")], "tool")])).toHaveLength(1);
-    expect(messages([ownEntry("probe.u", "list", [b("")], "tool")])).toHaveLength(1);
+    expect(
+      messages([ownEntry("probe.u", "list", [b("Z", "mod")], "tool", { readOnly: false })]),
+    ).toHaveLength(1);
+    expect(
+      messages([ownEntry("probe.u", "list", [b("")], "tool", { readOnly: false })]),
+    ).toHaveLength(1);
     const unknown = { key: "ArrowUp", hold: "ctrl" } as unknown as KeyBinding;
-    expect(messages([ownEntry("probe.u", "list", [unknown], "tool")])).toHaveLength(1);
+    expect(
+      messages([ownEntry("probe.u", "list", [unknown], "tool", { readOnly: false })]),
+    ).toHaveLength(1);
+  });
+});
+
+describe("an entry's readOnly (decision 2; contract spec: Keys on an item that takes no edits)", () => {
+  test("a readOnly that is not a boolean is refused, naming the type and the action", () => {
+    for (const bad of [undefined, "yes", 1, null]) {
+      const found = messages([
+        { ...entry({ action: "probe.look", keys: [b("l")], shows: "navigation" }), readOnly: bad },
+      ] as unknown as KeyTable);
+      expect(found).toHaveLength(1);
+      expect(found[0]).toContain('"probe"');
+      expect(found[0]).toContain("probe.look");
+      expect(found[0]).toContain("readOnly");
+    }
+  });
+
+  test("true on an action that changes the answer is refused, naming the type and the action", () => {
+    const CHANGING = [
+      entry({ action: "move.up", keys: [b("ArrowUp", "alt+shift")], readOnly: true }),
+      entry({
+        action: "move.top",
+        keys: [b("Home", "alt+shift"), b("ArrowUp", "mod+shift")],
+        readOnly: true,
+      }),
+      entry({ action: "add.after", keys: [b("Enter", "alt+shift")], readOnly: true }),
+      entry({ action: "add.child", keys: [b("Enter", "mod+shift")], readOnly: true }),
+      entry({ action: "delete", keys: [b("Delete"), b("Backspace")], readOnly: true }),
+      entry({ action: "edit.start", keys: [b("Enter"), b("F2")], readOnly: true }),
+      entry({ action: "edit.commit", keys: [b("Enter")], readOnly: true }),
+      entry({ action: "edit.cancel", keys: [b("Escape")], readOnly: true }),
+      entry({ action: "undo", keys: [b("z", "mod")], readOnly: true }),
+      entry({ action: "adjust.percent", keys: [b("%", "char")], when: "selected", readOnly: true }),
+    ];
+    for (const refused of CHANGING) {
+      const found = messages([refused]);
+      expect(found).toHaveLength(1);
+      expect(found[0]).toContain('"probe"');
+      expect(found[0]).toContain(refused.action);
+      expect(found[0]).toContain("readOnly");
+    }
+  });
+
+  test("true passes on an action that only moves, selects or opens, and false passes everywhere", () => {
+    const table: KeyTable = [
+      vocabularyEntry("cursor.up", "list", "navigation"),
+      vocabularyEntry("toolbar.next", "toolbar", "navigation"),
+      vocabularyEntry("keys.open", "list", "panel"),
+      ownEntry("probe.edge", "edge", [b("ArrowLeft")], "pointer", { readOnly: true }),
+      vocabularyEntry("move.up", "list", "tool"),
+      vocabularyEntry("cursor.down", "panel", "navigation", { readOnly: false }),
+    ];
+    expect(keyTableProblems("probe", table)).toEqual([]);
+  });
+
+  test("an entry's other problems and its readOnly are both reported", () => {
+    const found = messages([
+      entry({ action: "move.up", keys: [b("ArrowUp", "mod")], readOnly: true }),
+    ]);
+    expect(found).toHaveLength(2);
   });
 });
 
 describe("one key twice", () => {
   test("Space for two actions in one part is refused, naming the key, and the others are still reported", () => {
     const table: KeyTable = [
-      ownEntry("probe.a", "list", [b(" ")], "tool"),
-      ownEntry("probe.b", "list", [b(" ")], "tool"),
-      ownEntry("probe.c", "list", [b("Tab")], "tool"),
+      ownEntry("probe.a", "list", [b(" ")], "tool", { readOnly: false }),
+      ownEntry("probe.b", "list", [b(" ")], "tool", { readOnly: false }),
+      ownEntry("probe.c", "list", [b("Tab")], "tool", { readOnly: false }),
     ];
     const found = messages(table);
     expect(found).toHaveLength(2);
@@ -217,18 +341,20 @@ describe("one key twice", () => {
   test("the same key in two parts is not twice", () => {
     expect(
       messages([
-        ownEntry("probe.a", "list", [b(" ")], "tool"),
-        ownEntry("probe.b", "toolbar", [b(" ")], "tool"),
+        ownEntry("probe.a", "list", [b(" ")], "tool", { readOnly: false }),
+        ownEntry("probe.b", "toolbar", [b(" ")], "tool", { readOnly: false }),
       ]),
     ).toEqual([]);
   });
 
   test("one key twice in one entry, and a printed character against the same key plain, are refused", () => {
-    expect(messages([ownEntry("probe.a", "list", [b("x"), b("x")], "tool")])).toHaveLength(1);
+    expect(
+      messages([ownEntry("probe.a", "list", [b("x"), b("x")], "tool", { readOnly: false })]),
+    ).toHaveLength(1);
     expect(
       messages([
-        ownEntry("probe.a", "list", [b("?", "char")], "panel"),
-        ownEntry("probe.b", "list", [b("?")], "tool"),
+        ownEntry("probe.a", "list", [b("?", "char")], "panel", { readOnly: false }),
+        ownEntry("probe.b", "list", [b("?")], "tool", { readOnly: false }),
       ]),
     ).toHaveLength(1);
   });
@@ -244,9 +370,9 @@ describe("one key twice", () => {
 
   test("one problem per repeated binding, however many entries repeat it", () => {
     const found = messages([
-      ownEntry("probe.a", "list", [b("x")], "tool"),
-      ownEntry("probe.b", "list", [b("x")], "tool"),
-      ownEntry("probe.c", "list", [b("x")], "tool"),
+      ownEntry("probe.a", "list", [b("x")], "tool", { readOnly: false }),
+      ownEntry("probe.b", "list", [b("x")], "tool", { readOnly: false }),
+      ownEntry("probe.c", "list", [b("x")], "tool", { readOnly: false }),
     ]);
     expect(found).toHaveLength(1);
   });
@@ -254,16 +380,26 @@ describe("one key twice", () => {
 
 describe("an entry's own fields", () => {
   test("an action is a vocabulary action or `<type>.<name>`", () => {
-    expect(messages([ownEntry("ranking.keep", "list", [b("Enter")], "tool")])).toHaveLength(1);
-    expect(messages([ownEntry("keep", "list", [b("Enter")], "tool")])).toHaveLength(1);
-    expect(messages([ownEntry("probe.", "list", [b("Enter")], "tool")])).toHaveLength(1);
-    expect(messages([ownEntry("probe.keep", "list", [b("Enter")], "tool")])).toEqual([]);
-    expect(messages([ownEntry("probe.a.b", "list", [b("Enter")], "tool")])).toEqual([]);
+    expect(
+      messages([ownEntry("ranking.keep", "list", [b("Enter")], "tool", { readOnly: false })]),
+    ).toHaveLength(1);
+    expect(
+      messages([ownEntry("keep", "list", [b("Enter")], "tool", { readOnly: false })]),
+    ).toHaveLength(1);
+    expect(
+      messages([ownEntry("probe.", "list", [b("Enter")], "tool", { readOnly: false })]),
+    ).toHaveLength(1);
+    expect(
+      messages([ownEntry("probe.keep", "list", [b("Enter")], "tool", { readOnly: false })]),
+    ).toEqual([]);
+    expect(
+      messages([ownEntry("probe.a.b", "list", [b("Enter")], "tool", { readOnly: false })]),
+    ).toEqual([]);
   });
 
   test("a type whose name has a hyphen owns its actions as the name says", () => {
     const found = keyTableProblems("pick-field", [
-      ownEntry("pick-field.go", "list", [b("Enter")], "tool"),
+      ownEntry("pick-field.go", "list", [b("Enter")], "tool", { readOnly: false }),
     ]);
     expect(found).toEqual([]);
   });
@@ -279,17 +415,19 @@ describe("an entry's own fields", () => {
 
   test("a keyless `tool` or `menu` entry passes; a keyless one of any other kind fails", () => {
     for (const shows of ["tool", "menu"] as const) {
-      expect(messages([ownEntry("probe.m", "list", [], shows)])).toEqual([]);
+      expect(messages([ownEntry("probe.m", "list", [], shows, { readOnly: false })])).toEqual([]);
     }
     for (const shows of ["navigation", "pointer", "panel", "native"] as const) {
-      const found = messages([ownEntry("probe.m", "list", [], shows)]);
+      const found = messages([ownEntry("probe.m", "list", [], shows, { readOnly: false })]);
       expect(found).toHaveLength(1);
       expect(found[0]).toContain("probe.m");
     }
   });
 
   test("a native entry with keys passes", () => {
-    expect(messages([ownEntry("probe.switch", "switch", [b(" ")], "native")])).toEqual([]);
+    expect(
+      messages([ownEntry("probe.switch", "switch", [b(" ")], "native", { readOnly: false })]),
+    ).toEqual([]);
   });
 });
 
@@ -297,9 +435,9 @@ describe("one entry's problems never hide another's", () => {
   test("each broken entry is reported, in the table's order, each naming its action", () => {
     const table: KeyTable = [
       entry({ action: "move.up", keys: [b("ArrowUp", "mod")] }),
-      ownEntry("probe.ok", "list", [b("q")], "tool"),
+      ownEntry("probe.ok", "list", [b("q")], "tool", { readOnly: false }),
       entry({ action: "edit.start", keys: [b("Enter")] }),
-      ownEntry("probe.tab", "list", [b("Tab")], "tool"),
+      ownEntry("probe.tab", "list", [b("Tab")], "tool", { readOnly: false }),
     ];
     const found = messages(table);
     const at = (action: string) => found.findIndex((message) => message.includes(action));
@@ -359,17 +497,20 @@ describe("the registry runs it for each entry with keys", () => {
   test("a type without keys is not checked, and the shape check holds the rule too", () => {
     expect(PROBE_WIDGET.keys).toBeUndefined();
     expect(widgetRegistryProblems(PROBE_TYPES)).toEqual([]);
-    expect(rules([keyed([ownEntry("probe.tab", "list", [b("Tab")], "tool")])])).toEqual([
-      "probe:keys",
-    ]);
+    expect(
+      rules([keyed([ownEntry("probe.tab", "list", [b("Tab")], "tool", { readOnly: false })])]),
+    ).toEqual(["probe:keys"]);
   });
 
   test("one entry's table does not hide another's problems", () => {
     const [tree] = WIDGET_TYPES;
     if (tree === undefined) throw new Error("no tree");
-    const broken = { ...tree, keys: [ownEntry("tree.tab", "grid", [b("Tab")], "tool")] };
+    const broken = {
+      ...tree,
+      keys: [ownEntry("tree.tab", "grid", [b("Tab")], "tool", { readOnly: false })],
+    };
     const found = widgetRegistryProblems([
-      keyed([ownEntry("probe.tab", "list", [b("Tab")], "tool")]),
+      keyed([ownEntry("probe.tab", "list", [b("Tab")], "tool", { readOnly: false })]),
       broken,
     ]);
     expect(found.map(({ type }) => type)).toEqual(["probe", "tree"]);

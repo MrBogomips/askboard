@@ -8,9 +8,10 @@ import { PROBE_WIDGET } from "../src/fixtures/index.ts";
 import { WIDGET_TYPES, type WidgetType } from "../src/index.ts";
 
 /**
- * Why a shipped type has no key table:
- * - `standard`: only keys the browser, Radix or the WAI-ARIA radio group define, which `askboard-help`'s
- *   concepts teach;
+ * Why a shipped type has no key table (design decision 6):
+ * - `standard`: only keys the browser or an adopted library documents, Radix's controls and
+ *   react-day-picker's calendar among them, or the WAI-ARIA radio group defines, which
+ *   `askboard-help`'s concepts teach;
  * - `none`: no keys of its own;
  * - `keyboard-retrofit-grids`: the change that adds its table.
  */
@@ -68,6 +69,10 @@ describe("the shipped types' key tables", () => {
       .filter(([, reason]) => reason === "keyboard-retrofit-grids")
       .map(([type]) => type);
     expect(retrofit.sort()).toEqual(["document-review", "latex", "table"]);
+  });
+
+  test("the date field is `standard`: its calendar's keys are react-day-picker's documented ones", () => {
+    expect(WITHOUT_TABLE["date-field"]).toBe("standard");
   });
 
   test("a reason is one of the three", () => {

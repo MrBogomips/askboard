@@ -62,6 +62,33 @@ describe("the shipped types' help text", () => {
   });
 });
 
+// The types whose drag Escape cancels, read from the code (design decision 9): the Tree's own
+// listener (`tree/widget.tsx:445`), the pointer drag the Gantt's bars and the Timeline's entries
+// use (`shared/pointer-drag.ts:75`), and the browser's drag of the Ranking's rows and the Kanban's
+// cards (`ranking/drag.ts`, `kanban/drag.ts`: "Escape cancels the browser's drag").
+const DRAG_CANCELLED_BY_ESCAPE = ["tree", "gantt", "timeline", "ranking", "kanban"] as const;
+
+describe("a drag is called off with Escape, and the help says so (decision 9)", () => {
+  test("the mouse text of each type whose drag Escape cancels names the drag and Escape, within 300 characters", () => {
+    for (const name of DRAG_CANCELLED_BY_ESCAPE) {
+      const mouse = WIDGET_TYPES.find(({ type }) => type === name)?.help?.mouse ?? "";
+      expect({ name, drag: /\bdrag\b/i.test(mouse) }).toEqual({ name, drag: true });
+      expect({ name, escape: /\bEscape\b/.test(mouse) }).toEqual({ name, escape: true });
+      expect({ name, within: mouse.length <= 300 }).toEqual({ name, within: true });
+    }
+  });
+
+  test("no other type's mouse text names Escape: the Scale's slider handle is dragged, and Escape does not cancel it", () => {
+    for (const { type, help } of WIDGET_TYPES) {
+      if ((DRAG_CANCELLED_BY_ESCAPE as readonly string[]).includes(type)) continue;
+      expect({ type, escape: /\bEscape\b/.test(help?.mouse ?? "") }).toEqual({
+        type,
+        escape: false,
+      });
+    }
+  });
+});
+
 describe("the registry's help rule", () => {
   test("passes the probe type, which has no help text", () => {
     expect(PROBE_WIDGET.help).toBeUndefined();

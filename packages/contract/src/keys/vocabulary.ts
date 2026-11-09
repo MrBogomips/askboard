@@ -32,6 +32,12 @@ export type KeyEntry<Action extends string = string> = {
   /** The view string key of the action's name. */
   readonly label: string;
   readonly shows: KeyShows;
+  /**
+   * Whether the keys still act while the item takes no edits (answered, locked, read-only, a
+   * Snapshot), as the widget's component does: the keys panel of such an item lists these entries
+   * and no other (design decision 2, review 1.6 S-3). Never an action that changes the answer.
+   */
+  readonly readOnly: boolean;
   /** `selected`: the keys act only while the widget holds a selection; otherwise the key goes on with its default. */
   readonly when?: "selected";
 };
@@ -129,16 +135,26 @@ export const isVocabularyAction = (action: string): action is VocabularyAction =
 /** The view string key that names an action: `keys.action.` and the action's ID. */
 export const vocabularyLabel = (action: string): string => `keys.action.${action}`;
 
+// The vocabulary's actions that move, select or open and never change the answer: they act on an
+// item that takes no edits unless a part says otherwise (an option's `readOnly`).
+const ACTS_READ_ONLY: RegExp = /^(cursor|toolbar)\.|^keys\.open$/;
+
 /**
  * A table's entry for a vocabulary action, with the vocabulary's keys and `when`. `label` names the
  * widget's own wording where it has one (a tool's name), else the action's label key; `keys` is a
- * subset only for `delete` (`check.ts`).
+ * subset only for `delete` (`check.ts`). `readOnly` is true for `cursor.*`, `toolbar.*` and
+ * `keys.open` and false for the rest, and an option overrides it where a part says otherwise (the
+ * cursor keys of the Gantt's predecessors panel, which opens only on an item that takes edits).
  */
 export const vocabularyEntry = <const Action extends VocabularyAction>(
   action: Action,
   part: string,
   shows: KeyShows,
-  options: { readonly label?: string; readonly keys?: readonly KeyBinding[] } = {},
+  options: {
+    readonly label?: string;
+    readonly keys?: readonly KeyBinding[];
+    readonly readOnly?: boolean;
+  } = {},
 ): KeyEntry<Action> => {
   const { keys: given, when } = KEY_VOCABULARY[action] as VocabularyKeys;
   return Object.freeze({
@@ -147,22 +163,28 @@ export const vocabularyEntry = <const Action extends VocabularyAction>(
     keys: options.keys ?? given,
     label: options.label ?? vocabularyLabel(action),
     shows,
+    readOnly: options.readOnly ?? ACTS_READ_ONLY.test(action),
     ...(when === undefined ? {} : { when }),
   });
 };
 
-/** A table's entry for an action of the type's own, `<type>.<name>`. */
+/**
+ * A table's entry for an action of the type's own, `<type>.<name>`. It states `readOnly`, whether
+ * its keys act while the item takes no edits; `label` is the widget's own string key where it has
+ * one, else the action's label key.
+ */
 export const ownEntry = <const Action extends string>(
   action: Action,
   part: string,
   bindings: readonly KeyBinding[],
   shows: KeyShows,
-  label?: string,
+  options: { readonly readOnly: boolean; readonly label?: string },
 ): KeyEntry<Action> =>
   Object.freeze({
     action,
     part,
     keys: Object.freeze([...bindings]),
-    label: label ?? vocabularyLabel(action),
+    label: options.label ?? vocabularyLabel(action),
     shows,
+    readOnly: options.readOnly,
   });

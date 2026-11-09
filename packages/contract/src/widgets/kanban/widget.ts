@@ -39,7 +39,7 @@ export const KANBAN_WIDGET: WidgetType = {
   keys: KANBAN_KEYS,
   help: {
     mouse:
-      "Drag a card to another column, or make a card current and use Move to\u2026 to pick its column.",
+      "Drag a card to another column (Escape cancels the drag), or make a card current and use Move to\u2026 to pick its column.",
     answer:
       "The agent receives the cards you moved and the column each one is in now; their order and the columns stay as they were.",
   },

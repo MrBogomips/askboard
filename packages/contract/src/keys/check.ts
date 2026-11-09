@@ -138,6 +138,9 @@ const vocabularyProblem = (
 
 const KEYLESS_SHOWS: ReadonlySet<KeyShows> = new Set(["tool", "menu"]);
 
+// The actions that change the answer: their keys never act on an item that takes no edits.
+const CHANGES_ANSWER = /^(move|add|edit)\.|^(delete|undo|adjust\.percent)$/;
+
 // What is wrong with one entry on its own, each as a clause that follows its action.
 const entryClauses = (type: string, entry: Parsed, table: readonly Parsed[]): string[] => {
   const clauses: string[] = [];
@@ -151,6 +154,13 @@ const entryClauses = (type: string, entry: Parsed, table: readonly Parsed[]): st
   if (typeof entry.label !== "string" || entry.label === "") clauses.push("has no label");
   if (!(KEY_SHOWS as readonly string[]).includes(entry.shows)) {
     clauses.push(`shows ${shown(entry.shows)}, which is no visible counterpart`);
+  }
+  if (typeof entry.readOnly !== "boolean") {
+    clauses.push(`has readOnly ${shown(entry.readOnly)}, which is no boolean`);
+  } else if (entry.readOnly && CHANGES_ANSWER.test(action)) {
+    clauses.push(
+      `changes the answer, so its keys cannot act while the item takes no edits (readOnly)`,
+    );
   }
   if (entry.when !== undefined && entry.when !== "selected") {
     clauses.push(`has when ${shown(entry.when)}, and only "selected" is one`);
@@ -221,7 +231,9 @@ const isEntry = (value: unknown): value is Parsed => {
  * Alt+Shift pair, or the Alt+Shift pair beside another action that takes the plain pair); one
  * binding twice in one part; Tab; F1 and F3 to F12; Cmd or Ctrl with any key but Z and A, and with
  * Shift any but the arrows up and down and Enter; a printed character but `?` and `%`; a hold no
- * binding can have; an empty label; a keyless entry that does not show as a tool or a menu. Each
+ * binding can have; an empty label; a keyless entry that does not show as a tool or a menu; a
+ * `readOnly` that is no boolean, or true on an action that changes the answer (`move.*`, `add.*`,
+ * `delete`, `edit.*`, `undo`, `adjust.percent`). Each
  * problem is `rule: "keys"` and names the type and the action or the key.
  */
 export const keyTableProblems = (type: string, table: KeyTable): readonly RegistryProblem[] => {

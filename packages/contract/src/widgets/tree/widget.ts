@@ -60,7 +60,7 @@ export const TREE_WIDGET: WidgetType = {
   keys: TREE_KEYS,
   help: {
     mouse:
-      "Click a name to edit it, drag a row to move it, tick the check box beside a row to select it, and use the toolbar to add, move, indent, outdent or delete nodes.",
+      "Click a name to edit it, drag a row to move it (Escape cancels a drag), tick the check box beside a row to select it, and use the toolbar to add, move, indent, outdent or delete nodes.",
     answer:
       "The agent receives the changes you made to the hierarchy: nodes added, renamed, moved or removed, and any estimates you changed.",
   },

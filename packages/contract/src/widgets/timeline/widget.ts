@@ -48,7 +48,7 @@ export const TIMELINE_WIDGET: WidgetType = {
   keys: TIMELINE_KEYS,
   help: {
     mouse:
-      "Drag an entry along the time axis or into another lane, or make it current and use Move earlier, Move later or Move to lane\u2026.",
+      "Drag an entry along the time axis or into another lane (Escape cancels the drag), or make it current and use Move earlier, Move later or Move to lane\u2026.",
     answer: "The agent receives the dates and lanes you changed, entry by entry.",
   },
   skill: {

@@ -33,7 +33,7 @@ export const RANKING_WIDGET: WidgetType = {
   keys: RANKING_KEYS,
   help: {
     mouse:
-      "Drag a row by its handle to a new place, or make a row current and use Move up and Move down. Keep this order accepts the agent's order as it is.",
+      "Drag a row by its handle to a new place (Escape cancels the drag), or make a row current and use Move up and Move down. Keep this order accepts the agent's order as it is.",
     answer:
       "The agent receives the order you chose, with every item once. A ranking you did not touch gives no answer until you keep its order.",
   },

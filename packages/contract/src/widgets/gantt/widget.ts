@@ -57,7 +57,7 @@ export const GANTT_WIDGET: WidgetType = {
   keys: GANTT_KEYS,
   help: {
     mouse:
-      "Click a start, duration or dependencies cell to edit it, drag the edge of the Task column to resize it, and pick Day, Week or Month to zoom a plan.",
+      "Click a start, duration or dependencies cell to edit it, drag a bar to move it or its end to resize it (Escape cancels a drag), drag the edge of the Task column to resize it, and pick Day, Week or Month to zoom a plan.",
     answer:
       "The agent receives the starts, durations and dependencies you changed; the dates and the critical path are worked out from them.",
   },

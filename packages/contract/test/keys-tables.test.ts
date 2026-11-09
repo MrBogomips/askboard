@@ -8,6 +8,7 @@ import {
   ariaKeyShortcuts,
   CHART_KEYS,
   GANTT_KEYS,
+  isVocabularyAction,
   KANBAN_KEYS,
   type KeyBinding,
   type KeyEntry,
@@ -114,11 +115,16 @@ describe("the Tree's table (decision 9: today's keys)", () => {
     ]);
   });
 
-  test("editor, toolbar and the two questions", () => {
+  test("editor, toolbar (with the tools no key takes) and the two questions", () => {
     expect(rows(TREE_KEYS).filter((row) => !row.startsWith("grid "))).toEqual([
       "editor edit.commit navigation [none:Enter] keys.action.edit.commit",
       "editor edit.cancel navigation [none:Escape] keys.action.edit.cancel",
       ...TOOLBAR,
+      "toolbar tree.addAfter tool [] tree.tool.addAfter",
+      "toolbar tree.addChild tool [] tree.tool.addChild",
+      "toolbar tree.selectAll tool [] tree.select.all",
+      "toolbar tree.selectNone tool [] tree.select.none",
+      "toolbar tree.adjust tool [] tree.tool.adjust",
       "delete-question tree.cancelDelete navigation [none:Escape] tree.delete.cancel",
       "group-question tree.cancelGroup navigation [none:Escape] tree.group.cancel",
     ]);
@@ -203,13 +209,16 @@ describe("the Kanban's table (decision 9: today's keys, kanban-order not merged)
 });
 
 describe("the Timeline's table (decision 9: today's keys)", () => {
-  test("the entries' cursor and the toolbar's roving focus", () => {
+  test("the entries' cursor, the toolbar's roving focus and its three tools without keys", () => {
     expect(rows(TIMELINE_KEYS)).toEqual([
       "entries cursor.up navigation [none:ArrowUp] keys.action.cursor.up",
       "entries cursor.down navigation [none:ArrowDown] keys.action.cursor.down",
       "entries cursor.first navigation [none:Home] keys.action.cursor.first",
       "entries cursor.last navigation [none:End] keys.action.cursor.last",
       ...TOOLBAR,
+      "toolbar timeline.moveEarlier tool [] timeline.moveEarlier",
+      "toolbar timeline.moveLater tool [] timeline.moveLater",
+      "toolbar timeline.moveToLane menu [] timeline.moveToLane",
     ]);
   });
 });
@@ -225,6 +234,258 @@ describe("the Chart's table (decision 9: today's keys)", () => {
       "plot cursor.last navigation [none:End] keys.action.cursor.last",
       "plot chart.highlight pointer [none:Space,none:Enter] keys.action.chart.highlight",
     ]);
+  });
+});
+
+// Whether each part's actions still act while the item takes no edits (design decision 2, review
+// 1.6 S-3): for each part, the actions that do (`readOnly`) and those that do not (`edits`), as
+// each part's component behaves today. The evidence per part is in task 1.7's note.
+type ReadOnlySplit = Readonly<Record<string, { readOnly: string[]; edits: string[] }>>;
+
+const split = (table: KeyTable): ReadOnlySplit => {
+  const out: Record<string, { readOnly: string[]; edits: string[] }> = {};
+  for (const { part, action, readOnly } of table) {
+    const into = out[part] ?? { readOnly: [], edits: [] };
+    out[part] = into;
+    (readOnly ? into.readOnly : into.edits).push(action);
+  }
+  return out;
+};
+
+const NAV_TOOLBAR = ["toolbar.previous", "toolbar.next", "toolbar.first", "toolbar.last"];
+
+describe("each table's readOnly, part by part (decision 2, review 1.6 S-3)", () => {
+  test("the Ranking: the cursor, `?` and the toolbar's roving focus act; the moves, the selection, keep and select none do not", () => {
+    expect(split(RANKING_KEYS)).toEqual({
+      list: {
+        readOnly: ["cursor.up", "cursor.down", "cursor.first", "cursor.last", "keys.open"],
+        edits: [
+          "select.toggle",
+          "select.extendUp",
+          "select.extendDown",
+          "move.up",
+          "move.down",
+          "move.top",
+          "move.bottom",
+          "ranking.keep",
+          "select.none",
+        ],
+      },
+      toolbar: { readOnly: NAV_TOOLBAR, edits: [] },
+    });
+  });
+
+  test("the Tree: the cursor and the toolbar's focus act; the selection, edits, undo, moves, delete, the editor and the two questions do not", () => {
+    expect(split(TREE_KEYS)).toEqual({
+      grid: {
+        readOnly: [
+          "cursor.up",
+          "cursor.down",
+          "cursor.left",
+          "cursor.right",
+          "cursor.first",
+          "cursor.last",
+        ],
+        edits: [
+          "edit.start",
+          "select.toggle",
+          "select.extendUp",
+          "select.extendDown",
+          "undo",
+          "move.up",
+          "move.down",
+          "move.right",
+          "move.left",
+          "delete",
+        ],
+      },
+      editor: { readOnly: [], edits: ["edit.commit", "edit.cancel"] },
+      toolbar: {
+        readOnly: NAV_TOOLBAR,
+        edits: [
+          "tree.addAfter",
+          "tree.addChild",
+          "tree.selectAll",
+          "tree.selectNone",
+          "tree.adjust",
+        ],
+      },
+      "delete-question": { readOnly: [], edits: ["tree.cancelDelete"] },
+      "group-question": { readOnly: [], edits: ["tree.cancelGroup"] },
+    });
+  });
+
+  test("the Gantt: the grid's cursor, the zoom, the column edge and the switch act; the editor, the clear and the predecessors panel do not", () => {
+    expect(split(GANTT_KEYS)).toEqual({
+      grid: {
+        readOnly: [
+          "cursor.up",
+          "cursor.down",
+          "cursor.left",
+          "cursor.right",
+          "cursor.first",
+          "cursor.last",
+        ],
+        edits: ["edit.start", "gantt.clear"],
+      },
+      editor: { readOnly: [], edits: ["edit.commit", "edit.cancel"] },
+      zoom: { readOnly: NAV_TOOLBAR, edits: [] },
+      edge: {
+        readOnly: [
+          "gantt.narrower",
+          "gantt.wider",
+          "gantt.narrowerMore",
+          "gantt.widerMore",
+          "gantt.narrowest",
+          "gantt.widest",
+          "gantt.fit",
+        ],
+        edits: [],
+      },
+      panel: {
+        readOnly: [],
+        edits: [
+          "cursor.up",
+          "cursor.down",
+          "edit.commit",
+          "edit.cancel",
+          "gantt.togglePredecessor",
+        ],
+      },
+      switch: {
+        readOnly: ["toolbar.previous", "toolbar.first", "gantt.criticalPath"],
+        edits: [],
+      },
+    });
+  });
+
+  test("the Kanban: the cursor and the toolbar's focus act; Move to… does not", () => {
+    expect(split(KANBAN_KEYS)).toEqual({
+      board: {
+        readOnly: ["cursor.up", "cursor.down", "cursor.left", "cursor.right"],
+        edits: [],
+      },
+      toolbar: { readOnly: NAV_TOOLBAR, edits: ["kanban.moveTo"] },
+    });
+  });
+
+  test("the Timeline: the cursor and the toolbar's focus act; its three tools do not", () => {
+    expect(split(TIMELINE_KEYS)).toEqual({
+      entries: {
+        readOnly: ["cursor.up", "cursor.down", "cursor.first", "cursor.last"],
+        edits: [],
+      },
+      toolbar: {
+        readOnly: NAV_TOOLBAR,
+        edits: ["timeline.moveEarlier", "timeline.moveLater", "timeline.moveToLane"],
+      },
+    });
+  });
+
+  test("the Chart: the cursor acts; Space or Enter to highlight does not", () => {
+    expect(split(CHART_KEYS)).toEqual({
+      plot: {
+        readOnly: [
+          "cursor.up",
+          "cursor.down",
+          "cursor.left",
+          "cursor.right",
+          "cursor.first",
+          "cursor.last",
+        ],
+        edits: ["chart.highlight"],
+      },
+    });
+  });
+
+  test("every entry of every shipped table has a boolean, and none that changes the answer is read-only", () => {
+    const CHANGING = /^(move|add|edit|delete|undo|adjust)\b/;
+    for (const table of [
+      RANKING_KEYS,
+      TREE_KEYS,
+      GANTT_KEYS,
+      KANBAN_KEYS,
+      TIMELINE_KEYS,
+      CHART_KEYS,
+    ] as readonly KeyTable[]) {
+      for (const { action, readOnly } of table) {
+        expect(typeof readOnly).toBe("boolean");
+        if (CHANGING.test(action))
+          expect({ action, readOnly }).toEqual({ action, readOnly: false });
+      }
+    }
+  });
+});
+
+describe("every tool and menu is listed, keyless where no key takes it (decision 6)", () => {
+  const KEYLESS: readonly (readonly [string, KeyTable, string, "tool" | "menu", string])[] = [
+    ["tree", TREE_KEYS, "tree.addAfter", "tool", "tree.tool.addAfter"],
+    ["tree", TREE_KEYS, "tree.addChild", "tool", "tree.tool.addChild"],
+    ["tree", TREE_KEYS, "tree.selectAll", "tool", "tree.select.all"],
+    ["tree", TREE_KEYS, "tree.selectNone", "tool", "tree.select.none"],
+    ["tree", TREE_KEYS, "tree.adjust", "tool", "tree.tool.adjust"],
+    ["timeline", TIMELINE_KEYS, "timeline.moveEarlier", "tool", "timeline.moveEarlier"],
+    ["timeline", TIMELINE_KEYS, "timeline.moveLater", "tool", "timeline.moveLater"],
+    ["timeline", TIMELINE_KEYS, "timeline.moveToLane", "menu", "timeline.moveToLane"],
+    ["kanban", KANBAN_KEYS, "kanban.moveTo", "menu", "kanban.moveTo"],
+  ];
+
+  test("the Tree's five, the Timeline's three and the Kanban's one are keyless, label the tool's own string key and act on an item that takes edits only", () => {
+    for (const [type, table, action, shows, label] of KEYLESS) {
+      const found = table.find((entry: KeyEntry) => entry.action === action);
+      expect({ type, action, entry: found }).toEqual({
+        type,
+        action,
+        entry: expect.objectContaining({ keys: [], shows, label, readOnly: false }),
+      });
+    }
+  });
+
+  test("no other entry of a shipped table is keyless", () => {
+    const listed = new Set(KEYLESS.map(([, , action]) => action));
+    for (const table of [
+      RANKING_KEYS,
+      TREE_KEYS,
+      GANTT_KEYS,
+      KANBAN_KEYS,
+      TIMELINE_KEYS,
+      CHART_KEYS,
+    ] as readonly KeyTable[]) {
+      for (const { action, keys } of table) {
+        if (keys.length === 0) expect(listed.has(action)).toBe(true);
+      }
+    }
+  });
+
+  test("every keyless entry of every shipped table is an own action of its type, never a vocabulary action", () => {
+    const TABLES: readonly (readonly [string, KeyTable])[] = [
+      ["ranking", RANKING_KEYS],
+      ["tree", TREE_KEYS],
+      ["gantt", GANTT_KEYS],
+      ["kanban", KANBAN_KEYS],
+      ["timeline", TIMELINE_KEYS],
+      ["chart", CHART_KEYS],
+    ];
+    let keyless = 0;
+    for (const [type, table] of TABLES) {
+      for (const { action, keys, shows } of table) {
+        if (keys.length > 0) continue;
+        keyless += 1;
+        expect(isVocabularyAction(action)).toBe(false);
+        expect(action.startsWith(`${type}.`)).toBe(true);
+        expect(["tool", "menu"]).toContain(shows);
+      }
+    }
+    expect(keyless).toBe(KEYLESS.length);
+  });
+
+  test("the Tree's keyless tools keep the keys of the vocabulary's actions off them: Add node has no Alt+Shift+Enter, Select all no Cmd/Ctrl+A", () => {
+    const bound = new Set(
+      TREE_KEYS.flatMap(({ keys }) => keys.map(({ key, hold }) => `${hold}:${key}`)),
+    );
+    expect(bound.has("alt+shift:Enter")).toBe(false);
+    expect(bound.has("mod:a")).toBe(false);
+    expect(bound.has("char:%")).toBe(false);
   });
 });
 

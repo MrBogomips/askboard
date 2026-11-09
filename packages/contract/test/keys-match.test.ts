@@ -47,8 +47,8 @@ const TABLE: KeyTable = [
   vocabularyEntry("edit.commit", "editor", "navigation"),
   vocabularyEntry("edit.cancel", "editor", "navigation"),
   vocabularyEntry("select.none", "editor", "tool"),
-  ownEntry("ranking.keep", "list", [keyBinding("Enter")], "tool"),
-  ownEntry("ranking.loud", "list", [], "tool"),
+  ownEntry("ranking.keep", "list", [keyBinding("Enter")], "tool", { readOnly: false }),
+  ownEntry("ranking.loud", "list", [], "tool", { readOnly: false }),
 ];
 
 const hit = (
@@ -126,7 +126,7 @@ describe("keyActionOf: each hold matched exactly", () => {
   });
 
   test("a keyless entry matches nothing", () => {
-    const keyless: KeyTable = [ownEntry("x.y", "p", [], "tool")];
+    const keyless: KeyTable = [ownEntry("x.y", "p", [], "tool", { readOnly: false })];
     expect(hit("p", press("Enter"), true, keyless)).toBeUndefined();
   });
 
