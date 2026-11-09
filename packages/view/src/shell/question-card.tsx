@@ -74,6 +74,7 @@ import {
 } from "./question-state.ts";
 import { type ReasonRequests, reasonAskedAfter, reasonOf } from "./reason.ts";
 import { type RenderContext, RenderItem } from "./renderer.tsx";
+import { carriedOf } from "./reopen-prefill.ts";
 import { questionRevising } from "./revising.ts";
 import {
   asksFirst,
@@ -552,7 +553,7 @@ export const QuestionCard = (props: CardProps) => {
         <ReopenedNotice
           previous={reopened.previous}
           disabled={readOnly || pending}
-          carried={work?.prefilled === true && work.rev === question.rev}
+          carried={carriedOf(question, work, reopened.previous)}
           onStart={() => {
             const previous = reopened.previous;
             if (previous !== undefined) fillFrom(question, previous, "previous", context);

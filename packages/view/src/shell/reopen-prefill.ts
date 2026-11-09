@@ -19,6 +19,22 @@ import { createDraftStore, type DraftRecord, type DraftStore } from "./draft-sto
 import { unchangedOf } from "./question-state.ts";
 import type { FactsOf } from "./reason.ts";
 
+/**
+ * Whether the reopened notice may say the previous answer is filled in: the work on the question's
+ * current revision holds the prefill's mark, and the previous answer lists the question itself as
+ * unchanged (`unchangedOf`; core lists it only when its props are equal whole). A moved mark
+ * (`moveMarks`) alone is no proof: on a revision the agent changed nothing is filled, and the line
+ * says the question starts from the agent's version (design decision 5; S-1 of re-review 4.5).
+ */
+export const carriedOf = (
+  question: ViewQuestion,
+  work: QuestionWork | undefined,
+  previous: Parameters<typeof unchangedOf>[0],
+): boolean =>
+  work?.prefilled === true &&
+  work.rev === question.rev &&
+  unchangedOf(previous, "previous")(question.id);
+
 /** The stores the prefill reads and fills. */
 export type PrefillStores = {
   readonly draft: DraftStore;

@@ -309,9 +309,39 @@ const isBare = (work: QuestionWork): boolean => Object.keys(work).every((key) =>
 const isMarkOnly = (work: QuestionWork): boolean =>
   work.prefilled === true && Object.keys(work).every((key) => key === "rev" || key === "prefilled");
 
+/** The revisions the view has seen: a question at a given revision, as `Revisions` gives it. */
+export type EarlierRevisions = {
+  question(questionId: string, rev: number): ViewQuestion | undefined;
+};
+
+// No revision seen: the lookup of a caller that has none, which leaves work in place.
+const NO_REVISIONS: EarlierRevisions = { question: () => undefined };
+
+/**
+ * Whether the stores hold a value, result or entry of the question as the work's revision had it
+ * as well as the current one: the notice counts the user's changes on the revision the card shows
+ * (the work's), so a value held only on an item the current revision no longer has is still the
+ * user's work (X-1 and X-2 of re-review 4.5). When the work's revision was never seen the answer
+ * is yes, so the work and its notice stay (NFR-10: no path drops or hides unsent work).
+ */
+const holdsWorkValues = (
+  question: ViewQuestion,
+  work: QuestionWork,
+  revisions: EarlierRevisions,
+  values: ValueRecord,
+  results: ValueRecord,
+  entries: ValueRecord,
+): boolean => {
+  if (hasValues(question, values, results, entries)) return true;
+  if (work.rev >= question.rev) return false;
+  const earlier = revisions.question(question.id, work.rev);
+  return earlier === undefined || hasValues(earlier, values, results, entries);
+};
+
 /**
  * Moves the mark of a prefill to the question's current revision when the work holds nothing else
- * and the stores hold no value, result or entry of the question: the mark alone is no unsent work
+ * and the stores hold no value, result or entry of the question, on its current revision or on the
+ * revision the work was made on (`holdsWorkValues`): the mark alone is no unsent work
  * (reopen-start-from-answer, design decision 4), so an agent change past it shows at once, with no
  * agent-change notice, and the readers of work presence (`changePending`, `workingQuestion`) see
  * the current revision. The work is kept, never forgotten, so the question is not filled again
@@ -324,6 +354,7 @@ export const moveMarks = (
   board: BoardDraft,
   results: ValueRecord = NO_RESULTS,
   entries: ValueRecord = NO_RESULTS,
+  revisions: EarlierRevisions = NO_REVISIONS,
 ): void => {
   for (const question of questionsOf(document)) {
     const work = board.work(question.id);
@@ -331,7 +362,7 @@ export const moveMarks = (
       work !== undefined &&
       isMarkOnly(work) &&
       work.rev < question.rev &&
-      !hasValues(question, values, results, entries)
+      !holdsWorkValues(question, work, revisions, values, results, entries)
     ) {
       board.edit(question.id, question.rev, (held) => ({ ...held, rev: question.rev }));
     }
@@ -350,6 +381,7 @@ export const connectDrafts = (
   results?: DraftStore,
   entries?: DraftStore,
   cellEntries?: DraftStore,
+  revisions: EarlierRevisions = NO_REVISIONS,
 ): (() => void) => {
   const documentOf = typeof document === "function" ? document : () => document;
   const resultsNow = () => results?.record() ?? NO_RESULTS;
@@ -381,13 +413,13 @@ export const connectDrafts = (
   const prune = () => {
     const record = values.record();
     // A prefill's mark left alone on a card that shows an earlier revision moves to the current one.
-    moveMarks(documentOf(), record, board, resultsNow(), entriesNow());
+    moveMarks(documentOf(), record, board, resultsNow(), entriesNow(), revisions);
     for (const question of questionsOf(documentOf())) {
       const work = board.work(question.id);
       if (
         work !== undefined &&
         isBare(work) &&
-        !hasValues(question, record, resultsNow(), entriesNow())
+        !holdsWorkValues(question, work, revisions, record, resultsNow(), entriesNow())
       ) {
         board.forget(question.id);
       }

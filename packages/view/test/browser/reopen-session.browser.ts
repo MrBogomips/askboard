@@ -19,7 +19,12 @@
 //     decision 9): filled, with the carried line, and the mark mirrored;
 // (i) case (e)'s steps and an agent change before any reload: the change shows at once, with no
 //     agent-change notice (the mark alone is no unsent work, design decision 4), and a reload
-//     fills nothing.
+//     fills nothing, and the line says the question starts from the agent's version (S-1 of
+//     re-review 4.5);
+// (j) a Timeline and a Kanban reopened, the user's own move of the Timeline, then the agent's
+//     change drops the Timeline: the agent-change notice shows with "Your 1 change", and the
+//     move is still in the mirrored record, and the notice survives a reload (X-1 of re-review
+//     4.5; the value itself after a reload is Issue #96).
 //
 // Run one engine by hand: ASKBOARD_E2E_ENGINES=webkit ASKBOARD_E2E_TARGET=session-process bun test ./packages/view/test/browser/reopen-session.browser.ts
 
@@ -528,13 +533,66 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
             .count(),
         ).toBe(0);
         expect(await promptArmed(board)).toBe(false);
+        // The agent changed the question: the line no longer says the answer is filled in.
+        await lineShows(board, NOT_CARRIED);
 
         await reloaded(board, run);
         await reopenedNotice(board).waitFor({ timeout: STEP_TIMEOUT_MS });
         await Bun.sleep(QUIET_MS);
+        await lineShows(board, NOT_CARRIED);
         expect(await changeNotice(board).count()).toBe(0);
         expect(await checkoutShown(board)).toEqual(AS_SENT);
         expect(await promptArmed(board)).toBe(false);
+        expectNoCspProblem(run);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "(j) a Timeline and a Kanban reopened, the user's own move of the Timeline, then the agent drops the Timeline: the agent-change notice shows with Your 1 change and Keep mine, the move is still mirrored, and the notice survives a reload",
+      async () => {
+        const run = await start(lifecycleScenario(twoWidgetsAsk, dist));
+        const board = await openBoard(run, ["plan"]);
+        await moveCheckout(board, "mobile");
+        await answerAndCollect(run, board);
+
+        await reopen(run);
+        await lineShows(board, CARRIED);
+        await eventually(
+          async () => Bun.deepEquals(await checkoutShown(board), MOVED, true),
+          "the prefilled move",
+        );
+        await moveLaunch(board);
+        await mirrored(
+          run,
+          (record) =>
+            record.questions.plan?.prefilled === true &&
+            record.questions.plan.values?.roadmap !== undefined,
+          "the Timeline's value and the mark",
+        );
+
+        await run.session.update([
+          { action: "change", itemId: "plan", props: { items: [kanbanItem()] } },
+        ]);
+        await changeNotice(board).waitFor({ timeout: STEP_TIMEOUT_MS });
+        await changeNotice(board).getByText("Your 1 change on this question").waitFor();
+        await changeNotice(board)
+          .getByRole("button", { name: "Keep mine", exact: true })
+          .waitFor({ timeout: STEP_TIMEOUT_MS });
+        // The card still shows what the user made it on: the Timeline with its moves.
+        expect(await entryOf(board, "launch").getAttribute("data-date")).toBe("2026-02-09");
+        await Bun.sleep(MIRROR_SETTLE_MS);
+        const last = sentDrafts(run).at(-1)?.questions.plan;
+        expect(last?.rev).toBe(2);
+        expect(last?.values?.roadmap).toBeDefined();
+
+        await reloaded(board, run);
+        await changeNotice(board).waitFor({ timeout: STEP_TIMEOUT_MS });
+        await changeNotice(board)
+          .getByRole("button", { name: "Keep mine", exact: true })
+          .waitFor({ timeout: STEP_TIMEOUT_MS });
+        // The value itself cannot come back on a Timeline-less revision after a reload (Issue #96);
+        // the work and its notice are still there for the user to choose.
         expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,

@@ -221,11 +221,11 @@ const boot = (): void => {
   const cellEntries = createDraftStore();
   const single = presentationOf(data.document) === "single";
   const board = createBoardDraft(single ? "immediate" : (data.document.delivery ?? "immediate"));
-  connectDrafts(() => view.get().document, draft, board, results, entries, cellEntries);
-  const acts = createAnswerActs();
-  const attention = createAttention(data.document, data.state);
   const revisions = createRevisions();
   revisions.record(data.document);
+  connectDrafts(() => view.get().document, draft, board, results, entries, cellEntries, revisions);
+  const acts = createAnswerActs();
+  const attention = createAttention(data.document, data.state);
   const kept = createStore<KeptChoices>(new Map());
   const threads = createStore<ThreadRequest | undefined>(undefined);
   const reasons = createStore<ReasonRequest | undefined>(undefined);
@@ -283,6 +283,7 @@ const boot = (): void => {
         board,
         results.record(),
         entriesWithCells(entries.record(), cellEntries.record()),
+        revisions,
       );
       tracker.include(questionItemsOf(document));
       attention.documentChanged(document);

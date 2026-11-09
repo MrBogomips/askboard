@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { DraftRecord, LifecycleBoardState } from "@askboard/contract";
 import { plainChoiceBoardDocument } from "@askboard/contract/fixtures";
 import type { ViewDocument, ViewQuestion, WidgetItem } from "../view-document.ts";
-import { changePending, createRevisions, workingQuestion } from "./agent-change.ts";
+import { changeCountOf, changePending, createRevisions, workingQuestion } from "./agent-change.ts";
 import {
   connectDrafts,
   createBoardDraft,
@@ -335,6 +335,9 @@ describe("a prefill undone by hand, then the agent changes the question (S-1 of 
     expect(run.board.work("database")).toEqual({ rev: REV, prefilled: true });
     return run;
   };
+  const seen = createRevisions();
+  seen.record(document);
+  seen.record(laterDocument);
   const move = (run: ReturnType<typeof setUp>) =>
     moveMarks(
       laterDocument,
@@ -342,6 +345,7 @@ describe("a prefill undone by hand, then the agent changes the question (S-1 of 
       run.board,
       run.results.record(),
       run.entries.record(),
+      seen,
     );
 
   test("the mark moves to the new revision, so no notice is pending and the card shows the revision", () => {
@@ -392,7 +396,15 @@ describe("a prefill undone by hand, then the agent changes the question (S-1 of 
   test("the user undoing the last value on a card still showing the earlier revision moves the mark too", () => {
     let shown = document;
     const run = setUp();
-    connectDrafts(() => shown, run.draft, run.board, run.results, run.entries, run.cellEntries);
+    connectDrafts(
+      () => shown,
+      run.draft,
+      run.board,
+      run.results,
+      run.entries,
+      run.cellEntries,
+      seen,
+    );
     prefillReopened(document, stateOf(), run);
     shown = laterDocument;
     move(run);
@@ -402,6 +414,141 @@ describe("a prefill undone by hand, then the agent changes the question (S-1 of 
     run.draft.set("board", undefined);
     run.draft.set("database", undefined);
     expect(run.board.work("database")).toEqual({ rev: NEXT, prefilled: true });
+  });
+});
+
+// The mark and the bare work read the question at the work's revision as well as the current one
+// (design decision 4, X-1 and X-2 of re-review 4.5): a value held only on an item the current
+// revision no longer has is the user's work, and the notice counts it.
+describe("work held only on an item the agent's change removed (X-1 and X-2 of re-review 4.5)", () => {
+  const NEXT = REV + 1;
+  const dropped: ViewQuestion = {
+    ...question,
+    rev: NEXT,
+    props: { ...question.props, items: [kanban] },
+  };
+  const droppedDocument = { ...document, items: [dropped] } as unknown as ViewDocument;
+  const kept = new Map();
+
+  const seen = () => {
+    const revisions = createRevisions();
+    revisions.record(document);
+    revisions.record(droppedDocument);
+    return revisions;
+  };
+  // A reopened question prefilled, the board's value and the choice undone: the user's move of
+  // `roadmap` is the only value held.
+  const held = () => {
+    const run = setUp();
+    prefillReopened(document, stateOf(), run);
+    run.draft.set("board", undefined);
+    run.draft.set("database", undefined);
+    expect(run.draft.valueOf("roadmap")).toEqual(moved);
+    return run;
+  };
+  const move = (run: ReturnType<typeof setUp>, revisions = seen()) =>
+    moveMarks(
+      droppedDocument,
+      run.draft.record(),
+      run.board,
+      run.results.record(),
+      run.entries.record(),
+      revisions,
+    );
+
+  test("the mark stays on its revision, the notice is pending and counts the change", () => {
+    const run = held();
+    move(run);
+    const work = run.board.work("database");
+    expect(work).toEqual({ rev: REV, prefilled: true });
+    expect(changePending(dropped, work, kept)).toBe(true);
+    const shown = workingQuestion(dropped, work, seen());
+    expect(shown).toBe(question);
+    expect(changeCountOf(shown, run.draft.record(), work, run.results.record())).toBe(1);
+  });
+
+  test("a revision the view never saw leaves the work in place", () => {
+    const run = held();
+    move(run, createRevisions());
+    expect(run.board.work("database")).toEqual({ rev: REV, prefilled: true });
+  });
+
+  test("with the earlier revision seen and holding no value, the mark still moves", () => {
+    const run = held();
+    run.draft.set("roadmap", undefined);
+    run.draft.set("board", undefined);
+    move(run);
+    expect(run.board.work("database")).toEqual({ rev: NEXT, prefilled: true });
+  });
+
+  test("through the store's prune: a store change after the agent's change keeps the work", () => {
+    let shown = document;
+    const run = setUp();
+    const revisions = seen();
+    connectDrafts(
+      () => shown,
+      run.draft,
+      run.board,
+      run.results,
+      run.entries,
+      run.cellEntries,
+      revisions,
+    );
+    prefillReopened(document, stateOf(), run);
+    run.draft.set("board", undefined);
+    run.draft.set("database", undefined);
+    shown = droppedDocument;
+    run.board.setInView("database");
+    run.draft.set("board", undefined);
+    expect(run.board.work("database")).toEqual({ rev: REV, prefilled: true });
+    expect(run.draft.valueOf("roadmap")).toEqual(moved);
+  });
+
+  test("bare work with a value only on the removed item is not forgotten at a store change (X-2)", () => {
+    let shown = document;
+    const run = setUp();
+    connectDrafts(
+      () => shown,
+      run.draft,
+      run.board,
+      run.results,
+      run.entries,
+      run.cellEntries,
+      seen(),
+    );
+    run.draft.set("roadmap", moved);
+    expect(run.board.work("database")).toEqual({ rev: REV });
+    shown = droppedDocument;
+    run.board.setInView("database");
+    run.board.setPlacement("database", "beside");
+    expect(run.board.work("database")).toEqual({ rev: REV });
+    expect(changePending(dropped, run.board.work("database"), kept)).toBe(true);
+  });
+
+  test("bare work whose revision the view never saw is not forgotten either", () => {
+    let shown = document;
+    const run = setUp();
+    connectDrafts(() => shown, run.draft, run.board, run.results, run.entries, run.cellEntries);
+    run.draft.set("roadmap", moved);
+    shown = droppedDocument;
+    run.board.setInView("database");
+    expect(run.board.work("database")).toEqual({ rev: REV });
+  });
+
+  test("bare work holding nothing anywhere is still forgotten", () => {
+    const run = setUp();
+    connectDrafts(
+      () => document,
+      run.draft,
+      run.board,
+      run.results,
+      run.entries,
+      run.cellEntries,
+      seen(),
+    );
+    run.board.edit("database", REV, (work) => work);
+    run.board.setInView("database");
+    expect(run.board.work("database")).toBeUndefined();
   });
 });
 
@@ -434,6 +581,19 @@ describe("the shell's calls (design decisions 3, 4 and 9)", () => {
     expect(text.indexOf("moveMarks(", move + 1)).toBe(-1);
     const call = text.slice(move, text.indexOf(");", move));
     expect(call).toContain("document,");
+  });
+
+  test("the revisions the view has seen go to the mark's move and to the store's connection, recorded before either runs (X-1 of re-review 4.5)", async () => {
+    const text = await source("./index.tsx");
+    const handler = text.indexOf("channel.onUpdate(");
+    const record = text.indexOf("revisions.record(document)", handler);
+    const move = text.indexOf("moveMarks(", handler);
+    expect(record).toBeGreaterThan(handler);
+    expect(move).toBeGreaterThan(record);
+    expect(text.slice(move, text.indexOf(");", move))).toContain("revisions,");
+    const connect = text.indexOf("connectDrafts(");
+    expect(text.slice(connect, text.indexOf(");", connect))).toContain("revisions");
+    expect(text.indexOf("revisions.record(data.document)")).toBeLessThan(connect);
   });
 
   test("the update's lock goes to the prefill, so a read-only card is never filled (X-2 of review 2.5)", async () => {
