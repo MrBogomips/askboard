@@ -55,11 +55,11 @@ The benchmark report SHALL list the skills each arm's sessions started with and 
 ## ADDED Requirements
 
 ### Requirement: The help skill
-`askboard-help` SHALL answer the user's questions on using the board, in the user's language: for each widget type, what it is for, how it is edited with the mouse and the keys, and what the agent receives; and the board's concepts. It SHALL tell the agent to answer in the terminal from its files, never to call AskBoard's tools or open a board for it, and SHALL hold no ask example (FR-29, NFR-12).
+`askboard-help` SHALL answer the user's questions on using the board, in the user's language: for each widget type, what it is for, how it is edited with the mouse and, given a key table, the keys, and what the agent receives; and the board's concepts, the standard keys of options and fields among them. It SHALL tell the agent to answer in the terminal from its files, never to call AskBoard's tools or open a board for it, and SHALL hold no ask example (FR-29, NFR-12).
 
 #### Scenario: Every widget type
 - **WHEN** the generator runs on the shipped registry
-- **THEN** `askboard-help` holds one reference per registered type and one per ready molecule, each linked from its `SKILL.md` and holding the type's help text
+- **THEN** `askboard-help` holds one reference per registered type and one per ready molecule, each holding the type's or the molecule's help text
 
 #### Scenario: The board's concepts
 - **WHEN** `askboard-help`'s `SKILL.md` is read
@@ -69,12 +69,23 @@ The benchmark report SHALL list the skills each arm's sessions started with and 
 - **WHEN** `askboard-help`'s files are read
 - **THEN** they tell the agent not to call `ask`, `update`, `collect`, `fetch` or `snapshot` and hold no item or ask example
 
+### Requirement: The help skill's references one level deep
+`askboard-help`'s `SKILL.md` SHALL link each of its references, and no other file of the skill SHALL link a file of the skill, as in `askboard` (NFR-1, NFR-11).
+
+#### Scenario: Every reference linked from SKILL.md
+- **WHEN** the generated files of `askboard-help` are read
+- **THEN** every file other than `SKILL.md` is the target of a link in `SKILL.md`, and no file other than `SKILL.md` links to a file of the skill
+
+#### Scenario: A molecule's reference
+- **WHEN** `askboard-help`'s reference of the Gantt plan is read
+- **THEN** it holds the molecule's help text and names the widget types it expands into, without a link
+
 ### Requirement: Keys from the key tables
 For each widget type with a key table, `askboard`'s widget reference and `askboard-help`'s SHALL list its keys from the table, each action by its English board string and each key as on Linux, with the macOS form beside it, so that a table changed without regenerating fails the skill check (NFR-12, AD-6).
 
 #### Scenario: The Ranking's keys
 - **WHEN** the generator runs on the shipped registry
-- **THEN** both Ranking references list "Move up" with Alt+Shift+↑ and ⌥⇧↑, and "To top" with Alt+Shift+Home and Ctrl+Shift+↑, ⌥⇧Home and ⌘⇧↑
+- **THEN** both Ranking references list "Move up" with Alt+Shift+↑ and ⌥⇧↑, "To top" with Alt+Shift+Home and Ctrl+Shift+↑, ⌥⇧Home and ⌘⇧↑, and "Keep this order" with Enter and ↩
 
 #### Scenario: A table changed without regenerating
 - **WHEN** a key table changes and the skill check runs before the generator

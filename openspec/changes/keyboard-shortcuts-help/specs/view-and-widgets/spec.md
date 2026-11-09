@@ -11,16 +11,27 @@ A widget with keys of its own SHALL take the same keys for the same action: the 
 - **WHEN** the user presses Cmd+Shift+ArrowUp on macOS, or Ctrl+Shift+ArrowUp on Linux, on a Ranking's current row
 - **THEN** the row moves to the top, as Alt+Shift+Home moves it
 
+### Requirement: The approved keys outside the core vocabulary
+A widget that gives one of these actions a key SHALL give it these keys, as the PO approved them: Cmd or Ctrl+A selects all; Escape, while something is selected, selects none; Alt+Shift+Enter adds after the current row and Cmd or Ctrl+Shift+Enter adds a child; Alt+Shift+Delete or Alt+Shift+Backspace deletes where Delete clears a cell; `%`, while something is selected, adjusts by a percentage; `?` opens the keys panel. None of them SHALL act in a text field (NFR-12).
+
+#### Scenario: Escape where it acts
+- **WHEN** two rows of a Ranking are selected, the user opens its keys panel and presses Escape, then presses Escape on the list
+- **THEN** the first closes the panel and keeps the selection, and the second selects none
+
 ### Requirement: Keys left to the browser
-A widget SHALL take only the keys its key table names, with exactly the modifiers it names, and SHALL leave to the browser every other key, a key pressed while an input method composes, and Alt+Shift with an arrow inside a text field. A key it takes SHALL trigger no browser action. A toolbar's arrows, Home and End SHALL act only with no modifier held (NFR-12).
+A widget with a key table SHALL take only the keys its table names, with exactly the modifiers it names, and SHALL leave to the browser every other key, a key pressed while an input method composes, and inside a text field every key but its editor's. A key it takes SHALL trigger no browser action. A toolbar's arrows, Home and End, and those among a question's options or a PickField's, SHALL act only with no modifier held (NFR-12).
 
 #### Scenario: Alt with an arrow on a Kanban card
 - **WHEN** the focus is on a Kanban card and the user presses Alt+ArrowLeft
 - **THEN** the current card does not change and the key's default action is not prevented
 
 #### Scenario: Alt with an arrow on a toolbar
-- **WHEN** the focus is on a Ranking's "Move up" and the user presses Alt+ArrowRight
-- **THEN** the focus stays on "Move up" and the key's default action is not prevented
+- **WHEN** the focus is on a Ranking's "Move up", or on a Document review's "Comment", and the user presses Alt+ArrowRight
+- **THEN** the focus stays on that tool and the key's default action is not prevented
+
+#### Scenario: Alt with an arrow among options
+- **WHEN** the focus is on an option of a single choice, then of a multiple choice, and the user presses Alt+ArrowDown
+- **THEN** the focus stays on that option, nothing is selected, and the key's default action is not prevented
 
 #### Scenario: Alt with an arrow on a Chart
 - **WHEN** a Chart has the focus and the user presses Alt+ArrowRight
@@ -83,7 +94,7 @@ Tooltips and the keys panel SHALL write keys as the platform names them, in the 
 - **THEN** it reads Alt+Shift+Home and Ctrl+Shift+↑, and the tool's `aria-keyshortcuts` names `Control+Shift+ArrowUp` and `Meta+Shift+ArrowUp`
 
 ### Requirement: Ranking row selection
-The user SHALL select a Ranking's rows with a check box in a leading column, out of the Tab order, that a click toggles and Shift+click extends from the last row clicked; with Space on the current row and Shift with ArrowUp or ArrowDown from it; and clear them with the toolbar's "Select none". The toolbar SHALL read how many rows are selected. The selection SHALL be view state, in no draft and no answer (FR-11, AD-9, AD-10).
+The user SHALL select a Ranking's rows with a check box in a leading column, out of the Tab order, that a click toggles and Shift+click extends from the last row clicked; with Space on the current row and Shift with ArrowUp or ArrowDown from it; and clear them with "Select none" or Escape on the list. The toolbar SHALL read how many rows are selected. The selection SHALL be view state, in no draft and no answer (FR-11, AD-9, AD-10).
 
 #### Scenario: A range by keyboard
 - **WHEN** the user makes the second row current, presses Space, then Shift+ArrowDown twice
@@ -92,6 +103,10 @@ The user SHALL select a Ranking's rows with a check box in a leading column, out
 #### Scenario: A range by mouse
 - **WHEN** the user clicks the first row's check box, then Shift+clicks the third's
 - **THEN** the first three rows are selected
+
+#### Scenario: Select none with Escape
+- **WHEN** two rows are selected, the focus is on the list and the user presses Escape, then Escape again
+- **THEN** after the first no row is selected, the toolbar no longer reads a count and the current row stays current; the second's default action is not prevented
 
 #### Scenario: Not in the answer
 - **WHEN** the user selects two rows, answers, and reloads the board
@@ -119,7 +134,7 @@ The user SHALL select a Ranking's rows with a check box in a leading column, out
 ## MODIFIED Requirements
 
 ### Requirement: Ranking at the keyboard
-A Ranking's list SHALL be one Tab stop whose ArrowUp, ArrowDown, Home and End move the current row and whose Alt+Shift keys move rows; its toolbar, "Move up", "Move down", "To top", "To bottom", "Keep this order", "Select none" and the Keys button, another, with a "More" menu when crowded. A move SHALL keep the current row current, and a tool that cannot act SHALL be disabled without losing focus. The toolbar SHALL count the moved rows (FR-11, NFR-12).
+A Ranking's list SHALL be one Tab stop whose ArrowUp, ArrowDown, Home and End move the current row, whose vocabulary move keys move rows, and whose Enter keeps the order; its toolbar, "Move up", "Move down", "To top", "To bottom", "Keep this order", "Select none" and the Keys button, another, with a "More" menu when crowded. A move SHALL keep the current row current, and a tool that cannot act SHALL be disabled without losing focus. The toolbar SHALL count the moved rows (FR-11, NFR-12).
 
 #### Scenario: Moving a row down twice
 - **WHEN** the user makes the first row current and presses "Move down" twice from the keyboard
@@ -132,6 +147,10 @@ A Ranking's list SHALL be one Tab stop whose ArrowUp, ArrowDown, Home and End mo
 #### Scenario: Moving with keys only
 - **WHEN** the user makes the third row current and presses Alt+Shift+ArrowUp, then Alt+Shift+End
 - **THEN** the row is second, then last, it is still current, and the page has not navigated
+
+#### Scenario: Keeping the order from the list
+- **WHEN** the user tabs to an untouched Ranking's list and presses Enter
+- **THEN** the draft holds the agent's order for the item and "Answer" is enabled, as after "Keep this order"
 
 #### Scenario: A crowded toolbar
 - **WHEN** the Ranking's frame is too narrow for all its tools
