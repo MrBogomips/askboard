@@ -284,7 +284,22 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await tool(board, "More").click();
         const items = board.view.getByRole("menuitem");
         await items.first().waitFor({ timeout: STEP_TIMEOUT_MS });
-        expect(await items.allTextContents()).toEqual(["To top", "To bottom", "Select none"]);
+        // Each item ends with its keys as key caps, hidden from assistive technology, and still
+        // announces them through aria-keyshortcuts (review 4.6, S-49).
+        const texts = await items.allTextContents();
+        expect(texts[0]).toStartWith("To top");
+        expect(texts[0]).toEndWith("Alt+Shift+HomeCtrl+Shift+↑");
+        expect(texts[1]).toStartWith("To bottom");
+        expect(texts[1]).toEndWith("Alt+Shift+EndCtrl+Shift+↓");
+        expect(texts[2]).toBe("Select noneEsc");
+        const top = board.view.getByRole("menuitem", { name: "To top", exact: true });
+        expect(await top.getAttribute("aria-keyshortcuts")).toBe(
+          "Alt+Shift+Home Control+Shift+ArrowUp Meta+Shift+ArrowUp",
+        );
+        expect(await top.locator("kbd").allTextContents()).toEqual([
+          "Alt+Shift+Home",
+          "Ctrl+Shift+↑",
+        ]);
         await board.page.keyboard.press("Escape");
         const names = await toolbar(board).getByRole("button").allTextContents();
         expect(names.at(-1)).toBe("Keys");

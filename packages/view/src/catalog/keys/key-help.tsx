@@ -2,7 +2,7 @@
 // Keyboard shortcuts are discoverable, The keys panel). `KeyHint` wraps a control in a Radix
 // Tooltip that opens on hover and on keyboard focus and that Escape closes, showing the action's
 // name with its keys as key caps, and puts `aria-keyshortcuts` on the control from the table.
-// `KeysButton` opens the keys panel of the item frame it sits in. The look is DESIGN's tooltip for
+// `MenuKeys` shows a menu item's keys at its end instead of a tooltip. `KeysButton` opens the keys panel of the item frame it sits in. The look is DESIGN's tooltip for
 // agent-written labels and key caps; every class is written in full for Tailwind. Imported by the
 // widget chunks through the port, which re-exports these names.
 
@@ -14,11 +14,14 @@ import { entryInEffect } from "./effective.ts";
 import { hintOf } from "./hint.ts";
 import { KeyTableContext, useKeysOpenEntry } from "./key-table.tsx";
 import { buttonRefOf, clickOf, type KeysPanelControl } from "./keys-button.ts";
-import { useKeyPlatform } from "./label.ts";
+import { type KeyPlatform, useKeyPlatform } from "./label.ts";
 
+const MENU_KEYS = "ml-auto flex items-center gap-1 pl-4";
 const TOOLTIP =
   "z-30 flex items-center gap-sm rounded-md border border-border bg-popover px-sm py-1 text-body text-popover-foreground shadow-md";
-const KEY_CAP = "rounded-sm border border-border bg-muted px-1 font-mono text-code text-foreground";
+/** The look of a key cap, `{typography.code}` on `{colors.muted}`: the tooltip's and the menu item's. */
+export const KEY_CAP =
+  "rounded-sm border border-border bg-muted px-1 font-mono text-code text-foreground";
 
 /**
  * Wraps `children`, one control, in a tooltip with the entry's name and keys, and gives it the
@@ -56,6 +59,37 @@ export const KeyHint = ({
         </Tooltip.Content>
       </Tooltip.Portal>
     </Tooltip.Root>
+  );
+};
+
+/**
+ * The keys of a menu item, as key caps at the item's end, after its name and aligned right (review
+ * 4.6, S-49): the usual menu convention, since an item gets no tooltip, which the menu's own focus
+ * and pointer handling would fight. The entry is looked up in the frame's table as `KeyHint`'s is,
+ * so the keys are those in effect; a keyless entry and an action the user's file removed show none.
+ * The caps are `aria-hidden`: the item's `aria-keyshortcuts`, from the same entry in effect,
+ * announces them. `platform` is the page's unless a test draws the other.
+ */
+export const MenuKeys = ({
+  entry,
+  platform,
+}: {
+  readonly entry: KeyEntry;
+  readonly platform?: KeyPlatform;
+}) => {
+  const own = useKeyPlatform();
+  const text = useStrings();
+  const table = useContext(KeyTableContext);
+  const hint = hintOf(entryInEffect(table, entry), platform ?? own, text);
+  if (hint === undefined || hint.caps.length === 0) return null;
+  return (
+    <span aria-hidden="true" className={MENU_KEYS}>
+      {hint.caps.map((cap) => (
+        <kbd key={cap} className={KEY_CAP}>
+          {cap}
+        </kbd>
+      ))}
+    </span>
   );
 };
 

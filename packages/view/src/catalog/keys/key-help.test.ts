@@ -5,7 +5,14 @@ import { createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { LanguageContext } from "../port.ts";
 import { keyTableOf } from "./effective.ts";
-import { KeyHint, KeysButton, KeysPanelContext, useKeysPanel } from "./key-help.tsx";
+import {
+  KEY_CAP,
+  KeyHint,
+  KeysButton,
+  KeysPanelContext,
+  MenuKeys,
+  useKeysPanel,
+} from "./key-help.tsx";
 import {
   KeyOverridesContext,
   KeyTableContext,
@@ -188,6 +195,64 @@ describe("KeysButton with the user's keys", () => {
   test("overrides that do not name it leave `?`", () => {
     expect(withPanel({ "move.top": [] })).toContain('aria-keyshortcuts="?"');
     expect(withPanel(undefined)).toContain('aria-keyshortcuts="?"');
+  });
+});
+
+// An item of a menu shows its action's keys in effect as key caps at its end (keyboard-shortcuts-help,
+// review 4.6, S-49; view spec: Keyboard shortcuts are discoverable, "A menu item's keys"). The
+// caps are `aria-hidden`: the item's own `aria-keyshortcuts` announces them.
+describe("MenuKeys", () => {
+  const moveTop = RANKING_KEYS.find((entry) => entry.action === "move.top");
+  if (moveTop === undefined) throw new Error("the Ranking has no move.top entry");
+  const caps = (html: string): string[] =>
+    [...html.matchAll(/<kbd[^>]*>([^<]*)<\/kbd>/g)].map((found) => found[1] ?? "");
+  const MenuCaps = MenuKeys as (props: {
+    entry: KeyEntry;
+    platform?: "mac" | "other";
+  }) => ReactNode;
+  const inFrame = (overrides: Record<string, readonly string[]>, node: ReactNode) =>
+    createElement(KeyTableContext.Provider, { value: keyTableOf(RANKING_KEYS, overrides) }, node);
+
+  test("renders one cap per key of the entry, as Linux writes them, hidden from assistive technology", () => {
+    const html = provided(createElement(MenuCaps, { entry: moveTop, platform: "other" }));
+    expect(caps(html)).toEqual(["Alt+Shift+Home", "Ctrl+Shift+↑"]);
+    expect(html).toContain('aria-hidden="true"');
+    expect(html.indexOf('aria-hidden="true"')).toBeLessThan(html.indexOf("<kbd"));
+  });
+
+  test("as macOS writes them", () => {
+    const html = provided(createElement(MenuCaps, { entry: moveTop, platform: "mac" }));
+    expect(caps(html)).toEqual(["⌥⇧Home", "⇧⌘↑"]);
+  });
+
+  test("takes the platform of the page when it is given none", () => {
+    expect(caps(provided(createElement(MenuCaps, { entry: moveTop })))).toHaveLength(2);
+  });
+
+  test("shares KeyHint's key cap class", () => {
+    const html = provided(createElement(MenuCaps, { entry: moveTop }));
+    expect(html).toContain(`class="${KEY_CAP}"`);
+  });
+
+  test("a keyless entry renders nothing", () => {
+    const keyless = ownEntry("probe.menu", "toolbar", [], "menu", { readOnly: false });
+    expect(provided(createElement(MenuCaps, { entry: keyless }))).toBe("");
+  });
+
+  test("an action the user's overrides removed renders nothing", () => {
+    expect(provided(inFrame({ "move.top": [] }, createElement(MenuCaps, { entry: moveTop })))).toBe(
+      "",
+    );
+  });
+
+  test("inside a frame the user's keys replace the entry's", () => {
+    const html = provided(
+      inFrame(
+        { "move.top": ["Mod+Alt+ArrowUp"] },
+        createElement(MenuCaps, { entry: moveTop, platform: "other" }),
+      ),
+    );
+    expect(caps(html)).toEqual(["Ctrl+Alt+↑"]);
   });
 });
 

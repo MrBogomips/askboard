@@ -14,6 +14,7 @@ import {
   KeyHint,
   KeysButton,
   keyPressOf,
+  MenuKeys,
   type Say,
   useKeysPanel,
   useLanguage,
@@ -43,8 +44,9 @@ import { counterText } from "./text.ts";
 export type ToolKey = keyof RankingTools;
 
 // The "More" menu, the last tool stop but the Keys button's: the tools given up when crowded, each
-// disabled as its tool is, and carrying its keys in effect for assistive technology. It is not
-// modal, as the Tree's, so it locks no scroll and adds no style element.
+// disabled as its tool is, showing its keys in effect as key caps at its end (`MenuKeys`) and
+// carrying them for assistive technology. It is not modal, as the Tree's, so it locks no scroll and
+// adds no style element.
 const MoreMenu = ({
   buttonRef,
   tabIndex,
@@ -83,6 +85,7 @@ const MoreMenu = ({
               (entry) => entry.action === tool.action && entry.part === "list",
             );
             const aria = keys === undefined ? "" : ariaKeyShortcuts(keys.keys);
+            const entry = entryOf(tool.action);
             return (
               <DropdownMenu.Item
                 key={tool.key}
@@ -92,6 +95,7 @@ const MoreMenu = ({
                 onSelect={() => onTool(tool.key)}
               >
                 {text(tool.label)}
+                {entry === undefined ? null : <MenuKeys entry={entry} />}
               </DropdownMenu.Item>
             );
           })}

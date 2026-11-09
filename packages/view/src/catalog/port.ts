@@ -416,7 +416,7 @@ export const useOpenLink = (): ((itemId: string, url: string) => void) =>
 // decisions 3 to 5), which the chunks reach through this module like every other name here.
 
 export type { KeyInEffect, KeySource } from "./keys/effective.ts";
-export { KeyHint, KeysButton, useKeysPanel } from "./keys/key-help.tsx";
+export { KeyHint, KeysButton, MenuKeys, useKeysPanel } from "./keys/key-help.tsx";
 export { useKeyTable } from "./keys/key-table.tsx";
 export type { KeysPanelControl } from "./keys/keys-button.ts";
 export { type KeyPlatform, keyLabel, useKeyPlatform } from "./keys/label.ts";

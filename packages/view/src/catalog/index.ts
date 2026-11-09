@@ -21,6 +21,7 @@ export {
   type KeysPanelControl,
   keyLabel,
   keyPressOf,
+  MenuKeys,
   questionTextId,
   type ReasonStrings,
   register,
