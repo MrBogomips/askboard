@@ -117,7 +117,7 @@ const reach = (widgets: readonly WidgetType[], onBoard: readonly string[]) =>
           "- A change applies to the next board opened, not to one already open. No widget takes the user's keys yet, so nothing changes on the board until one does.",
       }
     : {
-        scope: `A change holds only in ${reached(widgets, onBoard)}, the widgets the board gives a Keys button, and in no other.`,
+        scope: `A change holds only in ${reached(widgets, onBoard)}, ${onBoard.length === 1 ? "the widget" : "the widgets"} the board gives a Keys button, and in no other.`,
         applies: `- A change applies to the next board opened, not to one already open, and only in ${reached(widgets, onBoard)}; the keys panel (the Keys button) shows the keys in effect, with a changed action marked.`,
       };
 

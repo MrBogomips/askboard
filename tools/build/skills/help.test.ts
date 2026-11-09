@@ -281,7 +281,8 @@ describe("the keys panel in the help skill", () => {
   // Skills spec, "Where the user's keys apply": the shipped file names the Ranking alone.
   test("the shipped configure-keys.md names the Ranking as the widget the user's keys reach, and no other", () => {
     const text = file("references/configure-keys.md");
-    expect(text).toContain("only in the Ranking, the widgets the board gives a Keys button");
+    expect(text).toContain("only in the Ranking, the widget the board gives a Keys button");
+    expect(text).not.toContain("the widgets the board gives a Keys button");
     for (const other of ["Tree", "Gantt", "Kanban", "Timeline", "Chart"]) {
       expect(text).not.toContain(`the ${other}`);
     }
@@ -296,7 +297,10 @@ describe("the keys panel in the help skill", () => {
 
   test("several listed types are named in order", () => {
     const two = generateHelpSkill({ keyTablesOnBoard: ["ranking", "gantt"] });
-    expect(at(two, "references/configure-keys.md")).toContain("only in the Ranking and the Gantt");
+    const text = at(two, "references/configure-keys.md");
+    expect(text).toContain("only in the Ranking and the Gantt");
+    expect(text).toContain("the widgets the board gives a Keys button");
+    expect(text).not.toContain("the widget the board gives a Keys button");
   });
 
   test("SKILL.md words the panel for a widget with a Keys button", () => {

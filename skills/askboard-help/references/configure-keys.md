@@ -1,6 +1,6 @@
 # Changing the keys
 
-The user can replace or remove the keys of an action, in the user configuration file only. The board has no control for it. A change holds only in the Ranking, the widgets the board gives a Keys button, and in no other.
+The user can replace or remove the keys of an action, in the user configuration file only. The board has no control for it. A change holds only in the Ranking, the widget the board gives a Keys button, and in no other.
 
 ## Where
 
