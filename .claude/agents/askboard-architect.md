@@ -53,7 +53,7 @@ You do not write product code.
 - Give every question for the PO a proposed default, and turn every PO answer into a task (0.1)
   before anything relies on it. Put each question on the change's Issue as a comment (the question,
   the options, the proposed default) with the `needs-po` label; a question separate from that Issue
-  gets its own `type:question` Issue with `needs-po` (`AGENTS.md`, The backlog). Search before
+  gets its own `type:question` Issue with `needs-po` (`CLAUDE.md`, The backlog). Search before
   opening one.
 - Keep artifacts lean: say each thing once and cite IDs instead of restating them.
 
