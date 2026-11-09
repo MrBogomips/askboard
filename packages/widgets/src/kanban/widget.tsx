@@ -17,9 +17,17 @@ import { KanbanCard } from "./card.tsx";
 import { COLUMNS } from "./classes.ts";
 import { Column } from "./column.tsx";
 import type { CardDragEvents } from "./drag.ts";
-import { afterDrop, type DragState, indicatorOf } from "./drop.ts";
+import { afterDrop, type DragState, indicatorOf, lineOf } from "./drop.ts";
 import { kanbanPressOf, kanbanTools, otherColumns } from "./keys.ts";
-import { columnsOf, firstCard, type KanbanMove, movedOf, moveWithin, neighbour } from "./model.ts";
+import {
+  columnsOf,
+  firstCard,
+  type KanbanMove,
+  movedOf,
+  moveTo,
+  moveWithin,
+  neighbour,
+} from "./model.ts";
 import { counterText } from "./text.ts";
 
 export const KanbanWidget = ({
@@ -65,16 +73,16 @@ export const KanbanWidget = ({
   // re-register for a new closure; it is set on every render, with the props of this one.
   events.current = {
     start: (id) => setDrag({ dragging: id }),
-    over: (id, columnId) =>
+    over: (id, columnId, slot) =>
       setDrag((state) =>
-        state?.over === columnId && state.dragging === id
+        state?.dragging === id && state.over?.column === columnId && state.over.slot === slot
           ? state
-          : { dragging: id, over: columnId },
+          : { dragging: id, over: { column: columnId, slot } },
       ),
     leave: (columnId) =>
-      setDrag((state) => (state?.over === columnId ? { dragging: state.dragging } : state)),
-    drop: (id, columnId) => {
-      const next = afterDrop(shown, id, columnId);
+      setDrag((state) => (state?.over?.column === columnId ? { dragging: state.dragging } : state)),
+    drop: (id, columnId, slot) => {
+      const next = afterDrop(shown, id, columnId, slot);
       if (next !== undefined) onChange(next);
       setChosen(id);
       setDrag(undefined);
@@ -84,8 +92,8 @@ export const KanbanWidget = ({
 
   const onMoveTo = (columnId: string): void => {
     if (current === undefined) return;
-    const next = afterDrop(shown, current, columnId);
-    if (next !== undefined) onChange(next);
+    const next = moveTo(shown, current, columnId);
+    if (next !== shown) onChange(next);
   };
 
   // A card moved within its column can lose the focus when the browser moves its element: it takes
@@ -167,38 +175,46 @@ export const KanbanWidget = ({
         className={COLUMNS}
         onKeyDown={onKeyDown}
       >
-        {columns.map((column) => (
-          <Column
-            key={column.id}
-            kanbanId={kanbanId}
-            column={column}
-            indicator={indicatorOf(drag, column.id, draggedColumn)}
-            editable={!disabled}
-            events={events}
-          >
-            {column.cards.map((card, at) => (
-              <KanbanCard
-                key={card.id}
-                kanbanId={kanbanId}
-                card={card}
-                columnLabel={column.label}
-                position={at + 1}
-                size={column.cards.length}
-                current={card.id === current}
-                stop={card.id === stop}
-                moved={moved.has(card.id)}
-                dragged={drag?.dragging === card.id}
-                editable={!disabled}
-                events={events}
-                cardRef={(node) => {
-                  if (node === null) cards.current.delete(card.id);
-                  else cards.current.set(card.id, node);
-                }}
-                onFocus={() => setChosen(card.id)}
-              />
-            ))}
-          </Column>
-        ))}
+        {columns.map((column) => {
+          const line = lineOf(
+            drag,
+            column.id,
+            column.cards.map(({ id }) => id),
+          );
+          return (
+            <Column
+              key={column.id}
+              kanbanId={kanbanId}
+              column={column}
+              indicator={indicatorOf(drag, column.id, draggedColumn)}
+              editable={!disabled}
+              events={events}
+            >
+              {column.cards.map((card, at) => (
+                <KanbanCard
+                  key={card.id}
+                  kanbanId={kanbanId}
+                  card={card}
+                  columnLabel={column.label}
+                  position={at + 1}
+                  size={column.cards.length}
+                  current={card.id === current}
+                  stop={card.id === stop}
+                  moved={moved.has(card.id)}
+                  dragged={drag?.dragging === card.id}
+                  line={line?.card === card.id ? line.side : undefined}
+                  editable={!disabled}
+                  events={events}
+                  cardRef={(node) => {
+                    if (node === null) cards.current.delete(card.id);
+                    else cards.current.set(card.id, node);
+                  }}
+                  onFocus={() => setChosen(card.id)}
+                />
+              ))}
+            </Column>
+          );
+        })}
       </div>
     </div>
   );

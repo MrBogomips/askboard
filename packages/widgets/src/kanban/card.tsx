@@ -14,9 +14,12 @@ import {
   CARD_DRAGGED,
   CARD_GRAB,
   CARD_LABEL,
+  CARD_LINE_AFTER,
+  CARD_LINE_BEFORE,
   CARD_MOVED,
 } from "./classes.ts";
 import { type CardDragEvents, useCardDrag } from "./drag.ts";
+import type { LineSide } from "./drop.ts";
 import { cardName } from "./text.ts";
 
 export const KanbanCard = ({
@@ -29,6 +32,7 @@ export const KanbanCard = ({
   stop,
   moved,
   dragged,
+  line,
   editable,
   events,
   cardRef,
@@ -49,6 +53,8 @@ export const KanbanCard = ({
   readonly moved: boolean;
   /** Being dragged. */
   readonly dragged: boolean;
+  /** The drop line, on this side of the card, where the dragged card would land. */
+  readonly line: LineSide | undefined;
   /** The Kanban can change: the card drags. */
   readonly editable: boolean;
   readonly events: RefObject<CardDragEvents>;
@@ -66,6 +72,7 @@ export const KanbanCard = ({
     editable ? CARD_GRAB : "",
     moved ? CARD_MOVED : "",
     dragged ? CARD_DRAGGED : "",
+    line === "before" ? CARD_LINE_BEFORE : line === "after" ? CARD_LINE_AFTER : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -86,6 +93,7 @@ export const KanbanCard = ({
       data-kanban-card={card.id}
       data-change={moved ? "moved" : undefined}
       data-dragging={dragged ? "" : undefined}
+      data-drop-line={line}
       className={classes}
       onFocus={onFocus}
       onMouseDown={onFocus}

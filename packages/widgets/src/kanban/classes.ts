@@ -39,6 +39,14 @@ export const CARD_GRAB = "cursor-grab";
 /** A moved card: the change highlight, `change-subtle` with a `change` border. */
 export const CARD_MOVED = "border-change bg-change-subtle";
 
+/**
+ * The drop line (DESIGN.md, Kanban): the Ranking's line in `primary`, inside the card's top or
+ * bottom edge, where the dragged card would land.
+ */
+export const CARD_LINE_BEFORE = "shadow-[inset_0_2px_0_0_var(--primary)]";
+
+export const CARD_LINE_AFTER = "shadow-[inset_0_-2px_0_0_var(--primary)]";
+
 /** The card being dragged, dimmed. */
 export const CARD_DRAGGED = "opacity-50";
 
