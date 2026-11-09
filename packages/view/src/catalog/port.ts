@@ -9,7 +9,7 @@
 // question into the draft record in one update, as a linked edit does (molecules, design decision
 // 11).
 
-import type { ElementShape, FieldCheckFailure, Locale } from "@askboard/contract";
+import type { ElementShape, FieldCheckFailure, KeyTable, Locale } from "@askboard/contract";
 import {
   createContext,
   type ReactNode,
@@ -198,6 +198,14 @@ export type ComponentFacts = {
    * result means the same on any revision (a Scale's value, a TextField's text) registers none.
    */
   readonly revisionBound?: true;
+  /**
+   * The type's key table (keyboard-shortcuts-help, design decision 5): the item frame of a type that
+   * registers one gives its widget the keys panel, which lists the table's entries by group, opens
+   * on the Keys button and on `?`, and lists only the entries marked `readOnly` while the item
+   * takes no edits. The chunk registers the contract's table for its type, as it registers `fits`
+   * and `check`, so the shell imports no registry. A type with no table registers none.
+   */
+  readonly keys?: KeyTable;
 };
 
 /** The two strings a required reason uses: the open prompt's label and its field error. */
@@ -403,3 +411,11 @@ export const useTheme = (): Theme => {
 
 export const useOpenLink = (): ((itemId: string, url: string) => void) =>
   useContext(HostContext).openLink;
+
+// The key helpers and the key hint and Keys button of the port (keyboard-shortcuts-help, design
+// decisions 3 to 5), which the chunks reach through this module like every other name here.
+
+export { KeyHint, KeysButton, useKeysPanel } from "./keys/key-help.tsx";
+export type { KeysPanelControl } from "./keys/keys-button.ts";
+export { type KeyPlatform, keyLabel, useKeyPlatform } from "./keys/label.ts";
+export { isTextTarget, type KeyEventFields, keyPressOf } from "./keys/press.ts";

@@ -69,7 +69,8 @@ export const LIBRARY_CHUNKS: Readonly<Record<string, LibraryChunk>> = {
   // Radix's controls, Toggle Group among them for the Gantt plan's zoom (gantt-widget design
   // decision 10) Switch for the Gantt's critical path (widget-editing-plus design decision 8),
   // Popover for the Tree's percentage panel and Slider for the Scale's (approval-scale-ranking
-  // design decision 9). Radio Group is not here: the single choices are AskBoard's own radio group
+  // design decision 9). Tooltip for the key hints of every widget with a key table (keyboard-
+  // shortcuts-help, design decision 5). Radio Group is not here: the single choices are AskBoard's own radio group
   // (choice-documented-activation).
   radix: {
     modules: {
@@ -82,6 +83,7 @@ export const LIBRARY_CHUNKS: Readonly<Record<string, LibraryChunk>> = {
         "Switch",
         "Tabs",
         "ToggleGroup",
+        "Tooltip",
       ],
     },
   },

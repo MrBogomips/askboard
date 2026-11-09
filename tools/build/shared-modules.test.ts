@@ -158,7 +158,8 @@ describe("the shared modules and the chunks that provide them", () => {
     // Toggle Group joined with its first control, the Gantt plan's zoom (gantt-widget design
     // decision 10); Switch with the Gantt's critical path switch (widget-editing-plus decision 8);
     // Slider with the Scale's (approval-scale-ranking decision 9). Radio Group left with
-    // choice-documented-activation: the single choices are AskBoard's own radio group.
+    // choice-documented-activation: the single choices are AskBoard's own radio group. Tooltip
+    // joined with the key hints (keyboard-shortcuts-help, decision 5).
     expect(LIBRARY_CHUNKS.radix?.modules["radix-ui"]).toEqual([
       "AlertDialog",
       "Checkbox",
@@ -168,6 +169,7 @@ describe("the shared modules and the chunks that provide them", () => {
       "Switch",
       "Tabs",
       "ToggleGroup",
+      "Tooltip",
     ]);
   });
 

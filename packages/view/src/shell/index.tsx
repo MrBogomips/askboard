@@ -17,6 +17,7 @@
 // user's activity for the board's working signal, starts beside them (`push-extras.ts`).
 
 import type * as ExtApps from "@modelcontextprotocol/ext-apps";
+import { Tooltip } from "radix-ui";
 import { createRoot } from "react-dom/client";
 import { BOOT_DATA_ID, parseBootData } from "../boot-data.ts";
 import * as port from "../catalog/port.ts";
@@ -349,7 +350,10 @@ const boot = (): void => {
   createRoot(root).render(
     <BoardLanguage view={view}>
       <port.HostContext.Provider value={host}>
-        <Board view={view} context={context} extras={extras} />
+        {/* The key hints of the widgets with a key table (keyboard-shortcuts-help, decision 5). */}
+        <Tooltip.Provider delayDuration={300}>
+          <Board view={view} context={context} extras={extras} />
+        </Tooltip.Provider>
       </port.HostContext.Provider>
     </BoardLanguage>,
   );

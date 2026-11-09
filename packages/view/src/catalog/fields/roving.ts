@@ -2,7 +2,9 @@
 // the focus (choice-documented-activation, design decision 3; EXPERIENCE.md, Option and Keyboard
 // core; WAI-ARIA's radio group contained in a toolbar). It rests on HTML buttons, ARIA roles and
 // the focus alone: a button's own activation (Space, Enter, a click) checks, and the arrow keys,
-// Home and End only call `focus`. Plain ECMAScript, apart from React.
+// Home and End only call `focus`, and only with no modifier held. Plain ECMAScript, apart from React.
+
+import { pressHold } from "@askboard/contract";
 
 const STEPS: Readonly<Record<string, number>> = {
   ArrowDown: 1,
@@ -41,8 +43,39 @@ export type RadioGroupState = {
   readonly focus: (index: number) => void;
 };
 
-/** The part of a key event the radios read. */
-export type RadioKey = { readonly key: string; preventDefault(): void };
+/** The part of a key event the radios read: the key, the modifiers held, and its default. */
+export type RadioKey = {
+  readonly key: string;
+  readonly altKey: boolean;
+  readonly ctrlKey: boolean;
+  readonly metaKey: boolean;
+  readonly shiftKey: boolean;
+  preventDefault(): void;
+};
+
+/**
+ * The box an options' key moves the focus to: the arrows, Home and End with no modifier held, and
+ * nothing for the same keys with Alt, Shift, Ctrl or Cmd, which stay the browser's, such as Alt with
+ * an arrow for history (keyboard-shortcuts-help, design decision 7; spec: Keys left to the browser).
+ */
+export const optionMoveOf = (event: RadioKey, index: number, count: number): number | undefined =>
+  pressHold(event) === "none" ? nextFocus(event.key, index, count) : undefined;
+
+/** What a key does to the multiple choice's box at `index`: flip it (Enter), or move the focus. */
+export type CheckboxKey =
+  | { readonly kind: "flip" }
+  | { readonly kind: "focus"; readonly index: number };
+
+/** The multiple choice's reading of a key on a box: Enter flips it, the options' keys move the focus. */
+export const checkboxKeyOf = (
+  event: RadioKey,
+  index: number,
+  count: number,
+): CheckboxKey | undefined => {
+  if (event.key === "Enter") return { kind: "flip" };
+  const next = optionMoveOf(event, index, count);
+  return next === undefined ? undefined : { kind: "focus", index: next };
+};
 
 /** The attributes and handlers that make a `button` the radio at `index` of `group`. */
 export const radioAt = (index: number, group: RadioGroupState) => {
@@ -56,7 +89,7 @@ export const radioAt = (index: number, group: RadioGroupState) => {
     disabled: group.disabled,
     tabIndex: !group.disabled && radioTabStop(group.checked, group.count) === index ? 0 : -1,
     onKeyDown: (event: RadioKey) => {
-      const next = nextFocus(event.key, index, group.count);
+      const next = optionMoveOf(event, index, group.count);
       if (next === undefined) return;
       event.preventDefault();
       group.focus(next);
