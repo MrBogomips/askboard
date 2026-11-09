@@ -14,7 +14,7 @@ A pointer that does not resolve SHALL leave the ask created or the update applie
 ## ADDED Requirements
 
 ### Requirement: The closing unresolved-pointer warning
-When the bound leaves any unresolved pointer out, the last `unresolved-pointer` warning SHALL be the first one left out, with its item, pointer and reason and a message of fixed words that counts the warnings after it, or says that its own message is left out when none follows it. The JSON text of all of them, the closing one included, SHALL stay within the bound, and the board document SHALL still mark every unresolved item (AD-6, AD-10, FR-8).
+When the bound leaves any unresolved pointer out, the last `unresolved-pointer` warning SHALL be the first one left out, with its item, pointer and reason and a message of fixed words that counts the warnings after it, at least one. The warnings SHALL be kept in order while they leave room for the longest closing warning the list could give. Their JSON text, the closing one included, SHALL stay within the bound, and the board document SHALL still mark every unresolved item (AD-6, AD-10, FR-8).
 
 #### Scenario: Forty long pointers on an ask
 - **WHEN** an ask holds 40 excerpts, each with a pointer of 1,024 characters to a file outside the project folder
@@ -28,6 +28,6 @@ When the bound leaves any unresolved pointer out, the last `unresolved-pointer` 
 - **WHEN** an `update` adds a question with 60 excerpts whose pointers of 300 characters name missing files
 - **THEN** the update is applied, and its `unresolved-pointer` warnings take at most 10,000 characters, the last one counting the rest
 
-#### Scenario: One pointer past the bound
-- **WHEN** the warnings of an ask's unresolved pointers exceed the bound by part of the last warning only
-- **THEN** the last warning names that pointer, its item and its reason and says that its message is left out, with no count
+#### Scenario: A list past the room only by its last pointer is kept whole
+- **WHEN** the warnings of an ask's unresolved pointers, all but the last, leave the room for the closing warning within the bound, and the last warning takes part of that room
+- **THEN** the JSON text of every warning is within the bound, every warning is kept with its reason's own message, and none is a closing one
