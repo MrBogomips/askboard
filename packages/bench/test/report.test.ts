@@ -208,6 +208,24 @@ describe("buildReport", () => {
     expect(renderMarkdown(flagged)).toContain("skills askboard:askboard, deep-research");
   });
 
+  test("the help skill in the listing is expected, and another skill beside it is flagged", () => {
+    const [first, ...rest] = measures;
+    if (first === undefined || first.init === undefined) throw new Error("no measure");
+    const both = {
+      ...first,
+      init: { ...first.init, skills: ["askboard:askboard", "askboard:askboard-help"] },
+    };
+    expect(buildReport([both, ...rest], context).differences.join(" ")).not.toContain("skill");
+    const other = {
+      ...first,
+      init: { ...first.init, skills: ["askboard:askboard", "askboard:askboard-help", "x:y"] },
+    };
+    const flagged = buildReport([other, ...rest], context);
+    expect(flagged.differences).toHaveLength(1);
+    expect(flagged.differences[0]).toContain("x:y");
+    expect(flagged.differences[0]).toStartWith("skills: x:y listed beside");
+  });
+
   test("a run that wrote both 5-minute and 1-hour caches is flagged", () => {
     const [first, ...rest] = measures;
     if (first === undefined) throw new Error("no measure");
