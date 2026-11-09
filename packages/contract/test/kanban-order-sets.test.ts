@@ -1,8 +1,9 @@
-// The output format's next minor (kanban-order, task 1.3; contract spec, "Kanban order in the
-// output format's next minor"; design decision 8): the output format takes one minor past `main`'s
-// (1.11, at the base ac9f891f) for the Kanban's `move`, every other set keeps `main`'s. The number
-// is bound here and in the constant only (askboard-contract-versioning, Rule 1); the rebase task
-// moves both, and the next change that widens the output format moves the pin in this file.
+// The output format's minor for the Kanban's order (kanban-order, task 1.3; contract spec, "Kanban
+// order in the output format's next minor"; design decision 8): the output format takes one minor
+// past `main`'s for the Kanban's `move`, every other set keeps `main`'s. Bound on 2026-11-09 on
+// origin/main ac9f891f (main 1.11). The number is held here and in the constant only
+// (askboard-contract-versioning, Rule 1); a change that widens the output format after this one
+// moves the pin in this file.
 
 import { describe, expect, test } from "bun:test";
 import {
@@ -28,7 +29,7 @@ const setOf = (name: string) => {
 
 describe("the output format's minor for the Kanban's order", () => {
   test("is one minor past main's, and the set carries the constant", () => {
-    // `main` held output format 1.11 at the base.
+    // `main` held output format 1.11 when this was bound.
     expect(OUTPUT_FORMAT_VERSION).toBe("1.12");
     expect(setOf("output").version).toBe(OUTPUT_FORMAT_VERSION);
   });
