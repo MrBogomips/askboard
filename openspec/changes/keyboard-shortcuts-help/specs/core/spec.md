@@ -16,18 +16,22 @@
 - **THEN** the user's override is in effect, from the user file with no other file's value, the settings carry the project's warning, and the `settings` message built from them passes the board-protocol schema
 
 ### Requirement: Key overrides are never half-applied
-The user's `keys` SHALL apply only when it passes the key-override check against every registered key table. Otherwise none of it SHALL apply, every widget SHALL keep its default keys, the file's other keys SHALL still apply, and the settings and stderr SHALL name each problem's rule, action and combination (NFR-10, NFR-12, AD-14).
+The user's `keys` SHALL apply only when it passes the key-override check against every registered key table. Otherwise none of it SHALL apply, every widget SHALL keep its default keys, the file's other keys SHALL still apply, and the settings and stderr SHALL name the problems' rules, actions and combinations in at most eight warnings for `keys`, the project's warning first, and one stderr line for each of those warnings, never one per problem past them (NFR-10, NFR-12, AD-14).
 
 #### Scenario: One refused combination voids the overrides only
 - **WHEN** the user file sets `theme` to `dark` and gives to the top `Alt+Shift+ArrowUp`
 - **THEN** no override is in effect, `theme` is `dark`, the settings carry a warning naming the conflict, to the top, the combination and move up, and stderr names them, quoted
+
+#### Scenario: Many problems
+- **WHEN** the user file's `keys` names 64 actions, each with four combinations that do not parse
+- **THEN** no override is in effect, the settings carry eight warnings, and stderr writes eight lines about `keys`
 
 #### Scenario: Keys of another shape void the file
 - **WHEN** the user file sets `theme` to `dark` and `keys` to a list
 - **THEN** no key of that file applies, as for any file that fails the configuration schema
 
 ### Requirement: File text on stderr is escaped
-Each diagnostic the session process writes about the configuration SHALL be one line, and SHALL show any text a file chose (a JSON pointer, a key name, a value, an action, a combination) quoted, with its control characters (C0, DEL, C1), line and paragraph separators and bidirectional controls escaped, so that no file can colour, split, forge or reorder a line on the terminal (NFR-5, AD-8, AD-14).
+Each diagnostic the session process writes about the configuration or the project's `.askboard/` folder SHALL be one line, and SHALL show any text a file chose (a JSON pointer, a key name, a value, an action, a combination) quoted, with its control characters (C0, DEL, C1), line and paragraph separators and bidirectional controls escaped, so that no file can colour, split, forge or reorder a line on the terminal; a path it names SHALL have the same characters escaped (NFR-5, AD-8, AD-14).
 
 #### Scenario: A key name with controls in an invalid file
 - **WHEN** the project file sets `keys` with an action name holding an escape, a carriage return, a line feed, U+0085, U+009B, U+2028 and U+202E, and gives it a value the schema refuses
@@ -36,6 +40,10 @@ Each diagnostic the session process writes about the configuration SHALL be one 
 #### Scenario: An unknown key or a Snapshot folder with controls
 - **WHEN** a file holds an unknown key, or a Snapshot folder outside the project, whose text holds a line feed and U+202E
 - **THEN** the warning on stderr is one line and holds neither character raw
+
+#### Scenario: A path with controls
+- **WHEN** the project folder's path holds U+0085 and U+202E and `.askboard/` cannot be created there, or `XDG_CONFIG_HOME` holds a line feed and the user file draws a warning
+- **THEN** each line on stderr is one line and holds none of those characters raw
 
 ## MODIFIED Requirements
 

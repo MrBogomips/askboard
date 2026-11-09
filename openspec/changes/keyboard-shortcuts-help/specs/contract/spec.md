@@ -110,10 +110,10 @@ The contract SHALL check the user's overrides against every registered key table
 - **THEN** the check reports a problem naming it, and the vocabulary's add after, which no shipped table binds yet, passes
 
 ### Requirement: Keys a system composes or an editor types
-The registry check and the key-override check SHALL refuse Alt with Shift on a letter or Space, which macOS composes into another character, and, in a part that edits text, a key that types a character. The key-override check SHALL also refuse giving the keys panel, which acts across the whole item, a key a native control takes or a key another action of any part takes (NFR-12).
+The registry check and the key-override check SHALL refuse Alt with Shift on a key that types a character (a letter of any script, a digit, punctuation, a symbol or Space), which macOS composes into another character, and, in a part that edits text, a key that types a character. The key-override check SHALL also refuse giving the keys panel, which acts across the whole item, a key a native control takes or a key another action of any part takes (NFR-12).
 
 #### Scenario: In a key table
-- **WHEN** the registry check runs on an entry whose table binds Alt+Shift+K or Alt+Shift+Space, or whose editor part binds E with no modifier
+- **WHEN** the registry check runs on an entry whose table binds Alt+Shift+K, Alt+Shift+1, Alt+Shift+é or Alt+Shift+Space, or whose editor part binds E, 1 or é with no modifier
 - **THEN** it reports a problem naming the type and the key
 
 #### Scenario: A combination macOS composes
