@@ -194,7 +194,7 @@ One line or rule each, naming this change's seams:
 - `.claude/agents/askboard-architect.md`: a working principle with the same check.
 - `.claude/skills/askboard-implementation/SKILL.md`: a "Keyboard" rule under "Rules by area" (handler through `keyActionOf` over the effective table, `useKeyTable`, decision 19; presses through the port's `keyPressOf`; `KeyHint` and `KeysButton`; modifiers, input methods and text fields; default prevented only for keys taken; strings in both catalogues; browser checks in Chromium, Firefox and WebKit that nothing navigates or scrolls), and key tests at step 2 of the per-group workflow.
 - `.claude/skills/askboard-review-protocol/SKILL.md` and `.claude/agents/askboard-spec-reviewer.md`: check that the table, the handler, the tooltips, the panel, the references and `askboard-help` agree, and that any key outside the vocabulary carries the PO's recorded approval.
-- `CLAUDE.md`, only where a rule it states changes: a row in the Agent harness change history, and the `skills/` row of Working documents naming both skill folders. The change's record goes in `docs/as-built/keyboard-shortcuts-help.md` (`docs/as-built/README.md`), never in `CLAUDE.md`.
+- `CLAUDE.md`, only where a rule it states changes: a row in the Agent harness change history, the `skills/` row of Working documents naming both skill folders, and the `check:skills` and `build:skills` command comments naming both (review 6.5, S-59). The change's record goes in `docs/as-built/keyboard-shortcuts-help.md` (`docs/as-built/README.md`), never in `CLAUDE.md`.
 
 ### 16. The user's keys: scope and trust (D1, D3 to D5)
 
