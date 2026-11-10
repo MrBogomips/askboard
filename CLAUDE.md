@@ -253,10 +253,10 @@ bun run typecheck                                    #   tsc -p on each package,
 bun run lint                                         #   Biome formatting and lint checks, no writes
 bun run test                                         #   bun test with coverage, 80% threshold
 bun run check:imports                                #   import boundaries (AD-1)
-bun run check:skills                                 #   skills/askboard/ matches its generator and stays within budget
+bun run check:skills                                 #   skills/askboard/ and skills/askboard-help/ match their generator and stay within budget
 GITHUB_TOKEN=$(gh auth token) bun run check:licences #   licences and archived direct dependencies (AD-19)
 bun run format                                       # Biome: format and apply safe fixes
-bun run build:skills                                 # regenerate skills/askboard/ from the contract's teaching data
+bun run build:skills                                 # regenerate skills/askboard/ and skills/askboard-help/ from the contract's teaching data
 bun run build                                        # build:server, then build:view, then build:mod:
 bun run build:server                                 #   the session process, dist/askboard.mjs (ESM for Node 24 or Bun)
 bun run build:view                                   #   the view, dist/view/ (board page, chunks, manifest)

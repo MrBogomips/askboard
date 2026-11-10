@@ -55,7 +55,7 @@ AD-1 binds imports; `tools/check-imports.ts` holds the table (`bun run check:imp
 
 ### Keyboard (keyboard-shortcuts-help, #81)
 A widget's keys are a key table of the contract (`KEY_VOCABULARY`'s actions, own actions the PO approved), and the handler reads it:
-- The handler resolves a press with `keyActionOf` over the table `useKeyTable` returns (the table with the user's keys applied, decision 19), never over a literal key list; the press comes from the port's `keyPressOf`. Modifiers, input methods (composition) and text fields are the table's `when` and `isTextTarget`: a key typed into a field is not an action.
+- The handler resolves a press with `keyActionOf` over the table `useKeyTable` returns (the table with the user's keys applied, decision 19), never over a literal key list; the press comes from the port's `keyPressOf`. Modifiers are each binding's hold, matched exactly by `keyActionOf`; the port's `keyPressOf` drops a press while an input method composes; `isTextTarget` keeps a key typed into a field from being an action; `when: "selected"` limits an entry to while something is selected.
 - Call `preventDefault` only for a key the table took. `Mod+Alt` is a `mod+alt` hold, admitted in overrides only, never in a registry table (`keyTableProblems`).
 - Show each key where it acts: `KeyHint` on the tool's tooltip, `KeysButton` and the keys panel in the toolbar, `ariaKeyShortcuts` on the element. A widget with no table gives `keys-coverage.test.ts` its reason.
 - Every string (the Keys button, the panel, key names, action names) is in both catalogues (i18n above). A key outside the vocabulary needs the PO's recorded approval.
