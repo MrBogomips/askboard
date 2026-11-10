@@ -201,7 +201,7 @@ describe("the plugin carries the skill", () => {
 
   test("the skill named in ask's description is the skill's name", async () => {
     const description = TOOL_DEFINITIONS.find(({ name }) => name === "ask")?.description ?? "";
-    const named = /The (\S+) skill/.exec(description)?.[1];
+    const named = /[Tt]he (\S+) skill/.exec(description)?.[1];
     const own = /^name: (.+)$/m.exec(await skillText())?.[1];
     expect(named).toBeDefined();
     expect(named).toBe(own);

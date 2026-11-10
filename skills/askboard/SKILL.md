@@ -14,7 +14,7 @@ AskBoard sits beside AskUserQuestion. Choose by how hard the question is to gras
 - Use AskBoard (`ask`) when seeing the question and working on it helps the user decide: many questions that depend on one another; questions that cite documents by bare IDs (D-01, FR-12, ADR-7), which the user would have to look up; content that reads better as a visual artifact, such as a plan, a WBS or a Gantt, a chart, a table, a UML diagram or a state machine, a formula, or a document to review.
 - These cases are examples, not a list: judge whether a visual, interactive board helps. On the board the user sees the context beside the question, works on it and asks you follow-ups while you keep working.
 - Use AskUserQuestion for a simple, self-explanatory choice, such as a yes or no.
-- Never put a complex question to the user in chat prose: ask it on the board.
+- Never put a complex question to the user in chat prose: ask it on the board; when no board can be shown, see When an ask cannot go on.
 - A subagent cannot use AskUserQuestion: it asks every question through AskBoard.
 - An asking rule, when one is in effect, overrides these choices. So does an instruction from the user about how to ask.
 

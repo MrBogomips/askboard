@@ -155,7 +155,12 @@ Order: group 0, then group 1, then group 2: group 2 regenerates `skills/` after 
   - The coordinator runs the trigger eval's second iteration on the shipped description and records it beside task 0.4's baseline.
   - Verify: `bun run check:skills` reports no drift and every figure within budget; the eval's five outcomes are recorded. A query that still fails stays a finding for task 4.3, not a stop.
   - As built, regeneration part (2026-11-10, not committed; the coordinator commits): `bun run build:skills` rewrote `skills/askboard/SKILL.md`, `skills/askboard/references/items.md` and `skills/askboard-help/SKILL.md`. Figures: description 496 of 600; `SKILL.md` 8,405 of 9,000 characters and 80 of 250 lines; `items.md` 4,739 of 6,000; always-loaded total 7,543 of 8,400; `askboard-help` description 295 of 400 and `SKILL.md` 5,962 of 6,000 (47 lines). Margins against the design's limits for the five widgets in flight (`SKILL.md` about 8,450, `items.md` about 4,800, total about 7,600): `SKILL.md` 45, `items.md` 61, total 57. The trigger eval is the coordinator's and stays open.
-- [ ] 2.7 Review checkpoint, group 2.
+- [x] 2.7 Review checkpoint, group 2.
+  - As built (2026-11-11): spec review of 220dbda0..cb952b67, with no finding at M or above. Both reported deviations were accepted. SKILL.md at 8,405 matches design.md:53, so the only deviation left in the as-built note is the `catalogue.test.ts` guard. Three L findings are fixed:
+    - S-1: the routing tests did not check every THEN clause, and now assert them all;
+    - S-2: the description test now asserts all three SHALL clauses;
+    - S-3: the chat-prose line now points to "When an ask cannot go on", so SKILL.md is 8,463 characters.
+  - The served A2 line needs no exception. Without the server, no instructions are served. When no board can be shown, `ask` returns `unavailable` with the fallback, telling the main conversation to use AskUserQuestion and a subagent to return the question.
   - A spec review of the group's range against the skills delta and decisions 4 to 7 and 9, including that no generated file names an AI tool or vendor (`generate.test.ts`, "name no AI tool or vendor").
   - No security review: the group touches only the generator and its generated Markdown.
   - Verify: the report is recorded with no open finding of M or above; the check passes.

@@ -94,8 +94,15 @@ describe("SKILL.md frontmatter", () => {
     expect(description.length).toBeLessThanOrEqual(600);
     expect(description.slice(0, 150)).toContain("complex");
     expect(description.slice(0, 150)).toContain("visual, interactive board");
-    for (const word of ["AskUserQuestion", "AskBoard", "before you ask"])
-      expect(description).toContain(word);
+    for (const word of [
+      "AskUserQuestion",
+      "AskBoard",
+      "before you ask",
+      "in chat or with AskUserQuestion",
+      "when the user asks for AskBoard",
+      "A simple, self-explanatory choice stays in AskUserQuestion",
+    ])
+      expect(description, word).toContain(word);
     expect(description).not.toContain("are available");
   });
 
@@ -120,10 +127,11 @@ describe("SKILL.md routing", () => {
       "visual artifact",
       "examples",
       "judge",
-      "simple, self-explanatory choice",
+      "Use AskUserQuestion for a simple, self-explanatory choice",
       "A subagent cannot use AskUserQuestion: it asks every question through AskBoard",
       "asking rule",
       "overrides",
+      "instruction from the user about how to ask",
     ]) {
       expect(section, phrase).toContain(phrase);
     }
@@ -136,12 +144,16 @@ describe("SKILL.md routing", () => {
 
   test("says why the board", () => {
     expect(section).toContain("sees the context beside the question");
+    expect(section).toContain("works on it");
     expect(section).toContain("follow-ups");
     expect(section).toContain("while you keep working");
   });
 
   test("never puts a complex question in chat prose", () => {
-    expect(section).toContain("Never put a complex question to the user in chat prose");
+    expect(section).toContain(
+      "Never put a complex question to the user in chat prose: ask it on the board",
+    );
+    expect(section).toContain("when no board can be shown, see When an ask cannot go on");
   });
 });
 
