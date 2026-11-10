@@ -403,7 +403,6 @@ describe("configure-keys.md", () => {
       "`edit.cancel`",
       "refuses the whole `keys`",
       "stderr",
-      "next board opened",
     ])
       expect(text).toContain(part);
   });
@@ -428,6 +427,33 @@ describe("configure-keys.md", () => {
     expect(() => generateHelpSkill({ keyExamples: clash })).toThrow(/"Clash"/);
     expect(() => generateHelpSkill({ keyExamples: clash })).toThrow(/Ctrl\+z/);
   });
+});
+
+// Review 7.3, S-69 (decisions 19 and 20): the line "When it applies" says what the code does: a
+// change applies to boards opened afterwards, and an open board may take it when it reconnects or
+// after a change in its settings panel. Both branches of the generator's reach.
+describe("configure-keys.md's When it applies", () => {
+  const branches: [string, readonly string[] | undefined][] = [
+    ["no widget on the board", []],
+    ["the shipped list", undefined],
+  ];
+  for (const [name, keyTablesOnBoard] of branches) {
+    test(`with ${name}, a change reaches boards opened afterwards and an open board on a reconnect or after a settings change`, () => {
+      const text =
+        generateHelpSkill(keyTablesOnBoard === undefined ? {} : { keyTablesOnBoard }).files.get(
+          "references/configure-keys.md",
+        ) ?? "";
+      const section = text.split("## When it applies")[1] ?? "";
+      const line =
+        section.split("\n").find((candidate) => candidate.startsWith("- A change")) ?? "";
+      expect(line).toContain("applies to boards opened afterwards");
+      expect(line).toContain(
+        "an open board may take it when it reconnects or after a change in its settings panel",
+      );
+      expect(text).not.toContain("not to one already open");
+      expect(text).not.toContain("next board opened");
+    });
+  }
 });
 
 // The rules configure-keys.md states, read from the contract where it holds the list (review 5.6,

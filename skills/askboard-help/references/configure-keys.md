@@ -45,4 +45,4 @@ Two combinations for one action:
 ## When it applies
 
 - Any problem refuses the whole `keys`: every widget keeps its default keys. The session's stderr lists the problems found at its first read of the file, and Settings those found when a board opens (up to 8). Fix the file; there is no partial change.
-- A change applies to the next board opened, not to one already open, and only in the Ranking; the keys panel (the Keys button) shows the keys in effect, with a changed action marked.
+- A change applies to boards opened afterwards; an open board may take it when it reconnects or after a change in its settings panel. It holds only in the Ranking; the keys panel (the Keys button) shows the keys in effect, with a changed action marked.

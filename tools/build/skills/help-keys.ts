@@ -114,11 +114,11 @@ const reach = (widgets: readonly WidgetType[], onBoard: readonly string[]) =>
         scope:
           "The board applies them in no widget yet: no widget takes them yet, so a change has no effect on it for now.",
         applies:
-          "- A change applies to the next board opened, not to one already open. No widget takes the user's keys yet, so nothing changes on the board until one does.",
+          "- A change applies to boards opened afterwards; an open board may take it when it reconnects or after a change in its settings panel. No widget takes the user's keys yet, so nothing changes on the board until one does.",
       }
     : {
         scope: `A change holds only in ${reached(widgets, onBoard)}, ${onBoard.length === 1 ? "the widget" : "the widgets"} the board gives a Keys button, and in no other.`,
-        applies: `- A change applies to the next board opened, not to one already open, and only in ${reached(widgets, onBoard)}; the keys panel (the Keys button) shows the keys in effect, with a changed action marked.`,
+        applies: `- A change applies to boards opened afterwards; an open board may take it when it reconnects or after a change in its settings panel. It holds only in ${reached(widgets, onBoard)}; the keys panel (the Keys button) shows the keys in effect, with a changed action marked.`,
       };
 
 // The sentence of `SKILL.md`'s "Read-only." line on the keys that still act on an item that takes no
