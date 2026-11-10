@@ -21,6 +21,7 @@ import { type ExampleBody, exampleBlock } from "./blocks.ts";
 import { catalogueText, itemIndex } from "./catalogue.ts";
 import { contractSchemaResolver, type Schema } from "./fields.ts";
 import { fill } from "./fill.ts";
+import { COMPLETE_ASK_EXAMPLE } from "./payoff.ts";
 import {
   renderContextReference,
   renderMoleculeReference,
@@ -179,7 +180,7 @@ export const generateSkill = (inputs: Partial<SkillInputs> = {}): GeneratedSkill
     UPDATE_EXAMPLES.change,
     UPDATE_EXAMPLES.reply,
   ]);
-  add("references/items.md", catalogueText(widgets, molecules, skills), []);
+  add("references/items.md", catalogueText(widgets, molecules, skills), [COMPLETE_ASK_EXAMPLE]);
   for (const [path, { text, examples: own }] of rendered) add(path, text, own);
   return { files, examples };
 };

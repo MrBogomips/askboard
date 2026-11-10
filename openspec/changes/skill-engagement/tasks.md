@@ -104,7 +104,7 @@ Order: group 0, then group 1, then group 2: group 2 regenerates `skills/` after 
 
 ## 2. The skill generator
 
-- [ ] 2.1 "Which tool asks" (skills spec, "Routing between AskBoard and AskUserQuestion"; design.md, decision 5).
+- [x] 2.1 "Which tool asks" (skills spec, "Routing between AskBoard and AskUserQuestion"; design.md, decision 5).
   - Tests first: replace the "SKILL.md routing" block of `tools/build/skills/generate.test.ts` (lines 99-117) with one test per scenario:
     - **The routing section:** "how hard the question is to grasp", "depend on one another", "bare IDs", "visual artifact", "examples", "judge", "simple, self-explanatory choice", the subagent line verbatim, "asking rule", "overrides".
     - **No count:** the section between "## Which tool asks" and the next heading holds neither "more than four" nor "several questions".
@@ -112,7 +112,8 @@ Order: group 0, then group 1, then group 2: group 2 regenerates `skills/` after 
     - **Not in chat prose:** "Never put a complex question to the user in chat prose".
   - Rewrite the section of `tools/build/skills/templates/SKILL.md` as decision 5 gives it.
   - Verify: `bun test tools/build/skills` passes, and the asking-rule, ownership and help-pointer tests are unchanged and green.
-- [ ] 2.2 The `askboard` description (skills spec, "The asking skill's description says when to load it"; design.md, decision 4).
+  - As built (2026-11-10): the "SKILL.md routing" block replaced by four tests (section, no count, why the board, no chat prose); the template section is decision 5 verbatim. `SKILL.md` 8,405 characters, 80 lines. Refs #155.
+- [x] 2.2 The `askboard` description (skills spec, "The asking skill's description says when to load it"; design.md, decision 4).
   - Tests first, in the "SKILL.md frontmatter" block of `generate.test.ts`:
     - at most 600 characters;
     - the first 150 characters hold "complex" and "visual, interactive board";
@@ -121,7 +122,8 @@ Order: group 0, then group 1, then group 2: group 2 regenerates `skills/` after 
     - the existing no-widget-type test is kept.
   - Write the description that task 0.1 records into the template's frontmatter.
   - Verify: `bun test tools/build/skills` passes, and the description's length is recorded.
-- [ ] 2.3 "By what the user has to do" (skills spec, "Item types by what the user has to do"; design.md, decision 6).
+  - As built (2026-11-10): one frontmatter test added (at most 600, first 150 characters, three phrases, no "are available"); the description is design.md's draft verbatim, 496 characters.
+- [x] 2.3 "By what the user has to do" (skills spec, "Item types by what the user has to do"; design.md, decision 6).
   - Tests first, in a new `tools/build/skills/payoff.test.ts`:
     - every type `PAYOFF` names is a context type, a registered type of `WIDGET_TYPES` or a ready molecule, which catches typos;
     - the rendered section says "Examples, not a list";
@@ -135,19 +137,23 @@ Order: group 0, then group 1, then group 2: group 2 regenerates `skills/` after 
     - The ordering test of context types, widgets and molecules still passes.
   - Add `tools/build/skills/payoff.ts` (`PAYOFF` and a renderer). `catalogueText` writes the section, and `itemIndex` changes its first line.
   - Verify: `bun test tools/build/skills` passes; coverage of `payoff.ts` and `catalogue.ts`.
-- [ ] 2.4 A complete ask (skills spec, "A complete ask in the catalogue"; design.md, decision 7).
+  - As built (2026-11-10): `tools/build/skills/payoff.ts` (`PAYOFF`, `renderPayoff`) with `payoff.test.ts` (6 tests) and two tests in "the item index"; `catalogueText` writes the section before "Context items", and the index line is changed. Two tests of `catalogue.test.ts` had to follow: the index line they pin, and the budget test "twelve more types" became "eight more types" (the catalogue now holds 4,739 characters, so twelve probe types pass 6,000; the guard still stands). Deviation from decision 6, none.
+- [x] 2.4 A complete ask (skills spec, "A complete ask in the catalogue"; design.md, decision 7).
   - Tests first, in `generate.test.ts`: the last tagged block of `references/items.md` is a `json ask` with `askId`, `language` and one question holding an `excerpt` and options with exactly one `recommended`; and `examples` holds it with file `references/items.md`. The "hold every tagged block as one of the examples, in order" test stays green.
   - Add `COMPLETE_ASK_EXAMPLE` to `payoff.ts`. Write it under "## A complete ask" in `catalogueText` through `exampleBlock`, and report it from `generateSkill`.
   - Verify: `bun test tools/build/skills` passes; after `bun run build:skills`, `bun test packages/server/test/skills-examples.test.ts` passes and its count of `json ask` blocks rose by one.
-- [ ] 2.5 The help description (skills spec, "The help skill's description names its triggers"; design.md, decision 9).
+  - As built (2026-11-10): `COMPLETE_ASK_EXAMPLE` in `payoff.ts`, written under "## A complete ask" and reported from `generateSkill`; one test in "the item index". `skills-examples.test.ts` passes with the extra `json ask` block.
+- [x] 2.5 The help description (skills spec, "The help skill's description names its triggers"; design.md, decision 9).
   - Tests first, in `tools/build/skills/help.test.ts` (the frontmatter test at lines 103-117): the description holds "keyboard shortcuts", "rebind" and "remap", still holds "asks in the terminal" and "follow-up on the board is not for this skill", is at most 400 characters, and holds no "It never asks anything on a board".
   - Change `templates/help/SKILL.md:3`.
   - Verify: `bun test tools/build/skills` passes, and `askboard-help`'s `SKILL.md` is no longer than 5,977 characters.
+  - As built (2026-11-10): four assertions added to the frontmatter test of `help.test.ts`; the description is decision 9 verbatim, 295 characters; `askboard-help` `SKILL.md` 5,962 characters.
 - [ ] 2.6 Regenerate and measure.
   - Run `bun run build:skills` and commit `skills/askboard/` and `skills/askboard-help/`.
   - Record the figures, and the margins left for the five widgets in flight: `SKILL.md` at most about 8,450, `items.md` at most about 4,800, the always-loaded total at most about 7,600 (design.md, Risks).
   - The coordinator runs the trigger eval's second iteration on the shipped description and records it beside task 0.4's baseline.
   - Verify: `bun run check:skills` reports no drift and every figure within budget; the eval's five outcomes are recorded. A query that still fails stays a finding for task 4.3, not a stop.
+  - As built, regeneration part (2026-11-10, not committed; the coordinator commits): `bun run build:skills` rewrote `skills/askboard/SKILL.md`, `skills/askboard/references/items.md` and `skills/askboard-help/SKILL.md`. Figures: description 496 of 600; `SKILL.md` 8,405 of 9,000 characters and 80 of 250 lines; `items.md` 4,739 of 6,000; always-loaded total 7,543 of 8,400; `askboard-help` description 295 of 400 and `SKILL.md` 5,962 of 6,000 (47 lines). Margins against the design's limits for the five widgets in flight (`SKILL.md` about 8,450, `items.md` about 4,800, total about 7,600): `SKILL.md` 45, `items.md` 61, total 57. The trigger eval is the coordinator's and stays open.
 - [ ] 2.7 Review checkpoint, group 2.
   - A spec review of the group's range against the skills delta and decisions 4 to 7 and 9, including that no generated file names an AI tool or vendor (`generate.test.ts`, "name no AI tool or vendor").
   - No security review: the group touches only the generator and its generated Markdown.

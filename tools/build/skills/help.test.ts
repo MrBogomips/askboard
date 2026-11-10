@@ -109,6 +109,9 @@ describe("SKILL.md", () => {
     // Review 7.3, X-21: it serves questions asked in the terminal, not a board follow-up.
     expect(value("description")).toContain("asks in the terminal");
     expect(value("description")).toContain("follow-up on the board is not for this skill");
+    for (const word of ["keyboard shortcuts", "rebind", "remap"])
+      expect(value("description")).toContain(word);
+    expect(value("description")).not.toContain("It never asks anything on a board");
     expect(value("disallowed-tools").split(" ")).toEqual(
       TOOL_DEFINITIONS.map(({ name }) => `${SESSION_TOOL_PREFIX}${name}`),
     );
