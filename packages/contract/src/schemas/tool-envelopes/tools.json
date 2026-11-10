@@ -2,7 +2,7 @@
   "tools": [
     {
       "name": "ask",
-      "description": "Show questions to the user on a local web board and keep working: the answers come later, through collect. `items` holds the questions (`type: \"question\"`); a question's `props.items` holds its widgets, excerpts and molecules. Every item is `{type, id, props}`, with an ID of your choosing that matches [A-Za-z0-9_-]{1,64} and is unique in the ask. Write content and data only: no HTML, CSS, script, colours or positions, since AskBoard lays the board out. Point to project files instead of copying them (`path#Heading`, `path#L10-L40`). Never compute totals, estimates, dates or margins: AskBoard derives them. The askboard skill lists every item type and its props. Returns the board link and the ask's first cursor.",
+      "description": "Show questions to the user on a local web board and keep working: the answers come later, through collect. `items` holds the questions (`type: \"question\"`); a question's `props.items` holds its widgets, excerpts and molecules. Every item is `{type, id, props}`, with an ID of your choosing that matches [A-Za-z0-9_-]{1,64} and is unique in the ask. Write content and data only: no HTML, CSS, script, colours or positions, since AskBoard lays the board out. Point to project files instead of copying them (`path#Heading`, `path#L10-L40`). Never compute totals, estimates, dates or margins: AskBoard derives them. Load the askboard skill before your first ask: it says when to ask here rather than with AskUserQuestion, and lists every item type and its props. Returns the board link and the ask's first cursor.",
       "inputSchema": {
         "type": "object",
         "properties": {

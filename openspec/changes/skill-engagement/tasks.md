@@ -24,11 +24,16 @@ Order: group 0, then group 1, then group 2: group 2 regenerates `skills/` after 
     5. The `none` text changes as decision 8 gives it.
 
     The approval date of A1 to A3 is 2026-11-10. The final description is design.md's draft, 496 characters, unchanged.
-- [ ] 0.2 Names, heads and baseline (design.md, Context: merge points and borrowed seams). Tests: none.
+- [x] 0.2 Names, heads and baseline (design.md, Context: merge points and borrowed seams). Tests: none.
   - Find with `git grep -n` on `origin/main` every name in design.md's "Borrowed seams" list, and record each with its file and line.
   - Record the head of each branch in the merge-point table, and whether it moved since e76d468c. Record whether `keyboard-shortcuts-help` has been archived, and whether any of the five widget changes has merged; a merged one moves the budget figures.
   - Record the figures, and the pass counts of `bun test` for `packages/contract`, `packages/server/test/mcp-tools` and `tools/build/skills`.
   - Verify: the note lists every name, head and figure. If a name or shape differs, or a name is not on `main`, stop and run `/opsx:update` before group 1.
+  - As built (2026-11-10), on `origin/main` e76d468c (not moved):
+    - **Names found, all as design.md says:** `APPROVED_TEXT_AMENDMENTS` and `amendedApprovedText` (`packages/contract/src/fixtures/approved-amendments.ts:21,42`); `SERVER_INSTRUCTIONS` (`packages/contract/src/server-instructions.ts:6`); `TOOL_DEFINITIONS` (`packages/contract/src/schemas/tool-envelopes/index.ts:71`); `ASKING_RULE_TEXTS` (`packages/contract/src/push/asking-rules.ts:18`); `WIDGET_TYPES` (`packages/contract/src/widgets/registry.ts:166`); `READY_MOLECULES`, `MOLECULE_SKILLS` (`packages/molecules/src/index.ts:29,57`); `catalogueText`, `itemIndex` (`tools/build/skills/catalogue.ts:15,34`); `CONTEXT_TEACHING` (`context-examples.ts:28`); `contextTypes` (`references.ts:26`); `exampleBlock`, `taggedBlocks` (`blocks.ts`, `taggedBlocks` at line 21; `exampleBlock` is imported by `generate.ts:20`, a private one of another shape exists in `help-keys.ts:93`); `generateSkill` (`generate.ts:121`); `generateHelpSkill` (`help.ts:123`); `parseFrontmatter`, `BUDGETS`, `HELP_BUDGETS` (`budgets.ts:80,8,21`).
+    - **Heads:** `diagram-widget` ed783fe5, `graph-widget` 482223d0, `diff-review` dfb0e6cb, `image-annotation` 1f8f6811, `spreadsheet-widget` 972b9622, `kanban-order` 6d72c395, `early-benchmark` 1181e85b (all on their `worktree-feature-*` branches, proposal commits only). `origin/main` is still e76d468c, so none of the five widget changes has merged. `keyboard-shortcuts-help` is not archived (still under `openspec/changes/`).
+    - **Figures:** `askboard` description 342, `SKILL.md` 7,533 characters and 76 lines, always-loaded total 6,733, `askboard-help` description 310 and `SKILL.md` 5,977 and 47 lines (`items.md` 3,209 per design.md; `check:skills` does not print it).
+    - **Pass counts of `bun test`:** `packages/contract` 4,226, `packages/server/test/mcp-tools` 204, `tools/build/skills` 277, 0 failures.
 - [x] 0.3 What Claude Code does (design.md, Context, the four "needs probe" items). Tests: none.
   - As built (2026-11-10), from Claude Code's documentation, read through `claude-code-guide`, and from the eval runs:
     - **Descriptions dropped.** Documented in skills.md, "Skill descriptions are cut short": "When the listing overflows, Claude Code drops descriptions starting with the skills you invoke least". The budget is 1% of the context window. Plugin skills are not affected by `skillOverrides`.
@@ -71,7 +76,7 @@ Order: group 0, then group 1, then group 2: group 2 regenerates `skills/` after 
 
 ## 1. Contract: the amendments and the `none` text
 
-- [ ] 1.1 Server instructions, A1 and A2 (mcp-adapter spec, "The server instructions route by complexity" and "Approved texts unchanged"; design.md, decision 2). Refs #155, #122.
+- [x] 1.1 Server instructions, A1 and A2 (mcp-adapter spec, "The server instructions route by complexity" and "Approved texts unchanged"; design.md, decision 2). Refs #155, #122.
   - Tests first, in `packages/contract/test/approved-amendments.test.ts`, "the approved wording":
     - the routing paragraph names "depend on one another", "bare IDs", "a document to review", "These are examples" and "self-explanatory", and holds neither "more than four" nor "one quick choice";
     - one line says "Load the askboard skill" and "before your first `ask`";
@@ -80,14 +85,17 @@ Order: group 0, then group 1, then group 2: group 2 regenerates `skills/` after 
   - Append A1 and A2 to `APPROVED_TEXT_AMENDMENTS`, with change `skill-engagement`, target `server-instructions.md` and the date from task 0.1, worded as task 0.1 records. Set `SERVER_INSTRUCTIONS` to the result. Correct the comment at `server-instructions.ts:1-4`: four of the five tools, `snapshot` left out, and this change's amendments named.
   - Leave `packages/contract/test/fixtures/` and the archive untouched.
   - Verify: `bun test packages/contract packages/server/test/mcp-tools packages/bench` passes; `git diff --stat` shows no file under `packages/contract/test/fixtures/` or `openspec/changes/archive/`; the served text's length is recorded.
-- [ ] 1.2 `ask` description, A3 (mcp-adapter spec, "The ask description points to the skill"; design.md, decision 3).
+  - As built (2026-11-10): A1 (the routing paragraph) and A2 (the skill line, the chat-prose line and the `ask` line, one entry replacing the old line) appended with change `skill-engagement`, approved `2026-11-10`; `SERVER_INSTRUCTIONS` now 2,130 of 4,096 characters, no `snapshot`. Five tests added in a new block "the approved wording of skill-engagement" of `approved-amendments.test.ts` (the spec names the block "the approved wording": it is a sibling block, since the first one is about agent-facing-gaps). Comment of `server-instructions.ts` corrected. `bun test packages/contract packages/server/test/mcp-tools packages/bench tools/build/skills`: 4,900 pass, 0 fail. No file under `packages/contract/test/fixtures/` or the archive touched. Refs #155, #122.
+- [x] 1.2 `ask` description, A3 (mcp-adapter spec, "The ask description points to the skill"; design.md, decision 3).
   - Tests first, in `approved-amendments.test.ts`, "the approved wording": `ask`'s description holds "Load the askboard skill before your first ask" and still "lists every item type and its props".
   - Append A3 to the record (target `tools.json#ask.description`). Change only that description in `packages/contract/src/schemas/tool-envelopes/tools.json`; every input schema and annotation stays byte-identical.
   - Verify: the contract and `mcp-tools` tests pass, and `git diff` of `tools.json` shows one changed line, the `ask` description.
-- [ ] 1.3 The `none` text (contract spec, "Asking-rule texts", scenario "The none text"; design.md, decision 8).
+  - As built (2026-11-10): A3 appended (`tools.json#ask.description`, 718 to 809 characters); `tools.json` has one changed line. Covered by the block of task 1.1.
+- [x] 1.3 The `none` text (contract spec, "Asking-rule texts", scenario "The none text"; design.md, decision 8).
   - Tests first, in `packages/contract/test/asking-rule-texts.test.ts`: the `none` text holds "No question is taken from AskUserQuestion" and "how complex it is".
   - Change `ASKING_RULE_TEXTS.none`.
   - Verify: `bun test packages/contract` passes, and the existing tests of the set (one text per rule, single line, frozen, distinct) still pass.
+  - As built (2026-11-10): `ASKING_RULE_TEXTS.none` reworded as decision 8 gives it; one test added to `asking-rule-texts.test.ts`. `skills/` is not regenerated yet (task 2.6), so `check:skills` reports drift until group 2.
 - [ ] 1.4 Review checkpoint, group 1.
   - A spec review (`askboard-spec-reviewer`) of the group's range against the mcp-adapter and contract deltas and decisions 2, 3 and 8.
   - A security review (`askboard-security-reviewer`), since the group touches a file under the contract's schemas (`tools.json`): no input schema, annotation or validator changes, and no served text invites agent content to run.

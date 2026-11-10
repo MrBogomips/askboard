@@ -23,6 +23,11 @@ describe("the asking-rule texts", () => {
     expect(ASKING_RULE_TEXTS["with-references"]).toBe(WITH_REFERENCES_DESCRIPTION);
   });
 
+  test("tell the none rule's agent that it chooses by complexity", () => {
+    expect(ASKING_RULE_TEXTS.none).toContain("No question is taken from AskUserQuestion");
+    expect(ASKING_RULE_TEXTS.none).toContain("how complex it is");
+  });
+
   test("are frozen", () => {
     expect(Object.isFrozen(ASKING_RULE_TEXTS)).toBe(true);
   });

@@ -33,6 +33,27 @@ export const APPROVED_TEXT_AMENDMENTS: readonly ApprovedTextAmendment[] = [
     from: "- Reply to follow-ups at once with `update` (`reply`): the user is waiting for you.",
     to: "- Reply to follow-ups at once with `update` (`reply`, with the question's `itemId` and the follow-up's cursor): the user is waiting for you.",
   },
+  {
+    change: "skill-engagement",
+    approved: "2026-11-10",
+    target: "server-instructions.md",
+    from: "Use it for questions AskUserQuestion carries badly: more than four at once, or a question that needs a diff, a plan, a tree, a table, a graph, a diagram, an image, or a file excerpt beside it. For one quick choice AskUserQuestion is fine, unless the user's asking rule says otherwise.",
+    to: "Use it when a question is hard to grasp or to answer in a terminal dialog, whatever the number of questions or options: questions that are many and depend on one another; questions that cite documents by bare IDs (D-01, FR-12, ADR-7) the user would have to look up; content that reads better seen and worked on, such as a plan, a WBS or a Gantt, a chart, a table, a diagram or a state machine, a formula, or a document to review. These are examples: judge whether a visual, interactive board helps the user decide. A simple, self-explanatory choice stays in AskUserQuestion. The user's asking rule, or the user's own instruction about how to ask, decides first.",
+  },
+  {
+    change: "skill-engagement",
+    approved: "2026-11-10",
+    target: "server-instructions.md",
+    from: "- Put everything you need in one `ask`, then keep working.",
+    to: "- Load the askboard skill (as a plugin skill, `askboard:askboard`) before your first `ask`: it says how to build each item.\n- Never put a complex question to the user in chat prose: ask it on the board.\n- Put everything you need in one `ask`, then keep working.",
+  },
+  {
+    change: "skill-engagement",
+    approved: "2026-11-10",
+    target: "tools.json#ask.description",
+    from: "The askboard skill lists every item type and its props.",
+    to: "Load the askboard skill before your first ask: it says when to ask here rather than with AskUserQuestion, and lists every item type and its props.",
+  },
 ];
 
 /**
