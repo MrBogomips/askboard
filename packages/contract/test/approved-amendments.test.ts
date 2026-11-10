@@ -186,8 +186,10 @@ describe("the approved wording of skill-engagement", () => {
       "depend on one another",
       "bare IDs",
       "a document to review",
+      "reads better seen and worked on",
       "These are examples",
-      "self-explanatory",
+      "self-explanatory choice stays in AskUserQuestion",
+      "The user's asking rule, or the user's own instruction about how to ask, decides first",
     ]) {
       expect(routing, phrase).toContain(phrase);
     }
