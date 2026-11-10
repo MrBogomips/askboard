@@ -77,7 +77,7 @@ export const IT_IT = {
   "settings.keys": "Tasti",
   "settings.keysDefault": "Tasti predefiniti",
   "settings.keysChanged": { one: "{count} azione cambiata", other: "{count} azioni cambiate" },
-  "settings.keysNote": "Si applica alle lavagne aperte dopo una modifica",
+  "settings.keysNote": "Si applica alle board aperte dopo una modifica",
   "settings.keysProblem.action": "{action} non è un'azione con tasti",
   "settings.keysProblem.native":
     "i tasti di {action} appartengono al controllo e non si possono cambiare",

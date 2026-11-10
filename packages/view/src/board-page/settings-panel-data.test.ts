@@ -244,7 +244,7 @@ describe("the Keys row", () => {
     const row = data(settingsWithKeys, "it-IT").keys;
     expect(row.label).toBe("Tasti");
     expect(row.value).toBe("3 azioni cambiate");
-    expect(row.note).toBe("Si applica alle lavagne aperte dopo una modifica");
+    expect(row.note).toBe("Si applica alle board aperte dopo una modifica");
     expect(data(settingsWithEveryKey, "it-IT").keys.value).toBe("Tasti predefiniti");
   });
 
