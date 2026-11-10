@@ -8,14 +8,17 @@ import {
   CONFIGURATION_VERSION,
   KEY_VOCABULARY,
   KEYS_OPEN_RESERVED_KEYS,
+  type KeyEntry,
   keyBinding,
   keyExitActions,
   keyOverridesProblems,
   ownEntry,
   parseKeyCombination,
+  REGISTERED_KEY_TABLES,
   SETTING_ROW_WARNINGS_MAX,
   TOOL_DEFINITIONS,
   WIDGET_TYPES,
+  type WidgetType,
 } from "@askboard/contract";
 import { PROBE_WIDGET } from "@askboard/contract/fixtures";
 import { MOLECULE_SKILLS, READY_MOLECULES } from "@askboard/molecules";
@@ -311,6 +314,69 @@ describe("the keys panel in the help skill", () => {
     expect(skill).not.toContain(
       "A widget with keys of its own lists them in its reference below, and the board's keys panel",
     );
+  });
+});
+
+// Review 7.3, S-68: the "Read-only." line names every family of key that acts on a read-only item,
+// the families read from the contract's key tables, never from a copied list.
+describe("the read-only line", () => {
+  type Family = "movement" | "view" | "panel";
+  const familyOf = (action: string): Family =>
+    /^(cursor|toolbar)\./.test(action) ? "movement" : action === "keys.open" ? "panel" : "view";
+  const familiesOf = (tables: readonly { readonly keys?: readonly KeyEntry[] }[]): Set<Family> =>
+    new Set(
+      tables.flatMap(({ keys }) =>
+        (keys ?? [])
+          .filter((entry) => entry.readOnly && entry.keys.length > 0)
+          .map(({ action }) => familyOf(action)),
+      ),
+    );
+  const PHRASE: Record<Family, string> = {
+    movement: "move around",
+    view: "change only the view",
+    panel: "keys panel",
+  };
+  const lineOf = (text: string): string => {
+    const found = text.split("\n").find((line) => line.startsWith("- **Read-only.**"));
+    if (found === undefined) throw new Error("no Read-only line");
+    return found;
+  };
+
+  test("names each family the registered tables hold, the view family included", () => {
+    const present = familiesOf(REGISTERED_KEY_TABLES);
+    expect([...present].sort()).toEqual(["movement", "panel", "view"]);
+    const line = lineOf(skill);
+    for (const family of present) expect(line).toContain(PHRASE[family]);
+    expect(line).toContain("change only the view of the Gantt");
+  });
+
+  test("a probe table adding a read-only own action to a type with none makes the view family required", () => {
+    const ranking = WIDGET_TYPES.find(({ type }) => type === "ranking") as WidgetType;
+    expect(familiesOf([ranking]).has("view")).toBe(false);
+    expect(
+      lineOf(generateHelpSkill({ widgets: [ranking] }).files.get("SKILL.md") ?? ""),
+    ).not.toContain("change only the view");
+    const peeking = {
+      ...ranking,
+      keys: [
+        ...(ranking.keys ?? []),
+        ownEntry("ranking.peek", "list", [keyBinding("p")], "tool", {
+          readOnly: true,
+          label: "keys.action.undo",
+        }),
+      ],
+    };
+    expect(familiesOf([peeking]).has("view")).toBe(true);
+    const line = lineOf(generateHelpSkill({ widgets: [peeking] }).files.get("SKILL.md") ?? "");
+    expect(line).toContain("change only the view of the Ranking");
+  });
+
+  test("with no key acting on a read-only item, the line says so", () => {
+    const bare = { ...PROBE_WIDGET, skill: { use: "a pick" }, help: { mouse: "m", answer: "a" } };
+    const line = lineOf(
+      generateHelpSkill({ widgets: [bare as never] }).files.get("SKILL.md") ?? "",
+    );
+    expect(line).toContain("No key acts there");
   });
 });
 

@@ -121,6 +121,33 @@ const reach = (widgets: readonly WidgetType[], onBoard: readonly string[]) =>
         applies: `- A change applies to the next board opened, not to one already open, and only in ${reached(widgets, onBoard)}; the keys panel (the Keys button) shows the keys in effect, with a changed action marked.`,
       };
 
+// The sentence of `SKILL.md`'s "Read-only." line on the keys that still act on an item that takes no
+// edits, from the key tables (review 7.3, S-68): the keys that move around (`cursor.*`, `toolbar.*`),
+// those of a type's own that change only the view, and those that open the keys panel.
+const READ_ONLY_FAMILY = (action: string): "movement" | "panel" | "view" =>
+  /^(cursor|toolbar)\./.test(action) ? "movement" : action === "keys.open" ? "panel" : "view";
+
+/** The sentence on the keys that act on a read-only item; names the types whose own keys change only the view. */
+export const readOnlyKeysText = (widgets: readonly WidgetType[]): string => {
+  const acting = widgets.flatMap((entry) =>
+    (entry.keys ?? [])
+      .filter(({ readOnly, keys }) => readOnly && keys.length > 0)
+      .map(({ action }) => ({ type: entry.type, family: READ_ONLY_FAMILY(action) })),
+  );
+  const has = (family: string): boolean => acting.some((found) => found.family === family);
+  const viewTypes = [
+    ...new Set(acting.filter(({ family }) => family === "view").map(({ type }) => type)),
+  ];
+  const parts = [
+    ...(has("movement") ? ["move around"] : []),
+    ...(has("view") ? [`change only the view of ${reached(widgets, viewTypes)}`] : []),
+    ...(has("panel") ? ["open a widget's keys panel"] : []),
+  ];
+  if (parts.length === 0) return "No key acts there.";
+  const list = parts.length < 2 ? parts[0] : `${parts.slice(0, -1).join(", ")} or ${parts.at(-1)}`;
+  return `Only the keys that ${list} still act there.`;
+};
+
 // The keys `keys.open` may not take with no modifier or Shift, as the notation writes them.
 const openReserved = (): string =>
   [...KEYS_OPEN_RESERVED_KEYS]

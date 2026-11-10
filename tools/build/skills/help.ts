@@ -11,7 +11,13 @@ import {
 } from "@askboard/contract";
 import { MOLECULE_SKILLS, type MoleculeSkill, READY_MOLECULES } from "@askboard/molecules";
 import { fill } from "./fill.ts";
-import { configureKeysText, KEY_EXAMPLES, type KeyExample, keyActionsText } from "./help-keys.ts";
+import {
+  configureKeysText,
+  KEY_EXAMPLES,
+  type KeyExample,
+  keyActionsText,
+  readOnlyKeysText,
+} from "./help-keys.ts";
 import { keysSection, typeName } from "./keys.ts";
 import { DISK_TEMPLATES, type Templates } from "./templates.ts";
 
@@ -123,7 +129,11 @@ export const generateHelpSkill = (inputs: Partial<HelpInputs> = {}): GeneratedHe
     inputs.toolNames ?? TOOL_DEFINITIONS.map(({ name }) => `${SESSION_TOOL_PREFIX}${name}`);
   const { help } = fill(
     { help: templates.help },
-    { disallowedTools: toolNames.join(" "), index: index(widgets, molecules) },
+    {
+      disallowedTools: toolNames.join(" "),
+      index: index(widgets, molecules),
+      readOnlyKeys: readOnlyKeysText(widgets),
+    },
   );
   const files = new Map<string, string>();
   files.set("SKILL.md", withNewline(help ?? ""));
