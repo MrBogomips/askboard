@@ -14,7 +14,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { FRAME, LIST } from "./classes.ts";
 import type { RowDragEvents } from "./drag.ts";
 import { afterDrop, type DragState, indicatorOf } from "./drop.ts";
-import { rankingTools } from "./keys.ts";
+import { RANKING_TOOLS, rankingTools } from "./keys.ts";
 import { type ListChange, type ListContext, listKeyChange, moveOrder } from "./list-keys.ts";
 import { movedOf } from "./model.ts";
 import { actingRows } from "./moves.ts";
@@ -122,11 +122,11 @@ export const RankingWidget = ({
   };
 
   const onTool = (tool: ToolKey): void => {
-    const kinds = { moveUp: "up", moveDown: "down", toTop: "top", toBottom: "bottom" } as const;
     if (tool === "keep") onOrder(order);
     else if (tool === "selectNone") setPicked(clear());
     else {
-      const next = moveOrder(context, kinds[tool]);
+      const kind = RANKING_TOOLS.find(({ key }) => key === tool)?.move;
+      const next = kind === undefined ? undefined : moveOrder(context, kind);
       if (next !== undefined) onOrder(next);
     }
   };

@@ -101,6 +101,24 @@ describe("RANKING_TOOLS", () => {
       ["selectNone", "select.none"],
     ]);
   });
+
+  // The widget reads a tool's move from here, so the pairing is what makes a click move rows.
+  test("the four tools that move rows carry the move their action names, and the others none", () => {
+    const named: Record<string, string> = {
+      "move.up": "up",
+      "move.down": "down",
+      "move.top": "top",
+      "move.bottom": "bottom",
+    };
+    for (const tool of RANKING_TOOLS) {
+      const want = named[tool.action];
+      expect({ key: tool.key, move: tool.move as string | undefined }).toEqual({
+        key: tool.key,
+        move: want,
+      });
+    }
+    expect(RANKING_TOOLS.filter(({ move }) => move !== undefined)).toHaveLength(4);
+  });
 });
 
 // The spec's "Every visible action in the table": the toolbar and the key table, compared both ways.

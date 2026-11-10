@@ -143,10 +143,10 @@ const Tool = ({
 };
 
 /**
- * The row, drawn for a given `crowded`: the measure is the wrapper's (`RankingToolbar`), so that a
- * test draws either row. `toolsRef` is the tools' element, which the wrapper measures.
+ * The row, drawn for a given `crowded`: the measure is the wrapper's (`RankingToolbar`).
+ * `toolsRef` is the tools' element, which the wrapper measures.
  */
-export const ToolbarRow = ({
+const ToolbarRow = ({
   tools,
   table,
   held,
