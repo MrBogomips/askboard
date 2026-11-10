@@ -12,23 +12,39 @@ Order: group 0, then group 1, then group 2: group 2 regenerates `skills/` after 
 
 ## 0. Base
 
-- [ ] 0.1 PO decisions (design.md, Open Questions 1 to 5). Tests: none.
+- [x] 0.1 PO decisions (design.md, Open Questions 1 to 5). Tests: none.
   - Record each answer under this task, with its date and its source (a comment on #155). The date of A1 to A3's approval is the `approved` field of their amendments (tasks 1.1 and 1.2).
   - Record the `askboard` description the coordinator settled after the trigger eval (task 0.4). It must keep the rules of the skills requirement "The asking skill's description says when to load it".
   - Verify: five answers and the final description recorded. An answer other than the default stops the work for `/opsx:update` before group 1. If question 4 is declined, the mcp-adapter MODIFIED requirement leaves this change, and `Issue: #122` leaves the proposal.
+  - As built (2026-11-10, #155 comment 6775174245): the PO delegated the five decisions to the coordinator ("Rispondi tu per me e chiudi tutto"). Every question takes its default:
+    1. A1 and A2 are approved as worded.
+    2. A3 is approved as worded.
+    3. The mapping and the complete ask go in `items.md`.
+    4. #122 is folded in.
+    5. The `none` text changes as decision 8 gives it.
+
+    The approval date of A1 to A3 is 2026-11-10. The final description is design.md's draft, 496 characters, unchanged.
 - [ ] 0.2 Names, heads and baseline (design.md, Context: merge points and borrowed seams). Tests: none.
   - Find with `git grep -n` on `origin/main` every name in design.md's "Borrowed seams" list, and record each with its file and line.
   - Record the head of each branch in the merge-point table, and whether it moved since e76d468c. Record whether `keyboard-shortcuts-help` has been archived, and whether any of the five widget changes has merged; a merged one moves the budget figures.
   - Record the figures, and the pass counts of `bun test` for `packages/contract`, `packages/server/test/mcp-tools` and `tools/build/skills`.
   - Verify: the note lists every name, head and figure. If a name or shape differs, or a name is not on `main`, stop and run `/opsx:update` before group 1.
-- [ ] 0.3 What Claude Code does (design.md, Context, the four "needs probe" items). Tests: none.
+- [x] 0.3 What Claude Code does (design.md, Context, the four "needs probe" items). Tests: none.
+  - As built (2026-11-10), from Claude Code's documentation, read through `claude-code-guide`, and from the eval runs:
+    - **Descriptions dropped.** Documented in skills.md, "Skill descriptions are cut short": "When the listing overflows, Claude Code drops descriptions starting with the skills you invoke least". The budget is 1% of the context window. Plugin skills are not affected by `skillOverrides`.
+    - **Server instructions.** Documented in mcp.md, "Scale with MCP tool search": "Only tool names and server instructions load at session start". Server instructions are cut at 4,096 characters.
+    - **Skill name.** The command form `/askboard:askboard` is documented in plugins/components.md. The Skill tool's string `askboard:askboard` is not documented, but every eval run invoked it under that name, and the listing shows it as such.
+    - **Deferred tools.** Only the names load before a tool search (the same mcp.md sentence). The eval runs saw the AskBoard tools as deferred, by name only.
+    - **Extra lever, not used here.** A server can set `"anthropic/alwaysLoad": true` in a tool's `_meta` (mcp.md, "Mark a tool to load upfront"), which bears on #132.
+
+    None of these contradicts decisions 2, 3 or 4.
   - Check each item against Claude Code's documentation through `claude-code-guide`, recording the page and the sentence:
     - descriptions dropped from an overflowing listing, least-invoked first;
     - server instructions loaded in full with deferred tools, and their cap;
     - the plugin skill's listed and invoked name;
     - deferred tools' descriptions unseen before a tool search.
   - Verify: each item is recorded as documented (with the quote) or not documented. An item that contradicts a decision (2, 3 or 4) stops the work for `/opsx:update`. An undocumented item stays for the live check (task 4.3).
-- [ ] 0.4 Trigger eval, baseline (coordinator; design.md, decision 4). Tests: none (an eval, run from the session scratchpad and not committed).
+- [x] 0.4 Trigger eval, baseline (coordinator; design.md, decision 4). Tests: none (an eval, run from the session scratchpad and not committed).
   - Run the five queries against the current description and record, for each, whether the skill triggered and which tool asked.
   - Suggested queries, which the coordinator may replace:
     - a decision on D-01 to D-04 cited by ID;
@@ -37,6 +53,21 @@ Order: group 0, then group 1, then group 2: group 2 regenerates `skills/` after 
     - a state machine to check before a change;
     - "ask me on AskBoard which README fix to apply".
   - Verify: the five outcomes are recorded under this task, with the description run.
+  - As built (2026-11-10; #155 comment 6774897578 has the method and the table).
+    - **Setup.** The coordinator replaced the suggested queries with these five:
+      1. three interconnected ADR decisions cited by ID (IT);
+      2. a WBS with three-point estimates to sign off;
+      3. a pricing formula to verify (IT);
+      4. an 11-state state machine to review;
+      5. a rename and a yes/no question (IT), the near miss.
+
+      Each ran 3 times with `claude -p` on Opus 5.5, with AskUserQuestion made available through the bench permission host and the plugin 0.1.0 loaded with `--plugin-dir`.
+    - **Results.** Board first on queries 1 to 4:
+      - 6 of 12 with every description dropped (`SLASH_COMMAND_TOOL_CHAR_BUDGET=1`);
+      - 7 of 12 with the description shown.
+
+      Query 1 went to AskUserQuestion in 3 of 3 runs with the description dropped. The near miss never went to the board, but with the description shown it loaded the skill once.
+    - **Candidate texts.** A1 to A3 and the draft description, patched into a copy of 0.1.0. The run was stopped after 9 of 30 runs. In those runs query 1 went to the board first in 2 of 3 runs with the description dropped.
 
 ## 1. Contract: the amendments and the `none` text
 
