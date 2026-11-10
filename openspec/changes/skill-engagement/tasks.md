@@ -96,11 +96,12 @@ Order: group 0, then group 1, then group 2: group 2 regenerates `skills/` after 
   - Change `ASKING_RULE_TEXTS.none`.
   - Verify: `bun test packages/contract` passes, and the existing tests of the set (one text per rule, single line, frozen, distinct) still pass.
   - As built (2026-11-10): `ASKING_RULE_TEXTS.none` reworded as decision 8 gives it; one test added to `asking-rule-texts.test.ts`. `skills/` is not regenerated yet (task 2.6), so `check:skills` reports drift until group 2.
-- [ ] 1.4 Review checkpoint, group 1.
+- [x] 1.4 Review checkpoint, group 1.
   - A spec review (`askboard-spec-reviewer`) of the group's range against the mcp-adapter and contract deltas and decisions 2, 3 and 8.
   - A security review (`askboard-security-reviewer`), since the group touches a file under the contract's schemas (`tools.json`): no input schema, annotation or validator changes, and no served text invites agent content to run.
   - Fixes go in tests first.
   - Verify: both reports are recorded under this task with no open finding of M or above; the check passes.
+  - As built (2026-11-10): spec review of e26d4c3b..3b6d2bdd: one finding, S-1 (M): the routing-paragraph test pinned proxy words, not every clause; fixed in 220dbda0 (the test adds 'reads better seen and worked on', 'self-explanatory choice stays in AskUserQuestion' and the asking-rule-first sentence). Security review of the same range: no findings; one wording note passed on (the chat-prose line has no exception when the board cannot be reached; the skill's 'When an ask cannot go on' section covers the fallback). The skills drift closed by task 2.6.
 
 ## 2. The skill generator
 
@@ -161,7 +162,7 @@ Order: group 0, then group 1, then group 2: group 2 regenerates `skills/` after 
 
 ## 3. Documents
 
-- [ ] 3.1 PRD (design.md, decision 10; FR-29, FR-30, §1, §4.8).
+- [x] 3.1 PRD (design.md, decision 10; FR-29, FR-30, §1, §4.8).
   - In `docs/prd-askboard-2026-10-25/prd.md`:
     - reword FR-29's first and second consequences and add the new third one as decision 10 gives them;
     - add "by FR-29's criterion" to FR-30's description;
@@ -174,7 +175,7 @@ Order: group 0, then group 1, then group 2: group 2 regenerates `skills/` after 
     - `grep -n "more than four" docs/prd-askboard-2026-10-25/prd.md` finds nothing;
     - FR-29 names "cognitive and contextual complexity" and says its cases are examples;
     - `git diff` touches only FR-29, FR-30, §1, §4.8 and the front matter.
-- [ ] 3.2 README "When to use it" (design.md, decision 10).
+- [x] 3.2 README "When to use it" (design.md, decision 10).
   - Add the section after "Why AskBoard", with three parts:
     - "Use AskBoard when": the three cases, one example each;
     - "Stay with AskUserQuestion when": a simple, self-explanatory choice;
@@ -182,7 +183,8 @@ Order: group 0, then group 1, then group 2: group 2 regenerates `skills/` after 
   - Change the "How it works" sentence on the skill ("It teaches the agent when to ask through AskBoard rather than AskUserQuestion") only if it contradicts the new section.
   - Tests: none.
   - Verify: the section exists, names no count of questions or options, and says AskBoard sits beside AskUserQuestion.
-- [ ] 3.3 #108's live check reworded (coordinator).
+- [x] 3.3 #108's live check reworded (coordinator).
+  - As built (2026-11-10): https://github.com/MrBogomips/askboard/issues/108#issuecomment-6780003755. It also says the listing may show `askboard:askboard` by name only, so the server instructions carry engagement there.
   - Write a comment on #108 replacing the cases of `askboard-skills` 4.1 with the criterion's:
     - a simple, self-explanatory choice goes to AskUserQuestion;
     - a decision of interconnected questions citing documents by bare IDs loads the `askboard` skill first and goes to AskBoard in one ask;
@@ -191,7 +193,7 @@ Order: group 0, then group 1, then group 2: group 2 regenerates `skills/` after 
   - Note that "a question pointing to `README.md#Install` goes to AskBoard" no longer holds by itself (the `with-references` rule still sends it).
   - Tests: none.
   - Verify: the comment's link is recorded under this task.
-- [ ] 3.4 As-built note (after groups 1 and 2). Write `docs/as-built/skill-engagement.md`, about five lines, with no status:
+- [x] 3.4 As-built note (after groups 1 and 2). Write `docs/as-built/skill-engagement.md`, about five lines, with no status:
   - the amendments A1 to A3 in `APPROVED_TEXT_AMENDMENTS`;
   - the `none` text;
   - `payoff.ts` (`PAYOFF`, `COMPLETE_ASK_EXAMPLE`) and the catalogue's two sections;

@@ -1,0 +1,9 @@
+# As built: `skill-engagement` (#155, #122)
+
+The agent routes a question by its cognitive and contextual complexity, not by a count; the examples are indicative and the agent judges. Where it lives: `packages/contract/src/server-instructions.ts` (the always-loaded routing paragraph, which points to the `askboard` skill), `packages/contract/src/schemas/tool-envelopes/tools.json` (the `ask` description, 809 characters, text only), `ASKING_RULE_TEXTS.none` in `packages/contract/src/push/asking-rules.ts`, and the three approved-text amendments A1 to A3 (the two server-instruction texts and the `ask` description) in `APPROVED_TEXT_AMENDMENTS`, `packages/contract/src/fixtures/approved-amendments.ts`.
+
+- **Files added:** `tools/build/skills/payoff.ts` (`PAYOFF`, the "By what the user has to do" goal-to-item map, and `COMPLETE_ASK_EXAMPLE`, the complete ask) and `tools/build/skills/payoff.test.ts`. The catalogue (`tools/build/skills/catalogue.ts`) renders them as the two sections of `references/items.md`; `SKILL.md` gains "Which tool asks" (template `tools/build/skills/templates/SKILL.md`). The descriptions of `askboard` and `askboard-help` lead with their triggers.
+- **Figures:** `askboard` description 496/600; `SKILL.md` 8,405/9,000 characters and 80 lines; `references/items.md` 4,739/6,000; always-loaded total 7,543/8,400; `askboard-help` description 295/400 and `SKILL.md` 5,962/6,000; served instructions 2,130 characters.
+- **No versioned set moved:** no tool, widget, molecule, schema, input or annotation version changed; the amendments are approved text only.
+- **Deviations from design.md:** `SKILL.md` is larger than the design's arithmetic gave; the budget guard in `tools/build/skills/catalogue.test.ts` changed from twelve to eight types.
+- **PRD and README:** FR-29, FR-30, §1 and §4.8 of the PRD name the criterion; the README has a "When to use it" section.

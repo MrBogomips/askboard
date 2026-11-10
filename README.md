@@ -19,6 +19,20 @@ AskBoard lowers the effort a decision takes, on a board of one question as much 
 - **It stays cheap for the agent.** The agent sends content and data, never markup, and AskBoard draws them. Token cost and the time to show a question are design goals from the start, and AskBoard's own benchmark measures them against AskUserQuestion.
 - **It stays on your machine.** The board listens on `127.0.0.1` only, with a token on every request. There is no telemetry. What the agent sends is shown as data in a sandboxed view, and none of its markup or code ever runs. AskBoard fails closed: it never returns an answer you did not give.
 
+## When to use it
+
+AskBoard sits beside AskUserQuestion. The agent weighs how hard the question is to grasp and how much context it needs, never how many questions or options there are. The cases below are examples, not a complete list.
+
+**Use AskBoard when:**
+
+- the questions depend on one another, such as a set of decisions about one design, where an answer changes what the next one means;
+- the questions cite documents by bare IDs (D-01, FR-666, §5.3) that you would otherwise have to look up;
+- the content reads better seen and worked on: a WBS, a Gantt, a chart, a UML diagram or state machine, a formula, a table, a document to review.
+
+**Stay with AskUserQuestion when** the choice is simple and self-explanatory: "A or B?", with nothing to look up.
+
+The agent judges whether a visual, interactive board helps. An asking rule, set at user or project level, overrides that judgement.
+
 ## How it works
 
 1. **The agent asks.** It calls `ask` with one or many questions, grouped into areas if it likes, and carries on with its work.

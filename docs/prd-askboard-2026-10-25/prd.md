@@ -17,7 +17,7 @@ AskBoard is a standalone product of the AXFX family. The AXFX PRD (`prd-agentxem
 
 AskBoard turns the questions a Claude Code agent asks into visual, context-rich decisions. Today an agent asks through AskUserQuestion: a flat list of short text options, cryptic and full of acronyms and bare references such as D-01, FR-666 or §5.3, which the user has to look up before they can choose. With AskBoard, a complicated question opens in a browser on the user's own machine, laid out visually. The context the question needs sits beside it as an excerpt, with the source one click away, and interactive visual tools help the user understand the problem: a diagram they can correct, a Gantt chart, a WBS with estimates, a visual diff. Understanding the problem, they answer it correctly, and the agent gets back a typed answer it can act on.
 
-AskBoard exists to lower the cognitive complexity of a problem as the user feels it. It may open for a single question, such as one that needs a UML diagram, and it must be as effective on a simple single-question board as on a large one.
+AskBoard exists to lower the cognitive complexity of a problem as the user feels it. The agent sends a question to AskBoard by that complexity, and by the context it needs, not by a count of questions or options; the cases that call for a board (interconnected questions, bare references, content that reads better as a visual artifact) are examples, and a simple, self-explanatory choice stays with AskUserQuestion. It may open for a single question, such as one that needs a UML diagram, and it must be as effective on a simple single-question board as on a large one.
 
 AskBoard is for anyone who works in Claude Code and has to make the decisions an agent asks for: engineers first, and also power PMs and sales people who prefer Claude Code as their working environment. It works in any Claude Code project on its own. The AXFX family uses it, but it depends on nothing in AXFX.
 
@@ -477,7 +477,7 @@ A Snapshot is one HTML file with the board's data, styles and script inlined, sa
 
 ### 4.8 Setup and independence
 
-**Description:** AskBoard ships skills that teach agents when a question deserves a board. The agent keeps simple questions in AskUserQuestion and sends complicated ones to AskBoard; the user can override that choice with an asking rule.
+**Description:** AskBoard ships skills that teach agents when a question deserves a board. The agent keeps simple, self-explanatory questions in AskUserQuestion and sends those of greater cognitive and contextual complexity to AskBoard (FR-29); the user can override that choice with an asking rule.
 
 #### FR-28: User-level or project-level installation
 
@@ -493,8 +493,12 @@ A user can install AskBoard at user level, so that it works in every project, or
 AskBoard ships skills, and agents where a task needs one of its own, that teach Claude Code agents when to use AskBoard rather than AskUserQuestion, which widget or molecule fits a question, how to build and register a molecule, and how to keep asks cheap (several questions per ask, excerpts by pointer, molecules by name).
 
 **Consequences (testable):**
-- The shipped skills define which questions go to AskBoard and which to AskUserQuestion: for example, a question with references, a widget or more than four options goes to AskBoard, and a yes/no question without references goes to AskUserQuestion.
-- In a session where AskBoard is installed, with no asking rule set and no instruction from the user about how to ask, an agent follows that definition.
+- The shipped skills define which questions go to AskBoard and which to AskUserQuestion by the question's cognitive and contextual complexity, not by a count of questions or options. Their cases are given as examples, not as an exhaustive list: many interconnected questions; questions that cite documentation by bare IDs; content that reads better as a visual artifact (a WBS, a Gantt, a chart, UML or a state machine, a LaTeX formula, a table, a document to review). The agent judges whether a visual, interactive board helps, and a simple, self-explanatory choice goes to AskUserQuestion.
+- In a session where AskBoard is installed, with no asking rule set and no instruction from the user about how to ask, an agent follows that definition. The definition holds as a set of cases, run by the live check and the trigger eval:
+  - a decision of interconnected questions, or one citing documents by bare IDs, loads the skill and goes to AskBoard;
+  - a plan or a diagram to review goes to AskBoard;
+  - a simple, self-explanatory choice goes to AskUserQuestion.
+- The server instructions and the `ask` description state that criterion or point to the skill, and tell the agent to load the skill before its first ask, so the routing holds when the skill listing shows only the skill's name.
 - An agent that follows the shipped skills puts several questions in one ask rather than sending one ask per question.
 - A subagent, which cannot use AskUserQuestion, asks every question through AskBoard.
 - When AskBoard refuses a subagent's ask because it cannot show a board (NFR-8), the subagent ends its turn and returns the question to the agent that started it.
@@ -503,7 +507,7 @@ AskBoard ships skills, and agents where a task needs one of its own, that teach 
 
 #### FR-30: Beside AskUserQuestion, with asking rules
 
-AskBoard does not replace AskUserQuestion. The agent in the main conversation chooses between them for each question, and the user can set an asking rule that overrides that choice; subagents, which cannot use AskUserQuestion, always use AskBoard. Asking rules can be set at user level and at project level, like the installation; the project-level rule wins. They are set in AskBoard's configuration files, and every board's settings panel shows them read-only (FR-35).
+AskBoard does not replace AskUserQuestion. The agent in the main conversation chooses between them for each question by FR-29's criterion, and the user can set an asking rule that overrides that choice; subagents, which cannot use AskUserQuestion, always use AskBoard. Asking rules can be set at user level and at project level, like the installation; the project-level rule wins. They are set in AskBoard's configuration files, and every board's settings panel shows them read-only (FR-35).
 
 **Consequences (testable):**
 - With no asking rule, both AskBoard and AskUserQuestion remain available to the agent.
