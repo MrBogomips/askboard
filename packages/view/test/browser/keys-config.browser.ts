@@ -11,6 +11,7 @@
 import { describe, expect, test } from "bun:test";
 import type { Locator } from "playwright";
 import { atomAsk } from "./fixtures/atom-documents.ts";
+import { FIVE_ORDER, rankingFiveAsk } from "./fixtures/ranking-documents.ts";
 import {
   eventually,
   isFocused,
@@ -22,6 +23,7 @@ import {
 import type { Board } from "./harness/dom.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import { lifecycleScenario, openBoard } from "./harness/lifecycle-test.ts";
+import { orderShown, rowOf } from "./harness/ranking-drag.ts";
 import { readViewBuild, withKeysProbe } from "./harness/view-build.ts";
 
 const dist = await withKeysProbe(await readViewBuild());
@@ -192,6 +194,44 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await aria(tool(board, "first", "Probe top"))).toBe(
           "Alt+Shift+Home Control+Shift+ArrowUp Meta+Shift+ArrowUp",
         );
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    // The probe acts on no key, so the real Ranking, on the same refused file, shows the default
+    // keys acting (review 7.3, the unconfirmed point; spec: Keys not applied).
+    test(
+      "under the same refused file the Ranking's default keys act: Alt+Shift+Home takes the third row to the top and Alt+Shift+ArrowUp moves a row up one",
+      async () => {
+        const run = await start(
+          {
+            ...lifecycleScenario(rankingFiveAsk("keys-refused-ranking-k1b1"), dist),
+            config: { user: file({ keys: { "move.top": ["Alt+Shift+ArrowUp"] } }) },
+          },
+          { userAgent: LINUX_UA },
+        );
+        const board = await openBoard(run, ["plan"]);
+        const expectOrder = (order: readonly string[]) =>
+          eventually(
+            async () => JSON.stringify(await orderShown(board)) === JSON.stringify(order),
+            `the order ${order.join(", ")}`,
+          );
+        expect(await orderShown(board)).toEqual(FIVE_ORDER);
+        // The board page applies the user's keys with its first update; wait for it, as above.
+        await Bun.sleep(QUIET_MS);
+        await rowOf(board, "c").focus();
+        await board.page.keyboard.press("Alt+Shift+Home");
+        await expectOrder(["c", "a", "b", "d", "e"]);
+        // The row below the top two: were Alt+Shift+ArrowUp To top's, it would go to the top.
+        await rowOf(board, "b").focus();
+        await board.page.keyboard.press("Alt+Shift+ArrowUp");
+        await expectOrder(["c", "b", "a", "d", "e"]);
+        expect(
+          await board.view
+            .getByRole("toolbar", { name: "Ranking tools" })
+            .getByRole("button", { name: "Move up", exact: true })
+            .getAttribute("aria-keyshortcuts"),
+        ).toBe("Alt+Shift+ArrowUp");
       },
       TEST_TIMEOUT_MS,
     );

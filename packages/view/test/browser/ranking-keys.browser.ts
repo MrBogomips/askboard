@@ -266,6 +266,16 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     test(
       "Cmd or Ctrl+Shift+ArrowUp goes to the top as Alt+Shift+Home does",
       async () => {
+        // Ctrl on Linux and Cmd on macOS, each from a fresh order; Cmd+Shift+ArrowUp is the press
+        // WebKit may take for itself (review 7.3, the unconfirmed point), so it is pressed here too.
+        for (const chord of ["Control+Shift+ArrowUp", "Meta+Shift+ArrowUp"]) {
+          const { board } = await open(host);
+          const before = board.page.url();
+          await rowOf(board, "d").focus();
+          await board.page.keyboard.press(chord);
+          await expectOrder(board, ["d", "a", "b", "c", "e"]);
+          expect(board.page.url()).toBe(before);
+        }
         const { board } = await open(host);
         await rowOf(board, "d").focus();
         await board.page.keyboard.press("Control+Shift+ArrowUp");
