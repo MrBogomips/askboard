@@ -103,6 +103,9 @@ describe("SKILL.md", () => {
     const value = (key: string) => head.find(([name]) => name === key)?.[1] ?? "";
     expect(value("name")).toBe("askboard-help");
     expect(value("description").length).toBeLessThanOrEqual(400);
+    // Review 7.3, X-21: it serves questions asked in the terminal, not a board follow-up.
+    expect(value("description")).toContain("asks in the terminal");
+    expect(value("description")).toContain("follow-up on the board is not for this skill");
     expect(value("disallowed-tools").split(" ")).toEqual(
       TOOL_DEFINITIONS.map(({ name }) => `${SESSION_TOOL_PREFIX}${name}`),
     );
