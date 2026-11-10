@@ -164,7 +164,7 @@ Amended by D1 (PO, 2026-11-09; askboard-contract-versioning). Two sets move, eac
 
 The rest stands: the key tables and help text are TypeScript data in the registry, not schemas; `MoleculeSkill` is teaching data, not the molecule definition format; the selection and the panel are view state, in no draft record, board-protocol message or Snapshot data; the view manifest gains no chunk (Tooltip joins `radix`, the panel the shell). Every other set stays at main's value: task 0.2 recorded them, task 0.7 records the two again before group 8, and task 7.1 binds the two and checks the rest. In flight, `diagram-widget` (design only) also widens the board protocol, so whichever merges second rebinds; no change in flight widens the configuration; `kanban-order` widens the output format, which this change does not touch.
 
-Binding: filled at task 7.1.
+Bound on 2026-11-10, rebased onto origin/main 5562cec4 (no rebase needed: the branch already sat on it): configuration 1.1 (main 1.0), board protocol 1.10 (main 1.9). Every other set stays at main's value: input 1.13, output 1.12, tool envelopes 1.14, board document 1.12, view manifest 1.1, Snapshot data 1.3, local API 1.0, session file 1.0.
 
 ### 13. Chunks
 
