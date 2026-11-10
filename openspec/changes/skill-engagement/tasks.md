@@ -154,7 +154,7 @@ Order: group 0, then group 1, then group 2: group 2 regenerates `skills/` after 
   - Record the figures, and the margins left for the five widgets in flight: `SKILL.md` at most about 8,450, `items.md` at most about 4,800, the always-loaded total at most about 7,600 (design.md, Risks).
   - The coordinator runs the trigger eval's second iteration on the shipped description and records it beside task 0.4's baseline.
   - Verify: `bun run check:skills` reports no drift and every figure within budget; the eval's five outcomes are recorded. A query that still fails stays a finding for task 4.3, not a stop.
-  - As built, regeneration part (2026-11-10, not committed; the coordinator commits): `bun run build:skills` rewrote `skills/askboard/SKILL.md`, `skills/askboard/references/items.md` and `skills/askboard-help/SKILL.md`. Figures: description 496 of 600; `SKILL.md` 8,405 of 9,000 characters and 80 of 250 lines; `items.md` 4,739 of 6,000; always-loaded total 7,543 of 8,400; `askboard-help` description 295 of 400 and `SKILL.md` 5,962 of 6,000 (47 lines). Margins against the design's limits for the five widgets in flight (`SKILL.md` about 8,450, `items.md` about 4,800, total about 7,600): `SKILL.md` 45, `items.md` 61, total 57. The trigger eval is the coordinator's and stays open.
+  - As built, regeneration part (2026-11-10, committed in cb952b67 and, after review S-3, cde9de47): `bun run build:skills` rewrote `skills/askboard/SKILL.md`, `skills/askboard/references/items.md` and `skills/askboard-help/SKILL.md`. Figures: description 496 of 600; `SKILL.md` 8,463 of 9,000 characters (8,405 before review S-3) and 80 of 250 lines; `items.md` 4,739 of 6,000; always-loaded total 7,543 of 8,400; `askboard-help` description 295 of 400 and `SKILL.md` 5,962 of 6,000 (47 lines). Margins against the design's limits for the five widgets in flight (`SKILL.md` about 8,450, `items.md` about 4,800, total about 7,600): `SKILL.md` 13 over the design figure, though with five links of about 50 characters it reaches about 8,713, still within the 9,000 budget; `items.md` 61; total 57. The trigger eval is the coordinator's and stays open.
 - [x] 2.7 Review checkpoint, group 2.
   - As built (2026-11-11): spec review of 220dbda0..cb952b67, with no finding at M or above. Both reported deviations were accepted. SKILL.md at 8,405 matches design.md:53, so the only deviation left in the as-built note is the `catalogue.test.ts` guard. Three L findings are fixed:
     - S-1: the routing tests did not check every THEN clause, and now assert them all;
@@ -180,6 +180,10 @@ Order: group 0, then group 1, then group 2: group 2 regenerates `skills/` after 
     - `grep -n "more than four" docs/prd-askboard-2026-10-25/prd.md` finds nothing;
     - FR-29 names "cognitive and contextual complexity" and says its cases are examples;
     - `git diff` touches only FR-29, FR-30, §1, §4.8 and the front matter.
+  - As built (2026-11-10, 49395ac1). Every Verify item holds:
+    - the grep finds nothing;
+    - FR-29 names the criterion and calls its cases examples;
+    - the diff has four hunks: §1, §4.8, FR-29 and FR-30. `updated:` already read 2026-11-10, so the front matter is unchanged.
 - [x] 3.2 README "When to use it" (design.md, decision 10).
   - Add the section after "Why AskBoard", with three parts:
     - "Use AskBoard when": the three cases, one example each;
@@ -188,6 +192,7 @@ Order: group 0, then group 1, then group 2: group 2 regenerates `skills/` after 
   - Change the "How it works" sentence on the skill ("It teaches the agent when to ask through AskBoard rather than AskUserQuestion") only if it contradicts the new section.
   - Tests: none.
   - Verify: the section exists, names no count of questions or options, and says AskBoard sits beside AskUserQuestion.
+  - As built (2026-11-10, 49395ac1): the section follows "Why AskBoard". It has no count and says AskBoard sits beside AskUserQuestion. The "How it works" sentence did not contradict it, so it is unchanged.
 - [x] 3.3 #108's live check reworded (coordinator).
   - As built (2026-11-10): https://github.com/MrBogomips/askboard/issues/108#issuecomment-6780003755. It also says the listing may show `askboard:askboard` by name only, so the server instructions carry engagement there.
   - Write a comment on #108 replacing the cases of `askboard-skills` 4.1 with the criterion's:
@@ -207,9 +212,17 @@ Order: group 0, then group 1, then group 2: group 2 regenerates `skills/` after 
   - the deviations from design.md, if any.
   - Tests: none.
   - Verify: the note names every file this change added, and `git grep -n "more than four" -- ':!openspec/changes/archive'` finds nothing outside this change's own artifacts.
-- [ ] 3.5 Review checkpoint, group 3.
+  - As built (2026-11-10, 49395ac1; figures and wording corrected after reviews in cde9de47 and the pre-PR fixes):
+    - The note names `payoff.ts`, `payoff.test.ts` and amendments A1 to A3.
+    - "more than four" remains in four places only:
+      - the amendment's `from`;
+      - the archived fixture;
+      - the tests' negative assertions;
+      - `openspec/specs/skills/spec.md:98`, which the archive replaces.
+- [x] 3.5 Review checkpoint, group 3.
   - A spec review of the group's range: the PRD and README against the specs and decision 10, the as-built note against the code, and #108's comment against the scenarios.
   - Verify: the report is recorded with no open finding of M or above.
+  - As built (2026-11-11): covered by the pre-PR spec review (task 4.2), with no finding at M or above.
 
 ## 4. Integration
 

@@ -332,12 +332,23 @@ describe("the item index", () => {
     const ask = last?.value as {
       askId?: string;
       language?: string;
-      items: { props: { options: { recommended?: boolean }[]; items: { type: string }[] } }[];
+      items: {
+        props: {
+          text: string;
+          options: { recommended?: boolean }[];
+          items: { type: string; props: { pointer?: string; title?: string } }[];
+        };
+      }[];
     };
     expect(ask.askId).toBeTruthy();
     expect(ask.language).toBeTruthy();
     expect(ask.items).toHaveLength(1);
     expect(ask.items[0]?.props.items.map(({ type }) => type)).toContain("excerpt");
+    // The question cites a document by ID, and the excerpt beside it names the same ID.
+    const id = /\b[A-Z]{1,4}-\d+\b/.exec(ask.items[0]?.props.text ?? "")?.[0];
+    expect(id).toBeDefined();
+    const excerpt = ask.items[0]?.props.items.find(({ type }) => type === "excerpt")?.props;
+    expect(`${excerpt?.pointer ?? ""} ${excerpt?.title ?? ""}`).toContain(id ?? "-");
     expect(ask.items[0]?.props.options.filter((o) => o.recommended === true)).toHaveLength(1);
     expect(
       examples

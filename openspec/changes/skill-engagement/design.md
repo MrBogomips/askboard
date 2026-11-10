@@ -219,7 +219,7 @@ It is 295 characters (now 310), and its `SKILL.md` goes from 5,977 to 5,962. The
 ### 10. Documents
 
 - **PRD FR-29.** The first consequence becomes: "The shipped skills define which questions go to AskBoard and which to AskUserQuestion by the question's cognitive and contextual complexity, not by a count of questions or options. Their cases are given as examples: many interconnected questions; questions that cite documentation by bare IDs; content that reads better as a visual artifact (a WBS, a Gantt, a chart, UML or a state machine, a LaTeX formula, a table, a document to review). The agent judges whether a visual, interactive board helps, and a simple, self-explanatory choice goes to AskUserQuestion."
-- **The second FR-29 consequence** stays testable as a set of cases, run by the live check (#108 `askboard-skills` 4.1, reworded in task 3.4) and the trigger eval:
+- **The second FR-29 consequence** stays testable as a set of cases, run by the live check (#108 `askboard-skills` 4.1, reworded in task 3.3) and the trigger eval:
   - a decision of interconnected questions, or one citing documents by bare IDs, loads the skill and goes to AskBoard;
   - a plan or a diagram to review goes to AskBoard;
   - a simple, self-explanatory choice goes to AskUserQuestion.
