@@ -103,11 +103,15 @@ For a widget type whose chunk registers its key table with the board, as the con
 - **THEN** both Gantt references list the Gantt's default keys, say that the board shows no keys panel for the Gantt yet and that the user's key changes do not reach it, and make no unconditional claim of a keys panel
 
 ### Requirement: The asking skill points to the help skill
-`askboard`'s `SKILL.md` SHALL tell the agent that a question from the user about using the board, its widgets or its keys goes to the `askboard-help` skill, never into an ask (FR-29).
+`askboard`'s `SKILL.md` SHALL tell the agent that a question the user asks in the terminal about using the board, its widgets or its keys goes to the `askboard-help` skill, never into an ask. A usage question that arrives as a follow-up on the board SHALL be answered on the board at once with `update`, from `askboard`'s own files or `askboard-help`'s files read as files, without loading `askboard-help`, since loading it takes `update` away for the turn (FR-10, FR-29).
 
 #### Scenario: A usage question
 - **WHEN** `askboard`'s `SKILL.md` is read
-- **THEN** it names `askboard-help` for questions on using the board
+- **THEN** it names `askboard-help` for questions on using the board asked in the terminal
+
+#### Scenario: A usage question as a follow-up
+- **WHEN** `askboard`'s `SKILL.md` is read
+- **THEN** it tells the agent to reply to a usage question asked as a follow-up with `update` at once, without loading `askboard-help`, and no line of it sends a follow-up to `askboard-help`
 
 ### Requirement: The help skill teaches the key configuration
 `askboard-help` SHALL explain where the user's key overrides go, how they are written, the rules they meet, what a refused file does, that a project file's overrides are ignored, and where and when they apply, naming the widget types whose chunk registers its key table with the board as the only ones they reach. It SHALL list every action an override may name with its default keys, generated from the key tables, and each of its examples SHALL pass the key-override check (NFR-12, FR-29, AD-14).
@@ -115,6 +119,10 @@ For a widget type whose chunk registers its key table with the board, as the con
 #### Scenario: Where the user's keys apply
 - **WHEN** `askboard-help`'s key configuration reference is read
 - **THEN** it names the Ranking as the widget the user's keys reach, and no other widget type
+
+#### Scenario: When the user's keys apply
+- **WHEN** `askboard-help`'s key configuration reference is read
+- **THEN** it says that a change applies to boards opened afterwards and that an open board may take it when it reconnects or after a change in its settings panel, and never that an open board keeps its keys
 
 #### Scenario: Every action
 - **WHEN** the generator runs on the shipped registry

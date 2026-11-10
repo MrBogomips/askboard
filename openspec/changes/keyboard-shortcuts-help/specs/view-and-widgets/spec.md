@@ -60,7 +60,7 @@ The keys a widget's handler takes SHALL be those of its key table: for each part
 - **THEN** the table's keys move the current card as their entries say and the others do nothing
 
 ### Requirement: Keyboard shortcuts are discoverable
-In a widget with a key table, each control whose action has keys SHALL show on hover and on keyboard focus a tooltip with the action's name and its keys, or, for an item of a menu, show its keys at the item's end in place of a tooltip, and SHALL carry them in `aria-keyshortcuts`; the widget SHALL show a Keys button. The keys the tooltips show, `aria-keyshortcuts` announces and the keys panel lists SHALL be those in effect for the widget, which its key handler takes (NFR-12).
+In a widget whose chunk registers its key table with the board, each control whose action has keys SHALL show on hover and on keyboard focus a tooltip with the action's name and its keys, or, for an item of a menu, show its keys at the item's end in place of a tooltip, and SHALL carry them in `aria-keyshortcuts`; the widget SHALL show a Keys button. The keys the tooltips show, `aria-keyshortcuts` announces and the keys panel lists SHALL be those in effect, which its key handler takes (NFR-12).
 
 #### Scenario: A tooltip on focus
 - **WHEN** the user tabs to a Ranking's toolbar and moves to "Move up" with the arrow keys
@@ -109,7 +109,7 @@ Escape or the panel's "Close" SHALL close the keys panel and return the focus to
 - **THEN** the panel closes and the focus stays in that text field
 
 ### Requirement: Key labels by platform
-Tooltips and the keys panel SHALL write keys as the platform names them, in the board's language: on macOS with ⌃, ⌥, ⇧, ⌘, ↩, ⌫ and ⌦, elsewhere with Ctrl, Alt, Shift and the key's name, and arrows as ↑, ↓, ← and → everywhere. `aria-keyshortcuts` SHALL use the WAI-ARIA names on every platform, naming both Control and Meta for Cmd or Ctrl (NFR-12, FR-34).
+In a widget whose chunk registers its key table with the board, tooltips and the keys panel SHALL write keys as the platform names them, in the board's language: on macOS with ⌃, ⌥, ⇧, ⌘, ↩, ⌫ and ⌦, elsewhere with Ctrl, Alt, Shift and the key's name, and arrows as ↑, ↓, ← and → everywhere. `aria-keyshortcuts` SHALL use the WAI-ARIA names on every platform, naming both Control and Meta for Cmd or Ctrl (NFR-12, FR-34).
 
 #### Scenario: macOS and Linux
 - **WHEN** the tooltip of a Ranking's "Move up" shows on macOS, then on Linux
