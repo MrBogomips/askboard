@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { PresentationSetting } from "@askboard/contract";
+import { CONFIGURATION_VERSION, type PresentationSetting } from "@askboard/contract";
 import { Configuration } from "../src/config/configuration.ts";
 import { coreWith, type FakeConfigOptions, fakeConfig } from "./fakes.ts";
 
@@ -126,7 +126,9 @@ describe("writing a presentation key", () => {
   test("a new file holds the version, then the key", async () => {
     const { outcome, written } = await write({}, { key: "theme", value: "dark" });
     expect(outcome).toEqual({ key: "theme", outcome: "saved" });
-    expect(written).toEqual([`{\n  "version": "1.0",\n  "theme": "dark"\n}\n`]);
+    expect(written).toEqual([
+      `{\n  "version": "${CONFIGURATION_VERSION}",\n  "theme": "dark"\n}\n`,
+    ]);
   });
 
   test("re-reads the file: a key added by hand since the first read is kept", async () => {

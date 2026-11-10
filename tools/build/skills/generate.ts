@@ -20,6 +20,7 @@ import { MOLECULE_SKILLS, type MoleculeSkill, READY_MOLECULES } from "@askboard/
 import { type ExampleBody, exampleBlock } from "./blocks.ts";
 import { catalogueText, itemIndex } from "./catalogue.ts";
 import { contractSchemaResolver, type Schema } from "./fields.ts";
+import { fill } from "./fill.ts";
 import {
   renderContextReference,
   renderMoleculeReference,
@@ -27,6 +28,8 @@ import {
 } from "./references.ts";
 import { DISK_TEMPLATES, type Templates } from "./templates.ts";
 import { ACTION_GLOSSES, actionLines, UPDATE_EXAMPLES } from "./updates.ts";
+
+export { generateHelpSkill } from "./help.ts";
 
 /** The templates as they stand on disk. */
 export const TEMPLATES: Templates = DISK_TEMPLATES;
@@ -46,40 +49,14 @@ export type SkillInputs = {
   readonly actionGlosses: Readonly<Record<string, string>>;
   /** The input format's ask schema, whose `language` and `locale` the language section lists. */
   readonly askSchema: Schema;
+  /** The types whose chunk registers its key table with the board; the contract's list. */
+  readonly keyTablesOnBoard: readonly string[];
 };
 
 export type GeneratedSkill = {
   /** Each file by its path under `skills/askboard/`, in the order they are written. */
   readonly files: ReadonlyMap<string, string>;
   readonly examples: readonly SkillExample[];
-};
-
-const SLOT = /\{\{(\w+)\}\}/g;
-
-// Fills every slot of each template. A slot no value fills, and a value no template uses, fail.
-const fill = (
-  templates: Readonly<Record<string, string>>,
-  values: Readonly<Record<string, string>>,
-): Record<string, string> => {
-  const used = new Set<string>();
-  const filled = Object.fromEntries(
-    Object.entries(templates).map(([name, text]) => [
-      name,
-      text.replace(SLOT, (_slot, key: string) => {
-        const value = values[key];
-        if (value === undefined) {
-          throw new Error(`the ${name} template has the slot {{${key}}}, which no value fills`);
-        }
-        used.add(key);
-        return value;
-      }),
-    ]),
-  );
-  const unused = Object.keys(values).filter((key) => !used.has(key));
-  if (unused.length > 0) {
-    throw new Error(`no template uses the value ${unused.map((key) => `"${key}"`).join(", ")}`);
-  }
-  return filled;
 };
 
 const askingRules = (): string =>
@@ -157,7 +134,10 @@ export const generateSkill = (inputs: Partial<SkillInputs> = {}): GeneratedSkill
   const rendered = new Map<string, { text: string; examples: readonly ExampleBody[] }>();
   rendered.set("references/context.md", renderContextReference(resolve));
   for (const entry of widgets) {
-    rendered.set(`references/widgets/${entry.type}.md`, renderWidgetReference(entry, resolve));
+    rendered.set(
+      `references/widgets/${entry.type}.md`,
+      renderWidgetReference(entry, resolve, inputs.keyTablesOnBoard),
+    );
   }
   for (const definition of molecules) {
     rendered.set(

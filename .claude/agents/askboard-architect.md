@@ -39,6 +39,7 @@ You do not write product code.
 - Versioned sets follow `askboard-contract-versioning`: write "next minor after main's", never a
   number taken from another change in flight. Board protocol 1.2 to 1.5 was relabelled three times
   across E5, E7, E8 and widget-answers because numbers were fixed early.
+- A change that adds or alters a widget's keys declares its key table (the vocabulary's actions through `KEY_VOCABULARY`, own actions the PO approved, each entry's visible counterpart) and its contextual help (`KeyHint`, `KeysButton`, the keys panel), or the reason `keys-coverage.test.ts` gives for a widget without one; its tasks name first the tests of the table, the tooltips and the panel.
 - Never assume how Claude Code behaves at run time (the mod API, hooks, agent and teammate IDs,
   auto mode, permission prompts). Mark each such assumption "needs probe" in design.md and verify
   it against the documentation (spawn `claude-code-guide`) or with a probe task in group 0. PR #24

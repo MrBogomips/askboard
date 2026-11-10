@@ -8,6 +8,7 @@ import { kanbanPropsProblems } from "./checks.ts";
 import { KANBAN_SHAPE } from "./constants.ts";
 import kanbanChanges from "./kanban-changes.json" with { type: "json" };
 import kanbanProps from "./kanban-props.json" with { type: "json" };
+import { KANBAN_KEYS } from "./keys.ts";
 import { KANBAN_EXPECTED, KANBAN_FIELDS, kanbanElementOf } from "./wording.ts";
 
 export const KANBAN_WIDGET: WidgetType = {
@@ -34,6 +35,13 @@ export const KANBAN_WIDGET: WidgetType = {
         ],
       },
     },
+  },
+  keys: KANBAN_KEYS,
+  help: {
+    mouse:
+      "Drag a card to another column (Escape cancels the drag), or make a card current and use Move to\u2026 to pick its column.",
+    answer:
+      "The agent receives the cards you moved and the column each one is in now; their order and the columns stay as they were.",
   },
   skill: {
     use: "cards the user moves between 2 to 12 columns, such as statuses, priorities or owners",

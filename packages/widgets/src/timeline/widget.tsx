@@ -9,7 +9,7 @@
 // and nothing reaches the draft before the drop. Nothing here holds the props (AD-9).
 
 import type { TimelineProps } from "@askboard/contract";
-import { useLocale, useStrings } from "@askboard/view/catalog";
+import { keyPressOf, useLocale, useStrings } from "@askboard/view/catalog";
 import {
   type KeyboardEvent,
   type PointerEvent,
@@ -131,7 +131,7 @@ export const TimelineWidget = ({
   };
 
   const onKeyDown = (event: KeyboardEvent<SVGSVGElement>): void => {
-    const key = timelineKeyOf(event.key);
+    const key = timelineKeyOf(keyPressOf(event));
     const from = current ?? stop;
     if (key === undefined || from === undefined) return;
     const next = neighbour(order, from, key);

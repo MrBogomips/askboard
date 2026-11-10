@@ -3,7 +3,7 @@
 // later" act while the entry has a day to go to, "Move to lane…" while there is another lane, and
 // none while the Timeline is read-only or no entry is current. Pure.
 
-import type { TimelineProps } from "@askboard/contract";
+import type { KeyPress, TimelineProps } from "@askboard/contract";
 import type { Zoom } from "../shared/time/scale.ts";
 import { moveBy, stepOf } from "./model.ts";
 
@@ -16,9 +16,14 @@ const KEYS: Readonly<Record<string, EntryKey>> = {
   End: "end",
 };
 
-/** The key as the model takes it, or none for any other key. */
-export const timelineKeyOf = (key: string): EntryKey | undefined =>
-  Object.hasOwn(KEYS, key) ? KEYS[key] : undefined;
+/**
+ * The key as the model takes it, or none for any other key: held with no modifier only, so that
+ * every other hold stays the browser's (keyboard-shortcuts-help, design decision 7).
+ */
+export const timelineKeyOf = (press: KeyPress): EntryKey | undefined =>
+  press.hold === "none" && !press.composing && Object.hasOwn(KEYS, press.key)
+    ? KEYS[press.key]
+    : undefined;
 
 /** The tools of the toolbar, each enabled or not. */
 export type TimelineTools = {

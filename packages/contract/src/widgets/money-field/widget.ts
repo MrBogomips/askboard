@@ -33,6 +33,10 @@ export const MONEY_FIELD_WIDGET: WidgetType = {
       props: { label: "Budget", currency: "EUR", min: "0" },
     },
   },
+  help: {
+    mouse: "Type an amount, and pick the currency where more than one is offered.",
+    answer: "The agent receives the amount and its currency.",
+  },
   skill: {
     use: "an amount of money the user types, in one currency or one picked from a list",
     notes: [

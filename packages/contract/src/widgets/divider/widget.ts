@@ -15,5 +15,9 @@ export const DIVIDER_WIDGET: WidgetType = {
   propsProblems: dividerPropsProblems,
   wording: { expected: DIVIDER_EXPECTED, fields: DIVIDER_FIELDS },
   example: { item: { type: "divider", id: "rule", props: {} } },
+  help: {
+    mouse: "It is a line between two items: there is nothing to click or type.",
+    answer: "Nothing: a divider gives no answer.",
+  },
   skill: { use: "a rule that separates the items of a question; its props are empty" },
 };

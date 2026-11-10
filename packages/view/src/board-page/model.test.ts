@@ -10,7 +10,10 @@ import {
   ganttPlanBoardDocument,
   lifecycleBoardDocument,
   plainChoiceBoardDocument,
+  settingsKeysIgnored,
+  settingsKeysNotApplied,
   settingsWithEveryKey,
+  settingsWithKeys,
 } from "@askboard/contract/fixtures";
 import type { ViewAct, ViewAnswer } from "../view-protocol.ts";
 import {
@@ -660,5 +663,40 @@ describe("the settings in the model (settings-languages, task 8.2)", () => {
       settingsWithEveryKey,
     );
     expect(bootDataOf(model)?.presentation?.theme).toBe("dark");
+  });
+});
+
+describe("the user's keys in the model (keyboard-shortcuts-help, task 10.1)", () => {
+  test("a settings message with the user's keys passes them on, the row's own value", () => {
+    const model = withHostMessage(EMPTY_MODEL, settingsWithKeys);
+    expect(model.passedOn.keys).toBe(settingsWithKeys.keys.keys?.value);
+    expect(model.passedOn.presentation?.theme).toBe("dark");
+  });
+
+  test("none from keys the check refused, from the default, or from a project file's", () => {
+    for (const message of [settingsKeysNotApplied, settingsKeysIgnored, settingsWithEveryKey]) {
+      const model = withHostMessage(EMPTY_MODEL, message);
+      expect(Object.hasOwn(model.passedOn, "keys")).toBe(false);
+    }
+  });
+
+  test("a later message without them takes them away, and keeps what else is passed on", () => {
+    const origin = { version, type: "origin", who: { label: "Main agent" } } as const;
+    const first = withHostMessage(withHostMessage(EMPTY_MODEL, origin), settingsWithKeys);
+    expect(first.passedOn.keys).toBeDefined();
+    const second = withHostMessage(first, settingsKeysNotApplied);
+    expect(Object.hasOwn(second.passedOn, "keys")).toBe(false);
+    expect(second.passedOn.origin).toEqual({ who: { label: "Main agent" } });
+  });
+
+  test("the boot data carries none, and neither does a Snapshot's", () => {
+    const model = withHostMessage(
+      withHostMessage(withHostMessage(EMPTY_MODEL, board), state),
+      settingsWithKeys,
+    );
+    expect(model.passedOn.keys).toBeDefined();
+    const data = bootDataOf(model);
+    expect(data?.presentation?.theme).toBe("dark");
+    expect(data === undefined ? [] : Object.keys(data)).not.toContain("keys");
   });
 });

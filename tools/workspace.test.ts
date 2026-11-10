@@ -78,13 +78,14 @@ describe("workspace layout", () => {
     },
   );
 
-  test("view exports ./assemble, ./catalog and ./markdown besides its root entry", async () => {
+  test("view exports ./assemble, ./catalog, ./markdown and ./strings besides its root entry", async () => {
     const manifest = await readJson(join(packageDir("view"), "package.json"));
     expect(Object.keys(manifest.exports).sort()).toEqual([
       ".",
       "./assemble",
       "./catalog",
       "./markdown",
+      "./strings",
     ]);
   });
 

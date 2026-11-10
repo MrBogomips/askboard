@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { KANBAN_FIXTURE_ITEM } from "@askboard/contract/fixtures";
+import { MODIFIED_FLAGS, pressOf, pressWith } from "../../test/key-presses.ts";
 import { kanbanKeyOf, kanbanTools, otherColumns } from "./keys.ts";
 import { columnsOf } from "./model.ts";
 
@@ -9,16 +10,29 @@ import { columnsOf } from "./model.ts";
 const COLUMNS = columnsOf(KANBAN_FIXTURE_ITEM.props);
 
 describe("kanbanKeyOf", () => {
-  test("names the four arrow keys and no other", () => {
-    expect(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].map(kanbanKeyOf)).toEqual([
-      "up",
-      "down",
-      "left",
-      "right",
-    ]);
+  test("names the four arrow keys with no modifier and no other key", () => {
+    expect(
+      ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].map((key) => kanbanKeyOf(pressWith(key))),
+    ).toEqual(["up", "down", "left", "right"]);
     for (const key of ["Home", "End", "Enter", " ", "a", "toString", "__proto__"]) {
-      expect(kanbanKeyOf(key)).toBeUndefined();
+      expect(kanbanKeyOf(pressWith(key))).toBeUndefined();
     }
+  });
+
+  test("Alt, Shift, Ctrl and Cmd with each arrow, Home and End give nothing (spec: Keys left to the browser)", () => {
+    for (const key of ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End"]) {
+      for (const flags of MODIFIED_FLAGS) {
+        expect({ key, flags, card: kanbanKeyOf(pressOf(key, flags)) }).toEqual({
+          key,
+          flags,
+          card: undefined,
+        });
+      }
+    }
+  });
+
+  test("a press during composition gives nothing", () => {
+    expect(kanbanKeyOf({ ...pressWith("ArrowUp"), composing: true })).toBeUndefined();
   });
 });
 

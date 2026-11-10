@@ -34,6 +34,7 @@ export const DIST_VIEW = join(ROOT, "dist", VIEW_DIRECTORY);
 
 const THROWING_CHOICE_ENTRY = join(import.meta.dir, "..", "fixtures", "throwing-choice.ts");
 const BREAKING_FIELD_ENTRY = join(import.meta.dir, "..", "fixtures", "breaking-text-field.ts");
+const KEYS_PROBE_ENTRY = join(import.meta.dir, "..", "fixtures", "keys-probe.ts");
 
 /**
  * A caught `eval` and a caught `new Function`, as a library probing for code generation does. The
@@ -178,6 +179,13 @@ export const withThrowingChoice = async (build: ViewBuild): Promise<ViewBuild> =
  */
 export const withBreakingTextField = async (build: ViewBuild): Promise<ViewBuild> =>
   withChunkScript(build, "text-field", await bundleTestChunk(BREAKING_FIELD_ENTRY));
+
+/**
+ * The build with the TextField chunk replaced by a probe type that registers a key table
+ * (keyboard-shortcuts-help): hints, a Keys button and a list in its item frame, and any nested items.
+ */
+export const withKeysProbe = async (build: ViewBuild): Promise<ViewBuild> =>
+  withChunkScript(build, "text-field", await bundleTestChunk(KEYS_PROBE_ENTRY));
 
 /** The board state with every question of the document open and the ask waiting. */
 export const openStateOf = (document: ViewDocument): LifecycleBoardState => {

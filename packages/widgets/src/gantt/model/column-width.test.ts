@@ -4,11 +4,14 @@ import {
   COLUMN_DEFAULT,
   COLUMN_MIN,
   clampWidth,
+  type EdgeAction,
+  edgeKeyAction,
   fitWidth,
   keyWidth,
   maxWidth,
   STEP,
 } from "./column-width.ts";
+import type { KeyPress } from "./keys.ts";
 
 describe("the limits", () => {
   test("the widest is 60% of the widget, rounded down", () => {
@@ -81,5 +84,84 @@ describe("the fit", () => {
 
   test("no name leaves the default", () => {
     expect(fitWidth([], 1000)).toBe(COLUMN_DEFAULT);
+  });
+});
+
+// The edge takes its keys with exactly the holds its table names (keyboard-shortcuts-help, design
+// decision 7, review 1.6 S-1): the arrows left and right with no modifier or Shift, Home, End and
+// Enter with no modifier, nothing else.
+const press = (key: string, held: Partial<KeyPress> = {}): KeyPress => ({
+  key,
+  shiftKey: false,
+  ctrlKey: false,
+  altKey: false,
+  metaKey: false,
+  ...held,
+});
+
+const width = (value: number): EdgeAction => ({ kind: "width", width: value });
+
+describe("the keys of the focused edge, by press", () => {
+  test("the arrows step by 16 px with no modifier, as keyWidth does", () => {
+    expect(edgeKeyAction(press("ArrowRight"), 200, 1000)).toEqual(width(216));
+    expect(edgeKeyAction(press("ArrowLeft"), 200, 1000)).toEqual(width(184));
+  });
+
+  test("Shift with an arrow steps by 64 px", () => {
+    expect(edgeKeyAction(press("ArrowRight", { shiftKey: true }), 200, 1000)).toEqual(width(264));
+    expect(edgeKeyAction(press("ArrowLeft", { shiftKey: true }), 200, 1000)).toEqual(width(136));
+  });
+
+  test("Home and End take the limits, and Enter fits, with no modifier", () => {
+    expect(edgeKeyAction(press("Home"), 200, 1000)).toEqual(width(COLUMN_MIN));
+    expect(edgeKeyAction(press("End"), 200, 1000)).toEqual(width(600));
+    expect(edgeKeyAction(press("Enter"), 200, 1000)).toEqual({ kind: "fit" });
+  });
+
+  test("a step stops at the limits", () => {
+    expect(edgeKeyAction(press("ArrowLeft"), COLUMN_MIN, 1000)).toEqual(width(COLUMN_MIN));
+    expect(edgeKeyAction(press("ArrowRight", { shiftKey: true }), 590, 1000)).toEqual(width(600));
+  });
+
+  test.each(["Home", "End", "Enter"])(
+    "Shift with %s gives nothing: the column keeps its width and the key its default",
+    (key) => {
+      expect(edgeKeyAction(press(key, { shiftKey: true }), 200, 1000)).toBeUndefined();
+    },
+  );
+
+  test.each(["ArrowLeft", "ArrowRight", "Home", "End", "Enter"])(
+    "Alt, Ctrl or Cmd with %s gives nothing, alone or with Shift",
+    (key) => {
+      for (const held of [
+        { altKey: true },
+        { ctrlKey: true },
+        { metaKey: true },
+        { altKey: true, shiftKey: true },
+        { ctrlKey: true, shiftKey: true },
+        { metaKey: true, shiftKey: true },
+      ] satisfies Partial<KeyPress>[]) {
+        expect(edgeKeyAction(press(key, held), 200, 1000)).toBeUndefined();
+      }
+    },
+  );
+
+  test("another key is not the edge's, with any hold", () => {
+    for (const key of ["ArrowUp", "ArrowDown", "Escape", "Tab", " ", "F2", "a", "toString"]) {
+      expect(edgeKeyAction(press(key), 200, 1000)).toBeUndefined();
+      expect(edgeKeyAction(press(key, { shiftKey: true }), 200, 1000)).toBeUndefined();
+    }
+  });
+
+  test("agrees with keyWidth on every key it takes", () => {
+    for (const key of ["ArrowLeft", "ArrowRight", "Home", "End"]) {
+      for (const shiftKey of [false, true]) {
+        const taken = edgeKeyAction(press(key, { shiftKey }), 333, 1100);
+        const wide = keyWidth(333, key, shiftKey, 1100);
+        // Shift is the arrows' own; Home and End take it not.
+        if (shiftKey && (key === "Home" || key === "End")) expect(taken).toBeUndefined();
+        else expect(taken).toEqual(width(wide ?? Number.NaN));
+      }
+    }
   });
 });

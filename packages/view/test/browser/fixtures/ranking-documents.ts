@@ -36,3 +36,46 @@ export const rankingAsk = {
     },
   ],
 } as const;
+
+/** A Ranking of five rows, as the keyboard tests need them (selection, ranges, moves of a selection). */
+const FIVE_ITEM = {
+  type: "ranking",
+  id: "priorities",
+  props: {
+    items: ["Alpha", "Bravo", "Charlie", "Delta", "Echo"].map((label) => ({
+      id: label.charAt(0).toLowerCase(),
+      label,
+    })),
+  },
+} as const;
+
+/** The five rows' IDs, in the order the agent sent them. */
+export const FIVE_ORDER = FIVE_ITEM.props.items.map(({ id }) => id);
+
+/** The question `plan` holding the five-row Ranking alone. */
+export const rankingFiveDocument = (): ViewDocument => documentOf([FIVE_ITEM]);
+
+/** The ask for the session process: the question `plan` with the five-row Ranking. */
+export const rankingFiveAsk = (askId: string) =>
+  ({
+    askId,
+    title: "Customer portal SOW plan",
+    items: [{ type: "question", id: "plan", props: { ...plan.props, items: [FIVE_ITEM] } }],
+  }) as const;
+
+/**
+ * The question `plan` holding long texts, then the five-row Ranking, then long texts, so that the
+ * view scrolls with the Ranking in the middle of it (keyboard-shortcuts-help, task 4.9).
+ */
+export const rankingScrollDocument = (): ViewDocument => {
+  const text = (id: string) => ({
+    type: "text",
+    id,
+    props: {
+      text: `${id}: ${"A paragraph the user scrolls past, long enough to wrap across the line. ".repeat(6)}`,
+    },
+  });
+  const before = Array.from({ length: 8 }, (_, at) => text(`before-${at}`));
+  const after = Array.from({ length: 8 }, (_, at) => text(`after-${at}`));
+  return documentOf([...before, FIVE_ITEM, ...after]);
+};

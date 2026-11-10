@@ -17,6 +17,13 @@ import {
 import { t } from "../strings/index.ts";
 import type { StringKey } from "../strings/keys.ts";
 import type { ViewPresentation } from "../view-protocol.ts";
+import {
+  isolated,
+  keysRowOf,
+  keysWarningText,
+  otherWarningsOf,
+  type PanelKeysRow,
+} from "./settings-keys-data.ts";
 
 /** One choice of a segmented control. */
 export type PanelSegment = { readonly value: string; readonly label: string };
@@ -45,10 +52,14 @@ export type PanelRow = {
   readonly warnings: readonly string[];
 };
 
+export type { PanelKeysRow };
+
 export type PanelData = {
   readonly title: string;
   readonly closeLabel: string;
   readonly controls: readonly PanelControl[];
+  /** The user's key overrides, read-only, at the end of the presentation group. */
+  readonly keys: PanelKeysRow;
   readonly languageLabel: string;
   readonly language: string;
   /** Files that were not applied, shown once above the behaviour group. */
@@ -84,7 +95,7 @@ const LABELS: Readonly<Record<PresentationKey, StringKey>> = {
   contextPlacement: "settings.contextPlacement",
 };
 
-const ROWS: readonly (readonly [ConfigurationKey, StringKey])[] = [
+const ROWS: readonly (readonly [Exclude<ConfigurationKey, "keys">, StringKey])[] = [
   ["defaultLanguage", "settings.defaultLanguage"],
   ["askingRule", "settings.askingRules"],
   ["snapshotFolder", "settings.snapshotFolder"],
@@ -103,10 +114,19 @@ const WARNINGS = {
   "project-editor-ignored": "settings.warningProjectEditor",
   "editor-file-writable-by-others": "settings.warningWritableByOthers",
   "snapshot-folder-replaced": "settings.warningSnapshotFolder",
-} as const satisfies Record<SettingWarning["code"], StringKey>;
+} as const satisfies Partial<Record<SettingWarning["code"], StringKey>>;
 
+const isOther = (code: SettingWarning["code"]): code is keyof typeof WARNINGS =>
+  Object.hasOwn(WARNINGS, code);
+
+// A file's path as a sentence shows it: the path is text a folder's name chose, so it is escaped
+// and isolated like any other file text (review 10.5, X-7).
 const pathOf = (message: SettingsMessage, file: SettingsFileName): string =>
-  message.files[file].path ?? (file === "user" ? USER_PATH : PROJECT_PATH);
+  isolated(message.files[file].path ?? (file === "user" ? USER_PATH : PROJECT_PATH));
+
+// A value as a row shows it: the Snapshot folder is text the project file chose.
+const shownValue = (key: ConfigurationKey, value: unknown): string =>
+  key === "snapshotFolder" ? isolated(String(value)) : textOf(value);
 
 const textOf = (value: unknown): string => (Array.isArray(value) ? value.join(" ") : String(value));
 
@@ -128,7 +148,7 @@ const controlOf = (
   const reason = write?.reason ?? "";
   let error: string | undefined;
   if (failed && write.outcome === "failed") {
-    const path = write.path ?? pathOf(message, "user");
+    const path = write.path === undefined ? pathOf(message, "user") : isolated(write.path);
     error = t(language, "settings.writeFailed", { key, path, reason });
   } else if (failed) {
     error = t(language, "settings.writeRefused", { key, reason });
@@ -143,11 +163,23 @@ const controlOf = (
   };
 };
 
+// The warnings of the keys are the Keys row's (`settings-keys-data.ts`); a row or the message's own
+// list holds the other codes, and one of the keys' that strayed there is worded as the row words it.
 const warningText = (warning: SettingWarning, language: Locale, message: SettingsMessage) =>
-  t(language, WARNINGS[warning.code], {
-    key: warning.key,
+  isOther(warning.code)
+    ? otherWarningText(warning.code, warning, language, message)
+    : keysWarningText(warning, language, pathOf(message, warning.file));
+
+const otherWarningText = (
+  code: keyof typeof WARNINGS,
+  warning: SettingWarning,
+  language: Locale,
+  message: SettingsMessage,
+) =>
+  t(language, WARNINGS[code], {
+    key: isolated(warning.key),
     file: pathOf(message, warning.file),
-    value: warning.value ?? "",
+    value: isolated(warning.value ?? ""),
   });
 
 const rowOf = (
@@ -165,14 +197,14 @@ const rowOf = (
   return {
     key,
     label,
-    value: row.value === undefined ? t(language, "settings.notSet") : textOf(row.value),
+    value: row.value === undefined ? t(language, "settings.notSet") : shownValue(key, row.value),
     source,
     ...(other === undefined
       ? {}
       : {
           alsoIn: t(language, "settings.alsoIn", {
             file: pathOf(message, other.file),
-            value: textOf(other.value),
+            value: shownValue(key, other.value),
           }),
         }),
     warnings: (row.warnings ?? []).map((warning) => warningText(warning, language, message)),
@@ -184,7 +216,10 @@ const notAppliedOf = (message: SettingsMessage, language: Locale): string[] =>
     const file = message.files[name];
     if (file.status !== "not-applied") return [];
     const { code, pointer, error } = file.problem;
-    const problem = t(language, PROBLEMS[code], { pointer: pointer ?? "/", error: error ?? "?" });
+    const problem = t(language, PROBLEMS[code], {
+      pointer: isolated(pointer ?? "/"),
+      error: error ?? "?",
+    });
     return [t(language, "settings.notApplied", { file: pathOf(message, name), problem })];
   });
 
@@ -198,6 +233,7 @@ export const panelData = (
   title: t(language, "settings.title"),
   closeLabel: t(language, "settings.close"),
   controls: PRESENTATION_KEYS.map((key) => controlOf(key, presentation, language, message)),
+  keys: keysRowOf(message, language, pathOf(message, "user"), pathOf(message, "project")),
   languageLabel: t(language, "settings.language"),
   language: languageIndicator(language, locale),
   notApplied: notAppliedOf(message, language),
@@ -205,5 +241,5 @@ export const panelData = (
   rows: ROWS.map(([key, label]) =>
     rowOf(key, t(language, label), message.keys[key], language, message),
   ),
-  warnings: message.warnings.map((warning) => warningText(warning, language, message)),
+  warnings: otherWarningsOf(message).map((warning) => warningText(warning, language, message)),
 });

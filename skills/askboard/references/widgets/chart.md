@@ -31,6 +31,20 @@ Item type `chart`: props are a Chart's props {kind, categories, series, title?, 
   - `points[].series` (required, string, matching `^[A-Za-z0-9_-]{1,64}$`): An ask, item or child ID the agent chooses.
   - `points[].category` (required, string, matching `^[A-Za-z0-9_-]{1,64}$`): An ask, item or child ID the agent chooses.
 
+## Keys
+
+The board shows no keys panel for the Chart yet, and the user's key changes do not reach it: these are its default keys.
+
+| Action | Where | Keys (macOS) |
+|---|---|---|
+| Go up | plot | ↑ (↑) |
+| Go down | plot | ↓ (↓) |
+| Go left | plot | ← (←) |
+| Go right | plot | → (→) |
+| Go to the first | plot | Home (Home) |
+| Go to the last | plot | End (End) |
+| Highlight the point | plot | Space and Enter (Space and ↩) |
+
 ## Example
 
 ```json item

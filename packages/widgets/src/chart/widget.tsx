@@ -5,7 +5,7 @@
 // highlights a point (AD-10). A chart to read or a disabled one highlights nothing and still reads.
 
 import type { ChartPoint, ChartProps, Locale } from "@askboard/contract";
-import { type Say, useReadyAfterLayout, useTheme } from "@askboard/view/catalog";
+import { keyPressOf, type Say, useReadyAfterLayout, useTheme } from "@askboard/view/catalog";
 import {
   type KeyboardEvent,
   useCallback,
@@ -18,7 +18,15 @@ import {
 import { useCanvas } from "./canvas.ts";
 import { CHART, COUNTER, HIDDEN, PLOT, TITLE } from "./classes.ts";
 import { PLOT_HEIGHT } from "./layout.ts";
-import { firstPoint, isChartKey, isHighlighted, move, pointAt, resultOf, toggle } from "./model.ts";
+import {
+  chartKeyAction,
+  firstPoint,
+  isHighlighted,
+  move,
+  pointAt,
+  resultOf,
+  toggle,
+} from "./model.ts";
 import { type ChartTokens, chartOption } from "./option.ts";
 import { counterText, pointReading } from "./reading.ts";
 import { chartTokens } from "./theme.ts";
@@ -143,13 +151,12 @@ export const ChartWidget = ({
     if (point !== undefined) announce(point, isHighlighted(highlighted, point));
   };
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (isChartKey(event.key)) {
-      event.preventDefault();
-      arrive(move(current, event.key, props));
-    } else if (event.key === " " || event.key === "Enter") {
-      event.preventDefault();
-      if (current !== undefined) flip(current);
-    }
+    // A key with a modifier, or one the chart does not take, keeps its default.
+    const action = chartKeyAction(keyPressOf(event));
+    if (action === undefined) return;
+    event.preventDefault();
+    if (action.kind === "move") arrive(move(current, action.key, props));
+    else if (current !== undefined) flip(current);
   };
 
   const titleId = `${itemId}:title`;

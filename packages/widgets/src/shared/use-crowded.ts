@@ -1,9 +1,10 @@
-// Whether the toolbar row is too narrow for all its tools (`model/overflow.ts`): the tools'
-// width with all of them shown is measured while none is given up, and kept, so that the row's
-// width alone decides after that. A new language re-measures, its labels having other widths.
+// Whether the toolbar row is too narrow for all its tools (`crowded.ts`; the Tree's, since its
+// review F-16, and the Ranking's): the tools' width with all of them shown is measured while none
+// is given up, and kept, so that the row's width alone decides after that. A new language
+// re-measures, its labels having other widths.
 
 import { type RefObject, useCallback, useLayoutEffect, useRef, useState } from "react";
-import { isCrowded } from "./model/overflow.ts";
+import { isCrowded } from "./crowded.ts";
 
 export const useCrowded = (
   tools: RefObject<HTMLElement | null>,

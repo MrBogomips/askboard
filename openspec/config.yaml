@@ -19,9 +19,11 @@ rules:
     - List the changes in flight that this change touches (`openspec list` and their designs) as merge points, with every seam it borrows from them. Borrow only names present on main; a seam from an unmerged change is re-checked at the rebase before the pull request.
     - Write a new version of a contract schema set as "next minor after main's", never as a number taken from another change in flight; the number is bound at the rebase before the pull request (the askboard-contract-versioning skill).
     - Mark every assumption about Claude Code's run-time behaviour (the mod API, hooks, agent and teammate IDs, auto mode, permission prompts) "needs probe", and verify it against the documentation or with a probe task in group 0 before anything relies on it.
+    - A change that adds or alters a widget's keys declares its key table (the vocabulary's actions, own actions the PO approved, each entry's visible counterpart) and its contextual help (`KeyHint`, `KeysButton`, the keys panel), or states the reason `keys-coverage.test.ts` gives for a widget without one.
   tasks:
     - Each task names its tests first and carries a Verify clause.
     - End each implementation group with a review checkpoint task. It is a spec review of the group's range. It adds a security review when the group touches the board host or its local API, hooks, the mod, the contract's schemas or validators, the view's sandbox or page policy, the file system or the network.
+    - A group that adds or alters a widget's keys names first the tests of its key table (parity with the handler, and with the toolbar in both directions), of its tooltips and of its keys panel, each with a Verify clause.
     - Keep each as-built note to about five lines. Record what was built, the test counts and the deviations.
     - The documents task writes the change's record in its own file `docs/as-built/<change-id>.md` (what it built, where the code lives, the names and seams it added, the versions it bound; no status), never in CLAUDE.md, which changes only when a rule it states changes.
 

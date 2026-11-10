@@ -7,7 +7,7 @@ paradigm: 'hexagonal (ports and adapters) around an ask core, one process per Cl
 scope: 'AskBoard first version: MCP server and board host per Claude Code session, sandboxed view and widgets, compute graph, Claude Code mod and hooks, shipped skills and agents, Snapshots, light benchmark, plugin packaging and operations'
 status: final
 created: '2026-10-27'
-updated: '2026-11-09'
+updated: '2026-11-10'
 binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14, FR-15, FR-18, FR-19, FR-20, FR-21, FR-22, FR-23, FR-24, FR-25, FR-26, FR-27, FR-28, FR-29, FR-30, FR-31, FR-32, FR-33, FR-34, FR-35, NFR-1, NFR-2, NFR-3, NFR-4, NFR-5, NFR-6, NFR-7, NFR-8, NFR-9, NFR-10, NFR-11, AXFX FR-36, AXFX FR-37, AXFX FR-38, AXFX FR-39, AXFX FR-40, AXFX FR-41, AXFX NFR-1, AXFX NFR-2, AXFX NFR-3, AXFX NFR-5, AXFX NFR-8]
 sources:
   - 'AskBoard PRD (prd-askboard-2026-10-25/prd.md, final)'
@@ -217,7 +217,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
   - **Schemas and validation:**
     - Input schemas are generic JSON Schema 2020-12. Every item is `{type, id, props}`: a `type` discriminator, the item's ID and an object of props. A molecule reference is such an item (AD-9). There is no root `anyOf`/`oneOf`/`allOf`, and top-level property names are 1–64 characters from `[A-Za-z0-9_.-]`.
     - Per-widget schemas, the molecule reference and definition formats, and the asking-rule predicates exist only in `contract`. Each ready-made molecule's parameter schema is part of its definition, data in `molecules` written in `contract`'s definition format. Tool definitions never include any of them.
-    - The skills' reference files, examples and asking-rule texts are generated from `contract` and `molecules` at build time. CI fails when a shipped file differs from its generated form, or when an example fails validation.
+    - The skills' reference files, examples and asking-rule texts, in both skills (`askboard` and `askboard-help`), are generated from `contract`, `molecules` and the view's English strings (`@askboard/view/strings`) at build time. CI fails when a shipped file differs from its generated form, or when an example fails validation.
     - The server validates every request against `contract`.
       - A request the agent must fix returns `isError` text naming the item ID and the expected shape, under 4,000 characters, with the first problems first.
       - A problem confined to one item that leaves the board usable is a typed warning in a successful result: an unresolved pointer (FR-8), a formula error (FR-14), each kind within its share of the result bound: past it, one closing warning counts the rest.
@@ -450,6 +450,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
     - The schema names these keys, and the board's settings panel shows the presentation and behaviour ones (FR-35):
       - presentation: `theme`, `density`, `contextPlacement`;
       - behaviour: `defaultLanguage` (`en-US` or `it-IT`, FR-34), `askingRule` (FR-30, AD-16), `snapshotFolder` (FR-27), `editor` (AD-8);
+      - the user's keys: `keys`, for an action, the combinations that replace its keys, `[]` to remove them (NFR-12);
       - molecule defaults: `defaultMinimumMargin`, the project default for the sales-estimate-review molecule's `minimumMargin` (AD-9).
     - Only the session process reads them, through one `Config` port in `ask-core`: once at start, and the user configuration's presentation keys again whenever it opens a board. Start is the first time it needs a setting, never before its first request after `server/discover` (AD-2). It merges them key by key, project keys winning, and changes take effect from the next session, except the board's presentation writes below.
     - **Presentation keys:**
@@ -458,7 +459,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
       - Each session process reads the presentation keys from the user configuration again whenever it opens a board, so later boards of every running session open with the change.
       - A presentation key set in the project configuration wins and shows read-only.
     - The session process accepts a settings write only for `theme`, `density` and `contextPlacement`, with a value the configuration schema allows, and refuses any other key, so the board never writes a command to run. Behavioural settings show read-only, with their file and key, and keep the next-session rule.
-    - `editor` is the one key read only from the user configuration, an exception to the merge: a project-level `editor` is ignored, with a warning (AD-8).
+    - `editor` and `keys` are the keys read only from the user configuration, exceptions to the merge: a project-level `editor` is ignored, with a warning (AD-8), and so is a project-level `keys`, since an agent can write that file and agent content never chooses what a key does (AD-8). `keys` is read again whenever the session process opens a board, passes the contract's key-override check and is dropped whole when any combination fails it, with one warning for each problem, at most eight in all, the project file's `project-keys-ignored` first when it sets `keys`, then the user file's first problems (the board protocol's bound on a row's warnings); a board never writes it, and the settings write above still admits only the presentation keys.
     - `hooks` and `mod` read effective settings only through the local API.
     - An unknown key is a warning. A file with an unsupported major version is ignored, with a diagnostic, and so is a file that cannot be read, is not JSON or fails the configuration schema: none of its keys applies, never part of them, and the settings panel shows the file as not applied, with the problem. The session process never writes a presentation key into a user configuration that fails its check.
   - **Project folders:**
@@ -818,7 +819,7 @@ askboard/
     mod/                 # Claude Code mod: push transport, pending-asks status
     hooks/               # Claude Code hooks: out-of-process client of the local API (AD-1, AD-16)
     bench/               # benchmark runner, scripted answerer, report, cost model
-  skills/                # Agent Skills: SKILL.md and its references, all generated from contract and molecules
+  skills/                # Agent Skills (askboard, askboard-help): SKILL.md and its references, all generated from contract, molecules and the view's English strings
   agents/                # shipped agents (none in the first version; Deferred)
   scripts/               # start script (Node form); the launcher (executable form)
   tools/                 # repository checks: import boundaries (AD-1), licences (AD-19)

@@ -56,6 +56,8 @@ At the top level an ask's `items` may be areas (`area`) instead of questions: `{
 - Do not ask a declined question again in this task.
 - A `discarded` ask lost its unsent answers: ask again under a new ID if you still need them.
 - How to read answers, `fetch` and Snapshots: [answers](references/answers.md).
+- When the user asks in the terminal how to use the board, a widget or its keys, use the `askboard-help` skill; never put the question in an ask.
+- A usage question asked as a follow-up on the board is not for `askboard-help`: reply at once with `update`, without loading `askboard-help`, from the Keys section of the widget's reference in this skill, or from the files in `skills/askboard-help/references/` beside this skill's folder, read as files.
 
 ## When an ask cannot go on
 

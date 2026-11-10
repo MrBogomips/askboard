@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { nextFocus, type RadioGroupState, radioAt, radioTabStop } from "./roving.ts";
+import { checkboxKeyOf, nextFocus, type RadioGroupState, radioAt, radioTabStop } from "./roving.ts";
 
 describe("nextFocus (EXPERIENCE.md, Keyboard core: the arrow keys move focus through the options)", () => {
   test("the arrow keys move focus through the boxes, wrapping; Home and End jump", () => {
@@ -54,8 +54,19 @@ const stub = (state: Partial<RadioGroupState> = {}): { group: RadioGroupState; c
   return { group, calls };
 };
 
-const key = (name: string) => {
-  const event = { key: name, prevented: false, preventDefault: () => {} };
+type Held = { altKey?: boolean; ctrlKey?: boolean; metaKey?: boolean; shiftKey?: boolean };
+
+const key = (name: string, held: Held = {}) => {
+  const event = {
+    key: name,
+    altKey: false,
+    ctrlKey: false,
+    metaKey: false,
+    shiftKey: false,
+    ...held,
+    prevented: false,
+    preventDefault: () => {},
+  };
   event.preventDefault = () => {
     event.prevented = true;
   };
@@ -153,5 +164,53 @@ describe("radioAt's click (Space and Enter reach it through the button's own act
     const { group, calls } = stub();
     radioAt(0, group).onClick();
     expect(calls.checks).toEqual([0]);
+  });
+});
+
+const MOVES = ["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight", "Home", "End"] as const;
+const HOLDS: readonly (readonly [string, Held])[] = [
+  ["Alt", { altKey: true }],
+  ["Shift", { shiftKey: true }],
+  ["Ctrl", { ctrlKey: true }],
+  ["Cmd", { metaKey: true }],
+  ["Alt+Shift", { altKey: true, shiftKey: true }],
+];
+
+describe("radioAt's keys with a modifier (spec: Keys left to the browser, Alt with an arrow among options)", () => {
+  test.each(MOVES.flatMap((name) => HOLDS.map(([hold, held]) => [name, hold, held] as const)))(
+    "%s with %s moves nothing and keeps its default",
+    (name, _hold, held) => {
+      const { group, calls } = stub({ checked: 1 });
+      const event = key(name, held);
+      radioAt(1, group).onKeyDown(event);
+      expect(event.prevented).toBe(false);
+      expect(calls.focuses).toEqual([]);
+      expect(calls.checks).toEqual([]);
+    },
+  );
+});
+
+describe("checkboxKeyOf (the multiple choice's keys)", () => {
+  test("Enter flips the box, as today", () => {
+    expect(checkboxKeyOf(key("Enter"), 1, 3)).toEqual({ kind: "flip" });
+  });
+
+  test("the arrows, Home and End with no modifier move the focus", () => {
+    expect(checkboxKeyOf(key("ArrowDown"), 1, 3)).toEqual({ kind: "focus", index: 2 });
+    expect(checkboxKeyOf(key("ArrowUp"), 0, 3)).toEqual({ kind: "focus", index: 2 });
+    expect(checkboxKeyOf(key("Home"), 2, 3)).toEqual({ kind: "focus", index: 0 });
+    expect(checkboxKeyOf(key("End"), 0, 3)).toEqual({ kind: "focus", index: 2 });
+  });
+
+  test.each(MOVES.flatMap((name) => HOLDS.map(([hold, held]) => [name, hold, held] as const)))(
+    "%s with %s is the browser's",
+    (name, _hold, held) => {
+      expect(checkboxKeyOf(key(name, held), 1, 3)).toBeUndefined();
+    },
+  );
+
+  test("any other key is left alone", () => {
+    expect(checkboxKeyOf(key("a"), 1, 3)).toBeUndefined();
+    expect(checkboxKeyOf(key(" "), 1, 3)).toBeUndefined();
   });
 });

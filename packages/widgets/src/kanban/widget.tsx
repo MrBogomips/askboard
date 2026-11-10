@@ -7,7 +7,7 @@
 // the draft. Nothing here holds the props: it reads them and reports the next (AD-9).
 
 import type { KanbanProps } from "@askboard/contract";
-import { useStrings } from "@askboard/view/catalog";
+import { keyPressOf, useStrings } from "@askboard/view/catalog";
 import { useMemo, useRef, useState } from "react";
 import { FRAME } from "../shared/move-classes.ts";
 import { MoveToolbar } from "../shared/move-toolbar.tsx";
@@ -87,7 +87,7 @@ export const KanbanWidget = ({
   };
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>): void => {
-    const key = kanbanKeyOf(event.key);
+    const key = kanbanKeyOf(keyPressOf(event));
     const from = current ?? stop;
     if (key === undefined || from === undefined) return;
     const next = neighbour(columns, from, key);

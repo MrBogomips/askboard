@@ -7,6 +7,7 @@
 import type { WidgetType } from "../registry.ts";
 import { timelinePropsProblems } from "./checks.ts";
 import { TIMELINE_SHAPE } from "./constants.ts";
+import { TIMELINE_KEYS } from "./keys.ts";
 import timelineChanges from "./timeline-changes.json" with { type: "json" };
 import timelineProps from "./timeline-props.json" with { type: "json" };
 import { TIMELINE_EXPECTED, TIMELINE_FIELDS, timelineElementOf } from "./wording.ts";
@@ -43,6 +44,12 @@ export const TIMELINE_WIDGET: WidgetType = {
         ],
       },
     },
+  },
+  keys: TIMELINE_KEYS,
+  help: {
+    mouse:
+      "Drag an entry along the time axis or into another lane (Escape cancels the drag), or make it current and use Move earlier, Move later or Move to lane\u2026.",
+    answer: "The agent receives the dates and lanes you changed, entry by entry.",
   },
   skill: {
     use: "milestones and date ranges the user moves in time and across lanes, as in a roadmap",

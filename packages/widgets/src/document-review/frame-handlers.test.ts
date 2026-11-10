@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import type { Modifiers } from "@askboard/contract";
+import { MODIFIED_FLAGS, NO_MODIFIER } from "../../test/key-presses.ts";
 import { holdStop, keepSelection, pressTool, recordTool, toolbarKeys } from "./frame-handlers.ts";
 
 // The toolbar's handlers (view-and-widgets spec: A Document review at the keyboard; design decision
@@ -27,11 +29,27 @@ describe("recordTool", () => {
 });
 
 describe("toolbarKeys", () => {
-  const press = (key: string, at: number, enabled = [true, true]) => {
+  const press = (
+    key: string,
+    at: number,
+    enabled = [true, true],
+    held: Partial<Modifiers> = {},
+  ) => {
     const { log, node } = stub();
     const buttons = { current: [node("comment"), node("suggestion")] };
     let prevented = false;
-    toolbarKeys(enabled, at, buttons)({ key, preventDefault: () => (prevented = true) });
+    toolbarKeys(
+      enabled,
+      at,
+      buttons,
+    )({
+      key,
+      keyCode: 0,
+      target: null,
+      ...NO_MODIFIER,
+      ...held,
+      preventDefault: () => (prevented = true),
+    });
     return { log, prevented };
   };
 
@@ -41,6 +59,33 @@ describe("toolbarKeys", () => {
     expect(press("End", 0)).toEqual({ log: ["suggestion"], prevented: true });
     expect(press("Home", 1)).toEqual({ log: ["comment"], prevented: true });
     expect(press("ArrowLeft", 0)).toEqual({ log: ["comment"], prevented: true });
+  });
+
+  test("a key with any modifier held is left to the browser, its default not prevented", () => {
+    for (const key of ["ArrowLeft", "ArrowRight", "Home", "End"]) {
+      for (const flags of MODIFIED_FLAGS) {
+        expect({ key, flags, ...press(key, 0, [true, true], flags) }).toEqual({
+          key,
+          flags,
+          log: [],
+          prevented: false,
+        });
+      }
+    }
+  });
+
+  test("a key an input method composes is left alone", () => {
+    const { log, node } = stub();
+    let prevented = false;
+    toolbarKeys([true, true], 0, { current: [node("comment"), node("suggestion")] })({
+      key: "ArrowRight",
+      keyCode: 0,
+      target: null,
+      ...NO_MODIFIER,
+      nativeEvent: { isComposing: true },
+      preventDefault: () => (prevented = true),
+    });
+    expect({ log, prevented }).toEqual({ log: [], prevented: false });
   });
 
   test("another key is left alone", () => {

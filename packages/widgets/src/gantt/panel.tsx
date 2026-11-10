@@ -15,6 +15,7 @@ import { useStrings } from "@askboard/view/catalog";
 import { Checkbox } from "radix-ui";
 import { type KeyboardEvent, useLayoutEffect, useRef } from "react";
 import { keyPressOf } from "./key-press.ts";
+import { panelKeyAction } from "./model/keys.ts";
 import { panelBoxes } from "./model/predecessors.ts";
 import type { GanttRow } from "./model/tasks.ts";
 import type { Panel } from "./panel-state.ts";
@@ -67,15 +68,12 @@ export const PredecessorsPanel = (props: PanelProps) => {
   };
   const onKeyDown = (event: KeyboardEvent<HTMLFieldSetElement>) => {
     const press = keyPressOf(event);
-    if (press === undefined || press.altKey || press.ctrlKey || press.metaKey || press.shiftKey) {
-      return;
-    }
-    if (press.key === "Enter") props.onDone();
-    else if (press.key === "Escape") props.onCancel();
-    else if (press.key === "ArrowDown") moveFrom(event.target, 1);
-    else if (press.key === "ArrowUp") moveFrom(event.target, -1);
-    // Nothing to delete in the panel: no "go back" either.
-    else if (press.key !== "Backspace" && press.key !== "Delete") return;
+    const action = press === undefined ? undefined : panelKeyAction(press);
+    if (action === undefined) return;
+    if (action.kind === "done") props.onDone();
+    else if (action.kind === "cancel") props.onCancel();
+    else if (action.kind === "move") moveFrom(event.target, action.step);
+    // "swallow": nothing to delete in the panel, and no "go back" either.
     event.preventDefault();
   };
   return (

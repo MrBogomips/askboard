@@ -1,10 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { RANKING_WIDGET, type RankingProps } from "@askboard/contract";
-import { dropAt, holdsOrder, moveBy, movedOf, orderOf } from "./model.ts";
+import { dropAt, holdsOrder, movedOf, orderOf } from "./model.ts";
+import { moveRows } from "./moves.ts";
 
 // The Ranking's model (view-and-widgets spec: Ranking reorder, Ranking at the keyboard; design
-// decision 8): the order as a list of element IDs, moved by one step or dropped before or after a
-// row. Pure: a function returns the same array when nothing changes.
+// decision 8): the order as a list of element IDs, the agent's order, a drop before or after a row
+// and the moved rows; the moves are `moves.ts`'s, which build the orders here. Pure: a function
+// returns the same array when nothing changes.
 const props: RankingProps = {
   items: ["a", "b", "c", "d"].map((id) => ({ id, label: id.toUpperCase() })),
 };
@@ -29,28 +31,6 @@ describe("orderOf", () => {
     expect(orderOf({ order: "abcd" }, props)).toEqual(sent);
     expect(orderOf({}, props)).toEqual(sent);
     expect(orderOf(null, props)).toEqual(sent);
-  });
-});
-
-describe("moveBy", () => {
-  test("one step down and up", () => {
-    expect(moveBy(sent, "b", 1)).toEqual(["a", "c", "b", "d"]);
-    expect(moveBy(sent, "c", -1)).toEqual(["a", "c", "b", "d"]);
-  });
-
-  test("at both ends the order is the same array", () => {
-    expect(moveBy(sent, "a", -1)).toBe(sent);
-    expect(moveBy(sent, "d", 1)).toBe(sent);
-  });
-
-  test("an element not in the order changes nothing", () => {
-    expect(moveBy(sent, "x", 1)).toBe(sent);
-  });
-
-  test("leaves its input untouched", () => {
-    const input = Object.freeze([...sent]);
-    expect(moveBy(input, "a", 1)).toEqual(["b", "a", "c", "d"]);
-    expect(input).toEqual(sent);
   });
 });
 
@@ -88,14 +68,16 @@ describe("movedOf", () => {
   });
 
   test("two moves of the first row move three rows", () => {
-    const order = moveBy(moveBy(sent, "a", 1), "a", 1);
+    const order = moveRows(moveRows(sent, new Set(["a"]), "down"), new Set(["a"]), "down");
     expect(order).toEqual(["b", "c", "a", "d"]);
     expect(movedOf(order, props)).toEqual(["b", "c", "a"]);
   });
 
   test("a swap moves two, and a move back moves none", () => {
     expect(movedOf(["b", "a", "c", "d"], props)).toEqual(["b", "a"]);
-    expect(movedOf(moveBy(moveBy(sent, "b", 1), "b", -1), props)).toEqual([]);
+    expect(
+      movedOf(moveRows(moveRows(sent, new Set(["b"]), "down"), new Set(["b"]), "up"), props),
+    ).toEqual([]);
   });
 });
 
@@ -112,8 +94,8 @@ describe("every order is one the contract accepts", () => {
       seen.add(order.join(""));
     }
     for (const id of sent) {
-      expect(accepted(moveBy(sent, id, 1))).toBe(true);
-      expect(accepted(moveBy(sent, id, -1))).toBe(true);
+      expect(accepted(moveRows(sent, new Set([id]), "down"))).toBe(true);
+      expect(accepted(moveRows(sent, new Set([id]), "up"))).toBe(true);
     }
     expect(seen.size).toBe(10);
   });
@@ -126,10 +108,10 @@ describe("every order is one the contract accepts", () => {
       for (const id of ids) {
         // Every order moving `id` by single steps reaches, up and down.
         const reached = new Set<string>([start.join("")]);
-        for (const delta of [-1, 1] as const) {
+        for (const kind of ["up", "down"] as const) {
           let order: readonly string[] = start;
           for (let step = 0; step < ids.length; step += 1) {
-            order = moveBy(order, id, delta);
+            order = moveRows(order, new Set([id]), kind);
             reached.add(order.join(""));
           }
         }

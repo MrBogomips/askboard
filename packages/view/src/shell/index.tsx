@@ -17,6 +17,7 @@
 // user's activity for the board's working signal, starts beside them (`push-extras.ts`).
 
 import type * as ExtApps from "@modelcontextprotocol/ext-apps";
+import { Tooltip } from "radix-ui";
 import { createRoot } from "react-dom/client";
 import { BOOT_DATA_ID, parseBootData } from "../boot-data.ts";
 import * as port from "../catalog/port.ts";
@@ -49,6 +50,7 @@ import {
   moveMarks,
   restoreDraft,
 } from "./board-draft.ts";
+import { BoardKeys, createKeysStore, followKeys } from "./board-keys.tsx";
 import { BoardLanguage } from "./board-language.tsx";
 import { presentationOf } from "./board-view.ts";
 import { clearCarried } from "./carried.ts";
@@ -341,6 +343,9 @@ const boot = (): void => {
     board.setDefaultPlacement(controls.presentation.get().contextPlacement);
   followPlacement();
   controls.presentation.subscribe(followPlacement);
+  // The user's keys the board page passes on, which every widget with a key table takes.
+  const keys = createKeysStore();
+  followKeys(keys, channel);
   const extras: BoardExtras = {
     header: startPushExtras(data, channel, hosted, report),
     presentation: controls,
@@ -349,7 +354,12 @@ const boot = (): void => {
   createRoot(root).render(
     <BoardLanguage view={view}>
       <port.HostContext.Provider value={host}>
-        <Board view={view} context={context} extras={extras} />
+        {/* The key hints of the widgets with a key table (keyboard-shortcuts-help, decision 5). */}
+        <Tooltip.Provider delayDuration={300}>
+          <BoardKeys store={keys}>
+            <Board view={view} context={context} extras={extras} />
+          </BoardKeys>
+        </Tooltip.Provider>
       </port.HostContext.Provider>
     </BoardLanguage>,
   );

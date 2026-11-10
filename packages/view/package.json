@@ -8,7 +8,8 @@
     ".": "./src/index.ts",
     "./assemble": "./src/assemble/index.ts",
     "./catalog": "./src/catalog/index.ts",
-    "./markdown": "./src/markdown/index.ts"
+    "./markdown": "./src/markdown/index.ts",
+    "./strings": "./src/strings/index.ts"
   },
   "dependencies": {
     "@askboard/contract": "workspace:*",

@@ -2,6 +2,7 @@
 // 1.1), in the schema's order.
 
 import { CONFIGURATION_VERSION, type Configuration } from "../schemas/configuration/index.ts";
+import { keyOverridesExample } from "./keyboard-shortcuts-help.ts";
 
 export const everyKeyConfiguration: Configuration = {
   version: CONFIGURATION_VERSION,
@@ -13,4 +14,5 @@ export const everyKeyConfiguration: Configuration = {
   snapshotFolder: "docs/snapshots",
   editor: ["code", "--goto", "{file}:{line}"],
   defaultMinimumMargin: 18.5,
+  keys: keyOverridesExample,
 };

@@ -16,6 +16,8 @@ import { PROBE_WIDGET } from "@askboard/contract/fixtures";
 import { MOLECULE_SKILLS, READY_MOLECULES } from "@askboard/molecules";
 import { taggedBlocks } from "./blocks.ts";
 import { generateSkill, TEMPLATES } from "./generate.ts";
+import { generateHelpSkill } from "./help.ts";
+import { PANEL_NOTE } from "./keys.ts";
 import { contextTypes } from "./references.ts";
 
 const { files, examples } = generateSkill();
@@ -361,5 +363,64 @@ describe("generateSkill's inputs", () => {
       "a Probe (`probe`): a pick among options",
     );
     expect(more.files.get("SKILL.md")).toContain("[`probe`](references/widgets/probe.md)");
+  });
+});
+
+describe("the pointer to the help skill", () => {
+  test("SKILL.md names askboard-help for questions on using the board, within 9,000 characters", () => {
+    const skill = generateSkill().files.get("SKILL.md") ?? "";
+    expect(skill).toContain("`askboard-help` skill");
+    expect(skill).toContain("never put the question in an ask");
+    expect(skill.length).toBeLessThanOrEqual(9000);
+  });
+
+  // Review 7.3, X-21; skills spec, "A usage question" and "A usage question as a follow-up".
+  test("sends to askboard-help only a question the user asks in the terminal", () => {
+    const lines = (generateSkill().files.get("SKILL.md") ?? "").split("\n");
+    const routing = lines.filter((line) => line.includes("`askboard-help` skill"));
+    expect(routing).toHaveLength(1);
+    expect(routing[0]).toContain("asks in the terminal");
+    expect(routing[0]).toContain("never put the question in an ask");
+  });
+
+  test("tells the agent to answer a usage question asked as a follow-up with update at once, without loading askboard-help, from files read as files", () => {
+    const skill = generateSkill().files.get("SKILL.md") ?? "";
+    const lines = skill.split("\n").filter((line) => line.includes("askboard-help"));
+    const followUp = lines.filter((line) => line.includes("follow-up"));
+    expect(followUp).toHaveLength(1);
+    expect(followUp[0]).toContain("usage question");
+    expect(followUp[0]).toContain("`update`");
+    expect(followUp[0]).toContain("at once");
+    expect(followUp[0]).toContain("without loading `askboard-help`");
+    expect(followUp[0]).toContain("Keys section");
+    expect(followUp[0]).toContain("skills/askboard-help/references/");
+    // The folder is named as plain text: no Markdown link to it, so the one-level rule holds.
+    expect(skill).not.toMatch(/\]\([^)]*askboard-help/);
+    // No other line mentions the help skill in a way that sends a follow-up there.
+    for (const line of lines.filter((l) => l !== followUp[0])) {
+      expect(line).not.toContain("follow-up");
+    }
+  });
+
+  test("the Ranking's reference lists its keys and, the board showing its panel, says the panel shows the keys in effect", () => {
+    const ranking =
+      generateSkill({ keyTablesOnBoard: ["ranking"] }).files.get("references/widgets/ranking.md") ??
+      "";
+    expect(ranking).toContain("| Move up | list | Alt+Shift+↑ (⌥⇧↑) |");
+    expect(ranking).toContain("| Keep this order | list | Enter (↩) |");
+    expect(ranking).toContain("keys in effect");
+  });
+
+  // Skills spec, "The keys panel where the board shows it" and "A table the board does not show
+  // yet": the shipped registry with the contract's own list, nothing passed in.
+  test("on the shipped registry both Ranking references say the keys panel shows the keys in effect, and both Gantt references say there is none yet", () => {
+    for (const generated of [generateSkill(), generateHelpSkill()]) {
+      const ranking = generated.files.get("references/widgets/ranking.md") ?? "";
+      expect(ranking).toContain(PANEL_NOTE);
+      expect(ranking).not.toContain("shows no keys panel");
+      const gantt = generated.files.get("references/widgets/gantt.md") ?? "";
+      expect(gantt).toContain("The board shows no keys panel for the Gantt yet");
+      expect(gantt).not.toContain(PANEL_NOTE);
+    }
   });
 });

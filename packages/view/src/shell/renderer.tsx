@@ -25,9 +25,11 @@ import {
   type BoardContent,
   type BoardWidgetItem,
   type CatalogComponent,
+  componentFacts,
   componentFor,
   type DerivedValues,
   type ItemProps,
+  useKeyTable,
   useStrings,
 } from "../catalog/port.ts";
 import { nestedWidgetItemsOf } from "../nested-items.ts";
@@ -37,6 +39,7 @@ import type { DerivedStore } from "./derived-store.ts";
 import { createDraftStore, type DraftRecord, type DraftStore } from "./draft-store.ts";
 import { isEntryType } from "./entries.ts";
 import { itemCallbacks, itemResultOf, itemValueOf } from "./item-callbacks.ts";
+import { KeysFrame } from "./keys-frame.tsx";
 import type { ReadyTracker } from "./ready-tracker.ts";
 import type { RevisingSnapshot } from "./revising.ts";
 
@@ -116,10 +119,16 @@ const Unregistered: CatalogComponent<{ readonly id: string }> = ({ item }) => {
 const ItemFrame = ({
   itemId,
   tracker,
+  type,
+  takesEdits,
   children,
 }: {
   readonly itemId: string;
   readonly tracker: ReadyTracker;
+  /** The item's component name, whose registered facts hold the key table (keyboard-shortcuts-help). */
+  readonly type: string;
+  /** The item takes edits: neither disabled nor read-only; the keys panel lists what still acts. */
+  readonly takesEdits: boolean;
   readonly children: ReactNode;
 }) => {
   // The snapshot is also the server one, which only the tests' server renderer reads.
@@ -127,9 +136,24 @@ const ItemFrame = ({
   const status = useSyncExternalStore(tracker.subscribe, itemStatusOf, itemStatusOf);
   const pending = status === "pending";
   const text = useStrings();
+  const facts = componentFacts(type);
+  const keys = useKeyTable(facts?.keys);
+  const className = pending ? "invisible" : undefined;
   return (
     <div data-askboard-item={itemId} className="relative">
-      <div className={pending ? "invisible" : undefined}>{children}</div>
+      {keys === undefined ? (
+        <div className={className}>{children}</div>
+      ) : (
+        <KeysFrame
+          itemId={itemId}
+          table={keys}
+          name={facts?.name}
+          takesEdits={takesEdits}
+          className={className}
+        >
+          {children}
+        </KeysFrame>
+      )}
       {pending ? (
         <div className="absolute inset-0 flex items-start rounded-md bg-muted p-sm text-body text-muted-foreground">
           {text("item.loading")}
@@ -301,7 +325,12 @@ export const RenderItem = ({
   );
   const Item = (componentFor(component) ?? Unregistered) as Rendering;
   return (
-    <ItemFrame itemId={item.id} tracker={tracker}>
+    <ItemFrame
+      itemId={item.id}
+      tracker={tracker}
+      type={component}
+      takesEdits={!(disabled || readOnly)}
+    >
       <ItemErrorBoundary onError={onError}>
         <Item
           item={item}

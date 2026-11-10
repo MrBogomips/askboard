@@ -8,6 +8,11 @@
 // has none, such as Backspace on a name or in a read-only Gantt, which WebKit would take for "go
 // back" (view spec, "Gantt keyboard": these keys trigger no browser action); any other key is left
 // to the browser.
+//
+// The other parts' keys are functions of the press too, so that the key table's parity test reaches
+// them (keyboard-shortcuts-help, decisions 7 and 9): `switchKeyMove` for the "Critical path"
+// switch (ArrowLeft and Home, no modifier) and `panelKeyAction` for the predecessors panel; the
+// Task column's edge is `edgeKeyAction` in `column-width.ts`.
 
 import type { GanttColumn } from "./tasks.ts";
 
@@ -100,3 +105,43 @@ const clears = (context: GridKeyContext): boolean =>
 /** Where a key moves the toolbar's focus, or undefined when it is not the toolbar's. */
 export const toolbarKeyMove = (press: KeyPress): ToolMove | undefined =>
   modified(press) ? undefined : TOOLBAR_KEYS.get(press.key);
+
+/**
+ * Where a press moves the focus from the "Critical path" switch: back to the zoom's last option on
+ * ArrowLeft or Home, held with no modifier (keyboard-shortcuts-help, design decision 7). Shift with
+ * either keeps its default; Space is Radix's.
+ */
+export const switchKeyMove = (press: KeyPress): ToolMove | undefined => {
+  if (modified(press)) return undefined;
+  if (press.key === "ArrowLeft") return "previous";
+  return press.key === "Home" ? "first" : undefined;
+};
+
+/** What a press does in the predecessors panel. */
+export type PanelAction =
+  | { readonly kind: "done" }
+  | { readonly kind: "cancel" }
+  | { readonly kind: "move"; readonly step: 1 | -1 }
+  /** Taken, with its default prevented, and changes nothing: Delete and Backspace. */
+  | { readonly kind: "swallow" };
+
+const panelAction = (value: PanelAction): PanelAction => Object.freeze(value);
+
+const PANEL_DONE = panelAction({ kind: "done" });
+const PANEL_CANCEL = panelAction({ kind: "cancel" });
+const PANEL_DOWN = panelAction({ kind: "move", step: 1 });
+const PANEL_UP = panelAction({ kind: "move", step: -1 });
+const PANEL_SWALLOW = panelAction({ kind: "swallow" });
+
+const PANEL_KEYS: ReadonlyMap<string, PanelAction> = new Map([
+  ["Enter", PANEL_DONE],
+  ["Escape", PANEL_CANCEL],
+  ["ArrowDown", PANEL_DOWN],
+  ["ArrowUp", PANEL_UP],
+  ["Backspace", PANEL_SWALLOW],
+  ["Delete", PANEL_SWALLOW],
+]);
+
+/** What a key does in the predecessors panel, or undefined: with any modifier, or not the panel's. */
+export const panelKeyAction = (press: KeyPress): PanelAction | undefined =>
+  modified(press) ? undefined : PANEL_KEYS.get(press.key);

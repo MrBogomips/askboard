@@ -314,3 +314,16 @@ export {
   documentReviewAnswerEvent,
   documentReviewFetchItemResult,
 } from "./document-review.ts";
+
+// The user's key overrides, the settings messages that carry them and their transcript
+// (keyboard-shortcuts-help, tasks 8.4 and 8.5).
+
+export { keyOverridesExample } from "./keyboard-shortcuts-help.ts";
+export {
+  densitySetting,
+  keyboardKeysTranscript,
+  settingsKeysIgnored,
+  settingsKeysNotApplied,
+  settingsKeysSaved,
+  settingsWithKeys,
+} from "./keyboard-shortcuts-help-transcripts.ts";

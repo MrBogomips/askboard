@@ -28,6 +28,7 @@ import type {
   ViewUpdate,
 } from "../view-protocol.ts";
 import type { BoardHostMessage } from "./host-messages.ts";
+import { keysOf } from "./key-overrides.ts";
 import { presentationOf } from "./presentation.ts";
 
 // The optional fields of a view update the controller makes from its own state, E1's and the ask
@@ -104,6 +105,19 @@ const afterSettings = (model: BoardModel, message: SettingsMessage): ViewPresent
   return { ...next, [write.key]: before[write.key] };
 };
 
+// What a settings message adds to what the model passes on: the presentation, and the user's keys
+// when it gives them, else none (keyboard-shortcuts-help, task 10.1); the field is left out, not set
+// to undefined, so that a view update never names it.
+const passedOnAfterSettings = (model: BoardModel, message: SettingsMessage): PassedOn => {
+  const { keys: _, ...kept } = model.passedOn;
+  const keys = keysOf(message);
+  return {
+    ...kept,
+    presentation: afterSettings(model, message),
+    ...(keys === undefined ? {} : { keys }),
+  };
+};
+
 /**
  * The model after a message from `board-host`: the board document, the state, a receipt, which
  * marks the logged answer delivered, who asked and where, the agent status and the settings. `moved`,
@@ -128,7 +142,7 @@ export const withHostMessage = (
       return {
         ...model,
         settings: message,
-        passedOn: { ...model.passedOn, presentation: afterSettings(model, message) },
+        passedOn: passedOnAfterSettings(model, message),
       };
     case "receipt": {
       if (model.state === undefined) return model;

@@ -130,7 +130,7 @@ describe("without the Config port", () => {
       askingRule: "none",
       snapshotFolder: ".askboard/snapshots",
     });
-    for (const key of CONFIGURATION_KEYS) expect(settings.rows[key].from).toBe("default");
+    for (const key of CONFIGURATION_KEYS) expect(settings.rows[key]?.from).toBe("default");
     expect(settings.files).toEqual({ user: { status: "absent" }, project: { status: "absent" } });
   });
 });

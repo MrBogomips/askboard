@@ -26,6 +26,10 @@ export const STACK_WIDGET: WidgetType = {
       },
     },
   },
+  help: {
+    mouse: "It only lays its items one under another: use the items themselves.",
+    answer: "Nothing of its own: each item inside it gives its own answer.",
+  },
   skill: {
     use: "items one under another in a column, as one block of a question",
     notes: [

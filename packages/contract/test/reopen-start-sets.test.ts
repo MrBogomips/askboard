@@ -29,9 +29,14 @@ const setOf = (name: string) => {
 };
 
 describe("the sets reopen-start-from-answer widens", () => {
-  test("the board protocol and the Snapshot data hold the minors bound for this change", () => {
-    expect({ protocol: BOARD_PROTOCOL_VERSION, snapshot: SNAPSHOT_DATA_VERSION }).toEqual({
-      protocol: "1.9",
+  test("the board protocol stands at this change's minor or a later one, the Snapshot data at the minor bound for it", () => {
+    // At least, since keyboard-shortcuts-help widens the board protocol after this change; its own
+    // test pins the constant.
+    expect({
+      protocol: Number(BOARD_PROTOCOL_VERSION.split(".")[1]) >= 9,
+      snapshot: SNAPSHOT_DATA_VERSION,
+    }).toEqual({
+      protocol: true,
       snapshot: "1.3",
     });
     expect(setOf("board-protocol").version).toBe(BOARD_PROTOCOL_VERSION);
@@ -45,7 +50,8 @@ describe("the sets reopen-start-from-answer widens", () => {
       envelopes: TOOL_ENVELOPES_VERSION,
       document: BOARD_DOCUMENT_VERSION,
       manifest: VIEW_MANIFEST_VERSION,
-      configuration: CONFIGURATION_VERSION,
+      // The configuration: its minor at keyboard-shortcuts-help or a later change's (its own test pins it).
+      configuration: Number(CONFIGURATION_VERSION.split(".")[1]) >= 1,
       localApi: LOCAL_API_VERSION,
       sessionFile: SESSION_FILE_FORMAT,
     }).toEqual({
@@ -54,7 +60,7 @@ describe("the sets reopen-start-from-answer widens", () => {
       envelopes: "1.14",
       document: "1.12",
       manifest: "1.1",
-      configuration: "1.0",
+      configuration: true,
       localApi: "1.0",
       sessionFile: "1.0",
     });

@@ -29,7 +29,8 @@ your job is to find it at the group that caused it.
    constants, schemas, fixtures, transcripts, documents and notes; borrowed names present on `main`.
 5. Check what the import check cannot see: AD-1 dependencies by injection rather than import, and
    no dependency on AXFX (FR-31).
-6. Before a pull request, check the documents: the PRD and spine updates the change states, the UX
+6. Check that a widget's key table (`KEY_VOCABULARY` and the type's own entries), its handler (`keyActionOf` over `useKeyTable`'s table), its tooltips (`KeyHint`), its keys panel (`KeysButton`, `KeysPanelBody`), the references and `askboard-help` agree, and that any key outside the vocabulary carries the PO's recorded approval.
+7. Before a pull request, check the documents: the PRD and spine updates the change states, the UX
    sections it cites, and the change's as-built note `docs/as-built/<change-id>.md` (CLAUDE.md,
    Working documents). A change that edits CLAUDE.md for its own record, rather than for a rule the
    file states, is a finding.

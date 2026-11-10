@@ -52,6 +52,8 @@ const COPIED: Record<string, string> = {
   "dist/view/licences/react-19.txt": "MIT\n",
   "skills/askboard/SKILL.md": "# skill\n",
   "skills/askboard/references/widgets/tree.md": "# tree\n",
+  "skills/askboard-help/SKILL.md": "# help\n",
+  "skills/askboard-help/references/widgets/tree.md": "# tree help\n",
   LICENSE: "MIT License\n\nCopyright (c) 2026 Ada Lovelace\n\nPermission is hereby granted\n",
   "README.md": "# AskBoard\n",
   "CHANGELOG.md": "# Changelog\n\n## 0.1.0 - 2026-11-07\n",
@@ -67,6 +69,7 @@ const NOISE: Record<string, string> = {
   "hooks/notes.md": "x\n",
   "scripts/other": "x\n",
   "skills/other/SKILL.md": "x\n",
+  "skills/askboard-helper/SKILL.md": "x\n",
   "docs/prd.md": "x\n",
   "tools/release/assemble.ts": "x\n",
   "bin/askboard": "x\n",
@@ -198,6 +201,16 @@ describe("assemble refuses and leaves no tree", () => {
     return refused(root, /skills\/askboard\/link\.md.*symbolic link/);
   });
 
+  test("a symbolic link in the help skill, and a missing help skill", async () => {
+    const root = checkout();
+    symlinkSync("../../README.md", join(root, "skills/askboard-help/link.md"));
+    await refused(root, /skills\/askboard-help\/link\.md.*symbolic link/);
+    await refused(
+      checkout({ without: ["skills/askboard-help"] }),
+      /skills\/askboard-help is missing/,
+    );
+  });
+
   test("a linked input file", () => {
     const root = checkout({ without: ["dist/askboard.mjs"] });
     symlinkSync(join(root, "README.md"), join(root, "dist/askboard.mjs"));
@@ -292,7 +305,7 @@ describe("main", () => {
     const out = target();
     const { code, lines } = await run(checkout(), ["--out", out]);
     expect(code).toBe(0);
-    expect(lines.join("\n")).toContain("16 files");
+    expect(lines.join("\n")).toContain("18 files");
     expect(existsSync(join(out, ".claude-plugin/marketplace.json"))).toBe(true);
   });
 
