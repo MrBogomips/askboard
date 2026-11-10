@@ -217,7 +217,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
   - **Schemas and validation:**
     - Input schemas are generic JSON Schema 2020-12. Every item is `{type, id, props}`: a `type` discriminator, the item's ID and an object of props. A molecule reference is such an item (AD-9). There is no root `anyOf`/`oneOf`/`allOf`, and top-level property names are 1–64 characters from `[A-Za-z0-9_.-]`.
     - Per-widget schemas, the molecule reference and definition formats, and the asking-rule predicates exist only in `contract`. Each ready-made molecule's parameter schema is part of its definition, data in `molecules` written in `contract`'s definition format. Tool definitions never include any of them.
-    - The skills' reference files, examples and asking-rule texts are generated from `contract` and `molecules` at build time. CI fails when a shipped file differs from its generated form, or when an example fails validation.
+    - The skills' reference files, examples and asking-rule texts, in both skills (`askboard` and `askboard-help`), are generated from `contract`, `molecules` and the view's English strings (`@askboard/view/strings`) at build time. CI fails when a shipped file differs from its generated form, or when an example fails validation.
     - The server validates every request against `contract`.
       - A request the agent must fix returns `isError` text naming the item ID and the expected shape, under 4,000 characters, with the first problems first.
       - A problem confined to one item that leaves the board usable is a typed warning in a successful result: an unresolved pointer (FR-8), a formula error (FR-14), each kind within its share of the result bound: past it, one closing warning counts the rest.
@@ -819,7 +819,7 @@ askboard/
     mod/                 # Claude Code mod: push transport, pending-asks status
     hooks/               # Claude Code hooks: out-of-process client of the local API (AD-1, AD-16)
     bench/               # benchmark runner, scripted answerer, report, cost model
-  skills/                # Agent Skills: SKILL.md and its references, all generated from contract and molecules
+  skills/                # Agent Skills (askboard, askboard-help): SKILL.md and its references, all generated from contract, molecules and the view's English strings
   agents/                # shipped agents (none in the first version; Deferred)
   scripts/               # start script (Node form); the launcher (executable form)
   tools/                 # repository checks: import boundaries (AD-1), licences (AD-19)
