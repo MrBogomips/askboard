@@ -296,6 +296,22 @@ describe("the handler record", () => {
     expect(Object.keys(LIST_HANDLERS).sort()).toEqual([...actions].sort());
   });
 
+  test("Shift+ArrowUp on the first row and Shift+ArrowDown on the last are taken and keep the current row and the selected rows", () => {
+    const selection = selectionOf("a", "b");
+    const up = take("ArrowUp", SHIFT, { current: "a", selection });
+    expect(up?.taken).toBe(true);
+    expect(up?.current).toBe("a");
+    expect(idsOf(up)).toEqual(["a", "b"]);
+    const down = take("ArrowDown", SHIFT, { current: "e", selection: selectionOf("d", "e") });
+    expect(down?.current).toBe("e");
+    expect(idsOf(down)).toEqual(["d", "e"]);
+  });
+
+  test("Shift+ArrowUp and Shift+ArrowDown with no row to go to are taken and change nothing", () => {
+    expect(take("ArrowUp", SHIFT, { order: [], current: "x" })).toEqual({ taken: true });
+    expect(take("ArrowDown", SHIFT, { order: [], current: "x" })).toEqual({ taken: true });
+  });
+
   test("an extend with a stale anchor starts from the current row", () => {
     const stale = extend(NO_SELECTION, ORDER, "c", "c");
     expect(idsOf(take("ArrowDown", SHIFT, { selection: stale }))).toEqual(["c", "d"]);
