@@ -1,11 +1,11 @@
 ## MODIFIED Requirements
 
 ### Requirement: Routing between AskBoard and AskUserQuestion
-`SKILL.md` SHALL route by the question's cognitive and contextual complexity, never by a count of questions or options. It SHALL give many interconnected questions, questions that cite documents by bare IDs and content that reads better as a visual artifact as examples, and leave the agent to judge whether a visual, interactive board helps. A simple, self-explanatory choice goes to AskUserQuestion, a subagent asks through AskBoard, and an asking rule or the user's instruction overrides (FR-29, FR-30).
+`SKILL.md` SHALL route by the question's cognitive and contextual complexity, never by a count of questions or options, give its cases as examples and leave the agent to judge whether a visual, interactive board helps. A simple, self-explanatory choice goes to AskUserQuestion, a subagent asks through AskBoard, and an asking rule or the user's instruction overrides (FR-29, FR-30).
 
 #### Scenario: The routing section
 - **WHEN** the generated `SKILL.md` is read
-- **THEN** its routing section says to choose by how hard the question is to grasp and to answer, names the three cases, says they are examples and the agent judges, sends a simple, self-explanatory choice to AskUserQuestion, makes a subagent ask every question through AskBoard, and lets an asking rule and the user's instruction override
+- **THEN** its routing section says to choose by how hard the question is to grasp and to answer, names as cases many interconnected questions, questions that cite documents by bare IDs and content that reads better as a visual artifact, says they are examples and the agent judges, sends a simple, self-explanatory choice to AskUserQuestion, makes a subagent ask every question through AskBoard, and lets an asking rule and the user's instruction override
 
 #### Scenario: No count
 - **WHEN** the generated routing section is read

@@ -1482,7 +1482,7 @@ The output format, the tool envelopes, the board protocol and the Snapshot data 
 - **THEN** it refuses the message as a schema error naming `results`
 
 ### Requirement: Asking-rule texts
-The contract SHALL hold one agent-facing text for each asking rule of its closed set, in the set's order, and no text for a name outside it. The `with-references` text SHALL be the text that describes the hook's predicate (AD-16, FR-30).
+The contract SHALL hold one agent-facing text for each asking rule of its closed set, in the set's order, and no text for a name outside it. The `with-references` text SHALL be the text that describes the hook's predicate. The `none` text SHALL say that the agent chooses where each question goes by how complex it is to grasp (AD-16, FR-29, FR-30).
 
 #### Scenario: One text per rule
 - **WHEN** the asking-rule texts are read
@@ -1491,6 +1491,10 @@ The contract SHALL hold one agent-facing text for each asking rule of its closed
 #### Scenario: The with-references text
 - **WHEN** the `with-references` text is compared with the description of the hook's predicate
 - **THEN** they are the same text
+
+#### Scenario: The none text
+- **WHEN** the `none` text is read
+- **THEN** it says that no question is taken from AskUserQuestion and that the agent chooses where each question goes by how complex it is
 
 ### Requirement: A widget type's teaching text
 A widget type's registry entry MAY carry teaching text: when to use the widget, 1 to 200 characters, and notes, each 1 to 300 characters. The registry check SHALL refuse teaching text outside those bounds or of another shape, naming the type, and SHALL report it rather than stop, so that the other entries' problems are reported too; every shipped type SHALL carry teaching text (FR-29).
