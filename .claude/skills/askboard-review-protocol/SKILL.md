@@ -69,7 +69,9 @@ several changes and this is not the last. A missing or wrong link is an L findin
   from review" groups, and design.md's Risks and Open Questions. Report one again only when the range
   makes it worse, and say how.
 - Items an Issue already holds: search before reporting
-  (`gh issue list --repo MrBogomips/askboard --state all --search "<key words> in:title,body"`).
+  (`gh issue list --repo MrBogomips/askboard --state all --search "<key words> in:title,body"`),
+  and list the open Issues of the areas the range touches
+  (`gh issue list --repo MrBogomips/askboard --label area:<name>`; the map is in CLAUDE.md, Labels).
   Report one again only when the range makes it worse, and name the Issue.
 - Taste. Every finding cites the rule it breaks: a requirement or scenario, a design decision, an
   FR, NFR or AD ID, an invariant, a UX section, or a convention in CLAUDE.md.
@@ -126,7 +128,7 @@ review:
 - folds H and M findings into the change through `/opsx:update`, as fix tasks with tests first, in a
   "Fixes from review" group, with the finding IDs in the task text (E4 did this with M1 to M7);
 - folds each L finding, or defers it: records it in `tasks.md` with a reason and opens an Issue for
-  it (`type:defect`, the finding's severity, `source:review`; the finding ID, the change and the
+  it (`type:defect`, the finding's severity, `source:review`, its areas; the finding ID, the change and the
   range in its Origin; `CLAUDE.md`, The backlog), so it outlives the archived change. A finding the PO
   accepts as deferred, at any severity, becomes an Issue the same way;
 - when two reviews disagree, keeps both views with their source and decides by the rule they cite, or

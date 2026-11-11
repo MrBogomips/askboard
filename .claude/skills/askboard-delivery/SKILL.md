@@ -60,7 +60,7 @@ and the base of the next one.
       network.
    4. Fold the findings (`askboard-review-protocol`, section 6). The implementer fixes them tests
       first, then the same reviewer re-reviews the fix range. A finding deferred, or a defect the
-      change will not fix, becomes an Issue with `source:review`.
+      change will not fix, becomes an Issue with `source:review` and its areas.
 4. **Before the pull request:**
    1. Rebase onto `origin/main`. Bind the version labels and re-check the borrowed seams with
       `askboard-contract-versioning`. Run the implementer at high effort for conflicts.

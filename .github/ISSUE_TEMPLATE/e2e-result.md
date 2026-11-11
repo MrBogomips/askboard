@@ -6,7 +6,8 @@ labels: ["type:defect", "source:e2e"]
 ---
 
 <!--
-One finding per Issue. Search open and closed Issues for a duplicate first. A defect adds one
+One finding per Issue. Search open and closed Issues for a duplicate first. Add one area label or
+more: area:<name>, the function or module (CLAUDE.md, Labels). A defect adds one
 severity label (sev:H, sev:M, sev:L); a request takes type:feature instead of type:defect, a
 decision type:question and needs-po. Keep the Issue self-contained: the steps, the expected and
 observed behaviour and the evidence written here, the report's relevant lines quoted, screenshots
