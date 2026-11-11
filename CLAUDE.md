@@ -148,6 +148,9 @@ attachments dragged in on GitHub, or as files on the `issue-assets` branch linke
 `https://github.com/MrBogomips/askboard/raw/issue-assets/<path>` (the Contents API: `gh api
 repos/MrBogomips/askboard/contents/<path> -X PUT -f branch=issue-assets -f message=… -f content=<base64>`,
 the method of the `github-issues` skill for private repositories), never as local paths. Never put a board link (it carries the token in `?t=`), a token or a session file in an Issue.
+The repository is public: an Issue, a comment or an image shows nothing of the PO's other work (a
+client, a project, a document, or a screenshot of one); describe the behaviour, or reproduce it on
+neutral content.
 
 1. **Deduplicate, then open.** Search open and closed Issues with two or three wordings (the widget
    or tool name, the symptom, the API name):
