@@ -93,7 +93,6 @@ Anyone who works in Claude Code and makes the decisions its agents ask for:
 - Claude Code 2.1.311 or later (the `stable` channel reaches it), with mods on, which is the default. Mods give push delivery; without them, answers still arrive when the agent collects them.
 - macOS or Linux, including devcontainers. On Windows, use WSL.
 - A browser on the same machine, for the board.
-- While the repository is private, read access to `MrBogomips/askboard` and git credentials that work without a prompt. For GitHub, that means `gh auth login` then `gh auth setup-git`.
 
 ## Install
 

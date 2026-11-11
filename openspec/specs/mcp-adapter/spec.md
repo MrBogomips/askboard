@@ -223,11 +223,11 @@ A `fetch` result SHALL carry each excerpt's pointer, title, status, reason and l
 - **THEN** the result holds no excerpt text and no image bytes, and the excerpt's status and line range are there
 
 ### Requirement: Approved texts unchanged
-The tool definitions and server instructions SHALL stay the approved texts, which already teach pointers (`path#Heading`, `path#L10-L40`) and screenshots saved under `.askboard/media/`; E5 adds nothing to them (NFR-1).
+The tool definitions and server instructions SHALL stay the approved texts with the amendments the contract records applied, which already teach pointers (`path#Heading`, `path#L10-L40`) and screenshots saved under `.askboard/media/`; E5 adds nothing to them (NFR-1).
 
 #### Scenario: The listed tools
 - **WHEN** a client lists the tools after this change
-- **THEN** each definition and the instructions equal the approved fixtures byte for byte
+- **THEN** each definition and the instructions equal the approved fixtures with the recorded amendments applied
 
 ### Requirement: Taking a Snapshot with the tool
 `snapshot` SHALL take a Snapshot of the ask it names and return the versions, epoch, ask ID, the ask's state as captured and the file's absolute path, never the file's content. It SHALL take no path and accept no field but `askId` (AD-6, AD-15, FR-26).
@@ -341,3 +341,29 @@ The warnings of an `ask` result SHALL be the no-hooks warning when it applies, t
 #### Scenario: A discarded ask still wins
 - **WHEN** the ask that held a deleted question is discarded, and the agent fetches that question
 - **THEN** the result is the outcome `discarded` naming the ask
+
+### Requirement: The server instructions route by complexity
+The server instructions SHALL route by the question's cognitive and contextual complexity, never by a count of questions or options, and give its cases as examples for the agent to judge. A simple, self-explanatory choice SHALL stay with AskUserQuestion, and the user's asking rule or instruction SHALL come first. The instructions SHALL tell the agent to load the `askboard` skill before its first `ask`, and never to put a complex question in chat prose (FR-29, FR-30, AD-6).
+
+#### Scenario: The routing paragraph
+- **WHEN** a client reads the server instructions
+- **THEN** they name many interconnected questions, questions that cite documents by bare IDs and content that reads better seen and worked on, say these are examples to judge by, keep a simple, self-explanatory choice with AskUserQuestion, and hold neither "more than four" nor "one quick choice"
+
+#### Scenario: The skill line
+- **WHEN** a client reads the server instructions
+- **THEN** one line tells the agent to load the `askboard` skill before its first `ask`
+
+#### Scenario: Not in chat prose
+- **WHEN** a client reads the server instructions
+- **THEN** one line tells the agent never to put a complex question in chat prose but to ask it on the board
+
+#### Scenario: Within the limits
+- **WHEN** a client reads the server instructions
+- **THEN** they are at most 4,096 characters and never name `snapshot`
+
+### Requirement: The ask description points to the skill
+The `ask` tool's description SHALL tell the agent to load the `askboard` skill before its first `ask`, the skill saying when to ask on the board and listing every item type and its props (FR-29, AD-6).
+
+#### Scenario: The ask description
+- **WHEN** a client lists the tools
+- **THEN** `ask`'s description tells the agent to load the `askboard` skill before its first ask, and stays within 4,096 characters
