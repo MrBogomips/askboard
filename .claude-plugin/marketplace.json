@@ -1,0 +1,16 @@
+{
+  "name": "askboard",
+  "owner": {
+    "name": "Giovanni Costagliola"
+  },
+  "metadata": {
+    "description": "A local board on which an agent asks you structured questions and gets typed answers back."
+  },
+  "plugins": [
+    {
+      "name": "askboard",
+      "source": "./",
+      "description": "A local board on which an agent asks you structured questions and gets typed answers back."
+    }
+  ]
+}

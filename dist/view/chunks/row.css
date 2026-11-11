@@ -1,0 +1,2 @@
+/*! tailwindcss v4.3.3 | MIT License | https://tailwindcss.com */
+@layer theme,base,components;@layer utilities{.fixed{position:fixed}.relative{position:relative}.flex{display:flex}.table{display:table}.min-w-0{min-width:0}.grow{flex-grow:1}.grow-2{flex-grow:2}.grow-3{flex-grow:3}.grow-4{flex-grow:4}.basis-0{flex-basis:0}.flex-col{flex-direction:column}.flex-row{flex-direction:row}.gap-md{gap:var(--md)}}

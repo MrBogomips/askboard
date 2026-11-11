@@ -1,0 +1,1753 @@
+{
+  "version": "1.1",
+  "boardPage": {
+    "html": {
+      "path": "board-page.html",
+      "sha256": "9ac9bbc142f113209f4f2b46512a31de6f44fe0b0c687a72318e45a4a9cbc36f",
+      "bytes": 1035475
+    },
+    "script": {
+      "path": "board-page.js",
+      "sha256": "48c09f35edcfb007e608406a4c52832dd87e8a5d847b0a0c1d6f033b957c5d40",
+      "bytes": 1016451
+    },
+    "styles": [
+      {
+        "path": "board-page.css",
+        "sha256": "32603d6f4a1118ee824b7013d79a3702565660d5ebf2de48b7b25155cae67c6d",
+        "bytes": 18755
+      }
+    ],
+    "licences": [
+      {
+        "package": "@askboard/contract",
+        "version": "0.1.0",
+        "licence": "MIT",
+        "path": "licences/askboard-contract-0.1.0.txt"
+      },
+      {
+        "package": "@askboard/view",
+        "version": "0.1.0",
+        "licence": "MIT",
+        "path": "licences/askboard-view-0.1.0.txt"
+      },
+      {
+        "package": "@modelcontextprotocol/client",
+        "version": "2.4.0",
+        "licence": "Apache-2.0",
+        "path": "licences/modelcontextprotocol-client-2.4.0.txt"
+      },
+      {
+        "package": "@modelcontextprotocol/core",
+        "version": "2.4.0",
+        "licence": "Apache-2.0",
+        "path": "licences/modelcontextprotocol-core-2.4.0.txt"
+      },
+      {
+        "package": "@modelcontextprotocol/ext-apps",
+        "version": "2.0.4",
+        "licence": "MIT",
+        "path": "licences/modelcontextprotocol-ext-apps-2.0.4.txt"
+      },
+      {
+        "package": "ajv",
+        "version": "8.20.0",
+        "licence": "MIT",
+        "path": "licences/ajv-8.20.0.txt"
+      },
+      {
+        "package": "fast-deep-equal",
+        "version": "3.1.3",
+        "licence": "MIT",
+        "path": "licences/fast-deep-equal-3.1.3.txt"
+      },
+      {
+        "package": "pkce-challenge",
+        "version": "5.0.1",
+        "licence": "MIT",
+        "path": "licences/pkce-challenge-5.0.1.txt"
+      },
+      {
+        "package": "tailwindcss",
+        "version": "4.3.3",
+        "licence": "MIT",
+        "path": "licences/tailwindcss-4.3.3.txt"
+      },
+      {
+        "package": "zod",
+        "version": "4.6.7",
+        "licence": "MIT",
+        "path": "licences/zod-4.6.7.txt"
+      }
+    ]
+  },
+  "chunks": {
+    "approval": {
+      "kind": "component",
+      "script": {
+        "path": "chunks/approval.js",
+        "sha256": "fdad8c079213de3ce5ffaa3ad5f9495b6c05519aa712eab30f459eabbf876bb2",
+        "bytes": 16960
+      },
+      "styles": [
+        {
+          "path": "chunks/approval.css",
+          "sha256": "85afa26481646cd7ddad06709852e469203d5160157f6cdb7adc5b03c5a563a0",
+          "bytes": 3315
+        }
+      ],
+      "needs": [
+        "radix",
+        "react",
+        "shell"
+      ],
+      "components": [
+        "approval"
+      ],
+      "licences": [
+        {
+          "package": "@askboard/contract",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-contract-0.1.0.txt"
+        },
+        {
+          "package": "@askboard/view",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-view-0.1.0.txt"
+        },
+        {
+          "package": "@askboard/widgets",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-widgets-0.1.0.txt"
+        }
+      ]
+    },
+    "board-graph": {
+      "kind": "library",
+      "script": {
+        "path": "chunks/board-graph.js",
+        "sha256": "60f42e3e4fdc8a009efa792d46a84545f36330e7b89abd1ffc3e8e91566a44a1",
+        "bytes": 10738
+      },
+      "styles": [],
+      "needs": [
+        "compute"
+      ],
+      "licences": [
+        {
+          "package": "@askboard/contract",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-contract-0.1.0.txt"
+        },
+        {
+          "package": "@askboard/view",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-view-0.1.0.txt"
+        },
+        {
+          "package": "@askboard/widgets",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-widgets-0.1.0.txt"
+        }
+      ]
+    },
+    "chart": {
+      "kind": "component",
+      "script": {
+        "path": "chunks/chart.js",
+        "sha256": "88bf839c81e9addc7269ff3e75279cb655dd14b458dc08423744ddfd55ac1636",
+        "bytes": 591848
+      },
+      "styles": [
+        {
+          "path": "chunks/chart.css",
+          "sha256": "19b9966b0171a7a71e63f3e9c7156807d11e8e238d05e2d7f07fbe591bd12800",
+          "bytes": 3443
+        }
+      ],
+      "needs": [
+        "react",
+        "shell"
+      ],
+      "components": [
+        "chart"
+      ],
+      "licences": [
+        {
+          "package": "@askboard/contract",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-contract-0.1.0.txt"
+        },
+        {
+          "package": "@askboard/view",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-view-0.1.0.txt"
+        },
+        {
+          "package": "@askboard/widgets",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-widgets-0.1.0.txt"
+        },
+        {
+          "package": "echarts",
+          "version": "6.1.0",
+          "licence": "Apache-2.0",
+          "path": "licences/echarts-6.1.0.txt"
+        },
+        {
+          "package": "tslib",
+          "version": "2.3.0",
+          "licence": "0BSD",
+          "path": "licences/tslib-2.3.0.txt"
+        },
+        {
+          "package": "zrender",
+          "version": "6.1.0",
+          "licence": "BSD-3-Clause",
+          "path": "licences/zrender-6.1.0.txt"
+        }
+      ]
+    },
+    "choice": {
+      "kind": "component",
+      "script": {
+        "path": "chunks/choice.js",
+        "sha256": "151ef9020a230890a1b3a2fece257386606c220af9b4f3aa8931dbcce9c9fa19",
+        "bytes": 11458
+      },
+      "styles": [
+        {
+          "path": "chunks/choice.css",
+          "sha256": "5a5dae2602bda8ac47207bb3f3f849955450d1f2f749ae1c8a0bb1f481ee1ccf",
+          "bytes": 7082
+        }
+      ],
+      "needs": [
+        "radix",
+        "react",
+        "shell"
+      ],
+      "components": [
+        "choice"
+      ],
+      "licences": [
+        {
+          "package": "@askboard/contract",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-contract-0.1.0.txt"
+        },
+        {
+          "package": "@askboard/view",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-view-0.1.0.txt"
+        }
+      ]
+    },
+    "compute": {
+      "kind": "library",
+      "script": {
+        "path": "chunks/compute.js",
+        "sha256": "218671f57eb5b38dc0b0e806f99b2aaf0f083e2c03e3df352b418f4ddd63b18e",
+        "bytes": 43942
+      },
+      "styles": [],
+      "needs": [],
+      "licences": [
+        {
+          "package": "@askboard/compute",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-compute-0.1.0.txt"
+        },
+        {
+          "package": "@askboard/contract",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-contract-0.1.0.txt"
+        },
+        {
+          "package": "@askboard/view",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-view-0.1.0.txt"
+        }
+      ]
+    },
+    "context": {
+      "kind": "component",
+      "script": {
+        "path": "chunks/context.js",
+        "sha256": "7defebb3040996fe99c6229cd96c616db9eae5f3e89a3198da3a1405b63735c0",
+        "bytes": 11222
+      },
+      "styles": [
+        {
+          "path": "chunks/context.css",
+          "sha256": "60ea8dc92c0a0a6a994db0dba45e62e148c3580a896c52be24405ffae8c4ccf4",
+          "bytes": 3832
+        }
+      ],
+      "needs": [
+        "react",
+        "shell"
+      ],
+      "components": [
+        "excerpt",
+        "image",
+        "reference"
+      ],
+      "licences": [
+        {
+          "package": "@askboard/view",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-view-0.1.0.txt"
+        }
+      ]
+    },
+    "date-field": {
+      "kind": "component",
+      "script": {
+        "path": "chunks/date-field.js",
+        "sha256": "4b63910eb6e6047478692b13efe8e9d9c1053bd22684a61d21be92eb1495607e",
+        "bytes": 88135
+      },
+      "styles": [
+        {
+          "path": "chunks/date-field.css",
+          "sha256": "3101e7ac4a631b2ba06ae43757591a0c54085185d094aa0c1adb96578ad42752",
+          "bytes": 7454
+        }
+      ],
+      "needs": [
+        "radix",
+        "react",
+        "shell"
+      ],
+      "components": [
+        "date-field"
+      ],
+      "licences": [
+        {
+          "package": "@askboard/contract",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-contract-0.1.0.txt"
+        },
+        {
+          "package": "@askboard/view",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-view-0.1.0.txt"
+        },
+        {
+          "package": "@date-fns/tz",
+          "version": "1.5.0",
+          "licence": "MIT",
+          "path": "licences/date-fns-tz-1.5.0.txt"
+        },
+        {
+          "package": "date-fns",
+          "version": "4.4.0",
+          "licence": "MIT",
+          "path": "licences/date-fns-4.4.0.txt"
+        },
+        {
+          "package": "react-day-picker",
+          "version": "10.0.2",
+          "licence": "MIT",
+          "path": "licences/react-day-picker-10.0.2.txt"
+        }
+      ]
+    },
+    "divider": {
+      "kind": "component",
+      "script": {
+        "path": "chunks/divider.js",
+        "sha256": "929a1d919345d55dd8528bd5a18e2fb30005afaeff03e455e32f553c77ac9d4f",
+        "bytes": 2709
+      },
+      "styles": [
+        {
+          "path": "chunks/divider.css",
+          "sha256": "8cf267fde1951aafcdd9014bde85ee926b26b38d098cbefce146bac0b3b8ce91",
+          "bytes": 616
+        }
+      ],
+      "needs": [
+        "react",
+        "shell"
+      ],
+      "components": [
+        "divider"
+      ],
+      "licences": [
+        {
+          "package": "@askboard/contract",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-contract-0.1.0.txt"
+        },
+        {
+          "package": "@askboard/view",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-view-0.1.0.txt"
+        }
+      ]
+    },
+    "dnd": {
+      "kind": "library",
+      "script": {
+        "path": "chunks/dnd.js",
+        "sha256": "dd0500a318f5ef05e0c37208aad4afcd7aa0b6a6eeedcd25c0084bada1678d19",
+        "bytes": 29795
+      },
+      "styles": [],
+      "needs": [],
+      "licences": [
+        {
+          "package": "@askboard/view",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-view-0.1.0.txt"
+        },
+        {
+          "package": "@atlaskit/pragmatic-drag-and-drop",
+          "version": "4.0.0",
+          "licence": "Apache-2.0",
+          "path": "licences/atlaskit-pragmatic-drag-and-drop-4.0.0.txt"
+        },
+        {
+          "package": "@babel/runtime",
+          "version": "7.29.13",
+          "licence": "MIT",
+          "path": "licences/babel-runtime-7.29.13.txt"
+        },
+        {
+          "package": "bind-event-listener",
+          "version": "3.0.0",
+          "licence": "MIT",
+          "path": "licences/bind-event-listener-3.0.0.txt"
+        },
+        {
+          "package": "raf-schd",
+          "version": "4.0.3",
+          "licence": "MIT",
+          "path": "licences/raf-schd-4.0.3.txt"
+        }
+      ]
+    },
+    "document-review": {
+      "kind": "component",
+      "script": {
+        "path": "chunks/document-review.js",
+        "sha256": "ce2975bf0c7ba052f316446e2cd9b17506138c03358bae54262ae652f20b514b",
+        "bytes": 33417
+      },
+      "styles": [
+        {
+          "path": "chunks/document-review.css",
+          "sha256": "9c478bcaf52e4886f75f8e647ce9f7653ed5e836a6c957f26bca62efb88f54ca",
+          "bytes": 7049
+        }
+      ],
+      "needs": [
+        "markdown",
+        "radix",
+        "react",
+        "shell"
+      ],
+      "components": [
+        "document-review"
+      ],
+      "licences": [
+        {
+          "package": "@askboard/contract",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-contract-0.1.0.txt"
+        },
+        {
+          "package": "@askboard/view",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-view-0.1.0.txt"
+        },
+        {
+          "package": "@askboard/widgets",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-widgets-0.1.0.txt"
+        }
+      ]
+    },
+    "ext-apps": {
+      "kind": "library",
+      "script": {
+        "path": "chunks/ext-apps.js",
+        "sha256": "d426db576667bbb7d1ab8f2de45cae828e7c42e03ce6d846f2bc21552d1c9841",
+        "bytes": 310860
+      },
+      "styles": [],
+      "needs": [],
+      "hostOnly": true,
+      "licences": [
+        {
+          "package": "@askboard/view",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-view-0.1.0.txt"
+        },
+        {
+          "package": "@modelcontextprotocol/client",
+          "version": "2.4.0",
+          "licence": "Apache-2.0",
+          "path": "licences/modelcontextprotocol-client-2.4.0.txt"
+        },
+        {
+          "package": "@modelcontextprotocol/core",
+          "version": "2.4.0",
+          "licence": "Apache-2.0",
+          "path": "licences/modelcontextprotocol-core-2.4.0.txt"
+        },
+        {
+          "package": "@modelcontextprotocol/ext-apps",
+          "version": "2.0.4",
+          "licence": "MIT",
+          "path": "licences/modelcontextprotocol-ext-apps-2.0.4.txt"
+        },
+        {
+          "package": "pkce-challenge",
+          "version": "5.0.1",
+          "licence": "MIT",
+          "path": "licences/pkce-challenge-5.0.1.txt"
+        },
+        {
+          "package": "zod",
+          "version": "4.6.7",
+          "licence": "MIT",
+          "path": "licences/zod-4.6.7.txt"
+        }
+      ]
+    },
+    "gantt": {
+      "kind": "component",
+      "script": {
+        "path": "chunks/gantt.js",
+        "sha256": "afa4cf594a1827837e63a7fb2245320aa5d3fd7b8990b0ed0bdd369ff8fe82e4",
+        "bytes": 67069
+      },
+      "styles": [
+        {
+          "path": "chunks/gantt.css",
+          "sha256": "41391975b1d6e960e42df16162f6fe14d4c26bc0cf2799f8d6b2a5f4060803fd",
+          "bytes": 14702
+        }
+      ],
+      "needs": [
+        "board-graph",
+        "compute",
+        "radix",
+        "react",
+        "shell"
+      ],
+      "components": [
+        "gantt"
+      ],
+      "licences": [
+        {
+          "package": "@askboard/contract",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-contract-0.1.0.txt"
+        },
+        {
+          "package": "@askboard/view",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-view-0.1.0.txt"
+        },
+        {
+          "package": "@askboard/widgets",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-widgets-0.1.0.txt"
+        }
+      ]
+    },
+    "group": {
+      "kind": "component",
+      "script": {
+        "path": "chunks/group.js",
+        "sha256": "a6f3bd29c85478903536038dd3fbad957eabe1b47433820b2cb0f47e4cffa55e",
+        "bytes": 3004
+      },
+      "styles": [
+        {
+          "path": "chunks/group.css",
+          "sha256": "bda5fa4d95eb88e37a85503ac25260039b0500dcd53ab5cc2e42c0b533cfcf01",
+          "bytes": 1058
+        }
+      ],
+      "needs": [
+        "react",
+        "shell"
+      ],
+      "components": [
+        "group"
+      ],
+      "licences": [
+        {
+          "package": "@askboard/view",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-view-0.1.0.txt"
+        }
+      ]
+    },
+    "kanban": {
+      "kind": "component",
+      "script": {
+        "path": "chunks/kanban.js",
+        "sha256": "e2c71d7a45480474f1eb8eaba97e59abb9719173cf9219492c23acf389e731dc",
+        "bytes": 14863
+      },
+      "styles": [
+        {
+          "path": "chunks/kanban.css",
+          "sha256": "bf26a98b875e53c36fbd3460cc5fb544235959d160f4622cd0122bb6d95a763f",
+          "bytes": 6603
+        }
+      ],
+      "needs": [
+        "dnd",
+        "radix",
+        "react",
+        "shell"
+      ],
+      "components": [
+        "kanban"
+      ],
+      "licences": [
+        {
+          "package": "@askboard/contract",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-contract-0.1.0.txt"
+        },
+        {
+          "package": "@askboard/view",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-view-0.1.0.txt"
+        },
+        {
+          "package": "@askboard/widgets",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-widgets-0.1.0.txt"
+        }
+      ]
+    },
+    "latex": {
+      "kind": "component",
+      "script": {
+        "path": "chunks/latex.js",
+        "sha256": "f5bdc1b53215f094c9d160faf72345ae1a2cb845f04398a2d3b920f79b832927",
+        "bytes": 287070
+      },
+      "styles": [
+        {
+          "path": "chunks/latex.css",
+          "sha256": "aafe3a766636253e93f81810fd766b97959466bf0df0d6da39bf09ad484f3cd3",
+          "bytes": 371484
+        }
+      ],
+      "needs": [
+        "react",
+        "shell"
+      ],
+      "components": [
+        "latex"
+      ],
+      "licences": [
+        {
+          "package": "@askboard/contract",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-contract-0.1.0.txt"
+        },
+        {
+          "package": "@askboard/view",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-view-0.1.0.txt"
+        },
+        {
+          "package": "@askboard/widgets",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-widgets-0.1.0.txt"
+        },
+        {
+          "package": "katex",
+          "version": "0.19.1",
+          "licence": "MIT AND OFL-1.1",
+          "path": "licences/katex-0.19.1.txt"
+        }
+      ]
+    },
+    "markdown": {
+      "kind": "library",
+      "script": {
+        "path": "chunks/markdown.js",
+        "sha256": "845c3b200cfa4bae6701819454db326d0a05240256d4e61687729ea799b2f9e5",
+        "bytes": 140048
+      },
+      "styles": [
+        {
+          "path": "chunks/markdown.css",
+          "sha256": "f5c30953be31583c490c2fd5fdec949dcb9216885a582a353ae406c06037e14b",
+          "bytes": 7011
+        }
+      ],
+      "needs": [],
+      "licences": [
+        {
+          "package": "@askboard/contract",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-contract-0.1.0.txt"
+        },
+        {
+          "package": "@askboard/view",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-view-0.1.0.txt"
+        },
+        {
+          "package": "dompurify",
+          "version": "3.4.17",
+          "licence": "(MPL-2.0 OR Apache-2.0) AND MIT",
+          "path": "licences/dompurify-3.4.17.txt"
+        },
+        {
+          "package": "entities",
+          "version": "8.1.0",
+          "licence": "BSD-2-Clause AND MIT",
+          "path": "licences/entities-8.1.0.txt"
+        },
+        {
+          "package": "linkify-it",
+          "version": "6.1.0",
+          "licence": "MIT",
+          "path": "licences/linkify-it-6.1.0.txt"
+        },
+        {
+          "package": "markdown-it",
+          "version": "15.0.3",
+          "licence": "MIT",
+          "path": "licences/markdown-it-15.0.3.txt"
+        },
+        {
+          "package": "mdurl",
+          "version": "2.1.0",
+          "licence": "MIT",
+          "path": "licences/mdurl-2.1.0.txt"
+        },
+        {
+          "package": "punycode.js",
+          "version": "2.3.1",
+          "licence": "MIT",
+          "path": "licences/punycode.js-2.3.1.txt"
+        },
+        {
+          "package": "uc.micro",
+          "version": "3.0.0",
+          "licence": "MIT",
+          "path": "licences/uc.micro-3.0.0.txt"
+        }
+      ]
+    },
+    "money-field": {
+      "kind": "component",
+      "script": {
+        "path": "chunks/money-field.js",
+        "sha256": "8f9a555db5baf69dc922b62f86437fca3eae1e45518cc3d4dee10f20847ed57d",
+        "bytes": 20135
+      },
+      "styles": [
+        {
+          "path": "chunks/money-field.css",
+          "sha256": "46c26e857db9b9c666da11c0c8d8286d1cb4d58e6caf429bcde2003ddc345523",
+          "bytes": 3818
+        }
+      ],
+      "needs": [
+        "radix",
+        "react",
+        "shell"
+      ],
+      "components": [
+        "money-field"
+      ],
+      "licences": [
+        {
+          "package": "@askboard/contract",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-contract-0.1.0.txt"
+        },
+        {
+          "package": "@askboard/view",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-view-0.1.0.txt"
+        }
+      ]
+    },
+    "number-field": {
+      "kind": "component",
+      "script": {
+        "path": "chunks/number-field.js",
+        "sha256": "5fb2ba93027d31fa53c880bf8911f47f1304ad146d5b30bff2fd7cc6b9f28421",
+        "bytes": 15786
+      },
+      "styles": [
+        {
+          "path": "chunks/number-field.css",
+          "sha256": "46c26e857db9b9c666da11c0c8d8286d1cb4d58e6caf429bcde2003ddc345523",
+          "bytes": 3818
+        }
+      ],
+      "needs": [
+        "react",
+        "shell"
+      ],
+      "components": [
+        "number-field"
+      ],
+      "licences": [
+        {
+          "package": "@askboard/contract",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-contract-0.1.0.txt"
+        },
+        {
+          "package": "@askboard/view",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-view-0.1.0.txt"
+        }
+      ]
+    },
+    "pick-field": {
+      "kind": "component",
+      "script": {
+        "path": "chunks/pick-field.js",
+        "sha256": "a866cf2a83776e38152471a9a4a23e7d50453f927c04f09c660d3ad9e0f617c0",
+        "bytes": 13239
+      },
+      "styles": [
+        {
+          "path": "chunks/pick-field.css",
+          "sha256": "3e460cc235411195e62760f48659d17c4f3f70e3d857e3f5c75589f5bc1c97d1",
+          "bytes": 6189
+        }
+      ],
+      "needs": [
+        "radix",
+        "react",
+        "shell"
+      ],
+      "components": [
+        "pick-field"
+      ],
+      "licences": [
+        {
+          "package": "@askboard/contract",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-contract-0.1.0.txt"
+        },
+        {
+          "package": "@askboard/view",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-view-0.1.0.txt"
+        }
+      ]
+    },
+    "radix": {
+      "kind": "library",
+      "script": {
+        "path": "chunks/radix.js",
+        "sha256": "646e3a9a619f9de0927152b39fc2238690a2dd330325d003d8aabaed5450d7ea",
+        "bytes": 145894
+      },
+      "styles": [],
+      "needs": [
+        "react"
+      ],
+      "licences": [
+        {
+          "package": "@askboard/view",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-view-0.1.0.txt"
+        },
+        {
+          "package": "@floating-ui/core",
+          "version": "1.8.0",
+          "licence": "MIT",
+          "path": "licences/floating-ui-core-1.8.0.txt"
+        },
+        {
+          "package": "@floating-ui/dom",
+          "version": "1.8.0",
+          "licence": "MIT",
+          "path": "licences/floating-ui-dom-1.8.0.txt"
+        },
+        {
+          "package": "@floating-ui/react-dom",
+          "version": "2.1.9",
+          "licence": "MIT",
+          "path": "licences/floating-ui-react-dom-2.1.9.txt"
+        },
+        {
+          "package": "@floating-ui/utils",
+          "version": "0.2.12",
+          "licence": "MIT",
+          "path": "licences/floating-ui-utils-0.2.12.txt"
+        },
+        {
+          "package": "@radix-ui/number",
+          "version": "1.1.3",
+          "licence": "MIT",
+          "path": "licences/radix-ui-number-1.1.3.txt"
+        },
+        {
+          "package": "@radix-ui/primitive",
+          "version": "1.2.0",
+          "licence": "MIT",
+          "path": "licences/radix-ui-primitive-1.2.0.txt"
+        },
+        {
+          "package": "@radix-ui/react-alert-dialog",
+          "version": "1.2.1",
+          "licence": "MIT",
+          "path": "licences/radix-ui-react-alert-dialog-1.2.1.txt"
+        },
+        {
+          "package": "@radix-ui/react-arrow",
+          "version": "1.1.17",
+          "licence": "MIT",
+          "path": "licences/radix-ui-react-arrow-1.1.17.txt"
+        },
+        {
+          "package": "@radix-ui/react-checkbox",
+          "version": "1.4.1",
+          "licence": "MIT",
+          "path": "licences/radix-ui-react-checkbox-1.4.1.txt"
+        },
+        {
+          "package": "@radix-ui/react-collection",
+          "version": "1.2.0",
+          "licence": "MIT",
+          "path": "licences/radix-ui-react-collection-1.2.0.txt"
+        },
+        {
+          "package": "@radix-ui/react-compose-refs",
+          "version": "1.1.5",
+          "licence": "MIT",
+          "path": "licences/radix-ui-react-compose-refs-1.1.5.txt"
+        },
+        {
+          "package": "@radix-ui/react-context",
+          "version": "1.3.0",
+          "licence": "MIT",
+          "path": "licences/radix-ui-react-context-1.3.0.txt"
+        },
+        {
+          "package": "@radix-ui/react-dialog",
+          "version": "1.3.1",
+          "licence": "MIT",
+          "path": "licences/radix-ui-react-dialog-1.3.1.txt"
+        },
+        {
+          "package": "@radix-ui/react-direction",
+          "version": "1.2.0",
+          "licence": "MIT",
+          "path": "licences/radix-ui-react-direction-1.2.0.txt"
+        },
+        {
+          "package": "@radix-ui/react-dismissable-layer",
+          "version": "1.2.1",
+          "licence": "MIT",
+          "path": "licences/radix-ui-react-dismissable-layer-1.2.1.txt"
+        },
+        {
+          "package": "@radix-ui/react-dropdown-menu",
+          "version": "2.2.1",
+          "licence": "MIT",
+          "path": "licences/radix-ui-react-dropdown-menu-2.2.1.txt"
+        },
+        {
+          "package": "@radix-ui/react-focus-guards",
+          "version": "1.2.0",
+          "licence": "MIT",
+          "path": "licences/radix-ui-react-focus-guards-1.2.0.txt"
+        },
+        {
+          "package": "@radix-ui/react-focus-scope",
+          "version": "1.3.1",
+          "licence": "MIT",
+          "path": "licences/radix-ui-react-focus-scope-1.3.1.txt"
+        },
+        {
+          "package": "@radix-ui/react-id",
+          "version": "1.1.4",
+          "licence": "MIT",
+          "path": "licences/radix-ui-react-id-1.1.4.txt"
+        },
+        {
+          "package": "@radix-ui/react-menu",
+          "version": "2.2.1",
+          "licence": "MIT",
+          "path": "licences/radix-ui-react-menu-2.2.1.txt"
+        },
+        {
+          "package": "@radix-ui/react-popover",
+          "version": "1.3.1",
+          "licence": "MIT",
+          "path": "licences/radix-ui-react-popover-1.3.1.txt"
+        },
+        {
+          "package": "@radix-ui/react-popper",
+          "version": "1.4.0",
+          "licence": "MIT",
+          "path": "licences/radix-ui-react-popper-1.4.0.txt"
+        },
+        {
+          "package": "@radix-ui/react-portal",
+          "version": "1.2.0",
+          "licence": "MIT",
+          "path": "licences/radix-ui-react-portal-1.2.0.txt"
+        },
+        {
+          "package": "@radix-ui/react-presence",
+          "version": "1.1.11",
+          "licence": "MIT",
+          "path": "licences/radix-ui-react-presence-1.1.11.txt"
+        },
+        {
+          "package": "@radix-ui/react-primitive",
+          "version": "2.2.0",
+          "licence": "MIT",
+          "path": "licences/radix-ui-react-primitive-2.2.0.txt"
+        },
+        {
+          "package": "@radix-ui/react-roving-focus",
+          "version": "1.2.1",
+          "licence": "MIT",
+          "path": "licences/radix-ui-react-roving-focus-1.2.1.txt"
+        },
+        {
+          "package": "@radix-ui/react-slider",
+          "version": "1.6.1",
+          "licence": "MIT",
+          "path": "licences/radix-ui-react-slider-1.6.1.txt"
+        },
+        {
+          "package": "@radix-ui/react-slot",
+          "version": "1.5.0",
+          "licence": "MIT",
+          "path": "licences/radix-ui-react-slot-1.5.0.txt"
+        },
+        {
+          "package": "@radix-ui/react-switch",
+          "version": "1.4.1",
+          "licence": "MIT",
+          "path": "licences/radix-ui-react-switch-1.4.1.txt"
+        },
+        {
+          "package": "@radix-ui/react-tabs",
+          "version": "1.2.1",
+          "licence": "MIT",
+          "path": "licences/radix-ui-react-tabs-1.2.1.txt"
+        },
+        {
+          "package": "@radix-ui/react-toggle",
+          "version": "1.2.1",
+          "licence": "MIT",
+          "path": "licences/radix-ui-react-toggle-1.2.1.txt"
+        },
+        {
+          "package": "@radix-ui/react-toggle-group",
+          "version": "1.2.1",
+          "licence": "MIT",
+          "path": "licences/radix-ui-react-toggle-group-1.2.1.txt"
+        },
+        {
+          "package": "@radix-ui/react-tooltip",
+          "version": "1.4.1",
+          "licence": "MIT",
+          "path": "licences/radix-ui-react-tooltip-1.4.1.txt"
+        },
+        {
+          "package": "@radix-ui/react-use-callback-ref",
+          "version": "1.1.5",
+          "licence": "MIT",
+          "path": "licences/radix-ui-react-use-callback-ref-1.1.5.txt"
+        },
+        {
+          "package": "@radix-ui/react-use-controllable-state",
+          "version": "1.3.0",
+          "licence": "MIT",
+          "path": "licences/radix-ui-react-use-controllable-state-1.3.0.txt"
+        },
+        {
+          "package": "@radix-ui/react-use-effect-event",
+          "version": "0.0.5",
+          "licence": "MIT",
+          "path": "licences/radix-ui-react-use-effect-event-0.0.5.txt"
+        },
+        {
+          "package": "@radix-ui/react-use-is-hydrated",
+          "version": "0.1.3",
+          "licence": "MIT",
+          "path": "licences/radix-ui-react-use-is-hydrated-0.1.3.txt"
+        },
+        {
+          "package": "@radix-ui/react-use-layout-effect",
+          "version": "1.1.4",
+          "licence": "MIT",
+          "path": "licences/radix-ui-react-use-layout-effect-1.1.4.txt"
+        },
+        {
+          "package": "@radix-ui/react-use-size",
+          "version": "1.1.5",
+          "licence": "MIT",
+          "path": "licences/radix-ui-react-use-size-1.1.5.txt"
+        },
+        {
+          "package": "@radix-ui/react-visually-hidden",
+          "version": "1.2.13",
+          "licence": "MIT",
+          "path": "licences/radix-ui-react-visually-hidden-1.2.13.txt"
+        },
+        {
+          "package": "aria-hidden",
+          "version": "1.2.6",
+          "licence": "MIT",
+          "path": "licences/aria-hidden-1.2.6.txt"
+        },
+        {
+          "package": "get-nonce",
+          "version": "1.0.1",
+          "licence": "MIT",
+          "path": "licences/get-nonce-1.0.1.txt"
+        },
+        {
+          "package": "radix-ui",
+          "version": "1.8.1",
+          "licence": "MIT",
+          "path": "licences/radix-ui-1.8.1.txt"
+        },
+        {
+          "package": "react-remove-scroll",
+          "version": "2.7.2",
+          "licence": "MIT",
+          "path": "licences/react-remove-scroll-2.7.2.txt"
+        },
+        {
+          "package": "react-remove-scroll-bar",
+          "version": "2.3.8",
+          "licence": "MIT",
+          "path": "licences/react-remove-scroll-bar-2.3.8.txt"
+        },
+        {
+          "package": "react-style-singleton",
+          "version": "2.2.3",
+          "licence": "MIT",
+          "path": "licences/react-style-singleton-2.2.3.txt"
+        },
+        {
+          "package": "tslib",
+          "version": "2.8.1",
+          "licence": "0BSD",
+          "path": "licences/tslib-2.8.1.txt"
+        },
+        {
+          "package": "use-callback-ref",
+          "version": "1.3.3",
+          "licence": "MIT",
+          "path": "licences/use-callback-ref-1.3.3.txt"
+        },
+        {
+          "package": "use-sidecar",
+          "version": "1.1.3",
+          "licence": "MIT",
+          "path": "licences/use-sidecar-1.1.3.txt"
+        }
+      ]
+    },
+    "ranking": {
+      "kind": "component",
+      "script": {
+        "path": "chunks/ranking.js",
+        "sha256": "8438890fc627a837d2c9aff43d26290f53436215013f05548e8252f896900d49",
+        "bytes": 22845
+      },
+      "styles": [
+        {
+          "path": "chunks/ranking.css",
+          "sha256": "2af47a290a70db2e905bf46de5e28ff31c0fbccb5041fd92b238832c56380f25",
+          "bytes": 7104
+        }
+      ],
+      "needs": [
+        "dnd",
+        "radix",
+        "react",
+        "shell"
+      ],
+      "components": [
+        "ranking"
+      ],
+      "licences": [
+        {
+          "package": "@askboard/contract",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-contract-0.1.0.txt"
+        },
+        {
+          "package": "@askboard/view",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-view-0.1.0.txt"
+        },
+        {
+          "package": "@askboard/widgets",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-widgets-0.1.0.txt"
+        }
+      ]
+    },
+    "react": {
+      "kind": "library",
+      "script": {
+        "path": "chunks/react.js",
+        "sha256": "1fc36529290e02aedaffe69f6fb9de28252b5303437e19f6ee5b988a91363e2e",
+        "bytes": 223595
+      },
+      "styles": [],
+      "needs": [],
+      "licences": [
+        {
+          "package": "@askboard/view",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-view-0.1.0.txt"
+        },
+        {
+          "package": "react",
+          "version": "19.3.1",
+          "licence": "MIT",
+          "path": "licences/react-19.3.1.txt"
+        },
+        {
+          "package": "react-dom",
+          "version": "19.3.1",
+          "licence": "MIT",
+          "path": "licences/react-dom-19.3.1.txt"
+        },
+        {
+          "package": "scheduler",
+          "version": "0.28.0",
+          "licence": "MIT",
+          "path": "licences/scheduler-0.28.0.txt"
+        }
+      ]
+    },
+    "row": {
+      "kind": "component",
+      "script": {
+        "path": "chunks/row.js",
+        "sha256": "3288615e75719e25425def2692d5835bb16a0bbb7eea60d254a44f61f9a8dd13",
+        "bytes": 4458
+      },
+      "styles": [
+        {
+          "path": "chunks/row.css",
+          "sha256": "96a58e03b7ee96fa7f25d3389090ae6053be292f33075f5fbf9a69699d40860f",
+          "bytes": 407
+        }
+      ],
+      "needs": [
+        "react",
+        "shell"
+      ],
+      "components": [
+        "row"
+      ],
+      "licences": [
+        {
+          "package": "@askboard/contract",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-contract-0.1.0.txt"
+        },
+        {
+          "package": "@askboard/view",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-view-0.1.0.txt"
+        }
+      ]
+    },
+    "scale": {
+      "kind": "component",
+      "script": {
+        "path": "chunks/scale.js",
+        "sha256": "f931e61cfbfec61ba92b1b3210f4171f95f3eec378e26e00cdf5345814e72399",
+        "bytes": 15281
+      },
+      "styles": [
+        {
+          "path": "chunks/scale.css",
+          "sha256": "3ad9281b01f1ea1e6fca438408e24a3a24ab2a4ca563eecd145e5e1578bb4ad2",
+          "bytes": 3310
+        }
+      ],
+      "needs": [
+        "radix",
+        "react",
+        "shell"
+      ],
+      "components": [
+        "scale"
+      ],
+      "licences": [
+        {
+          "package": "@askboard/contract",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-contract-0.1.0.txt"
+        },
+        {
+          "package": "@askboard/view",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-view-0.1.0.txt"
+        },
+        {
+          "package": "@askboard/widgets",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-widgets-0.1.0.txt"
+        }
+      ]
+    },
+    "shell": {
+      "kind": "shell",
+      "script": {
+        "path": "chunks/shell.js",
+        "sha256": "b07f12da26df19ba10e0bd11be650622dd3cebae6b33c430a88f31f515c1e9d7",
+        "bytes": 194537
+      },
+      "styles": [
+        {
+          "path": "chunks/shell.css",
+          "sha256": "e46ff7c2912f64137f87986dd7b0bdbc3a51f54169b478bf296104dd0c6e2498",
+          "bytes": 27163
+        }
+      ],
+      "needs": [
+        "radix",
+        "react"
+      ],
+      "licences": [
+        {
+          "package": "@askboard/contract",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-contract-0.1.0.txt"
+        },
+        {
+          "package": "@askboard/view",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-view-0.1.0.txt"
+        },
+        {
+          "package": "tailwindcss",
+          "version": "4.3.3",
+          "licence": "MIT",
+          "path": "licences/tailwindcss-4.3.3.txt"
+        }
+      ]
+    },
+    "stack": {
+      "kind": "component",
+      "script": {
+        "path": "chunks/stack.js",
+        "sha256": "ddc3fa24d61af0a1a1b9945a56bb17fa6a483648a51f44253c4543f66a852b39",
+        "bytes": 2482
+      },
+      "styles": [
+        {
+          "path": "chunks/stack.css",
+          "sha256": "56bd406411f2e734359325caf4a636ee9450197379daf7df06869a5bc748ba60",
+          "bytes": 207
+        }
+      ],
+      "needs": [
+        "react",
+        "shell"
+      ],
+      "components": [
+        "stack"
+      ],
+      "licences": [
+        {
+          "package": "@askboard/view",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-view-0.1.0.txt"
+        }
+      ]
+    },
+    "table": {
+      "kind": "component",
+      "script": {
+        "path": "chunks/table.js",
+        "sha256": "3ed9e73fe04b6123539b8c12a353fea2fac2eaaaec55398f89df6533aabc6099",
+        "bytes": 64885
+      },
+      "styles": [
+        {
+          "path": "chunks/table.css",
+          "sha256": "ac2cd86758df7ed6fb34c199bab00af3132208fa0673c31f65cb7681b144b3cf",
+          "bytes": 14336
+        }
+      ],
+      "needs": [
+        "board-graph",
+        "compute",
+        "react",
+        "shell"
+      ],
+      "components": [
+        "table"
+      ],
+      "licences": [
+        {
+          "package": "@askboard/contract",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-contract-0.1.0.txt"
+        },
+        {
+          "package": "@askboard/view",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-view-0.1.0.txt"
+        },
+        {
+          "package": "@askboard/widgets",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-widgets-0.1.0.txt"
+        }
+      ]
+    },
+    "tabs": {
+      "kind": "component",
+      "script": {
+        "path": "chunks/tabs.js",
+        "sha256": "ce3bab6bb3e2a3157487708899f37528063fc7ee3c19b289106c8caa251b25c8",
+        "bytes": 5565
+      },
+      "styles": [
+        {
+          "path": "chunks/tabs.css",
+          "sha256": "2de5cbaa2c6eb8ac5bc6293f503e4ca6ac9f8f292f131d6e2fd7c9d2dfee6111",
+          "bytes": 2560
+        }
+      ],
+      "needs": [
+        "radix",
+        "react",
+        "shell"
+      ],
+      "components": [
+        "tabs"
+      ],
+      "licences": [
+        {
+          "package": "@askboard/contract",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-contract-0.1.0.txt"
+        },
+        {
+          "package": "@askboard/view",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-view-0.1.0.txt"
+        }
+      ]
+    },
+    "text": {
+      "kind": "component",
+      "script": {
+        "path": "chunks/text.js",
+        "sha256": "c751ca7f5f7b266ecebed65eb4936c47bd163c744953ab4c6ed29ab8cc5c0e80",
+        "bytes": 3998
+      },
+      "styles": [
+        {
+          "path": "chunks/text.css",
+          "sha256": "9cf8178fa7b2a141af93c9f9ad24022e7b13bbf3204c1f08ec8fe9ef5f16e8f5",
+          "bytes": 421
+        }
+      ],
+      "needs": [
+        "markdown",
+        "react",
+        "shell"
+      ],
+      "components": [
+        "text"
+      ],
+      "licences": [
+        {
+          "package": "@askboard/contract",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-contract-0.1.0.txt"
+        },
+        {
+          "package": "@askboard/view",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-view-0.1.0.txt"
+        }
+      ]
+    },
+    "text-field": {
+      "kind": "component",
+      "script": {
+        "path": "chunks/text-field.js",
+        "sha256": "4845f1b6e245faf564b28a24f3d7afff85e04a6ec48493d587070afcda234a17",
+        "bytes": 13738
+      },
+      "styles": [
+        {
+          "path": "chunks/text-field.css",
+          "sha256": "24fc9bda5527e268a4a554c84e44c4399edaa5f1069ff4a6e3d37d19a6914e79",
+          "bytes": 3757
+        }
+      ],
+      "needs": [
+        "react",
+        "shell"
+      ],
+      "components": [
+        "text-field"
+      ],
+      "licences": [
+        {
+          "package": "@askboard/contract",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-contract-0.1.0.txt"
+        },
+        {
+          "package": "@askboard/view",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-view-0.1.0.txt"
+        }
+      ]
+    },
+    "timeline": {
+      "kind": "component",
+      "script": {
+        "path": "chunks/timeline.js",
+        "sha256": "92f61447fc5b3d2ba6619682acbcc0d22b7bbe6bf41a19f1a49dde4f21f1c984",
+        "bytes": 28609
+      },
+      "styles": [
+        {
+          "path": "chunks/timeline.css",
+          "sha256": "db52d2dbfc7a9429624e4c3d72b6e894482a0b0f82e29c5702a7ec27d3d98d83",
+          "bytes": 6228
+        }
+      ],
+      "needs": [
+        "radix",
+        "react",
+        "shell"
+      ],
+      "components": [
+        "timeline"
+      ],
+      "licences": [
+        {
+          "package": "@askboard/contract",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-contract-0.1.0.txt"
+        },
+        {
+          "package": "@askboard/view",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-view-0.1.0.txt"
+        },
+        {
+          "package": "@askboard/widgets",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-widgets-0.1.0.txt"
+        }
+      ]
+    },
+    "toggle": {
+      "kind": "component",
+      "script": {
+        "path": "chunks/toggle.js",
+        "sha256": "cc42e9f00601ff3ec8b66dbcfa5ab7a4350f50b4906139927d7613806642203a",
+        "bytes": 5999
+      },
+      "styles": [
+        {
+          "path": "chunks/toggle.css",
+          "sha256": "ded75ef517c18878d14d6677d2199bbe00358985776709553dfeae037b0d5627",
+          "bytes": 4569
+        }
+      ],
+      "needs": [
+        "radix",
+        "react",
+        "shell"
+      ],
+      "components": [
+        "toggle"
+      ],
+      "licences": [
+        {
+          "package": "@askboard/contract",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-contract-0.1.0.txt"
+        },
+        {
+          "package": "@askboard/view",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-view-0.1.0.txt"
+        }
+      ]
+    },
+    "tree": {
+      "kind": "component",
+      "script": {
+        "path": "chunks/tree.js",
+        "sha256": "901d53984cd237f3a182923272fc527834b86ac63c1222c8ee767a22fa7a1a04",
+        "bytes": 68730
+      },
+      "styles": [
+        {
+          "path": "chunks/tree.css",
+          "sha256": "d6dfe041f0f70db36c9ffa0ee8b4595f7da32f7f17c36d3aec39fd257a23409f",
+          "bytes": 13869
+        }
+      ],
+      "needs": [
+        "board-graph",
+        "compute",
+        "dnd",
+        "radix",
+        "react",
+        "shell"
+      ],
+      "components": [
+        "tree"
+      ],
+      "licences": [
+        {
+          "package": "@askboard/contract",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-contract-0.1.0.txt"
+        },
+        {
+          "package": "@askboard/view",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-view-0.1.0.txt"
+        },
+        {
+          "package": "@askboard/widgets",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-widgets-0.1.0.txt"
+        }
+      ]
+    },
+    "value": {
+      "kind": "component",
+      "script": {
+        "path": "chunks/value.js",
+        "sha256": "599e6ce72ac7f40bb68b2d52cb63541596b23c30b45354f60b2fbb4e8d27408d",
+        "bytes": 10871
+      },
+      "styles": [
+        {
+          "path": "chunks/value.css",
+          "sha256": "3c5eed2acef86d4c00ecddf44d32396f9349e325061e32d01069960d2e28452e",
+          "bytes": 978
+        }
+      ],
+      "needs": [
+        "react",
+        "shell"
+      ],
+      "components": [
+        "value"
+      ],
+      "licences": [
+        {
+          "package": "@askboard/contract",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-contract-0.1.0.txt"
+        },
+        {
+          "package": "@askboard/view",
+          "version": "0.1.0",
+          "licence": "MIT",
+          "path": "licences/askboard-view-0.1.0.txt"
+        }
+      ]
+    }
+  }
+}

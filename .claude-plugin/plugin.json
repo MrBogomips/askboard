@@ -1,0 +1,15 @@
+{
+  "name": "askboard",
+  "version": "0.1.0",
+  "description": "A local board on which an agent asks you structured questions and gets typed answers back.",
+  "license": "MIT",
+  "mcpServers": {
+    "askboard": {
+      "command": "sh",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/askboard"],
+      "env": {
+        "CLAUDE_PROJECT_DIR": "${CLAUDE_PROJECT_DIR}"
+      }
+    }
+  }
+}
