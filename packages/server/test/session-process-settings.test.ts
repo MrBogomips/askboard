@@ -6,14 +6,14 @@ import { BOARD_PROTOCOL_VERSION, LOCAL_API_ROUTES, type SessionFile } from "@ask
 import { validateSessionFile } from "@askboard/contract/validate";
 import { openSocket, plainChoiceAsk } from "./board-host/helpers.ts";
 import { localRequest } from "./board-host/local-api/helpers.ts";
-import { CLAUDE_CODE, composedSessions } from "./composed-session.ts";
+import { CLAUDE_CODE, composedSessions, waitForFile } from "./composed-session.ts";
 
 // The configuration wired into the session process (settings-languages, task 4.6; design decisions
 // 3 and 12): ask-core reads the user file under the session's home and the project file, the local
 // API starts once that read settles and answers the rule in effect from its first `/v1/rule`, and
 // the first accepted ask creates `.askboard/` in the project.
 
-const { start, project, remove } = composedSessions();
+const { start, project, remove, unwatched } = composedSessions();
 const homes = mkdtempSync(join(tmpdir(), "askboard-settings-homes-"));
 const projectFile = join(project, ".askboard", "config.json");
 let count = 0;
@@ -114,6 +114,9 @@ describe("the configuration wired into the session process", () => {
     const run = await start({ HOME: homeWith({ version: "1.0", theme: "dark" }) });
     expect(existsSync(join(project, ".askboard"))).toBe(false);
     const asked = await run.call("ask", plainChoiceAsk("settings-wired"));
+    // Started without BROWSER, the session shows its board through the helper's recorder, never
+    // through the machine's opener, which would start a real browser (#160).
+    expect(await waitForFile(unwatched.record)).toBe(`${asked.board}\n`);
     const link = new URL(asked.board);
     const board = await openSocket(Number(link.port), "settings-wired");
     board.send({
