@@ -43,7 +43,18 @@ describe("the entry point's session file", () => {
         uid: process.getuid?.() ?? 0,
       });
       const file = sessionFilePath(folder, process.pid);
-      for (let tries = 0; tries < 500 && !existsSync(file); tries += 1) await Bun.sleep(10);
+      const spawnedAt = Date.now();
+      let tries = 0;
+      let dumped = false;
+      for (; tries < 450 && !existsSync(file); tries += 1) {
+        await Bun.sleep(10);
+        if (!dumped && Date.now() - spawnedAt > 1200) {
+          dumped = true;
+          const top = Bun.spawnSync(["ps", "-axo", "%cpu,pid,ppid,etime,command", "-r"], { stdout: "pipe" });
+          console.log(`DIAG ${how} slow start; busiest:\n${top.stdout.toString().split("\n").slice(0, 12).map((l) => l.slice(0, 200)).join("\n")}`);
+        }
+      }
+      console.log(`DIAG ${how} file after ${Date.now() - spawnedAt} ms wall, ${tries} tries, exists ${existsSync(file)}`);
       const session = JSON.parse(readFileSync(file, "utf8"));
       expect(session).toMatchObject({ key: process.pid, pid: child.pid });
       // Started without CLAUDE_PROJECT_DIR: no session project root, and the file names none.
@@ -59,8 +70,6 @@ describe("the entry point's session file", () => {
         return `${r.stdout.toString()}${r.stderr.toString()}`.trimEnd();
       };
       const began = performance.now();
-      console.log(`DIAG ${how} ready; PATH=${process.env.PATH}`);
-      console.log(run(["lsof", "-p", String(child.pid)]).split("\n").filter((l) => !/ REG | DIR /.test(l)).join("\n"));
       if (how === "stdin") child.stdin.end();
       else child.kill(how);
       const first = await Promise.race([child.exited, Bun.sleep(3500).then(() => "still running")]);

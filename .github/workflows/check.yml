@@ -17,11 +17,11 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-bun
-      - run: bun run test 2>&1 | grep -B2 -A320 "main.test.ts:" | cut -c1-400 | head -700
+      - run: bun test --coverage 2>&1 | grep -A70 "main.test.ts:" | cut -c1-260 | grep -B1 -A14 "DIAG\|the entry" | head -150
         continue-on-error: true
-      - run: bun test 2>&1 | grep -B2 -A60 "main.test.ts:" | grep "DIAG\|pass\|fail" | head -40
+      - run: bun run test 2>&1 | grep -A70 "main.test.ts:" | cut -c1-260 | grep -B1 -A14 "DIAG\|the entry" | head -150
         continue-on-error: true
-      - run: bun test --coverage packages/server 2>&1 | grep -B2 -A60 "main.test.ts:" | grep "DIAG\|pass\|fail" | head -40
+      - run: bun test --coverage packages/server/test/main.test.ts 2>&1 | head -80 | cut -c1-260
         continue-on-error: true
       - run: bun run check
         env:
