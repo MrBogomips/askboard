@@ -232,11 +232,28 @@ Order: group 0, then group 1, then group 2: group 2 regenerates `skills/` after 
 
 ## 4. Integration
 
-- [ ] 4.1 The whole check.
+- [x] 4.1 The whole check.
   - Run `bun run build:skills`, then the check.
   - No browser or conformance run: the change touches no view, server unit or conformance file, and the served instructions are read through `SERVER_INSTRUCTIONS`, which `list.test.ts` covers.
   - Verify: the check passes, with the test counts recorded against task 0.2's.
-- [ ] 4.2 Pre-PR review.
+  - As built (2026-11-11, on cbf92531, with nothing else running): the check passes.
+    - Typecheck, lint, the import boundaries (1,950 files) and the licences (167 packages) pass.
+    - `bun test --coverage` gives 14,310 pass, 0 fail.
+    - `check:skills` finds 60 files, none drifted.
+
+    An earlier run under heavy load from the trigger eval failed in two ways:
+    - five timeouts of 13 to 16 minutes;
+    - one real failure. `tools/workspace.test.ts` matched "The askboard skill" in the `ask` description, and the description now reads "Load the askboard skill". Fixed in cde9de47.
+- [x] 4.2 Pre-PR review.
+  - As built (2026-11-11), range e76d468c..cde9de47:
+    - **Security review:** no findings.
+    - **Spec review:** four L findings, all fixed in db4ada69:
+      - a stale task 2.6 note;
+      - tasks 3.1, 3.2 and 3.4 with no as-built notes;
+      - no test of the complete ask's ID citation;
+      - two wording slips.
+    - **Rebase:** none needed, since `origin/main` is still e76d468c. No widget change has merged, so the figures stand.
+    - **Kaizen:** the PO declined the proposed rule (every THEN and SHALL clause of a text requirement maps to an assertion), so the harness is unchanged.
   - A spec review and a security review of the whole range (`askboard-delivery`, pull request step). Then the rebase on `origin/main`: re-check task 0.2's merge points, rerun `bun run build:skills`, and rerun the check.
   - Verify: both reports are recorded with no open finding of M or above. The figures after the rebase are recorded. If a widget change merged first, the description test still sees none of its types.
 - [ ] 4.3 Live check, left to the PO (#108, `askboard-skills` 4.1 as reworded in task 3.3).
