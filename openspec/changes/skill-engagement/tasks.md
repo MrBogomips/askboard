@@ -149,7 +149,13 @@ Order: group 0, then group 1, then group 2: group 2 regenerates `skills/` after 
   - Change `templates/help/SKILL.md:3`.
   - Verify: `bun test tools/build/skills` passes, and `askboard-help`'s `SKILL.md` is no longer than 5,977 characters.
   - As built (2026-11-10): four assertions added to the frontmatter test of `help.test.ts`; the description is decision 9 verbatim, 295 characters; `askboard-help` `SKILL.md` 5,962 characters.
-- [ ] 2.6 Regenerate and measure.
+- [x] 2.6 Regenerate and measure.
+  - Eval, second iteration (2026-11-11), on the built change (cde9de47) against the 0.1.0 baseline. Same harness for both: every description dropped, AskUserQuestion available through the bench permission host, 3 runs per query, each run stopped at its first ask, 900 s timeout. An earlier run with a 400 s timeout cut runs before their first ask, so it is void. First route on queries 1 to 4:
+    - **Baseline:** board 2 of 12, AskUserQuestion 4 of 12. Query 1 went to AskUserQuestion 3 of 3, and query 4 asked nothing 3 of 3.
+    - **Change:** board 10 of 12, AskUserQuestion 0. Queries 1 to 3 went to the board 3 of 3 each. Query 4 went to the board once and asked nothing within its turns twice.
+    - **Near miss (query 5):** AskUserQuestion 2 and nothing 1. It never went to the board and never loaded the skill.
+
+    Query 4 stays a finding for the live check (task 4.3), not a stop.
   - Run `bun run build:skills` and commit `skills/askboard/` and `skills/askboard-help/`.
   - Record the figures, and the margins left for the five widgets in flight: `SKILL.md` at most about 8,450, `items.md` at most about 4,800, the always-loaded total at most about 7,600 (design.md, Risks).
   - The coordinator runs the trigger eval's second iteration on the shipped description and records it beside task 0.4's baseline.
