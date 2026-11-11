@@ -1,6 +1,6 @@
 ---
 name: askboard-help
-description: Use when the user asks in the terminal how to use the AskBoard board: what a widget does, how to edit it, which keys it takes, what Answer, Postpone, Decline, Submit or a Snapshot do, or how to change a key. A question asked as a follow-up on the board is not for this skill. It never asks anything on a board.
+description: Use when the user asks in the terminal how to use the AskBoard board: what a widget does, how to edit it, its keyboard shortcuts, what Answer, Postpone, Decline, Submit or a Snapshot do, or how to change, rebind or remap a key. A question asked as a follow-up on the board is not for this skill.
 disallowed-tools: mcp__plugin_askboard_askboard__ask mcp__plugin_askboard_askboard__update mcp__plugin_askboard_askboard__collect mcp__plugin_askboard_askboard__fetch mcp__plugin_askboard_askboard__snapshot
 ---
 

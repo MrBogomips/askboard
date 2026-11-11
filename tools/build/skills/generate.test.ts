@@ -89,6 +89,23 @@ describe("SKILL.md frontmatter", () => {
     expect((head.description ?? "").length).toBeGreaterThan(0);
   });
 
+  test("says when to load the skill: the criterion first, no precondition", () => {
+    const description = head.description ?? "";
+    expect(description.length).toBeLessThanOrEqual(600);
+    expect(description.slice(0, 150)).toContain("complex");
+    expect(description.slice(0, 150)).toContain("visual, interactive board");
+    for (const word of [
+      "AskUserQuestion",
+      "AskBoard",
+      "before you ask",
+      "in chat or with AskUserQuestion",
+      "when the user asks for AskBoard",
+      "A simple, self-explanatory choice stays in AskUserQuestion",
+    ])
+      expect(description, word).toContain(word);
+    expect(description).not.toContain("are available");
+  });
+
   test("grants no tool and names no widget", () => {
     expect(skill).not.toContain("allowed-tools");
     for (const { type } of WIDGET_TYPES)
@@ -97,24 +114,46 @@ describe("SKILL.md frontmatter", () => {
 });
 
 describe("SKILL.md routing", () => {
-  test("sends references, widgets, more than four options and several questions to AskBoard", () => {
-    expect(skill).toContain("## Which tool asks");
-    expect(skill).toContain("references");
-    expect(skill).toContain("a widget");
-    expect(skill).toContain("more than four options");
-    expect(skill).toContain("several questions");
-  });
+  const start = skill.indexOf("## Which tool asks");
+  const next = skill.indexOf("\n## ", start + 1);
+  const section = skill.slice(start, next);
 
-  test("sends a yes or no and a short choice without references to AskUserQuestion", () => {
-    expect(skill).toContain("AskUserQuestion for a yes or no or a short choice without references");
-  });
-
-  test("makes a subagent ask every question through AskBoard, and an asking rule override", () => {
-    expect(skill).toContain(
+  test("routes by the question's complexity, with the cases as examples", () => {
+    expect(start).toBeGreaterThan(-1);
+    for (const phrase of [
+      "how hard the question is to grasp",
+      "depend on one another",
+      "bare IDs",
+      "visual artifact",
+      "examples",
+      "judge",
+      "Use AskUserQuestion for a simple, self-explanatory choice",
       "A subagent cannot use AskUserQuestion: it asks every question through AskBoard",
+      "asking rule",
+      "overrides",
+      "instruction from the user about how to ask",
+    ]) {
+      expect(section, phrase).toContain(phrase);
+    }
+  });
+
+  test("names no count", () => {
+    expect(section).not.toContain("more than four");
+    expect(section).not.toContain("several questions");
+  });
+
+  test("says why the board", () => {
+    expect(section).toContain("sees the context beside the question");
+    expect(section).toContain("works on it");
+    expect(section).toContain("follow-ups");
+    expect(section).toContain("while you keep working");
+  });
+
+  test("never puts a complex question in chat prose", () => {
+    expect(section).toContain(
+      "Never put a complex question to the user in chat prose: ask it on the board",
     );
-    expect(skill).toContain("asking rule");
-    expect(skill).toContain("overrides");
+    expect(section).toContain("when no board can be shown, see When an ask cannot go on");
   });
 });
 
@@ -267,6 +306,55 @@ describe("the item index", () => {
     for (const { skill: teaching } of WIDGET_TYPES)
       expect(catalogue).toContain(teaching?.use ?? "unreachable");
     for (const { use } of Object.values(MOLECULE_SKILLS)) expect(catalogue).toContain(use);
+  });
+
+  test("has the user-goal section before the context items, naming only known types", () => {
+    const at = catalogue.indexOf("## By what the user has to do");
+    expect(at).toBeGreaterThan(-1);
+    expect(at).toBeLessThan(catalogue.indexOf("## Context items"));
+    const section = catalogue.slice(at, catalogue.indexOf("## Context items"));
+    const known = new Set<string>([
+      ...contextTypes(),
+      ...WIDGET_TYPES.map(({ type }) => type),
+      ...READY_MOLECULES.map(({ molecule }) => molecule),
+    ]);
+    for (const [, name] of section.matchAll(/`([^`]+)`/g))
+      expect(known.has(name ?? ""), name).toBe(true);
+    expect(skill).toContain(
+      "What each type is for, the types by what the user has to do, and a complete ask",
+    );
+  });
+
+  test("ends the catalogue with a complete ask, reported as an example", () => {
+    const blocks = taggedBlocks(catalogue);
+    const last = blocks.at(-1);
+    expect(last?.kind).toBe("ask");
+    const ask = last?.value as {
+      askId?: string;
+      language?: string;
+      items: {
+        props: {
+          text: string;
+          options: { recommended?: boolean }[];
+          items: { type: string; props: { pointer?: string; title?: string } }[];
+        };
+      }[];
+    };
+    expect(ask.askId).toBeTruthy();
+    expect(ask.language).toBeTruthy();
+    expect(ask.items).toHaveLength(1);
+    expect(ask.items[0]?.props.items.map(({ type }) => type)).toContain("excerpt");
+    // The question cites a document by ID, and the excerpt beside it names the same ID.
+    const id = /\b[A-Z]{1,4}-\d+\b/.exec(ask.items[0]?.props.text ?? "")?.[0];
+    expect(id).toBeDefined();
+    const excerpt = ask.items[0]?.props.items.find(({ type }) => type === "excerpt")?.props;
+    expect(`${excerpt?.pointer ?? ""} ${excerpt?.title ?? ""}`).toContain(id ?? "-");
+    expect(ask.items[0]?.props.options.filter((o) => o.recommended === true)).toHaveLength(1);
+    expect(
+      examples
+        .filter((e) => e.file === "references/items.md")
+        .map(({ kind, value }) => ({ kind, value })),
+    ).toEqual(blocks);
   });
 
   test("names every item type of the contract in backticks, a test-made one included", () => {

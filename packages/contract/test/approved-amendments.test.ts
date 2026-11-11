@@ -176,6 +176,53 @@ describe("the approved wording", () => {
   });
 });
 
+describe("the approved wording of skill-engagement", () => {
+  const ask = TOOL_DEFINITIONS.find(({ name }) => name === "ask");
+  const routing = SERVER_INSTRUCTIONS.split("\n\n").find((text) => text.startsWith("Use it")) ?? "";
+  const lineWith = (text: string) => SERVER_INSTRUCTIONS.split("\n").find((l) => l.includes(text));
+
+  test("the routing paragraph states the criterion, with its cases as examples", () => {
+    for (const phrase of [
+      "depend on one another",
+      "bare IDs",
+      "a document to review",
+      "reads better seen and worked on",
+      "These are examples",
+      "self-explanatory choice stays in AskUserQuestion",
+      "The user's asking rule, or the user's own instruction about how to ask, decides first",
+    ]) {
+      expect(routing, phrase).toContain(phrase);
+    }
+    expect(routing).not.toContain("more than four");
+    expect(routing).not.toContain("one quick choice");
+  });
+
+  test("one line says to load the skill before the first ask", () => {
+    const line = lineWith("Load the askboard skill");
+    expect(line).toContain("before your first `ask`");
+    expect(line).toContain("askboard:askboard");
+  });
+
+  test("one line says never to put a complex question in chat prose", () => {
+    expect(lineWith("Never put a complex question to the user in chat prose")).toBeDefined();
+  });
+
+  test("the ask description points to the skill and still lists every item type and its props", () => {
+    expect(ask?.description).toContain("Load the askboard skill before your first ask");
+    expect(ask?.description).toContain("lists every item type and its props");
+  });
+
+  test("the amendments of this change carry the PO's approval date", () => {
+    const mine = APPROVED_TEXT_AMENDMENTS.filter(({ change }) => change === "skill-engagement");
+    expect(mine.map(({ target }) => target)).toEqual([
+      "server-instructions.md",
+      "server-instructions.md",
+      "tools.json#ask.description",
+    ]);
+    for (const { approved } of mine) expect(approved).toBe("2026-11-10");
+  });
+});
+
 describe("the approved examples stay as archived", () => {
   test("the fixture copies of tools.json and server-instructions.md equal the archive", async () => {
     for (const name of ["tools.json", "server-instructions.md"]) {

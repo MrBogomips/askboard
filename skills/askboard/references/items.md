@@ -2,6 +2,19 @@
 
 This is what each item type is for, to choose among them; `SKILL.md` links the reference of each type.
 
+## By what the user has to do
+
+Examples, not a list: any item that helps the user grasp the question fits.
+
+- Choose among options that cite documents, one beside the question for each: `excerpt`, `reference`
+- Review or re-estimate a plan: `wbs-pert`, `gantt-plan`, `tree`, `gantt`
+- Prioritise or triage: `ranking`, `kanban`
+- Check figures or dates: `table`, `chart`, `timeline`
+- Review a document: `document-review`
+- Check a formula: `latex`
+- Approve or rate a proposal: `approval`, `scale`
+- Judge a UML diagram or a state machine: an `image` of the rendered file, or an `excerpt` of its source
+
 ## Context items
 
 - `excerpt`: a passage of a project file beside the question: a pointer, which AskBoard resolves when the ask is sent, or text you wrote, never both
@@ -39,3 +52,45 @@ This is what each item type is for, to choose among them; `SKILL.md` links the r
 
 - `gantt-plan`: a schedule over a work breakdown of the same question: the user adjusts durations and dependencies, with dates and the critical path computed
 - `wbs-pert`: a work breakdown with three-point estimates that the user reviews and edits, with expected effort and spread computed per package and rolled up
+
+## A complete ask
+
+One question that cites a decision by ID, with the decision beside it:
+
+```json ask
+{
+  "askId": "order-store-q7v4",
+  "language": "en-US",
+  "items": [
+    {
+      "type": "question",
+      "id": "store",
+      "props": {
+        "header": "Storage",
+        "text": "Which store should the order service use under D-03?",
+        "options": [
+          {
+            "label": "PostgreSQL",
+            "description": "Meets D-03's retention with partitions",
+            "recommended": true
+          },
+          {
+            "label": "SQLite",
+            "description": "One file; retention by a nightly job"
+          }
+        ],
+        "items": [
+          {
+            "type": "excerpt",
+            "id": "d-03",
+            "props": {
+              "pointer": "docs/decisions.md#D-03",
+              "title": "D-03: data retention"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
+```
