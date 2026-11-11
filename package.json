@@ -32,7 +32,7 @@
     "@modelcontextprotocol/client": "2.4.0",
     "@types/bun": "1.4.4",
     "ajv": "8.20.0",
-    "lightningcss": "1.32.0",
+    "lightningcss": "1.33.0",
     "playwright": "1.65.0",
     "typescript": "7.0.2"
   },
