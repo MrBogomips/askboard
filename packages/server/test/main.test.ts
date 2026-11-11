@@ -43,46 +43,18 @@ describe("the entry point's session file", () => {
         uid: process.getuid?.() ?? 0,
       });
       const file = sessionFilePath(folder, process.pid);
-      const spawnedAt = Date.now();
-      let tries = 0;
-      let dumped = false;
-      for (; tries < 450 && !existsSync(file); tries += 1) {
-        await Bun.sleep(10);
-        if (!dumped && Date.now() - spawnedAt > 1200) {
-          dumped = true;
-          const top = Bun.spawnSync(["ps", "-axo", "%cpu,pid,ppid,etime,command", "-r"], { stdout: "pipe" });
-          console.log(`DIAG ${how} slow start; busiest:\n${top.stdout.toString().split("\n").slice(0, 12).map((l) => l.slice(0, 200)).join("\n")}`);
-        }
-      }
-      console.log(`DIAG ${how} file after ${Date.now() - spawnedAt} ms wall, ${tries} tries, exists ${existsSync(file)}`);
+      for (let tries = 0; tries < 500 && !existsSync(file); tries += 1) await Bun.sleep(10);
       const session = JSON.parse(readFileSync(file, "utf8"));
       expect(session).toMatchObject({ key: process.pid, pid: child.pid });
       // Started without CLAUDE_PROJECT_DIR: no session project root, and the file names none.
       expect(session).not.toHaveProperty("projectDir");
       expect(existsSync(session.apiAddress)).toBe(true);
-      const errBox = { text: "" };
-      void (async () => {
-        const decoder = new TextDecoder();
-        for await (const chunk of child.stderr) errBox.text += decoder.decode(chunk);
-      })();
-      const run = (cmd: string[]) => {
-        const r = Bun.spawnSync(cmd, { stdout: "pipe", stderr: "pipe" });
-        return `${r.stdout.toString()}${r.stderr.toString()}`.trimEnd();
-      };
-      const began = performance.now();
       if (how === "stdin") child.stdin.end();
       else child.kill(how);
-      const first = await Promise.race([child.exited, Bun.sleep(3500).then(() => "still running")]);
-      console.log(`DIAG ${how} after ${Math.round(performance.now() - began)} ms: ${first}; stderr ${JSON.stringify(errBox.text)}`);
-      if (first === "still running") {
-        console.log(run(["ps", "-axo", "pid,ppid,pgid,stat,sig,sigmask,command"]).split("\n").filter((l) => /bun|node|PID/.test(l)).join("\n"));
-        console.log(run(["sample", String(child.pid), "1"]).split("\n").slice(0, 220).join("\n"));
-      }
       expect(await child.exited).toBe(0);
       expect(existsSync(file)).toBe(false);
       expect(existsSync(session.apiAddress)).toBe(false);
-      await Bun.sleep(50);
-      const stderr = errBox.text;
+      const stderr = await new Response(child.stderr).text();
       expect(stderr).toBe(
         `askboard: session ending (${how === "stdin" ? "stdin closed" : how}): 0 open asks discarded\n`,
       );

@@ -87,6 +87,12 @@ export const composedSessions = () => {
     chmodSync(script, 0o755);
     return { script, record };
   };
+  /**
+   * The BROWSER of a session whose test gives none: without it, an ask on macOS would start the
+   * machine's `open`, and so a real browser, which on a CI runner takes the processor from the
+   * tests that follow (#160). A test that needs BROWSER unset passes it as undefined.
+   */
+  const unwatched = recorder("unwatched-browser");
 
   /** Starts a composed session process and connects a client to it; an undefined variable is unset. */
   const start = async (
@@ -114,6 +120,7 @@ export const composedSessions = () => {
         PATH: `${notifier.folder}:${process.env.PATH ?? ""}`,
         CLAUDE_PROJECT_DIR: project,
         XDG_RUNTIME_DIR: runtime,
+        BROWSER: unwatched.script,
         ...env,
       },
       platform: process.platform,
@@ -170,5 +177,5 @@ export const composedSessions = () => {
     removeViews();
   };
 
-  return { project, recorder, start, remove };
+  return { project, recorder, unwatched, start, remove };
 };

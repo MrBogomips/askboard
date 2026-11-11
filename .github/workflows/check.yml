@@ -17,12 +17,6 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-bun
-      - run: bun test --coverage 2>&1 | grep -A70 "main.test.ts:" | cut -c1-260 | grep -B1 -A14 "DIAG\|the entry" | head -150
-        continue-on-error: true
-      - run: bun run test 2>&1 | grep -A70 "main.test.ts:" | cut -c1-260 | grep -B1 -A14 "DIAG\|the entry" | head -150
-        continue-on-error: true
-      - run: bun test --coverage packages/server/test/main.test.ts 2>&1 | head -80 | cut -c1-260
-        continue-on-error: true
       - run: bun run check
         env:
           # The licence check asks the GitHub API whether direct dependencies are archived.
