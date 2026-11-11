@@ -420,6 +420,21 @@ const bundledParentKey = (
 ): string | undefined =>
   meta.bundled === true && key.endsWith(`/${name}`) ? key.slice(0, -name.length - 1) : undefined;
 
+// A package's bundled dependencies pass when bun.lock lists each of them, since each is then
+// checked as a package of its own; any it does not list stay unseen and are named.
+const bundlingProblems = (
+  id: string,
+  manifest: Record<string, unknown>,
+  listed: ReadonlySet<string>,
+): string[] => {
+  if (!bundles(manifest)) return [];
+  const names = bundledNames(manifest);
+  const unseen = names.filter((bundled) => !listed.has(bundled));
+  if (names.length > 0 && unseen.length === 0) return [];
+  const named = unseen.length > 0 ? `: ${unseen.join(", ")}` : "";
+  return [`${id}: bundles dependencies, which this check cannot see${named}`];
+};
+
 const splitId = (id: string): { name: string; version: string } => {
   const at = id.lastIndexOf("@");
   return { name: id.slice(0, at), version: id.slice(at + 1) };
@@ -459,6 +474,31 @@ const readTree = async (root: string): Promise<Tree> => {
     return parent !== undefined && forAnotherPlatformAt(parent);
   };
 
+  const parentKeyOf = (key: string): string | undefined => {
+    const [id, , meta = {}] = lock.packages[key] ?? [];
+    return id === undefined ? undefined : bundledParentKey(key, splitId(id).name, meta);
+  };
+  // The folder a package is installed in. A bundled dependency of an installed package ships
+  // inside it, where npm packs it: in its parent's node_modules or hoisted to a bundling
+  // ancestor's. That copy is the one checked, whatever version bun.lock names, since Bun
+  // resolves a bundled range afresh. Otherwise, the package's own folder in Bun's store.
+  const installedAt = async (key: string): Promise<string | undefined> => {
+    const [id] = lock.packages[key] ?? [];
+    if (id === undefined) return undefined;
+    const { name, version } = splitId(id);
+    for (let at = parentKeyOf(key); at !== undefined; at = parentKeyOf(at)) {
+      const base = await installedAt(at);
+      if (base === undefined) break;
+      const candidate = join(base, "node_modules", name);
+      const found: unknown = await Bun.file(join(candidate, "package.json"))
+        .json()
+        .catch(() => undefined);
+      if (isRecord(found) && found.name === name) return candidate;
+    }
+    const directory = directoryOf(name, version);
+    return directory === undefined ? undefined : join(store, directory, "node_modules", name);
+  };
+
   const tree: Tree = {
     packages: [],
     otherPlatforms: [],
@@ -467,29 +507,42 @@ const readTree = async (root: string): Promise<Tree> => {
     patched,
     problems: [],
   };
-  const byId = new Map<string, Installed>();
-  const seen = new Set<string>();
   for (const [key, [id, , meta = {}]] of Object.entries(lock.packages)) {
-    const { name, version } = splitId(id);
-    const parentId = lock.packages[bundledParentKey(key, name, meta) ?? ""]?.[0];
+    const parentId = lock.packages[bundledParentKey(key, splitId(id).name, meta) ?? ""]?.[0];
     if (parentId !== undefined) {
-      tree.bundled.set(parentId, (tree.bundled.get(parentId) ?? new Set()).add(name));
+      tree.bundled.set(parentId, (tree.bundled.get(parentId) ?? new Set()).add(splitId(id).name));
     }
-    if (version.startsWith("workspace:") || seen.has(id)) continue;
-    seen.add(id);
-    const directory = directoryOf(name, version);
+  }
+  const byId = new Map<string, Installed>();
+  // Installed packages are read once per folder, so a bundled copy is read beside the store's
+  // copy of the same id; packages not installed, once per id.
+  const seen = new Set<string>();
+  for (const [key, [id]] of Object.entries(lock.packages)) {
+    const { name, version } = splitId(id);
+    if (version.startsWith("workspace:")) continue;
+    const directory = await installedAt(key);
+    if (seen.has(directory ?? id)) continue;
+    seen.add(directory ?? id);
     if (directory === undefined) {
       if (forAnotherPlatformAt(key)) tree.otherPlatforms.push(id);
       else tree.problems.push(`${id}: listed in bun.lock but not installed; run bun install`);
       continue;
     }
-    const path = join(store, directory, "node_modules", name, "package.json");
-    const installed = (await Bun.file(path).json()) as Record<string, unknown>;
-    if (bundles(installed)) {
-      tree.problems.push(`${id}: bundles dependencies, which this check cannot see`);
-    }
-    const pkg = { name, version, licence: licenceOf(installed), repository: installed.repository };
-    byId.set(id, pkg);
+    const installed = (await Bun.file(join(directory, "package.json")).json()) as Record<
+      string,
+      unknown
+    >;
+    tree.problems.push(...bundlingProblems(id, installed, tree.bundled.get(id) ?? new Set()));
+    // A bundled copy is named by the version it holds.
+    const held = typeof installed.version === "string" ? installed.version : version;
+    const pkg = {
+      name,
+      version: held,
+      licence: licenceOf(installed),
+      repository: installed.repository,
+    };
+    // A direct dependency is a package of its own, never a bundled copy.
+    if (parentKeyOf(key) === undefined) byId.set(id, pkg);
     tree.packages.push(pkg);
   }
 
@@ -528,16 +581,7 @@ const readFromRegistry = async (
     const manifest: unknown = await response.json();
     if (!isRecord(manifest)) return { problems: [`${where}: the reply is not a package manifest`] };
     const pkg = { name, version, licence: licenceOf(manifest), repository: manifest.repository };
-    // What bun.lock lists is checked as a package of its own; anything else stays unseen.
-    const names = bundledNames(manifest);
-    const unseen = names.filter((bundled) => !listed.has(bundled));
-    const problems =
-      bundles(manifest) && (names.length === 0 || unseen.length > 0)
-        ? [
-            `${id}: bundles dependencies, which this check cannot see${unseen.length > 0 ? `: ${unseen.join(", ")}` : ""}`,
-          ]
-        : [];
-    return { pkg, problems };
+    return { pkg, problems: bundlingProblems(id, manifest, listed) };
   } catch (error) {
     return {
       problems: [`${where} failed: ${error instanceof Error ? error.message : String(error)}`],

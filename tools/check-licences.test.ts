@@ -842,7 +842,8 @@ describe("the installed tree and the command", () => {
     );
     rmSync(root, { recursive: true, force: true });
 
-    // A bundled dependency of a package for this platform is not admitted that way.
+    // A bundled dependency of a package for this platform is not admitted that way: it has to be
+    // installed, inside that package (next test).
     makeTree({
       packages: [permissive("a")],
       direct: { a: "1.0.0" },
@@ -852,6 +853,98 @@ describe("the installed tree and the command", () => {
     const here = await run({ GITHUB_TOKEN: "t0ken" });
     expect(here.code).toBe(1);
     expect(here.output).toContain("g@1.0.0: listed in bun.lock but not installed");
+  });
+
+  // Tailwind 4.3.4 dropped `cpu: wasm32` from its WASI fallback, so Bun installs it on every
+  // platform, with its bundled runtime inside it, where npm packs bundled dependencies.
+  test("a bundled dependency of an installed package is read from inside that package", async () => {
+    const inside = "node_modules/.bun/wasi@1.0.0/node_modules/wasi/node_modules";
+    const manifest = {
+      license: "MIT",
+      repository: "github:owner/wasi",
+      bundledDependencies: ["@emnapi/core", "tslib"],
+    };
+    const wasi = (options: {
+      manifest?: Record<string, unknown>;
+      core?: Record<string, unknown> | null;
+      // A copy of tslib inside the package, beside the store's.
+      tslib?: Record<string, unknown>;
+    }) => {
+      makeTree({
+        packages: [
+          permissive("a"),
+          permissive("tslib"),
+          { name: "wasi", version: "1.0.0", manifest: options.manifest ?? manifest },
+        ],
+        direct: { a: "1.0.0" },
+        overrides: "[]",
+        bundled: {
+          "wasi/@emnapi/core": "@emnapi/core@1.11.3",
+          "wasi/@emnapi/core/@emnapi/wasi-threads": "@emnapi/wasi-threads@1.2.3",
+          "wasi/tslib": "tslib@1.0.0",
+        },
+      });
+      const core = options.core === undefined ? { license: "MIT" } : options.core;
+      if (core !== null) {
+        write(
+          `${inside}/@emnapi/core/package.json`,
+          JSON.stringify({ name: "@emnapi/core", version: "1.11.3", ...core }),
+        );
+      }
+      if (options.tslib) {
+        write(
+          `${inside}/tslib/package.json`,
+          JSON.stringify({ name: "tslib", version: "1.0.0", ...options.tslib }),
+        );
+      }
+      // npm hoists a bundled package's own dependencies to the top of the bundle.
+      write(
+        `${inside}/@emnapi/wasi-threads/package.json`,
+        JSON.stringify({ name: "@emnapi/wasi-threads", version: "1.2.3", license: "MIT" }),
+      );
+    };
+    const outcome = async (options: Parameters<typeof wasi>[0]) => {
+      wasi(options);
+      const result = await run({ GITHUB_TOKEN: "t0ken" });
+      rmSync(root, { recursive: true, force: true });
+      return result;
+    };
+
+    const clean = await outcome({});
+    expect(clean.output).not.toContain("not installed");
+    expect(clean.output).not.toContain("bundles");
+    expect(clean.output).toContain("5 installed packages, 0 for other platforms");
+    expect(clean.code).toBe(0);
+    // Its licence is checked like any installed package's.
+    const gpl = await outcome({ core: { license: "GPL-3.0-only" } });
+    expect(gpl.code).toBe(1);
+    expect(gpl.output).toContain("@emnapi/core@1.11.3: licence GPL-3.0-only");
+    // A bundled dependency that bun.lock does not list stays unseen.
+    const hidden = await outcome({
+      manifest: { ...manifest, bundledDependencies: [...manifest.bundledDependencies, "hidden"] },
+    });
+    expect(hidden.code).toBe(1);
+    expect(hidden.output).toContain(
+      "wasi@1.0.0: bundles dependencies, which this check cannot see: hidden",
+    );
+    // One missing from inside the package, or another package in its place, is not installed.
+    const missing = await outcome({ core: null });
+    expect(missing.code).toBe(1);
+    expect(missing.output).toContain("@emnapi/core@1.11.3: listed in bun.lock but not installed");
+    const impostor = await outcome({ core: { name: "@emnapi/other" } });
+    expect(impostor.code).toBe(1);
+    expect(impostor.output).toContain("@emnapi/core@1.11.3: listed in bun.lock but not installed");
+    // Bun resolves a bundled range afresh, so bun.lock may name a newer version than the package
+    // holds: the copy it holds is the one checked, by the version it holds.
+    const older = await outcome({ core: { version: "1.10.0", license: "GPL-3.0-only" } });
+    expect(older.code).toBe(1);
+    expect(older.output).toContain("@emnapi/core@1.10.0: licence GPL-3.0-only");
+    expect((await outcome({ core: { version: "1.10.0", license: "MIT" } })).code).toBe(0);
+    // The copy inside is read even when the store holds the same id.
+    const beside = await outcome({ tslib: { version: "0.9.0", license: "GPL-3.0-only" } });
+    expect(beside.code).toBe(1);
+    expect(beside.output).toContain("tslib@0.9.0: licence GPL-3.0-only");
+    expect(beside.output).toContain("6 installed packages");
   });
 
   test("a CI run without a token fails the command", async () => {
