@@ -17,9 +17,11 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-bun
-      - run: bun .github/diag/signals.ts
+      - run: bun run test 2>&1 | grep -B2 -A320 "main.test.ts:" | cut -c1-400 | head -700
         continue-on-error: true
-      - run: bun test packages/server/test/main.test.ts
+      - run: bun test 2>&1 | grep -B2 -A60 "main.test.ts:" | grep "DIAG\|pass\|fail" | head -40
+        continue-on-error: true
+      - run: bun test --coverage packages/server 2>&1 | grep -B2 -A60 "main.test.ts:" | grep "DIAG\|pass\|fail" | head -40
         continue-on-error: true
       - run: bun run check
         env:

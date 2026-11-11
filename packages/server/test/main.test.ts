@@ -49,12 +49,31 @@ describe("the entry point's session file", () => {
       // Started without CLAUDE_PROJECT_DIR: no session project root, and the file names none.
       expect(session).not.toHaveProperty("projectDir");
       expect(existsSync(session.apiAddress)).toBe(true);
+      const errBox = { text: "" };
+      void (async () => {
+        const decoder = new TextDecoder();
+        for await (const chunk of child.stderr) errBox.text += decoder.decode(chunk);
+      })();
+      const run = (cmd: string[]) => {
+        const r = Bun.spawnSync(cmd, { stdout: "pipe", stderr: "pipe" });
+        return `${r.stdout.toString()}${r.stderr.toString()}`.trimEnd();
+      };
+      const began = performance.now();
+      console.log(`DIAG ${how} ready; PATH=${process.env.PATH}`);
+      console.log(run(["lsof", "-p", String(child.pid)]).split("\n").filter((l) => !/ REG | DIR /.test(l)).join("\n"));
       if (how === "stdin") child.stdin.end();
       else child.kill(how);
+      const first = await Promise.race([child.exited, Bun.sleep(3500).then(() => "still running")]);
+      console.log(`DIAG ${how} after ${Math.round(performance.now() - began)} ms: ${first}; stderr ${JSON.stringify(errBox.text)}`);
+      if (first === "still running") {
+        console.log(run(["ps", "-axo", "pid,ppid,pgid,stat,sig,sigmask,command"]).split("\n").filter((l) => /bun|node|PID/.test(l)).join("\n"));
+        console.log(run(["sample", String(child.pid), "1"]).split("\n").slice(0, 220).join("\n"));
+      }
       expect(await child.exited).toBe(0);
       expect(existsSync(file)).toBe(false);
       expect(existsSync(session.apiAddress)).toBe(false);
-      const stderr = await new Response(child.stderr).text();
+      await Bun.sleep(50);
+      const stderr = errBox.text;
       expect(stderr).toBe(
         `askboard: session ending (${how === "stdin" ? "stdin closed" : how}): 0 open asks discarded\n`,
       );
