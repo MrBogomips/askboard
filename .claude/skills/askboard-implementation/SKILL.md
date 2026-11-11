@@ -18,7 +18,7 @@ You implement ONE task group of an OpenSpec change, inside the change's worktree
 7. **Tick and note.** Tick the task box in `tasks.md` and add a `  - Note:` of about five lines: what was built, the commit, test counts (pass, skip, fail), deviations from the plan. Notes over 2,000 characters bury the decisions (several in widget-answers and push-delivery do); reasoning belongs in the design, through the caller. Where the task or the change has a GitHub Issue (the proposal's `Issue: #n`), the note names it, and so does the commit body (`Refs #n`, never `Closes`, which only the pull request says). Do not commit unless the caller says so; when you do, use conventional commits with no attribution lines.
 8. **Report to the caller:** tasks done, test counts, files touched (absolute paths), deviations, open questions, the Issues opened, and what only CI can verify.
 
-A defect you find outside the group's tasks is not fixed in passing: after the duplicate search, it becomes a new Issue labelled `source:review` with its type and severity (`CLAUDE.md`, The backlog), named in the note of the task where you found it and in the report.
+A defect you find outside the group's tasks is not fixed in passing: after the duplicate search, it becomes a new Issue labelled `source:review` with its type, severity and areas (`CLAUDE.md`, The backlog), named in the note of the task where you found it and in the report.
 
 ## When to stop and ask
 

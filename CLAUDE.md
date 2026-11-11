@@ -94,7 +94,7 @@ GitHub CLI `gh` (`gh issue`, `gh api`), which the commands below use. No project
 
 ### Labels
 
-Each Issue has one type and one source; a defect also has one severity.
+Each Issue has one type, one source and one or more areas; a defect also has one severity.
 
 | Label | Meaning |
 |---|---|
@@ -113,6 +113,27 @@ Each Issue has one type and one source; a defect also has one severity.
 
 The severities are the scale of the review findings (S-n, X-n): a finding rated M becomes `sev:M`.
 GitHub's default labels and `full-ci` are not backlog labels.
+
+**Areas.** An `area:<name>` label names a product function or module the Issue is about. An Issue
+takes every area it touches, the specific one rather than the general: a Gantt defect seen in
+Firefox is `area:gantt`, not `area:widgets`. GitHub's label list is the authority, and each label's
+description says what it covers (`gh label list --limit 200 | grep '^area:'`). The map:
+
+| Group | Areas |
+|---|---|
+| The board | `area:board`, `area:revisions`, `area:context`, `area:reading-panel`, `area:snapshot`, `area:keyboard`, `area:i18n` |
+| Widgets | `area:widgets` (across widgets, or a widget not built yet), `area:form`, `area:gantt`, `area:tree`, `area:timeline`, `area:kanban`, `area:table`, `area:latex`, `area:document-review`, `area:molecules`, `area:compute` |
+| The agent's side | `area:mcp-tools`, `area:skills`, `area:session`, `area:hooks-mod` |
+| Delivery and process | `area:tests`, `area:ci`, `area:release`, `area:benchmark`, `area:codex`, `area:repo` |
+
+- A defect a test found takes the area of what fails; it adds `area:tests` only when the test itself
+  is at fault (a flake, a timing gate, a port another run holds).
+- A widget gets an area of its own, named after its folder in `packages/widgets/src/` (for example
+  `area:ranking`), with the first Issue about it alone; until then it is `area:widgets`.
+- When no area fits, create one rather than stretch another, named after the function or the
+  package, in the same colour: `gh label create area:<name> --color BFDADC --description "<what it
+  covers>"`. Add it to the map in the change that first uses it, or as a small fix on `main`.
+- A change that moves a function to another area relabels the open Issues it moves.
 
 ### Lifecycle
 
@@ -138,14 +159,14 @@ the method of the `github-issues` skill for private repositories), never as loca
    Otherwise:
    ```sh
    gh issue create --title "<what is wrong, or what is wanted>" --body-file <file> \
-     --label type:defect --label sev:M --label source:e2e
+     --label type:defect --label sev:M --label source:e2e --label area:gantt
    ```
    The title states the problem or the want, never the fix; a question starts with "Question:", a
    chore with "Chore:". The body follows the template of its kind in `.github/ISSUE_TEMPLATE/`,
    without its front matter and comments: the Origin first (test ID and commit, review finding and
    change, or the PO's words), References last, with the related Issues. One finding per Issue.
    Pass every label with `--label`, whatever the template says.
-2. **Triage.** Check the type, the source and, for a defect, the severity. A decision only the PO can
+2. **Triage.** Check the type, the source, the areas and, for a defect, the severity. A decision only the PO can
    take gets `needs-po` and one comment: the question, the options with their consequences, and the
    proposed default with its reason. A question separate from any Issue is its own Issue
    (`type:question`, `needs-po`).
@@ -164,7 +185,7 @@ the method of the `github-issues` skill for private repositories), never as loca
    ```
    Task notes and commit bodies name the Issue (`Refs #n`). A review finding deferred, or a defect
    found during the work and not fixed in the same change, becomes a new Issue with `source:review`,
-   its severity, and the finding ID, the change and the range in its Origin. A change dropped or
+   its severity, its areas, and the finding ID, the change and the range in its Origin. A change dropped or
    split: comment where the work went; remove `in-change` when nothing is on the Issue any more.
 4. **Pull request.** The body says `Closes #n`. When one Issue spans several changes, each pull
    request says `Refs #n` and the last one says `Closes #n`. The PO's merge closes the Issue.
@@ -177,7 +198,7 @@ with nothing to build, `gh issue close <n> --comment "<the decision, and where i
 ### End-to-end test sessions
 
 An end-to-end test session files its own findings: one self-contained Issue per finding, after the
-duplicate search, labelled `source:e2e` with its type (and its severity, for a defect). The Origin
+duplicate search, labelled `source:e2e` with its type, its areas (and its severity, for a defect). The Origin
 names the test ID and the commit tested; the lines of the report that show the fault are quoted and
 its screenshots attached. It sends the coordinating session only the Issue numbers.
 
@@ -222,6 +243,7 @@ Change history:
 | 2026-11-08 | A change's record moves out of `CLAUDE.md`: the Status paragraph gives way to where the state lives (git, `openspec list`, the Issues), the "In code since" paragraphs become `docs/as-built/<change-id>.md`, and the delivery skill, the spec reviewer, the contract-versioning skill, the archive guidance in `openspec/config.yaml` and `AGENTS.md` name the note instead; the PO checks left in the Status paragraph go to Issue #108 | `CLAUDE.md`, `AGENTS.md`, `docs/as-built/`, `.claude/skills/askboard-{delivery,contract-versioning}/SKILL.md`, `.claude/agents/askboard-spec-reviewer.md`, `openspec/config.yaml` | Every parallel change edited the same two places of `CLAUDE.md` (Status, "In code since"), so each merge of `main` conflicted there; the file was also about 70,000 characters loaded into every session and agent. |
 | 2026-11-09 | Codex interop: the rules of `AGENTS.md` (the backlog, OpenSpec, git and pull requests) move into this file, which becomes the one source for every agent; `AGENTS.md`, `.agents/skills/` and `.codex/` become generated and gitignored, written by the codex-port block of the new `setup.sh` with the latest rulesync, which CI runs too; the skills, the architect and `openspec/config.yaml` cite this file for the backlog | `CLAUDE.md`, `AGENTS.md`, `setup.sh`, `.gitignore`, `.github/actions/setup-bun/action.yml`, `.claude/skills/askboard-{delivery,implementation,review-protocol}/SKILL.md`, `.claude/agents/askboard-architect.md`, `openspec/config.yaml`, `tools/codex-interop.test.ts`, `tools/codex-port.test.ts` | The PO's decision: Claude Code is the master and Codex is derived. A mechanical rulesync conversion overwrote the hand-written `AGENTS.md` that `CLAUDE.md` imported, losing the shared rules. |
 | 2026-11-10 | Keyboard rules: a key-table and key-help rule in the design and tasks rules of `openspec/config.yaml`, in the architect, the spec reviewer, the implementation skill (a Keyboard rule and key tests first) and the review protocol | `openspec/config.yaml`, `.claude/agents/askboard-{architect,spec-reviewer}.md`, `.claude/skills/askboard-{implementation,review-protocol}/SKILL.md`, `CLAUDE.md` | `keyboard-shortcuts-help` (#81) moves each widget's keys into a table that the handler, the tooltips, the keys panel and `askboard-help` all read, so a change to keys has to name those seams or drift apart. |
+| 2026-11-11 | Area labels: `area:<name>` for the function or module an Issue is about, in the Labels and Lifecycle of this file, the delivery, implementation, review-protocol and threat-model skills and the Issue templates; every Issue, open and closed, labelled on 2026-11-11 | `CLAUDE.md`, `.claude/skills/askboard-{delivery,implementation,review-protocol,threat-model}/SKILL.md`, `.github/ISSUE_TEMPLATE/` | The PO's request: classify the backlog by function or module (the reading panel's #163 and #164 first), so a change finds the Issues of the area it touches. |
 
 ## Codex interop
 
