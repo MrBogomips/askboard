@@ -2,7 +2,7 @@
 
 All notable changes to AskBoard are recorded here, newest first, in the layout of Keep a Changelog. Versions before 1.0.0 are 0.x releases: each ships what has merged at its release time (PRD §8).
 
-## 0.1.0 - 2026-11-09
+## 0.1.0 - 2026-11-11
 
 First release. AskBoard installs as a Claude Code plugin from a GitHub marketplace, at user or project scope, on macOS and Linux (Windows through WSL); it runs on Node 24.22.1 or later.
 
@@ -36,10 +36,12 @@ First release. AskBoard installs as a Claude Code plugin from a GitHub marketpla
 - A question the agent reopens starts from the user's previous answer when the agent changed nothing else in it and every part of the answer still fits, and is filled once (a reload or a takeover does not fill it again over what the user undid, and a closed ask is never filled): its choice, notes, results and the edits to its widgets (a moved Timeline entry, a Kanban card, a Gantt task) are in the draft, nothing is sent, and a line under "Reopened by the agent" says so. Otherwise it starts from the agent's version, and the line says that and points to "Start from my previous answer". The board state says which items an answer on an earlier revision shares with the current one, and the draft record marks a revision the board filled (Issue #70).
 - "Start from my previous answer" and the first edit of an answered question bring back the edits to the question's widgets, except those of an item the agent has changed since: an answer carries what the card shows, so a revised answer carries an edited widget the user left alone (Issue #70).
 - A revision shows what it sends: a result the revision's props no longer take is neither shown nor sent, and a result the user clears, or a value the user returns to the agent's version, stays cleared, on screen and in the answer (Issues #105, #107).
+- Keyboard shortcuts from one key table per widget: each key is shown where it acts (on the tool's tooltip, to assistive technology, and in the widget's keys panel, opened with its Keys button or `?`, where the widget has one), and the user can change a widget's keys in the user configuration file (`keys`; a project file's `keys` is ignored with a warning, and keys that fail the check are not applied, with one warning per problem) (Issue #81).
+- The `askboard-help` skill answers, in the terminal, how to use the board: what a widget does, how to edit it, its keyboard shortcuts, what Answer, Postpone, Decline, Submit and a Snapshot do, and how to change, rebind or remap a key. It never calls AskBoard's tools (Issue #81).
+- The agent chooses between AskBoard and AskUserQuestion by how hard a question is to grasp, not by how many questions or options it has: questions that are many and depend on one another, that cite documents by bare IDs, or whose content reads better seen and worked on (a plan, a WBS, a chart, a diagram or a state machine, a formula, a document to review) go to the board; a simple, self-explanatory choice stays in AskUserQuestion. The cases are examples and the agent judges. The server instructions say so and tell the agent to load the `askboard` skill before its first `ask`, the `ask` description points to the skill, and the skill's description leads with when to load it; `references/items.md` gains the item types by what the user has to do and a complete ask. The README gains "When to use it" (Issues #155, #122).
 
 ### Known limits
 
-- The repository is private: installing needs read access and git credentials.
 - No automatic updates: a third-party marketplace does not update by itself (see the README).
 - LaTeX, K-1: a nesting form the scan does not count, unknown today or added by a KaTeX release, can reach Chromium's crash depth (about 130 levels) and crash the board's tab, on every load if the agent sent it. The scan counts every form known on KaTeX 0.19.1, and its limit is about 12 times under the crash.
 - LaTeX, K-2: a very wide expression, such as about 2,000 empty matrix cells, drew in 118 ms in Chromium and 415 ms in WebKit (measured on an M3 Max), and may pass the 2-second rule on slow hardware; no realistic formula comes near.

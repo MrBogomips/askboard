@@ -15,7 +15,7 @@ This file is a summary, updated at each release, not by each change. Parallel ch
 
 ## Done: 0.1.0
 
-0.1.0 is prepared on `main`, and its notes are in `CHANGELOG.md`. Dispatching the release waits for GitHub Actions to run again (#86).
+0.1.0 ships what has merged by 2026-11-11, and its notes are in `CHANGELOG.md`. The repository is public, and the plugin installs from its `release` branch.
 
 | Area | What is there |
 |---|---|
@@ -29,7 +29,8 @@ This file is a summary, updated at each release, not by each change. Parallel ch
 | Building blocks | Eight atoms and the PickField; the layouts Stack, Row, Group and Tabs; field checks (FR-13) |
 | Molecules: 2 of 4 | The WBS with PERT, linked to the Gantt plan (FR-15) |
 | Snapshots | A board's data and visuals, saved in the project for the agent to reuse (FR-26, FR-27) |
-| Setup | A Claude Code plugin at user, project or local scope; the `askboard` skill; asking rules beside AskUserQuestion (FR-28 to FR-31) |
+| Setup | A Claude Code plugin at user, project or local scope; the `askboard` skill, which routes a question to the board by how hard it is to grasp; asking rules beside AskUserQuestion (FR-28 to FR-31) |
+| Keyboard and help | Each widget's keys from one table, shown where they act and changeable in the user file; the `askboard-help` skill for questions about the board (#81) |
 | Languages and settings | English and Italian; theme, density and context placement on the board (FR-34, FR-35) |
 | Release tooling | The release workflow, the release tree, the smoke test on plain Node |
 
@@ -60,7 +61,6 @@ Proposals for the first five widgets were drafted on 2026-11-08 and are checked 
 | Item | Issue | State |
 |---|---|---|
 | Kanban: order cards within their column | #79 | In change (`kanban-order`) |
-| Keyboard shortcuts, contextual help and the `askboard-help` skill | #81 | Proposed (`keyboard-shortcuts-help`) |
 | Undo when editing complex widgets and molecules | #80 | Open |
 | LaTeX: a larger formula and a tighter layout | #77 | Open |
 | Timeline: a more contrasted palette, and a colour per bar | #78 | Open |
@@ -72,18 +72,17 @@ Proposals for the first five widgets were drafted on 2026-11-08 and are checked 
   - #96: a reload drops, without a word, work held only on an item the agent removed;
   - #104: a first edit after "Keep mine" reverts the agent's change;
   - #113: an `update` result with many actions can pass the 30,000-character bound.
-- **Open defects, L:** #76, #95, #97, #101, #111, #120, #121, #122.
+- **Open defects, L:** #76, #95, #97, #101, #111, #120, #121.
+- **Records and budgets:** #154 (the skills spec and PRD R5), #156 (the `askboard-help` skill's budget against the widgets in flight).
 - **Questions waiting for the PO:** #82, #83, #84, #114. By-hand checks and live runs: #108.
-- **Infrastructure:**
-  - Actions refused for billing (#86) blocks the release workflow and the Firefox runs in CI;
-  - Linux comes back to CI with one `runs-on` line per job (NFR-7).
+- **Infrastructure:** Linux comes back to CI with one `runs-on` line per job (NFR-7).
 
 ### Proposed order
 
 This order is proposed; the PO decides it.
 
-1. **0.1.0:** dispatch the release once Actions runs again (#86).
-2. **0.2.0, from real use:** the M defects, the Kanban order, the keyboard help, the early benchmark's runs, and whatever daily use of 0.1.0 turns up.
+1. **0.1.0:** released.
+2. **0.2.0, from real use:** the M defects, the Kanban order, the early benchmark's runs, and whatever daily use of 0.1.0 turns up.
 3. **0.3.0, the journeys:** Diff review and Graph complete UJ-1; the sales estimate review completes UJ-3.
 4. **0.4.0, the rest of the catalogue:** Diagram, Spreadsheet, Image annotation, the decision matrix, and the light benchmark across the fixed set.
 5. **1.0.0:** the whole of §8.1, with the benchmark's targets checked.
