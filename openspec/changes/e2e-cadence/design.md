@@ -1,0 +1,275 @@
+# Design
+
+## Context
+
+See proposal.md, Why. The state on `main` at 3722202d:
+
+- **Runner.** `packages/view/test/browser/run.ts` builds the bundle, unless `--no-build` is passed. It then starts one `bun test` per engine, with the engines in parallel (`--serial` runs them in turn). Each `bun test` gets all 145 `*.browser.ts` files and runs them one after another, with `ASKBOARD_E2E_ENGINES` naming its engine. Every file loops over `enginesFrom(process.env.ASKBOARD_E2E_ENGINES)` (`harness/engines.ts`). Two files narrow that list inline: `markdown-total` and `markdown-bounds` drop Firefox.
+- **Harness.**
+  - `useEngine` (`harness/board-test.ts`) launches one browser per file and one session process per test.
+  - `QUIET_MS = 1_500` (`board-test.ts:30`) is slept 154 times: in 61 files, `expectNoReconnect` and `harness/tree-steps.ts`. Each sleep watches for something that must not happen: a draft, an act, a view message, a reconnect, a DOM change.
+  - The view's draft mirror debounces drafts by `DRAFT_DEBOUNCE_MS = 300` (`packages/view/src/board-page/draft-mirror.ts:10`).
+- **Timed bounds.** The view spec's timed requirements are LaTeX bounded work and LaTeX previews one at a time (`openspec/specs/view-and-widgets/spec.md:2259-2291`), Markdown bounded work (`:2670-2675`) and A Table at its bounds on the board (`:3139`, table-widget decision 13). They are asserted in:
+  - `table-bounds` (three fresh-page runs, each judged alone);
+  - `markdown-total`, `markdown-bounds` and `latex-bounds`;
+  - one timed test in `latex.browser.ts` (`:400-405`).
+- **Conformance.** `packages/server/test/conformance/run.ts --runtime bun|node` runs AD-1's three configurations in turn, in about 2 min per runtime.
+- **CI.** In `ci.yml`, `browser` (`browser.yml`, one job per engine, each building) and `conformance` (`conformance.yml`, Bun and Node, each building) run only on `workflow_dispatch`, on `macos-latest`. `release.yml` already pins `actions/upload-artifact` and `actions/download-artifact`.
+- **Tools.** Bun 1.4.4's `bun test` has `--parallel=<n>`, `--shard=k/n`, `--timings=<files>` and `--update-timings` (`bun test --help`). How they behave with this suite is under Needs probe.
+
+ADs relied on:
+
+- AD-1: the three conformance configurations in CI.
+- AD-8: CSP collection in every browser file, the sandboxed view, and the bounded work of the LaTeX and Markdown renderers.
+- AD-13: the Table's formulas at their bounds.
+- AD-19: the adoption rule for actions, and Node 24 as the shipped runtime.
+- NFR-7: Linux and CI runners. NFR-10: why session-process reuse is deferred.
+- The spine's Consistency Conventions, Tests row: what CI runs.
+
+## Goals / Non-Goals
+
+**Goals:**
+
+- Every pull request gets a verdict from the browser and conformance suites on Linux in about 5 min, running beside `check`.
+- Every browser file runs in each of its engines on Linux every night, and on macOS every week and before every release.
+- A local full run takes well under the current hour.
+- No requirement, engine or check loses coverage. The timed bounds keep their values.
+
+**Non-Goals:**
+
+- `check`, `openspec`, the runners of `ci.yml`, Dependabot, `bun test --parallel` in `bun run test`, the unit-test timing gates and the CLAUDE.md text outside the cadence. All of these belong to #171 plan item 1 (worktree `fix-ci-speed`).
+- One session process per file (D5): #172.
+- Branch rulesets and required checks: a repository setting the PO holds (Open Questions, Q2).
+- Node 26: the spine lists it, and this change adds it only if the PO agrees (Q1).
+- The other runs in the Tests row (live model calls, legacy negotiation, the formula, time zone and locale fixtures, the token report): unchanged.
+
+## Defaults taken (unattended run, 2026-11-14)
+
+The PO was unavailable. These are the coordinator's defaults for #171 and are not PO answers. Task 0.1 records any answer that differs, and `/opsx:update` follows it.
+
+| ID | Default |
+|---|---|
+| D1 | Every pull request, on `ubuntu-24.04`: the browser smoke set in Chromium, and conformance in AD-1's three configurations on Bun. |
+| D2 | Nightly on `main`, on `ubuntu-24.04`: the full browser suite in Chromium, Firefox and WebKit, four shards per engine; the perf pass; conformance on Node 24. |
+| D3 | Weekly and before every release, on `macos-latest`: the nightly set, with conformance on Bun and Node 24. |
+| D4 | Locally, `bun run test:e2e` runs the full set with files in parallel within each engine, then the perf files in a separate serial pass, then conformance on Bun. |
+| D5 | Reusing one session process per file (#171 item C4) is deferred to its own Issue, #172, because it needs an NFR-10 review. |
+| D6 | Speed gates are judged in the perf pass on the median of three runs, with the gates unchanged (#146's proposed default). |
+
+## Decisions
+
+### 1. A caller workflow of its own, `e2e.yml`
+
+A new `.github/workflows/e2e.yml` owns the cadence. `ci.yml` keeps `openspec` and `check` and loses its dispatch-only `browser` and `conformance` jobs (Merge points, M1).
+
+- **Triggers:**
+  - `pull_request`;
+  - `schedule`: nightly `23 2 * * *` and weekly `23 4 * * 6`, both UTC;
+  - `workflow_dispatch` with a `cadence` input (`smoke`, `nightly`, `weekly`);
+  - `workflow_call` with a `cadence` input, for `release.yml`.
+- **A `plan` job** on `ubuntu-24.04`, plain shell, turns the event into outputs: the runner, the engines, the shard count, the runtimes, the browser set, and `code`:
+
+  | Cadence | Runner | Browser | Perf pass | Conformance |
+  |---|---|---|---|---|
+  | `smoke` (pull request) | `ubuntu-24.04` | smoke set, Chromium, one shard | no | Bun, three configurations |
+  | `nightly` (daily cron) | `ubuntu-24.04` | full set, three engines × 4 shards | yes | Node 24, three configurations |
+  | `weekly` (weekly cron, release call) | `macos-latest` | full set, three engines × 4 shards | yes | Bun and Node 24 |
+
+- **The `code` output.** On a pull request, `code` is false when every changed path matches `^(docs/|openspec/(changes|specs)/|drafts/|ROADMAP\.md|README\.md)`. The list comes from `git diff --name-only` against the base, and the jobs are skipped when it is false. The list matches #171 plan item 1; if that item lands a shared gate first, the rebase uses it (M1).
+- **Concurrency:** `group: e2e-${{ github.ref }}-${{ inputs.cadence || github.event_name }}`, with `cancel-in-progress` only for `pull_request`, so a scheduled run is never cancelled.
+- **The jobs:** `plan`, then `build`, then `browser` (calls `browser.yml`), `perf` (calls `browser.yml` with the perf set) and `conformance` (calls `conformance.yml`), each skipped when `code` is false.
+- **Release.** `release.yml` gains a job `e2e-macos` that calls `e2e.yml` with `cadence: weekly`. `publish` adds it to its `needs`.
+
+**Alternatives:**
+
+- Adding schedules and pull-request jobs to `ci.yml`. Rejected: the parallel pull request rewrites that file's triggers and runners, and a separate caller keeps the two apart.
+- `on.pull_request.paths-ignore`. Rejected: a skipped workflow leaves required checks pending, while a skipped job satisfies them.
+
+### 2. Build once per run
+
+A `build` job per runner OS runs `./.github/actions/setup-bun` and `bun run build`. It uploads `dist/` and `hooks/askboard-mod.js` as one artifact named `e2e-build-<os>`, with retention of 1 day, using the `upload-artifact` pin from `release.yml`. `browser.yml` and `conformance.yml` gain an input `build-artifact`. When it is set, they download that artifact (the `download-artifact` pin from `release.yml`) instead of building; when it is empty, they build as today, so a manual call still works. An artifact is read only by the run that made it: there are no cross-run downloads.
+
+### 3. Safe in a public repository
+
+The repository is public, so pull requests from forks run this workflow. To keep that safe:
+
+- `permissions: contents: read` at the workflow level, and no job widens it.
+- The trigger is `pull_request`, never `pull_request_target`.
+- No `secrets:` are passed: the suites need none. `release.yml`'s call passes none either.
+- Every checkout uses `persist-credentials: false`.
+- Only first-party `actions/*` are used, pinned by commit SHA with the version as a comment (AD-19).
+- Each job has a `timeout-minutes`.
+- The `BROWSER` recorder stays job-wide, as in `browser.yml` today (AD-18).
+
+`tools/e2e-workflows.test.ts` checks every point above (task 5.1).
+
+### 4. The manifest of browser files
+
+`packages/view/test/browser/harness/suites.ts` exports `BROWSER_FILES`, keyed by file name. Each entry may set:
+
+- `engines`: a subset of `ENGINES`, with `why` citing the requirement that names fewer engines;
+- `smoke: true`;
+- `perf: true`.
+
+It also exports `SPINE_CHECKS`: one entry per check that the Tests row names, giving the smoke file and test title that cover it, or the reason no file can yet (PlantUML has no widget on `main`).
+
+- `enginesFor(file)` returns the manifest's engines intersected with `ASKBOARD_E2E_ENGINES`.
+- A file whose entry narrows its engines loops over `enginesFor(import.meta.path)` instead of an inline filter. `markdown-total` and `markdown-bounds` are the narrowed files today.
+- The runner chooses each engine's files from the manifest, so no `bun test` process starts a file that has no tests for its engine.
+
+`harness/suites.test.ts` fails when:
+
+- a `*.browser.ts` file has no entry, or an entry has no file;
+- a narrowed entry has no `why`, or its file does not call `enginesFor`;
+- any file narrows `enginesFrom(...)` inline;
+- a `SPINE_CHECKS` entry names a file outside the smoke set, or a test title that is not in that file's text.
+
+A later change that adds a browser file must therefore list it. That is how new files are classified.
+
+**The smoke set** is the smallest set of files that covers `SPINE_CHECKS`:
+
+- cold load;
+- reload;
+- takeover;
+- source view;
+- `self.origin === "null"`;
+- a failing view `fetch`;
+- the box unchanged 1 s after visible;
+- a board and a Snapshot rendered;
+- CSP collection, which every file does.
+
+It also includes the lifecycle board page, because it holds NFR-10's discarded and moved states. The candidates are `view`, `board`, `connection`, `lifecycle-board-page`, `context-panel`, `snapshot-control` and one Snapshot render file. Task 0.5 confirms the list against the titles. The budget is at most 25 files and 5 min in Chromium on `ubuntu-24.04`.
+
+### 5. The runner: sets, workers, shards
+
+`run.ts` keeps its options and adds:
+
+- `--set smoke|full|perf|all`, default `all`:
+  - `smoke`: the smoke files.
+  - `full`: every file that is not a perf file.
+  - `perf`: the perf files.
+  - `all`: `full`, then `perf`.
+- `--workers <n>`: passed as `--parallel=<n>` to each engine's `bun test` in the smoke and full sets. The default is `max(1, floor(availableParallelism() / (2 × engines)))`, tuned by task 0.3. CI passes the runner's core count, since each job runs one engine.
+- `--shard <k>/<n>`: passed to `bun test`, together with `--timings packages/view/test/browser/timings/<engine>.json` when that file exists. Without the file, shards split by file count.
+- `--update-timings`: writes the timings file of each engine run. Refreshing the committed files is a manual commit, and the nightly run uploads its own timings as an artifact for that purpose.
+
+The perf set never takes `--parallel` or `--shard`. It runs its files with the engines in turn, after the other set has finished.
+
+The pure parts move to `run-options.ts` (parsing) and `run-plan.ts`. `run-plan.ts` turns the manifest, the options and the engines into the passes, with each pass's per-engine file list and `bun test` arguments. Both modules are unit-tested. `run.ts` keeps the spawning, the SIGINT and SIGTERM cleanup, and a summary line per engine per pass.
+
+`package.json`:
+
+- `test:e2e` keeps its form (`run.ts --no-build --target session-process && conformance/run.ts --runtime bun`) and so now runs `all`.
+- A new `test:e2e:smoke` runs `--set smoke --engines chromium` and then conformance on Bun: what a pull request runs.
+
+### 6. The perf pass and the median
+
+- **The helper.** `harness/perf.ts` exports `PERF_RUNS = 3`, `median(samples)` and `expectMedianWithin(label, samples, gate)`. The last prints one line, `perf <label> <engine> [a, b, c] median m gate g`, then asserts `m <= g`.
+- **How a perf file measures.** It takes `PERF_RUNS` measurements of each form in fresh pages, asserts the functional outcomes on every run, and judges each gate once on the median. This applies the new requirement Timed bounds judged in the perf pass.
+- **The perf files:** `table-bounds`, `markdown-total`, `markdown-bounds` and `latex-bounds`, plus every other assertion of a time bound in the view spec that task 0.5 finds. `latex.browser.ts:400-405` moves into `latex-bounds`, and its `2_000 + QUIET_MS` allowance becomes the 2-second bound on the median.
+- **What the timed files keep:**
+  - Markdown-total's dense board stays timed and not bounded, as task 5.16 of atoms left it.
+  - `tree-layout`'s "visible within the load timeout" is a timeout, not a bound, and stays where it is.
+  - The "box unchanged 1 s later" check is the spine's own 1 s, so it is not a perf check either.
+- **The rule, enforced.** `suites.test.ts` holds that the perf files are exactly the files that import `harness/perf.ts`, and that no non-perf file holds a `toBeLessThan` or `toBeLessThanOrEqual` on a `performance.now()` or `Date.now()` difference. A file can be exempted, with a reason in the manifest, when its timing is a timeout.
+
+### 7. Round-trip probes in place of the quiet wait
+
+`harness/probes.ts` exports these helpers. Each returns only after anything sent through its channel before the call has been recorded.
+
+| Probe | Channel | How |
+|---|---|---|
+| `viewSettled(board)` | view → board page | Two animation frames and a macrotask inside the view frame, then a macrotask in the board page. A message the view posted before has been handled by then. |
+| `draftSettled(board)` | draft mirror | `DRAFT_DEBOUNCE_MS` plus one frame, then `viewSettled`. |
+| `hostSettled(run)` | board page → board-host | `viewSettled`, then a board-page macrotask. Every frame the page sent before is in `run.browser.sockets` when the probe returns; task 0.4 checks this. |
+| `timerSettled(ms, board)` | a product timer under test (such as the reconnect backoff) | The timer's own constant, imported, then `viewSettled`. |
+| `quiet(reason)` | none | The remaining `QUIET_MS` wait, with its reason, for a site no probe fits. |
+
+- **Classifying each site.** Every `Bun.sleep(QUIET_MS)` becomes one of the five, chosen by what its assertion reads:
+  - DOM or focus: `viewSettled`;
+  - drafts: `draftSettled`;
+  - acts or socket frames: `hostSettled`;
+  - reconnects or another timer: `timerSettled`;
+  - else: `quiet`.
+- **`expectNoReconnect`** uses `timerSettled` with the board page's reconnect delay. Task 0.2 finds the constant's name.
+- **The guard.** `harness/probes.test.ts` refuses `Bun.sleep(QUIET_MS)` anywhere under `packages/view/test/browser/` except inside `quiet`, and requires a non-empty reason for each `quiet` call.
+- **What is kept, and what is not.** A probe catches what was sent before it, but not something sent later by a timer the test does not know. That is why every timer the product uses on these paths is named and waited for, and why task 0.4 checks each probe by mutation in every engine. If ordering does not hold in an engine for a channel, that channel's sites use `quiet("<engine> does not order <channel>")` in that engine, and the note says so.
+
+### 8. The spine's Tests row
+
+Task 6.1 appends this text to the row, after "Node 24 and 26.", and changes nothing else in it:
+
+> **CI cadence:** every pull request that changes more than documents runs, on Linux, the browser smoke set in Chromium (the files that cover the checks above, listed with every browser file's engines in the suite manifest) and the conformance suite in its three configurations on Bun; every night `main` runs, on Linux, every browser file in each engine the manifest gives it, the timed bounds in a perf pass of their own (serially, judged on the median of three runs) and the conformance suite on Node 24; every week and before every release the same runs on macOS, with conformance on Bun and Node 24. A browser file runs in all three engines unless a requirement names fewer, and its manifest entry cites it.
+
+If the PO accepts Q1, "on Node 24" in the nightly clause becomes "on Node 24 and 26". The frontmatter's `updated` is set to the date, and `sources` gains one line for this change's defaults (M2).
+
+### 9. CLAUDE.md
+
+Task 6.2 edits only these, after the rebase onto plan item 1's merge (M1):
+
+- the sentence in the CI section about browser and conformance triggers, and the matrix wording of `browser.yml` and `conformance.yml`;
+- the Development commands lines for `test:e2e`, the new `test:e2e:smoke`, and the runner's `--set`, `--workers` and `--shard` options;
+- the line "run them locally before a merge that touches the view, the server or the conformance suite", which becomes: `bun run test:e2e:smoke` before every such pull request, and `bun run test:e2e` before one that changes the harness, the runner or a widget's rendering.
+
+A red scheduled run is filed by whoever sees it, as The backlog says, with `source:e2e`. The workflow writes no Issues, because it holds no write token (decision 3).
+
+### 10. Versions
+
+No schema set, board-protocol message or package version changes.
+
+## Merge points
+
+| ID | Change in flight | What overlaps | Rule |
+|---|---|---|---|
+| M1 | #171 plan item 1, worktree `fix-ci-speed`, branch `worktree-fix-ci-speed` (no commits beyond 3722202d on 2026-11-14) | `ci.yml` (it changes triggers and runners; this change deletes the `browser` and `conformance` jobs); `package.json` scripts (`test` beside `test:e2e`); `.github/actions/setup-bun` (the codex-port move); a Playwright browser cache step, possibly in `browser.yml`; a docs-only gate; the CLAUDE.md CI section and Development commands | Groups 1 to 4 do not touch these files. Group 5 edits `browser.yml` and `conformance.yml` and adds `e2e.yml`. Task 5.4 (`ci.yml`) and group 6's CLAUDE.md task wait for plan item 1's merge, then keep its entries: its cache step, its gate if shared, its runner choices. |
+| M2 | `kanban-order`, `origin/worktree-feature-kanban-order` at ce72e44a | The spine's frontmatter (`updated`, `sources`); the browser files and harness it adds (`harness/kanban-drag.ts`, new `kanban-*.browser.ts`); different `view-and-widgets` requirements | Whichever merges second adds the other's new browser files to `BROWSER_FILES` (`suites.test.ts` fails until it does) and keeps both `sources` lines. |
+| M3 | `early-benchmark` (in `openspec list` on `main`) | None: it adds no CI runs | None. |
+
+Names borrowed from `main`, checked by task 0.2:
+
+- `ENGINES`, `enginesFrom`, `Engine` (`harness/engines.ts`);
+- `useEngine`, `QUIET_MS`, `STEP_TIMEOUT_MS`, `LOAD_TIMEOUT_MS`, `expectNoReconnect`, `eventually`, `actsApplied` (`harness/board-test.ts`);
+- `DRAFT_DEBOUNCE_MS` (`packages/view/src/board-page/draft-mirror.ts`);
+- the board page's reconnect delay constant;
+- `run.ts`'s options;
+- `browser.yml` and `conformance.yml`'s `runs-on` input;
+- the `upload-artifact` and `download-artifact` pins in `release.yml`;
+- `./.github/actions/setup-bun`;
+- `fixtures/record-link.sh`.
+
+Nothing is borrowed from an unmerged change.
+
+## Needs probe
+
+None of these is a Claude Code run-time assumption. All concern tools, and group 0 checks them.
+
+- **P1.** Bun 1.4.4's `bun test --parallel=<n>`:
+  - with an explicit list of files and `--timeout`, does every worker inherit the environment (`ASKBOARD_E2E_ENGINES`, `ASKBOARD_E2E_TARGET`, `BROWSER`)?
+  - does a file's `beforeAll` browser launch work in a worker?
+  - does a failure in a worker give a non-zero exit, and does the summary still print the `N pass` and `N fail` lines that `run.ts` counts?
+- **P2.** `--shard=k/n` with an explicit file list: does it split that list, and do the shards together cover it exactly once? Does `--timings` balance the shards, and does `--update-timings` write the file?
+- **P3.** Playwright 1.65.0 in each engine: when a board-page `evaluate` resolves, is a WebSocket frame that the page sent before it already reported (`framesent`) to the test? Is a view `postMessage` sent before a flush handled by the board page when the flush returns?
+- **P4.** Does `Bun.YAML.parse` exist in Bun 1.4.4, for the workflow test? If not, the test reads the YAML as text.
+- **P5.** How many cores do `ubuntu-24.04` and `macos-latest` give, and does Chromium's smoke set fit in 5 min there? This is measured on the pull request's own first run (task 7.2).
+
+## Risks / Trade-offs
+
+- **[Linux has never run these suites]** → The first runs may fail on Linux-only faults: signals (#160 was macOS-only), socket paths, fonts in text measurement, WebKit on Linux. The pull request's own run is the first probe. A fault in the harness is fixed in this change. A product fault becomes an Issue (`source:review`, its area, Origin naming this change and the run), and the PO decides whether it blocks.
+- **[A probe misses a late send]** → Decision 7: timers are named and waited for, each probe is checked by mutation in every engine, and `quiet(reason)` remains for the rest.
+- **[Parallel files contend for the CPU and slow the functional timeouts]** → The timed bounds have left the parallel set. `STEP_TIMEOUT_MS` and `LOAD_TIMEOUT_MS` are left as they are. Workers default to half the cores per engine, and task 0.3 tunes the default.
+- **[Engine-specific faults are found a day late]** → Weekly macOS and the release gate catch macOS. The nightly run catches Firefox and WebKit within a day. The smoke set keeps the spine's checks on every pull request.
+- **[Shard imbalance]** → Committed timings files. A stale file costs time, not coverage: Bun's `--shard` covers every file.
+- **[Release takes longer]** → The macOS suite adds roughly 15 to 30 min before `publish`. The PO dispatches releases by hand and rarely.
+- **[Nightly failures go unseen]** → GitHub notifies the PO about a failing scheduled workflow. Decision 9 puts filing in The backlog's hands.
+
+## Migration Plan
+
+- The merge turns the pull-request jobs on. Until the PO adds them to a ruleset (Q2), a red e2e job does not block a merge, as `check` does not today.
+- **Rollback:** delete the `schedule` and `pull_request` triggers in `e2e.yml`. The runner's new options are additive, and `--set full --workers 1` reproduces today's behaviour except for the probes.
+
+## Open Questions
+
+Both are posted on #171 with `needs-po`. Neither changes the tasks except where noted.
+
+- **Q1.** Should Node 26 join the nightly and weekly conformance runs, so that the spine's "Node 24 and 26" holds? Proposed default: yes, one more matrix entry on each. If the PO says no, the Tests row says Node 26 is run on demand.
+- **Q2.** Should `e2e / browser` (smoke) and `e2e / conformance` become required checks in the `main` ruleset? Proposed default: yes, after two weeks of green runs on Linux, so that first-run Linux faults do not block unrelated merges. This is a repository setting, outside this change's tasks.
