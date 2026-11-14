@@ -462,3 +462,23 @@ describe("the registry's other modules", () => {
     expect(named).toEqual([]);
   });
 });
+
+describe("the Kanban's help text (kanban-order)", () => {
+  test("the mouse text names the order within a column, drag and the four tools", () => {
+    const mouse = KANBAN_WIDGET.help?.mouse ?? "";
+    expect(mouse).toMatch(/within/i);
+    expect(mouse).toMatch(/another column|between/i);
+    for (const tool of ["Move up", "Move down", "To top", "To bottom"]) {
+      expect(mouse).toContain(tool);
+    }
+    expect(mouse.length).toBeLessThanOrEqual(300);
+  });
+
+  test("the answer text reports the cards moved and their order, not that it stays", () => {
+    const answer = KANBAN_WIDGET.help?.answer ?? "";
+    expect(answer).toMatch(/order/i);
+    expect(answer).toMatch(/moved/i);
+    expect(answer).not.toMatch(/stay as they were/i);
+    expect(answer.length).toBeLessThanOrEqual(300);
+  });
+});

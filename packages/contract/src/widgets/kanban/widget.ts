@@ -40,9 +40,9 @@ export const KANBAN_WIDGET: WidgetType = {
   keys: KANBAN_KEYS,
   help: {
     mouse:
-      "Drag a card to another column (Escape cancels the drag), or make a card current and use Move to\u2026 to pick its column.",
+      "Drag a card within its column or to another column (Escape cancels), or make it current and use Move up, Move down, To top, To bottom or Move to\u2026.",
     answer:
-      "The agent receives the cards you moved and the column each one is in now; their order and the columns stay as they were.",
+      "The agent receives the cards you moved, the column each is in now and, where you reordered a column, their order in it.",
   },
   skill: {
     use: "cards the user moves between 2 to 12 columns and orders within them, such as statuses, priorities or owners",
