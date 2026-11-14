@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import type { CatalogComponent } from "../../src/catalog/port.ts";
-import { draw } from "./draw.ts";
+import { draw, FRAME_STUBS } from "./draw.ts";
 
 // The helper the atoms' component tests draw with: it hands the component the port's props, whose
 // callbacks record what they are given.
@@ -27,8 +27,12 @@ describe("draw", () => {
   });
 
   test("the server renderer gets the browser's frame functions, which only a layout effect's default reads", () => {
-    expect(requestAnimationFrame(() => {})).toBe(0);
-    expect(cancelAnimationFrame(0)).toBeUndefined();
+    // The stubs themselves, not the globals: another file sharing the worker may have replaced
+    // those, and then these functions would go uncalled and their coverage would change with it.
+    expect(FRAME_STUBS.requestAnimationFrame()).toBe(0);
+    expect(FRAME_STUBS.cancelAnimationFrame()).toBeUndefined();
+    expect(typeof requestAnimationFrame).toBe("function");
+    expect(typeof cancelAnimationFrame).toBe("function");
   });
 
   test("a missing component is an error naming the type", () => {
