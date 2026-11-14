@@ -18,33 +18,38 @@ Group 5 follows group 2; #171 plan item 1 has merged (#173, design.md M1), so no
 
 ## 0. Decisions and base
 
-- [ ] 0.1 Record the PO's answers. Under Open Questions Q1 and Q2 and under the Defaults table (D1 to D6), add "Answer (<date>): …" from #171's comments. An answer that differs from its default goes through `/opsx:update` before any group that relies on it. Q1 changes task 5.3 and decision 8's text; D1 to D6 change groups 2 to 6. Tests: none (documents). Verify: each question and default carries an answer line, or the note says that none has come and that the defaults stand, with `needs-po` still on #171.
-- [ ] 0.2 Base and borrowed names (design.md, Merge points). On `origin/main`, check with `git grep -n` every name the Merge points list, and record each with its file and line: #173's (`tools/ci/changed-paths.sh` and its `code` output, `ci.yml`'s concurrency group, `browser.yml`'s cache step, `setup-bun`'s `--no-codex`, `tools/test-timings.json`'s format, the workflow list in `tools/codex-interop.test.ts`, the jobs and needs `tools/release/workflow.test.ts` asserts) as well as the harness's. Also record:
+- [x] 0.1 Record the PO's answers. Under Open Questions Q1 and Q2 and under the Defaults table (D1 to D6), add "Answer (<date>): …" from #171's comments. An answer that differs from its default goes through `/opsx:update` before any group that relies on it. Q1 changes task 5.3 and decision 8's text; D1 to D6 change groups 2 to 6. Tests: none (documents). Verify: each question and default carries an answer line, or the note says that none has come and that the defaults stand, with `needs-po` still on #171.
+  - Note: no answer on #171 (two comments, both the coordinator's; `needs-po` still on it), so D1 to D6 and the proposed Q1 and Q2 stand and the design is untouched. Record of the whole group: `drafts/e2e-cadence-group0.md`. Refs #171.
+- [x] 0.2 Base and borrowed names (design.md, Merge points). On `origin/main`, check with `git grep -n` every name the Merge points list, and record each with its file and line: #173's (`tools/ci/changed-paths.sh` and its `code` output, `ci.yml`'s concurrency group, `browser.yml`'s cache step, `setup-bun`'s `--no-codex`, `tools/test-timings.json`'s format, the workflow list in `tools/codex-interop.test.ts`, the jobs and needs `tools/release/workflow.test.ts` asserts) as well as the harness's. Also record:
   - the name and value of the board page's reconnect delay constant (decision 7);
   - whether `DRAFT_DEBOUNCE_MS` can be imported from the browser harness through the package's own relative path;
   - main's SHA (a3f2708d or later) and any browser file added since (M4).
   
   Tests: none. Verify: the note lists every name with its file and line. If a name is missing or its shape differs, stop for `/opsx:update` before group 1.
-- [ ] 0.3 Probe P1 and P2 (design.md, Needs probe; P4 is resolved). On five browser files in Chromium, with `bun test` driven by hand outside `run.ts`:
+  - Note: every borrowed name is on `origin/main` a3f2708d with file and line in `drafts/e2e-cadence-group0.md` (0.2); none missing, no shape differs. Reconnect delay: `RECONNECT_DELAYS_MS = [250, 500, 1_000, 2_000, 4_000]` (`reconnect.ts:35`, first wait 250 ms). `DRAFT_DEBOUNCE_MS` imports by a relative path inside `view`. No browser file added since (145). Refs #171.
+- [x] 0.3 Probe P1 and P2 (design.md, Needs probe; P4 is resolved). On five browser files in Chromium, with `bun test` driven by hand outside `run.ts`:
   - (a) Check P1: `--parallel=2` with an explicit file list, `ASKBOARD_E2E_*` and `BROWSER` set, isolated (the default) and with `--no-isolate`. Do the workers see the variables, do the browsers launch, do two files' session processes stay apart (ports, session folders), does one injected failure (a scratch edit, not committed) give a non-zero exit, and does the summary keep its `N pass` and `N fail` lines?
   - (b) Check P2: `--shard=1/2` and `--shard=2/2` on the same list together cover it exactly once; with a scratch `--timings` file in `tools/test-timings.json`'s format and `--update-timings`, the file is written and the slow files start first.
   - (c) Time Chromium's whole `full` set with `--parallel` at 1, 2, 4 and 8 workers, isolated and with `--no-isolate`, then three engines in parallel at the best value, and report the load average.
   
   Tests: none (probe). Verify: the note holds (a) to (c) with the commands and the output lines. A "no" in (a) or (b) stops the work for `/opsx:update` of decision 5. (c) sets the worker default and the isolation choice of decision 5.
-- [ ] 0.4 Probe P3, and check the probes by mutation (decision 7). In a scratch file that is not committed, use the harness's `useEngine` in each engine:
+  - Note: P1 yes (env reaches workers, browsers launch, a failure exits 1, `N pass` and `N fail` kept) but the session folder `/tmp/askboard-<uid>` is shared by all workers (no `XDG_RUNTIME_DIR` in `isolated()`); P2 yes (shards cover once, timings balance them, slowest-first with 2+ workers). Chromium `full` (141 files) in s at 1, 2, 4, 8, 14 workers: 1442, 764, 390, 215, 186; `--no-isolate` within 2%: keep isolation. Three engines at once saturate at about 10 min whether 4 or 8 workers each; decision 5's default (2 here) is too low. Load-only flakes (3 tests, each passes alone) listed in the draft.
+- [x] 0.4 Probe P3, and check the probes by mutation (decision 7). In a scratch file that is not committed, use the harness's `useEngine` in each engine:
   - (a) A board-page `evaluate` that sends one WebSocket frame and returns: is the frame always in `run.browser.sockets` when the call resolves? Run it 200 times.
   - (b) A view `postMessage` followed by the `viewSettled` flush, drafted in the scratch file: has the board page always handled the message? Run it 200 times.
   - (c) A scratch build in which pressing an arrow key in the plain-choice board sends one draft after `DRAFT_DEBOUNCE_MS`: does a test using `draftSettled` fail in each engine?
   
   Tests: none (probe). Verify: the note gives, per engine, the counts for (a) and (b) and the outcome of (c). Any channel and engine pair that is not 200 out of 200 is recorded as a `quiet` fallback in decision 7 through `/opsx:update`.
-- [ ] 0.5 Inventories, read-only:
+  - Note: (a) page frame in `sockets` after the evaluate: Chromium and WebKit 200/200, Firefox 0/200 in the same evaluate but 200/200 after one more round trip; (b) view postMessage handled after the flush: 200/200 in all three, also with the view-side flush alone; (c) scratch mutation (reverted): `draftSettled` as designed saw the draft 10/10 per engine, 0/10 without it. No `quiet` fallback needed.
+- [x] 0.5 Inventories, read-only:
   - (a) The smoke set: for each spine check of decision 4, the file and the exact test title that covers it, chosen from the candidates; a check no file covers names why. Also the set's file count, and its Chromium time, measured serially, when uncontended.
   - (b) The perf assertions: every assertion of a time bound of the view spec under `packages/view/test/browser/` (grep `toBeLessThan`, `toBeLessThanOrEqual` and `performance.now`/`Date.now`), with its file and line and whether it moves to the perf set; each other timing assertion, with why it stays (a timeout, the spine's 1 s).
   - (c) The quiet waits: every `Bun.sleep` on `QUIET_MS`, whole or `QUIET_MS / 3`, with its file and line and its probe class (decision 7), as a table split into group 4's three batches. It includes the Kanban order tests kanban-order added to `kanban.browser.ts` (M2).
   - (d) The manifest inventory: the 145 `*.browser.ts` files on `main`, each with its engines and its smoke or perf class, `kanban.browser.ts` with all three engines; the helpers `harness/kanban-drag.ts` and `fixtures/kanban-documents.ts` are not entries.
   
   Tests: none. Verify: (a) covers every spine check, within 25 files and 5 min; (b) and (c) cover every grep hit (158 sites in 63 files at a3f2708d: 144 whole, 14 `QUIET_MS / 3`, with `expectNoReconnect` and its 7 callers); (d) lists every file `ls packages/view/test/browser/*.browser.ts` gives. (a) over budget, or (b) a bound outside the four perf files plus `latex.browser.ts`, goes through `/opsx:update` of decisions 4 and 6.
-- [ ] 0.6 Baseline. On the base commit, record:
+  - Note: (a) smoke set of 7 files, 67 tests, 64 s serial in Chromium, each spine check mapped to a title (PlantUML: no widget on main); (b) perf set as planned, plus a finding: `document-review.browser.ts:1118-1235` holds four wall-clock gates outside the view spec, which decision 6's rule would fail: needs `/opsx:update` of decisions 4 and 6; (c) 158 sites in 61 files (design says 63), tables per batch, 11 proposed `quiet`; literal `1500` sleeps at `context-panel:308` and `connection:195` escape the guard; (d) 145 files listed. All in the draft.
+- [x] 0.6 Baseline. On the base commit, record:
   - the pass, skip and fail counts per engine of a full browser run (`--serial` if the machine is busy, with its load average);
   - its time per engine;
   - conformance on Bun, per configuration;
@@ -52,6 +57,7 @@ Group 5 follows group 2; #171 plan item 1 has merged (#173, design.md M1), so no
   - whether WebKit's "ten presses of Tab never reached Answer" (CLAUDE.md, CI) still fails; if it does, file it under The backlog (`type:defect`, `source:e2e`, after the duplicate search; none found on 2026-11-14) and give its number.
   
   Tests: none. Verify: the note holds the counts and times, and the WebKit outcome with its Issue number if filed. Group 7 compares against them: the same test count per engine, give or take only the tests that moved and the median runs that now share one test (task 3.2).
+  - Note: baseline, three engines at once, files serial, 26 min: Chromium 981 pass 3 skip 0 fail (1554 s), Firefox 909/3/37 (1567 s; #174 and #145, not fixed), WebKit 979/3/0 (1248 s). Conformance on Bun: 61.3, 39.3, 27.2 s, no failure. `table-bounds` perf lines in the draft. WebKit's Tab failure does not reproduce locally (no failure in 5 runs), so no Issue filed and the CLAUDE.md line stays.
 
 ## 1. The manifest of browser files
 
