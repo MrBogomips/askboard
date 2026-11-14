@@ -114,7 +114,12 @@ describe("what is not a regular file (board-host spec, Only regular files are re
       },
     });
     const value = await withinHang(reach("docs/a.md#A"));
-    expect(value).toEqual({ refused: "outside-root" });
+    // Refused either way. A handle whose inode is not the real path's is outside-root; where the
+    // file system gives the freed inode number to the new FIFO (Linux does, at once), the stats
+    // match and the file is not-a-file.
+    expect(["outside-root", "not-a-file"]).toContain(
+      String((value as { refused?: string }).refused),
+    );
     expect(spy.calls.map((entry) => entry.call)).toContain("close");
   });
 
