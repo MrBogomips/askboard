@@ -16,6 +16,12 @@ export type BrowserFileEntry = {
   readonly smoke?: true;
   /** In the perf set: timed bounds, judged alone, never in `full`. */
   readonly perf?: true;
+  /**
+   * The file bounds a wait by the harness's own timeout (`LOAD_TIMEOUT_MS`, `STEP_TIMEOUT_MS`), which
+   * is not a time bound of the spec: `perf-files.test.ts` lets the file keep that assertion. The
+   * reason names the timeout.
+   */
+  readonly timeout?: string;
 };
 
 const MARKDOWN_ENGINES = ["chromium", "webkit"] as const;
@@ -49,6 +55,11 @@ export const BROWSER_FILES: Readonly<Record<string, BrowserFileEntry>> = {
   "density.browser.ts": {},
   "display-atoms.browser.ts": {},
   "document-review.browser.ts": {},
+  "document-review-cost.browser.ts": {
+    engines: ["chromium"],
+    why: "the cost of placing is measured in Chromium only, for the figures of document-review's task 6.4 (the logic is engine-independent and tested in Bun)",
+    perf: true,
+  },
   "document-review-session.browser.ts": {},
   "document-review-snapshot.browser.ts": {},
   "edit-widgets-it.browser.ts": {},
@@ -65,10 +76,16 @@ export const BROWSER_FILES: Readonly<Record<string, BrowserFileEntry>> = {
   "gantt-critical-path.browser.ts": {},
   "gantt-critical-switch.browser.ts": {},
   "gantt-double-click.browser.ts": {},
-  "gantt-drag.browser.ts": {},
+  "gantt-drag.browser.ts": {
+    timeout:
+      "the 500-task Gantt must be visible within the harness's load timeout and a drop must reschedule within its step timeout (a wait bounded by LOAD_TIMEOUT_MS and STEP_TIMEOUT_MS, not a time bound of the spec)",
+  },
   "gantt-editing.browser.ts": {},
   "gantt-keys.browser.ts": {},
-  "gantt-layout.browser.ts": {},
+  "gantt-layout.browser.ts": {
+    timeout:
+      "the large Gantt must be visible within the harness's step timeout (STEP_TIMEOUT_MS, not a time bound of the spec)",
+  },
   "gantt-plan.browser.ts": {},
   "gantt-plan-duration.browser.ts": {},
   "gantt-plan-tree.browser.ts": {},
@@ -146,7 +163,10 @@ export const BROWSER_FILES: Readonly<Record<string, BrowserFileEntry>> = {
   "tree-drag-answer.browser.ts": {},
   "tree-editing.browser.ts": {},
   "tree-keys.browser.ts": {},
-  "tree-layout.browser.ts": {},
+  "tree-layout.browser.ts": {
+    timeout:
+      "the large Tree must be visible within the harness's load timeout (LOAD_TIMEOUT_MS, not a time bound of the spec)",
+  },
   "tree-marks.browser.ts": {},
   "tree-moving.browser.ts": {},
   "tree-read-only.browser.ts": {},
@@ -311,7 +331,21 @@ export const enginesFor = (file: string): Engine[] => {
   return ENGINES.filter((engine) => own.includes(engine) && wanted.includes(engine));
 };
 
-const INLINE_FILTER = /enginesFrom\([^)]*\)\s*\.filter\(/;
+// What `enginesFor` replaces: any use of `enginesFrom(...)` but the one loop over every engine, any
+// list of engine names written out, and `ENGINES` narrowed.
+const IMPORT_STATEMENT = /^import[^;]*;[ \t]*$/gm;
+const COMMENT = /\/\/.*$/gm;
+const THE_LOOP = /\bof\s+enginesFrom\([^()]*\)\s*\)/g;
+const NARROWING = [
+  /\benginesFrom\b/,
+  /\[\s*["'](?:chromium|firefox|webkit)["']/,
+  /\bENGINES\s*\.\s*\w+/,
+];
+
+const narrowsInline = (text: string): boolean => {
+  const code = text.replace(IMPORT_STATEMENT, "").replace(COMMENT, "").replace(THE_LOOP, "");
+  return NARROWING.some((pattern) => pattern.test(code));
+};
 
 const entryProblems = (
   name: string,
@@ -320,6 +354,12 @@ const entryProblems = (
 ): string[] => {
   const problems: string[] = [];
   if (entry.smoke && entry.perf) problems.push(`${name} is both smoke and perf`);
+  if (entry.timeout !== undefined) {
+    if (!/timeout/i.test(entry.timeout)) {
+      problems.push(`${name} has a timeout exemption whose reason names no timeout`);
+    }
+    if (entry.perf) problems.push(`${name} is both perf and exempt as a timeout`);
+  }
   const own = entry.engines;
   if (own === undefined) return problems;
   for (const engine of own) {
@@ -373,7 +413,7 @@ export const suitesProblems = (
   const problems: string[] = [];
   for (const name of Object.keys(texts)) {
     if (!(name in entries)) problems.push(`${name} has no entry in BROWSER_FILES`);
-    if (INLINE_FILTER.test(texts[name] ?? "")) {
+    if (narrowsInline(texts[name] ?? "")) {
       problems.push(`${name} filters enginesFrom(...) inline: use enginesFor(import.meta.path)`);
     }
   }

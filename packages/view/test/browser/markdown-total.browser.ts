@@ -5,7 +5,9 @@
 // 190-row padded table (about 19,000 elements each, under the cap) is timed as well. The cap board must be ready within 2 seconds of the same board of plain Texts (the LaTeX's
 // bound), every Text still drawn as Markdown, with the nodes bounded and no policy violation. Over
 // 2 seconds in either engine stops the task for the coordinator: a cap or a bound needs a design
-// decision. The dense board alone is a known limit (task 5.16): it is timed, not bounded.
+// decision. The dense board alone is a known limit (task 5.16): it is timed, not bounded. The bound
+// is judged in the perf pass (e2e-cadence decision 6): three runs in fresh pages inside one test,
+// every functional outcome asserted on each, the bound on the median of the three differences.
 //
 // Run one engine by hand: ASKBOARD_E2E_ENGINES=webkit bun test ./packages/view/test/browser/markdown-total.browser.ts
 
@@ -14,6 +16,7 @@ import { MARKDOWN_HTML_MAX_CHARS, markdownHtml } from "../../src/markdown/markdo
 import { atomDocument } from "./fixtures/atom-documents.ts";
 import { DENSE_TABLE } from "./fixtures/dense-markdown.ts";
 import { eventually, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
+import { PERF_RUNS, perfRuns } from "./harness/perf.ts";
 import { enginesFor } from "./harness/suites.ts";
 import { readyIn } from "./harness/tree-steps.ts";
 import { readViewBuild } from "./harness/view-build.ts";
@@ -59,27 +62,27 @@ for (const engine of enginesFor(import.meta.path)) {
           MARKDOWN_HTML_MAX_CHARS,
         );
 
-        const plainStarted = performance.now();
-        const plain = await host(dist, atomDocument(texts("plain text")));
-        await readyIn(plain);
-        const plainMs = performance.now() - plainStarted;
+        await perfRuns(`markdown-total ${engine}`, async (_run, gate) => {
+          const plainStarted = performance.now();
+          const plain = await host(dist, atomDocument(texts("plain text")));
+          await readyIn(plain);
+          const plainMs = performance.now() - plainStarted;
 
-        const started = performance.now();
-        const run = await host(dist, atomDocument(texts(NEAR_CAP, true)));
-        await readyIn(run);
-        const heavyMs = performance.now() - started;
-        const extra = heavyMs - plainMs;
-        console.error(
-          `markdown-total ${engine}: ${TEXTS} Texts of ${html?.length} HTML characters each: ready in ${heavyMs.toFixed(0)} ms, plain board ${plainMs.toFixed(0)} ms, difference ${extra.toFixed(0)} ms`,
-        );
-        const drawn = await run.board.view.locator('[data-text-format="markdown"]').count();
-        expect(drawn).toBe(TEXTS);
-        expect(extra, `${engine}: ${extra.toFixed(0)} ms over the plain board`).toBeLessThan(
-          BOUND_MS,
-        );
-        expect(run.browser.cspProblems()).toEqual([]);
+          const started = performance.now();
+          const run = await host(dist, atomDocument(texts(NEAR_CAP, true)));
+          await readyIn(run);
+          const heavyMs = performance.now() - started;
+          const extra = heavyMs - plainMs;
+          console.error(
+            `markdown-total ${engine}: ${TEXTS} Texts of ${html?.length} HTML characters each: ready in ${heavyMs.toFixed(0)} ms, plain board ${plainMs.toFixed(0)} ms, difference ${extra.toFixed(0)} ms`,
+          );
+          const drawn = await run.board.view.locator('[data-text-format="markdown"]').count();
+          expect(drawn).toBe(TEXTS);
+          expect(run.browser.cspProblems()).toEqual([]);
+          gate("over the plain board", extra, BOUND_MS, true);
+        });
       },
-      TEST_TIMEOUT_MS,
+      PERF_RUNS * TEST_TIMEOUT_MS,
     );
 
     // Known limit (CHANGELOG, Known limits; 5.12, 5.16): 200 Texts of 19,000 elements are about 3.8

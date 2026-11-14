@@ -49,6 +49,13 @@ describe("the manifest of browser files, against the files on disk", () => {
     );
   });
 
+  test("lists the Document review's cost of placing as a Chromium-only perf file, with its reason", () => {
+    const entry = BROWSER_FILES["document-review-cost.browser.ts"];
+    expect(entry?.perf).toBe(true);
+    expect(entry?.engines).toEqual(["chromium"]);
+    expect(entry?.why).toMatch(/task 6\.4/);
+  });
+
   test("narrows the two Markdown bounded-work files to Chromium and WebKit, with a reason", () => {
     const narrowed = Object.entries(BROWSER_FILES)
       .filter(([, entry]) => entry.engines !== undefined)
@@ -127,6 +134,44 @@ describe("suitesProblems", () => {
         expect.stringContaining("a.browser.ts filters enginesFrom(...) inline"),
       ]);
     }
+  });
+
+  test("fails any other inline narrowing of the engines: includes, some, a variable, a literal list, ENGINES", () => {
+    for (const text of [
+      'if (enginesFrom(process.env.ASKBOARD_E2E_ENGINES).includes("chromium")) {}',
+      'if (enginesFrom(process.env.X).some((e) => e === "chromium")) {}',
+      "const wanted = enginesFrom(process.env.ASKBOARD_E2E_ENGINES);\nfor (const e of wanted) {}",
+      'for (const engine of ["chromium", "webkit"]) {}',
+      'for (const engine of (["webkit"] as const)) {}',
+      'for (const engine of ENGINES.filter((e) => e !== "firefox")) {}',
+      "for (const engine of enginesFrom(process.env.X).slice(1)) {}",
+    ]) {
+      expect(suitesProblems(ONE, { ...TEXTS, "a.browser.ts": text }, SPINE).join("\n")).toContain(
+        "a.browser.ts filters enginesFrom(...) inline",
+      );
+    }
+  });
+
+  test("accepts the one loop over every engine, its import, and a comment that names enginesFrom", () => {
+    const text = [
+      'import { enginesFrom } from "./harness/engines.ts";',
+      "// enginesFrom(x).includes is what a narrowed file must not write",
+      "for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {",
+      '  if (engine === "chromium") { /* an in-test branch, not a narrowing */ }',
+      "}",
+    ].join("\n");
+    expect(suitesProblems(ONE, { ...TEXTS, "a.browser.ts": text }, SPINE)).toEqual([]);
+  });
+
+  test("fails a timeout exemption whose reason names no timeout, and one on a perf file", () => {
+    const vague = { ...ONE, "a.browser.ts": { timeout: "it is slow" } };
+    expect(suitesProblems(vague, TEXTS, SPINE)).toEqual([
+      expect.stringContaining("a.browser.ts has a timeout exemption whose reason names no timeout"),
+    ]);
+    const perf = { ...ONE, "a.browser.ts": { timeout: "the load timeout", perf: true as const } };
+    expect(suitesProblems(perf, TEXTS, SPINE).join("\n")).toContain("is both perf and exempt");
+    const fine = { ...ONE, "a.browser.ts": { timeout: "waits no longer than the load timeout" } };
+    expect(suitesProblems(fine, TEXTS, SPINE)).toEqual([]);
   });
 
   test("fails an entry that is both smoke and perf", () => {
