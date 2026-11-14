@@ -46,28 +46,38 @@ export const createRuntimeDir = (base: string, place: Place = {}): string => {
 };
 
 // The folders this module instance made, removed when the process, or under `bun test` the file,
-// ends. `bun test` runs no `exit` handler (neither in its workers nor serially), so the hook of the
-// test runner does the removal there; a plain process gets the `exit` handler.
+// ends. `bun test` runs no `exit` handler (neither in its workers nor serially), so the hooks of the
+// test runner do the removal there; a plain process gets the `exit` handler.
 const made = new Set<string>();
+// The cached folder of `workerRuntimeDir`: cleared with its removal, so that a later call, or a
+// later file of a run that loads this module once (a serial run or `--no-isolate`), makes a new one.
+let folder: string | undefined;
 const removeAll = (): void => {
-  for (const folder of made) rmSync(folder, { recursive: true, force: true });
+  for (const dir of made) rmSync(dir, { recursive: true, force: true });
   made.clear();
+  folder = undefined;
 };
 process.once("exit", removeAll);
-try {
-  afterAll(removeAll);
-} catch {
-  // Not under the test runner: the exit handler covers it.
-}
-
-let folder: string | undefined;
+const removeAfterScope = (): void => {
+  try {
+    afterAll(removeAll);
+  } catch {
+    // Not under the test runner: the exit handler covers it.
+  }
+};
+removeAfterScope();
 
 /**
- * This worker's runtime folder: made on the first call under the temporary folder, the same after
- * that. Bun reloads the module for each file it isolates, so a worker's successive files each get a
- * folder of their own, and two workers never share one.
+ * This worker's runtime folder: made on the first call after the last removal, the same until
+ * then, and removed at the end of the scope that made it (the file, or the `describe` block the
+ * call ran in; the next call makes another). Each file gets a folder that exists while it runs,
+ * whether Bun loads this module once per file (`--parallel`, `--isolate`) or once for all of them
+ * (a serial run, `--no-isolate`); two workers never share one.
  */
 export const workerRuntimeDir = (): string => {
-  folder ??= createRuntimeDir(tmpdir());
+  if (folder === undefined) {
+    folder = createRuntimeDir(tmpdir());
+    removeAfterScope();
+  }
   return folder;
 };

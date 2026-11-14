@@ -6,8 +6,10 @@
 //
 // The sets are the manifest's (`harness/suites.ts`): `smoke`, `full` (every file that is not a perf
 // file), `perf` (the timed bounds, serially, judged alone) and `all`, which is `full` then `perf`.
-// `--shard k/n` takes one part of each full pass, balanced by `timings/<engine>.json` when it
-// exists; `--update-timings` writes those files. See `run-options.ts` and `run-plan.ts`.
+// `--shard k/n` takes one part of each smoke or full pass, balanced by `timings/<engine>.json` when
+// it exists; it is refused with the `perf` and `all` sets, whose perf pass is never sharded.
+// `--update-timings` writes those files, on an unsharded `full` or `all` run only. See
+// `run-options.ts` and `run-plan.ts`.
 //
 // The tests talk to the test server, or with `--target session-process` to the built session
 // process `dist/askboard.mjs` (task 9.3), on Bun or with `--runtime node` on Node 24; the ask

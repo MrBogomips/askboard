@@ -1,5 +1,13 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { sessionFolder, socketPathFor, socketPathProblem } from "@askboard/contract";
@@ -55,31 +63,49 @@ describe("workerRuntimeDir", () => {
   });
 
   // `bun test` runs no `exit` handler, neither serially nor in its workers: the folder goes with the file.
-  test("under bun test, removes each file's folder when the file ends, serially and in parallel workers", () => {
-    const dir = mkdtempSync(join(tmpdir(), "rd-run-"));
-    scratch.push(dir);
-    const body = `import { test } from "bun:test"; import { workerRuntimeDir } from ${JSON.stringify(MODULE)}; test("x", () => { console.log("FOLDER=" + workerRuntimeDir()); });`;
-    for (const name of ["one.test.ts", "two.test.ts"]) writeFileSync(join(dir, name), body);
-    for (const mode of [[], ["--parallel=2"]]) {
+  // Without `--parallel` or `--isolate` Bun loads this module once for every file (review X-1), so the
+  // second and third file must still find a folder that exists, and none may outlive the run.
+  test.each([
+    ["serially", []],
+    ["serially with --no-isolate", ["--no-isolate"]],
+    ["in parallel workers", ["--parallel=2"]],
+  ])(
+    "under bun test, gives each of three files a folder that exists while it runs and removes it after, %s",
+    (_how, mode) => {
+      const dir = mkdtempSync(join(tmpdir(), "rd-run-"));
+      const temp = mkdtempSync(join(tmpdir(), "rd-tmp-"));
+      scratch.push(dir, temp);
+      // A test at the top of the file, then two describe blocks that each start their own "process".
+      const body = [
+        `import { describe, test } from "bun:test";`,
+        `import { existsSync } from "node:fs";`,
+        `import { workerRuntimeDir } from ${JSON.stringify(MODULE)};`,
+        `const see = (where: string) => { const folder = workerRuntimeDir(); console.log("FOLDER=" + folder + " EXISTS=" + existsSync(folder) + " " + where); };`,
+        `test("top", () => see("top"));`,
+        `describe("a", () => { test("one", () => see("a")); });`,
+        `describe("b", () => { test("two", () => see("b")); });`,
+      ].join("\n");
+      const names = ["one.test.ts", "two.test.ts", "three.test.ts"];
+      for (const name of names) writeFileSync(join(dir, name), body);
       const ran = Bun.spawnSync(
-        [process.execPath, "test", ...mode, "./one.test.ts", "./two.test.ts"],
+        [process.execPath, "test", ...mode, ...names.map((n) => `./${n}`)],
         {
           cwd: dir,
+          env: { ...process.env, TMPDIR: temp },
           stdout: "pipe",
           stderr: "pipe",
         },
       );
       expect(ran.exitCode).toBe(0);
-      const folders = [...`${ran.stdout}${ran.stderr}`.matchAll(/FOLDER=(\S+)/g)].map(
-        (m) => m[1] ?? "",
-      );
-      expect(folders.length).toBeGreaterThanOrEqual(2);
-      for (const folder of folders) {
-        expect(folder.startsWith(`${tmpdir()}/ab-`)).toBe(true);
-        expect(existsSync(folder)).toBe(false);
+      const seen = [...`${ran.stdout}${ran.stderr}`.matchAll(/FOLDER=(\S+) EXISTS=(true|false)/g)];
+      expect(seen).toHaveLength(names.length * 3);
+      for (const [, folder, exists] of seen) {
+        expect(folder?.startsWith(`${temp}/ab-`)).toBe(true);
+        expect(exists).toBe("true");
       }
-    }
-  });
+      expect(readdirSync(temp).filter((entry) => entry.startsWith("ab-"))).toEqual([]);
+    },
+  );
 
   test("holds the longest socket path the session folder can have, on macOS and on Linux", () => {
     const path = longestSocket(workerRuntimeDir());

@@ -35,7 +35,7 @@ describe("parseArgs", () => {
     });
   });
 
-  test("parses --set, --workers, --shard and --update-timings beside the existing options", () => {
+  test("parses --set, --workers and --shard beside the existing options", () => {
     const options = parse(
       "--no-build",
       "--target",
@@ -48,7 +48,6 @@ describe("parseArgs", () => {
       "6",
       "--shard",
       "2/4",
-      "--update-timings",
       "--runtime",
       "node",
     );
@@ -60,8 +59,21 @@ describe("parseArgs", () => {
       set: "full",
       workers: 6,
       shard: { k: 2, n: 4 },
-      updateTimings: true,
+      updateTimings: false,
     });
+  });
+
+  // `bun test --update-timings` replaces the file, so only an unsharded run of every non-perf file
+  // may write it (review 2.5, S-1); a shard is for the smoke and full passes alone.
+  test("takes --update-timings on the full and all sets, unsharded, and --shard on smoke and full", () => {
+    for (const set of ["full", "all"]) {
+      expect(parse("--set", set, "--update-timings").updateTimings).toBe(true);
+      expect(parse("--update-timings", "--set", set).updateTimings).toBe(true);
+    }
+    expect(parse("--update-timings").set).toBe("all");
+    for (const set of ["smoke", "full"]) {
+      expect(parse("--set", set, "--shard", "1/4").shard).toEqual({ k: 1, n: 4 });
+    }
   });
 
   test("accepts each set and --serial, which changes nothing", () => {
@@ -93,6 +105,29 @@ describe("parseArgs", () => {
     ["a shard with no slash", ["--shard", "3"], /shard/],
     ["a malformed shard", ["--shard", "a/b"], /shard/],
     ["a shard with extra parts", ["--shard", "1/2/3"], /shard/],
+    [
+      "--update-timings with --shard",
+      ["--set", "full", "--update-timings", "--shard", "1/2"],
+      /update-timings.*shard/,
+    ],
+    [
+      "--update-timings with --shard, in the other order",
+      ["--shard", "1/2", "--set", "full", "--update-timings"],
+      /update-timings.*shard/,
+    ],
+    [
+      "--update-timings with the smoke set",
+      ["--set", "smoke", "--update-timings"],
+      /update-timings.*smoke/,
+    ],
+    [
+      "--update-timings with the perf set",
+      ["--set", "perf", "--update-timings"],
+      /update-timings.*perf/,
+    ],
+    ["--shard with the all set, by default", ["--shard", "1/2"], /shard.*all/],
+    ["--shard with the all set", ["--set", "all", "--shard", "1/2"], /shard.*all/],
+    ["--shard with the perf set", ["--set", "perf", "--shard", "1/2"], /shard.*perf/],
     ["an unknown option", ["--fast"], /usage:/],
     ["an unknown target", ["--target", "mars"], /target "mars"/],
   ];
@@ -104,6 +139,8 @@ describe("parseArgs", () => {
 
   test("names the usage line in a refusal, and the usage line names every option", () => {
     expect(() => parse("--workers", "0")).toThrow(USAGE);
+    expect(() => parse("--set", "all", "--shard", "1/2")).toThrow(USAGE);
+    expect(() => parse("--set", "smoke", "--update-timings")).toThrow(USAGE);
     for (const option of [
       "--engines",
       "--target",

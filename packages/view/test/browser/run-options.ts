@@ -59,6 +59,29 @@ const shardFrom = (value: string): Shard => {
   return { k, n };
 };
 
+// Combinations that would do the wrong thing, refused after the whole list is read so that the
+// order of the options does not matter. `bun test --update-timings` replaces the engine's file with
+// the files of the pass, so only an unsharded run of every non-perf file may write it; the perf pass
+// is serial, whole and untimed, so a shard cannot share it out (it would run in full in every
+// shard): shard the smoke and full sets alone.
+const checkCombination = (set: SetName, shard: Shard | undefined, updateTimings: boolean): void => {
+  if (updateTimings && shard !== undefined) {
+    refuse(
+      "--update-timings cannot be sharded: each shard would replace the file with its own files",
+    );
+  }
+  if (updateTimings && (set === "smoke" || set === "perf")) {
+    refuse(
+      `--update-timings needs the full or all set, not ${set}: it would replace the file with only those files`,
+    );
+  }
+  if (shard !== undefined && (set === "all" || set === "perf")) {
+    refuse(
+      `--shard takes the smoke or full set, not ${set}: the perf pass cannot be sharded (run --set full --shard and --set perf apart)`,
+    );
+  }
+};
+
 const WITH_VALUE = ["--engines", "--target", "--runtime", "--set", "--workers", "--shard"];
 
 /** The options an argument list gives; throws the reason and the usage line when it is refused. */
@@ -72,18 +95,21 @@ export const parseArgs = (args: readonly string[], { env, cores }: Defaults): Op
   let workers = Math.max(1, cores);
   let shard: Shard | undefined;
   let updateTimings = false;
-  const options = (extra: readonly string[]): Options => ({
-    engines,
-    target,
-    runtime,
-    build,
-    serial,
-    set,
-    workers,
-    ...(shard === undefined ? {} : { shard }),
-    updateTimings,
-    extra,
-  });
+  const options = (extra: readonly string[]): Options => {
+    checkCombination(set, shard, updateTimings);
+    return {
+      engines,
+      target,
+      runtime,
+      build,
+      serial,
+      set,
+      workers,
+      ...(shard === undefined ? {} : { shard }),
+      updateTimings,
+      extra,
+    };
+  };
   for (let at = 0; at < args.length; at += 1) {
     const arg = args[at] ?? "";
     if (arg === "--") return options(args.slice(at + 1));
