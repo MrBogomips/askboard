@@ -12,8 +12,8 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { TEXT_MAX_CHARS } from "@askboard/contract";
 import { MARKDOWN_HTML_MAX_CHARS } from "../../src/markdown/markdown.ts";
 import { DENSE_TABLE, EMPTY_ITEMS, paddedTable } from "./fixtures/dense-markdown.ts";
-import { enginesFrom } from "./harness/engines.ts";
 import { MarkdownFrame } from "./harness/markdown-frame.ts";
+import { enginesFor } from "./harness/suites.ts";
 
 const TEST_TIMEOUT_MS = 120_000;
 const BUDGET_MS = 500;
@@ -89,9 +89,7 @@ const FIXTURES: readonly (readonly [string, string])[] = [
   ["many items holding one URL, 100 characters", reuse(100, "![r][r] [r][r]")],
 ];
 
-for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES).filter(
-  (name) => name !== "firefox",
-)) {
+for (const engine of enginesFor(import.meta.path)) {
   describe(`${engine}: Markdown's bounded work`, () => {
     const frame = new MarkdownFrame(engine);
     afterAll(() => frame.close());

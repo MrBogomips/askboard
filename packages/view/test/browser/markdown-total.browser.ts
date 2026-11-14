@@ -14,7 +14,7 @@ import { MARKDOWN_HTML_MAX_CHARS, markdownHtml } from "../../src/markdown/markdo
 import { atomDocument } from "./fixtures/atom-documents.ts";
 import { DENSE_TABLE } from "./fixtures/dense-markdown.ts";
 import { eventually, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
-import { enginesFrom } from "./harness/engines.ts";
+import { enginesFor } from "./harness/suites.ts";
 import { readyIn } from "./harness/tree-steps.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 import { useWidgetHost } from "./harness/widget-host-test.ts";
@@ -46,9 +46,7 @@ const texts = (source: string, markdown = false) =>
     props: { text: source, ...(markdown ? { format: "markdown" } : {}) },
   }));
 
-for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES).filter(
-  (name) => name !== "firefox",
-)) {
+for (const engine of enginesFor(import.meta.path)) {
   describe(`${engine}: an ask of ${TEXTS} Markdown Texts at the HTML cap`, () => {
     const { host } = useWidgetHost(engine);
 
