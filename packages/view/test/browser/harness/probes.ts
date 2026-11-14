@@ -13,16 +13,19 @@ import { reconnectDelay } from "../../../src/board-page/reconnect.ts";
 /** How long a test watches for something that must not happen, where no probe fits (`quiet`). */
 export const QUIET_MS = 1_500;
 
+/** A loaded page runs its timers late: the wait is this many times the board page's own delay. */
+export const TIMER_SLACK = 2;
+
 /**
  * How long a board page that has opened `sockets` WebSockets may still wait before it opens one
- * more: the wait before its next reconnect attempt. Each socket after the first is at most one
- * attempt, and the attempt count only falls when a socket goes live, so `sockets - 1` attempts is
- * an upper bound, and the board page's own `reconnectDelay` of it a wait no timer already armed
- * outlasts (task 4.6: after a restart the page has already reconnected once, and its next wait is
- * the second delay, not the first).
+ * more: the wait before its next reconnect attempt, with `TIMER_SLACK`. Each socket after the first
+ * is at most one attempt, and the attempt count only falls when a socket goes live, so
+ * `sockets - 1` attempts is an upper bound, and the board page's own `reconnectDelay` of it a wait
+ * no timer already armed outlasts (task 4.6: after a restart the page has already reconnected once,
+ * and its next wait is the second delay, not the first).
  */
 export const noReconnectWaitMs = (sockets: number): number =>
-  reconnectDelay(Math.max(sockets - 1, 0));
+  reconnectDelay(Math.max(sockets - 1, 0)) * TIMER_SLACK;
 
 type Evaluates = { evaluate(run: () => unknown): Promise<unknown> };
 

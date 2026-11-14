@@ -12,6 +12,7 @@ import {
   QUIET_MS,
   quiet,
   type Settleable,
+  TIMER_SLACK,
   timerSettled,
   viewSettled,
 } from "./probes.ts";
@@ -134,14 +135,15 @@ describe("timerSettled", () => {
     await expect(timerSettled(Number.NaN, board)).rejects.toThrow(/finite/);
   });
 
-  test("the no-reconnect wait is the board page's own next reconnect delay, by the sockets it has opened", () => {
+  test("the no-reconnect wait is the board page's own next reconnect delay, with slack, by the sockets it has opened", () => {
     // One socket: the first attempt is next. Two: the page reconnected once, so the second delay.
-    expect(noReconnectWaitMs(1)).toBe(reconnectDelay(0));
-    expect(noReconnectWaitMs(2)).toBe(reconnectDelay(1));
+    expect(noReconnectWaitMs(1)).toBe(reconnectDelay(0) * TIMER_SLACK);
+    expect(noReconnectWaitMs(2)).toBe(reconnectDelay(1) * TIMER_SLACK);
     expect(noReconnectWaitMs(2)).toBeGreaterThan(noReconnectWaitMs(1));
     // None opened yet counts as the first, and a long run of sockets stays at the last delay.
-    expect(noReconnectWaitMs(0)).toBe(reconnectDelay(0));
-    expect(noReconnectWaitMs(50)).toBe(reconnectDelay(49));
+    expect(noReconnectWaitMs(0)).toBe(reconnectDelay(0) * TIMER_SLACK);
+    expect(noReconnectWaitMs(50)).toBe(reconnectDelay(49) * TIMER_SLACK);
+    expect(TIMER_SLACK).toBeGreaterThanOrEqual(1);
     expect(noReconnectWaitMs(1)).toBeLessThan(QUIET_MS);
   });
 });
