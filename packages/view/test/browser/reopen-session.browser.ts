@@ -42,7 +42,6 @@ import {
   eventually,
   expectNoCspProblem,
   LOAD_TIMEOUT_MS,
-  QUIET_MS,
   reloadBoard,
   STEP_TIMEOUT_MS,
   TEST_TIMEOUT_MS,
@@ -64,6 +63,7 @@ import {
   sentActs,
   sentDrafts,
 } from "./harness/lifecycle-test.ts";
+import { quiet } from "./harness/probes.ts";
 import {
   dragEntry,
   entryOf,
@@ -304,7 +304,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           "the lane's new label",
         );
         // Nothing fills it late: the question stays as the agent sent it.
-        await Bun.sleep(QUIET_MS);
+        await quiet(
+          "a late fill of the question is an update from the board page to the view, which no probe covers",
+        );
         expect(await checkoutShown(board)).toEqual(AS_SENT);
         expect(
           sentDrafts(run)
@@ -313,7 +315,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         ).toBe(true);
 
         await reopenedNotice(board).getByRole("button", { name: START }).click();
-        await Bun.sleep(QUIET_MS / 3);
+        await quiet(
+          "a late fill of the question is an update from the board page to the view, which no probe covers",
+        );
         expect(await checkoutShown(board)).toEqual(AS_SENT);
         expect(await entryOf(board, "launch").getAttribute("data-change")).toBeNull();
         await Bun.sleep(MIRROR_SETTLE_MS);
@@ -405,7 +409,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
 
         await reloaded(board, run);
         await reopenedNotice(board).waitFor({ timeout: STEP_TIMEOUT_MS });
-        await Bun.sleep(QUIET_MS);
+        await quiet(
+          "a late fill after a reload is an update from the board page to the view, which no probe covers",
+        );
         expect(await checkoutShown(board)).toEqual(AS_SENT);
         expect(await entryOf(board, "launch").getAttribute("data-change")).toBeNull();
         expect(await promptArmed(board)).toBe(false);
@@ -538,7 +544,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
 
         await reloaded(board, run);
         await reopenedNotice(board).waitFor({ timeout: STEP_TIMEOUT_MS });
-        await Bun.sleep(QUIET_MS);
+        await quiet(
+          "a late fill after a reload is an update from the board page to the view, which no probe covers",
+        );
         await lineShows(board, NOT_CARRIED);
         expect(await changeNotice(board).count()).toBe(0);
         expect(await checkoutShown(board)).toEqual(AS_SENT);
@@ -624,7 +632,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           .banner(/closed/i)
           .first()
           .waitFor({ timeout: STEP_TIMEOUT_MS });
-        await Bun.sleep(QUIET_MS);
+        await quiet(
+          "a late fill after a reload is an update from the board page to the view, which no probe covers",
+        );
         expect(await checkoutShown(board)).toEqual(AS_SENT);
         expect(await promptArmed(board)).toBe(false);
         // No record held work after the reopen: nothing was mirrored for the question.

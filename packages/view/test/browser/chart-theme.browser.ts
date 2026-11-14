@@ -12,7 +12,6 @@ import { plan } from "./fixtures/tree-documents.ts";
 import {
   eventually,
   expectNoCspProblem,
-  QUIET_MS,
   STEP_TIMEOUT_MS,
   TEST_TIMEOUT_MS,
   useEngine,
@@ -31,6 +30,7 @@ import {
 import type { Board } from "./harness/dom.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import { lifecycleScenario, openBoard } from "./harness/lifecycle-test.ts";
+import { viewSettled } from "./harness/probes.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 
 const dist = await readViewBuild();
@@ -147,7 +147,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await eventually(() => ringOfBar(board, BAR_RIG, 0, 0, BARS), "the ring after the resize");
         await eventually(async () => (await firstBarColour(board)) === CHART_1.dark, "dark bars");
         for (const nth of [BARS, LINES, PIES]) await counterIs(board, "1 point highlighted", nth);
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(board);
         expect(await markerRing(board)).toBe(true);
         expectNoCspProblem(run);
         const origin = new URL(run.session.link).origin;

@@ -18,13 +18,13 @@ import {
   isFocused,
   linkToken,
   QUESTION,
-  QUIET_MS,
   STEP_TIMEOUT_MS,
   TEST_TIMEOUT_MS,
   useEngine,
 } from "./harness/board-test.ts";
 import type { Board } from "./harness/dom.ts";
 import { enginesFrom } from "./harness/engines.ts";
+import { viewSettled } from "./harness/probes.ts";
 import { replayTranscripts } from "./harness/transcripts.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 
@@ -271,7 +271,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await board.option("PostgreSQL").isChecked()).toBe(true);
         await expectAnswered(board);
         await expectNoTokenInView(board, run);
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(board);
         expect(await board.banner(/moved/i).count()).toBe(0);
         expectPageHalf(run, clicked);
       },

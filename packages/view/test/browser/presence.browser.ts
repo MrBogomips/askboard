@@ -17,7 +17,6 @@ import {
   eventually,
   expectNoCspProblem,
   expectPageHalf,
-  QUIET_MS,
   RECONNECT_TIMEOUT_MS,
   STEP_TIMEOUT_MS,
   TEST_TIMEOUT_MS,
@@ -26,6 +25,7 @@ import {
 import type { Board } from "./harness/dom.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import { hideTab, loseFocus, regainFocus } from "./harness/presence.ts";
+import { quiet } from "./harness/probes.ts";
 import { replayTranscripts } from "./harness/transcripts.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 
@@ -47,7 +47,9 @@ const expectFlags = (run: BoardRun, expected: boolean[], socket = 1) =>
 
 // Nothing more is sent for a while.
 const expectStill = async (run: BoardRun, expected: boolean[]) => {
-  await Bun.sleep(QUIET_MS);
+  await quiet(
+    "the board page's clock is Playwright's, paused in one caller: a probe's timer and animation frame would never fire there",
+  );
   expect(flags(run)).toEqual(expected);
 };
 
@@ -95,7 +97,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await expectFlags(run, [false]);
         await board.option("PostgreSQL").click({ timeout: STEP_TIMEOUT_MS });
         await expectFlags(run, [false, true]);
-        await Bun.sleep(QUIET_MS);
+        await quiet(
+          "the board page's clock is Playwright's: real time passes before it jumps, and a probe's timers would run on it",
+        );
         await board.page.clock.fastForward(WORKING_WINDOW_MS - 10_000);
         await expectStill(run, [false, true]);
         await board.page.clock.fastForward(10_000);

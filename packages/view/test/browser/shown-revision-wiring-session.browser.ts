@@ -18,7 +18,6 @@ import { checkedEvents } from "./harness/approval-board.ts";
 import {
   eventually,
   expectNoCspProblem,
-  QUIET_MS,
   STEP_TIMEOUT_MS,
   TEST_TIMEOUT_MS,
   useEngine,
@@ -36,6 +35,7 @@ import {
   optionOf,
   sentDrafts,
 } from "./harness/lifecycle-test.ts";
+import { viewSettled } from "./harness/probes.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 
 const dist = await readViewBuild();
@@ -165,7 +165,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         ]);
         await notice(board, "database").waitFor({ timeout: STEP_TIMEOUT_MS });
         await choose(board, "Keep mine", "database");
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(board);
         expect(await barButton(board, "Select recommended").count()).toBe(1);
         expectNoCspProblem(run);
       },
@@ -202,7 +202,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         ]);
         await notice(board, "cache").waitFor({ timeout: STEP_TIMEOUT_MS });
         await choose(board, "Keep mine", "cache");
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(board);
         expect(await barButton(board, "Select recommended").count()).toBe(0);
         expectNoCspProblem(run);
       },

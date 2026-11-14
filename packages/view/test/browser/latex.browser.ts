@@ -24,7 +24,6 @@ import {
 import {
   eventually,
   LOAD_TIMEOUT_MS,
-  QUIET_MS,
   STEP_TIMEOUT_MS,
   TEST_TIMEOUT_MS,
   useEngine,
@@ -38,6 +37,7 @@ import {
   sentActs,
   sentDrafts,
 } from "./harness/lifecycle-test.ts";
+import { draftSettled } from "./harness/probes.ts";
 import { readyIn } from "./harness/tree-steps.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 import { useWidgetHost, type WidgetHostRun } from "./harness/widget-host-test.ts";
@@ -130,7 +130,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await source(board).getAttribute("data-change")).toBeNull();
         expect(((await counter(board).textContent()) ?? "").trim()).toBe("No changes");
         expect(await board.answer.isDisabled()).toBe(true);
-        await Bun.sleep(QUIET_MS);
+        await draftSettled(board);
         expect(run.messages.map((message) => message.type)).toEqual(["ready"]);
         expect(run.drafts).toEqual([]);
         expect(networkRequests(run)).toEqual(["/"]);
@@ -521,7 +521,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const [drafts, acts] = [sentDrafts(run).length, sentActs(run).length];
         await source(board).click({ force: true });
         await board.page.keyboard.type("zz");
-        await Bun.sleep(QUIET_MS);
+        await draftSettled(board);
         expect(await fieldValue(board)).toBe("a^2+b^2=c^2");
         expect([sentDrafts(run).length, sentActs(run).length]).toEqual([drafts, acts]);
       },

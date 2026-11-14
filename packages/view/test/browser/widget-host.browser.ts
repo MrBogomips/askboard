@@ -12,11 +12,11 @@ import {
   eventually,
   LOAD_TIMEOUT_MS,
   QUESTION,
-  QUIET_MS,
   STEP_TIMEOUT_MS,
   TEST_TIMEOUT_MS,
 } from "./harness/board-test.ts";
 import { enginesFrom } from "./harness/engines.ts";
+import { viewSettled } from "./harness/probes.ts";
 import { openStateOf, readViewBuild, withViewProbe } from "./harness/view-build.ts";
 import { useWidgetHost } from "./harness/widget-host-test.ts";
 
@@ -39,7 +39,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           "the question's ready message",
           LOAD_TIMEOUT_MS,
         );
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(run.board);
         expect(run.messages).toEqual([{ type: "ready", itemId: QUESTION }]);
         expect(run.browser.errors).toEqual([]);
         expect(run.browser.cspProblems()).toEqual([]);
@@ -92,7 +92,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         );
         expect(await run.board.option("SQLite").isChecked()).toBe(true);
         expect(await run.board.answer.isEnabled()).toBe(true);
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(run.board);
         expect(run.messages).toEqual([{ type: "ready", itemId: QUESTION }]);
         expect(run.browser.cspProblems()).toEqual([]);
       },

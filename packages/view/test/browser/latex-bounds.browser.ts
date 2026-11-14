@@ -25,7 +25,7 @@ import {
   latexItem,
   latexItemsDocument,
 } from "./fixtures/latex-documents.ts";
-import { eventually, QUIET_MS } from "./harness/board-test.ts";
+import { eventually } from "./harness/board-test.ts";
 import type { Board } from "./harness/dom.ts";
 import { type Engine, enginesFrom } from "./harness/engines.ts";
 import {
@@ -52,6 +52,7 @@ import { EXTRA_CONSTRUCTS } from "./harness/latex-forms.ts";
 import { LatexFrame, PARENT_ANSWER_MS } from "./harness/latex-frame.ts";
 import { unparsed } from "./harness/latex-parse.ts";
 import { type Gate, PERF_RUNS, perfRuns } from "./harness/perf.ts";
+import { viewSettled } from "./harness/probes.ts";
 import { readyIn } from "./harness/tree-steps.ts";
 import { openStateOf, readViewBuild } from "./harness/view-build.ts";
 import { useWidgetHost, type WidgetHostRun } from "./harness/widget-host-test.ts";
@@ -320,7 +321,7 @@ const unchangedBy = async (board: Board, action: () => Promise<void>): Promise<v
     (globalThis as unknown as { __mutations: MutationRecord[] }).__mutations = log;
   });
   await action();
-  await Bun.sleep(QUIET_MS / 3);
+  await viewSettled(board);
   expect(
     await frame.evaluate(
       () => (globalThis as never as { __mutations: unknown[] }).__mutations.length,

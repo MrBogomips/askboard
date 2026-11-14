@@ -18,7 +18,6 @@ import { checkedEvents } from "./harness/approval-board.ts";
 import {
   eventually,
   expectNoCspProblem,
-  QUIET_MS,
   STEP_TIMEOUT_MS,
   TEST_TIMEOUT_MS,
   useEngine,
@@ -35,6 +34,7 @@ import {
   sentActs,
   sentDrafts,
 } from "./harness/lifecycle-test.ts";
+import { draftSettled, viewSettled } from "./harness/probes.ts";
 import { treeGridOf } from "./harness/tree-grid.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 
@@ -153,7 +153,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           (record) => holdsPackage(record.questions.plan?.values?.wbs, "Reports"),
           "the Tree with Reports",
         );
-        await Bun.sleep(QUIET_MS);
+        await draftSettled(board);
         for (const record of sentDrafts(run)) {
           expect(Object.keys(record.questions.plan?.values ?? {})).not.toContain("second");
         }
@@ -175,7 +175,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await mirrored(run, (record) => record.questions.plan?.results?.a === "Ada", "a: Ada");
         await revise(run, [field("a", "First"), field("d", "Added")]);
         await notice(board).waitFor({ timeout: STEP_TIMEOUT_MS });
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(board);
         expect(await choice(board, "Keep mine").isEnabled()).toBe(true);
         expect(await choice(board, "Reload, losing my work").isEnabled()).toBe(true);
         expect(await card(board, "plan").getAttribute("aria-busy")).not.toBe("true");

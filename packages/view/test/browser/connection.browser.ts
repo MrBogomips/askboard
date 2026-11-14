@@ -23,6 +23,7 @@ import {
 } from "./harness/board-test.ts";
 import type { Board } from "./harness/dom.ts";
 import { enginesFrom } from "./harness/engines.ts";
+import { quiet } from "./harness/probes.ts";
 import { replayTranscripts } from "./harness/transcripts.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 
@@ -192,7 +193,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const clicked = await answerWith(board, "PostgreSQL");
         await board.receipt("not sent yet").waitFor({ timeout: STEP_TIMEOUT_MS });
         // Long enough that an answer stamped when it is sent, not when the user acted, shows.
-        await Bun.sleep(1_500);
+        await quiet(
+          "an answer is stamped when it is sent, not when the user acted, only if time passes between the two",
+        );
         await run.session.restore();
         await board.receipt("sent").waitFor({ timeout: RECONNECT_TIMEOUT_MS });
         await board.header

@@ -18,7 +18,6 @@ import { database } from "./fixtures/lifecycle-asks.ts";
 import {
   eventually,
   isFocused,
-  QUIET_MS,
   STEP_TIMEOUT_MS,
   TEST_TIMEOUT_MS,
   useEngine,
@@ -26,6 +25,7 @@ import {
 import type { Board } from "./harness/dom.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import { lifecycleScenario, openBoard, optionOf } from "./harness/lifecycle-test.ts";
+import { viewSettled } from "./harness/probes.ts";
 import { readyIn } from "./harness/tree-steps.ts";
 import { openStateOf, readViewBuild, withKeysProbe } from "./harness/view-build.ts";
 import { useWidgetHost } from "./harness/widget-host-test.ts";
@@ -206,7 +206,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await field.focus();
         await run.board.page.keyboard.press("?");
         expect(await field.inputValue()).toBe("?");
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(run.board);
         expect(await panel(run.board).count()).toBe(0);
       },
       TEST_TIMEOUT_MS,

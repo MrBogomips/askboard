@@ -9,7 +9,6 @@ import {
   eventually,
   expectNoCspProblem,
   isFocused,
-  QUIET_MS,
   STEP_TIMEOUT_MS,
   TEST_TIMEOUT_MS,
   useEngine,
@@ -28,6 +27,7 @@ import {
   sentActs,
   sentDrafts,
 } from "./harness/lifecycle-test.ts";
+import { draftSettled, viewSettled } from "./harness/probes.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 
 const dist = await readViewBuild();
@@ -289,7 +289,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await optionOf(board, "database", "Other…").click();
         await card(board, "database").getByRole("textbox", { name: "Other…" }).fill("MariaDB");
         await mirrored(run, (record) => record.questions.database?.other === "MariaDB", "MariaDB");
-        await Bun.sleep(QUIET_MS);
+        await draftSettled(board);
         const before = sentDrafts(run).length;
         await optionOf(board, "database", "Other…").focus();
         await board.page.keyboard.press("ArrowUp");
@@ -299,7 +299,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         );
         await board.page.keyboard.press("ArrowUp");
         await eventually(() => isFocused(optionOf(board, "database", "SQLite")), "up to SQLite");
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(board);
         expect(await checked(board, "database", ALL)).toEqual({
           PostgreSQL: false,
           SQLite: false,
@@ -326,12 +326,12 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           async () => (await answerOf(board, "database").getAttribute("aria-pressed")) === "true",
           "database ready",
         );
-        await Bun.sleep(QUIET_MS);
+        await draftSettled(board);
         const before = sentDrafts(run).length;
         await optionOf(board, "database", "SQLite").focus();
         await board.page.keyboard.press("Space");
         await board.page.keyboard.press("Enter");
-        await Bun.sleep(QUIET_MS);
+        await draftSettled(board);
         expect(await answerOf(board, "database").getAttribute("aria-pressed")).toBe("true");
         expect(await optionOf(board, "database", "SQLite").isChecked()).toBe(true);
         expect(sentDrafts(run)).toHaveLength(before);

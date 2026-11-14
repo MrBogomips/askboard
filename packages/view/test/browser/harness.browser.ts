@@ -10,12 +10,12 @@ import {
   expectNoCspProblem,
   LOAD_TIMEOUT_MS,
   linkToken,
-  QUIET_MS,
   TEST_TIMEOUT_MS,
   useEngine,
 } from "./harness/board-test.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import { policyDirectives } from "./harness/policy.ts";
+import { quiet } from "./harness/probes.ts";
 import { replayTranscripts } from "./harness/transcripts.ts";
 import {
   assembledSrcdoc,
@@ -45,7 +45,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           "the board page's first message",
           LOAD_TIMEOUT_MS,
         );
-        await Bun.sleep(QUIET_MS);
+        await quiet(
+          "the view may not have loaded its frame yet, and a CSP report the browser queues reaches the harness on its own schedule",
+        );
         expect(run.browser.pageMessages()[0]).toEqual({
           socket: 1,
           message: { version: BOARD_PROTOCOL_VERSION, type: "connect", token: linkToken(run) },

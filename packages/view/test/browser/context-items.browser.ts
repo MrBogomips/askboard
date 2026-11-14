@@ -25,9 +25,10 @@ import {
   wrapDocument,
 } from "./fixtures/context-documents.ts";
 import { MARKUP_LABEL } from "./fixtures/markup-document.ts";
-import { eventually, LOAD_TIMEOUT_MS, QUIET_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
+import { eventually, LOAD_TIMEOUT_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
 import { tokenColor } from "./harness/design-colors.ts";
 import { enginesFrom } from "./harness/engines.ts";
+import { quiet } from "./harness/probes.ts";
 import { openStateOf, readViewBuild } from "./harness/view-build.ts";
 import { useWidgetHost, type WidgetHostRun } from "./harness/widget-host-test.ts";
 
@@ -304,7 +305,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await image.waitFor({ state: "attached", timeout: LOAD_TIMEOUT_MS });
         expect(await image.getAttribute("alt")).toBe("The retry log");
         expect(await image.getAttribute("src")).toMatch(/^blob:/);
-        await Bun.sleep(QUIET_MS);
+        await quiet(
+          "an image's decode is held by the test and its load is a browser event no probe can order",
+        );
         expect(run.messages).toEqual([]);
         expect(await run.board.question("shot").getAttribute("aria-busy")).toBe("true");
         const view = await run.board.viewFrame();

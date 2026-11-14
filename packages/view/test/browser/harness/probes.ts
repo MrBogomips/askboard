@@ -91,7 +91,7 @@ export const timerSettled = async (ms: number, board: Settleable): Promise<void>
  * string literal, which the guard of `quiet-guard.ts` checks.
  */
 export const quiet = async (reason: string): Promise<void> => {
-  if (reason.trim() === "") throw new Error("quiet() needs a reason for the wait");
+  if (reason.trim() === "") throw new Error("the quiet wait needs a reason");
   // The one place the quiet wait is written; the guard refuses it anywhere else.
   await new Promise<void>((resolve) => setTimeout(resolve, QUIET_MS));
 };

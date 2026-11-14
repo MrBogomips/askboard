@@ -16,7 +16,6 @@ import { atomAsk, atomDocument, MARKDOWN_SOURCE, previewAsk } from "./fixtures/a
 import {
   eventually,
   expectNoCspProblem,
-  QUIET_MS,
   STEP_TIMEOUT_MS,
   TEST_TIMEOUT_MS,
   useEngine,
@@ -24,6 +23,7 @@ import {
 import { launchEngine } from "./harness/browser.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import { lifecycleScenario, openBoard, sentActs } from "./harness/lifecycle-test.ts";
+import { viewSettled } from "./harness/probes.ts";
 import { startStandaloneView } from "./harness/standalone-view.ts";
 import { readyIn } from "./harness/tree-steps.ts";
 import { readViewBuild } from "./harness/view-build.ts";
@@ -97,7 +97,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         // Middle button: prevented, no message, no new page.
         const pages = run.browser.context.pages().length;
         await link.click({ button: "middle" });
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(board);
         expect(run.messages.filter((message) => message.type === "open-link")).toHaveLength(1);
         expect(run.browser.context.pages().length).toBe(pages);
         expect(frame.url()).toBe(before);
