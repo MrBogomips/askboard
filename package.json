@@ -18,7 +18,7 @@
     "typecheck": "for p in packages/*/; do tsc -p \"$p\" || exit 1; done && tsc -p tsconfig.test.json",
     "lint": "biome check .",
     "format": "biome check --write .",
-    "test": "bun test --parallel --no-isolate --coverage",
+    "test": "bun test --parallel --no-isolate --timeout 30000 --timings tools/test-timings.json --coverage",
     "test:e2e": "bun packages/view/test/browser/run.ts --no-build --target session-process && bun packages/server/test/conformance/run.ts --runtime bun",
     "check:imports": "bun tools/check-imports.ts",
     "check:skills": "bun tools/build/skills.ts --check",
