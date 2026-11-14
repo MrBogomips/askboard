@@ -27,7 +27,7 @@ import {
   sentActs,
   sentDrafts,
 } from "./harness/lifecycle-test.ts";
-import { draftSettled, viewSettled } from "./harness/probes.ts";
+import { draftSettled } from "./harness/probes.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 
 const dist = await readViewBuild();
@@ -299,7 +299,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         );
         await board.page.keyboard.press("ArrowUp");
         await eventually(() => isFocused(optionOf(board, "database", "SQLite")), "up to SQLite");
-        await viewSettled(board);
+        await draftSettled(board);
         expect(await checked(board, "database", ALL)).toEqual({
           PostgreSQL: false,
           SQLite: false,

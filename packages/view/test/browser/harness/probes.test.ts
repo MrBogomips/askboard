@@ -2,13 +2,13 @@ import { describe, expect, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { DRAFT_DEBOUNCE_MS } from "../../../src/board-page/draft-mirror.ts";
-import { RECONNECT_DELAYS_MS } from "../../../src/board-page/reconnect.ts";
+import { reconnectDelay } from "../../../src/board-page/reconnect.ts";
 import {
   draftSettled,
   flushBoardPage,
   flushViewFrame,
   hostSettled,
-  NO_RECONNECT_WAIT_MS,
+  noReconnectWaitMs,
   QUIET_MS,
   quiet,
   type Settleable,
@@ -134,9 +134,15 @@ describe("timerSettled", () => {
     await expect(timerSettled(Number.NaN, board)).rejects.toThrow(/finite/);
   });
 
-  test("the no-reconnect wait is the board page's first reconnect delay, imported", () => {
-    expect(NO_RECONNECT_WAIT_MS).toBe(RECONNECT_DELAYS_MS[0] as number);
-    expect(NO_RECONNECT_WAIT_MS).toBeLessThan(QUIET_MS);
+  test("the no-reconnect wait is the board page's own next reconnect delay, by the sockets it has opened", () => {
+    // One socket: the first attempt is next. Two: the page reconnected once, so the second delay.
+    expect(noReconnectWaitMs(1)).toBe(reconnectDelay(0));
+    expect(noReconnectWaitMs(2)).toBe(reconnectDelay(1));
+    expect(noReconnectWaitMs(2)).toBeGreaterThan(noReconnectWaitMs(1));
+    // None opened yet counts as the first, and a long run of sockets stays at the last delay.
+    expect(noReconnectWaitMs(0)).toBe(reconnectDelay(0));
+    expect(noReconnectWaitMs(50)).toBe(reconnectDelay(49));
+    expect(noReconnectWaitMs(1)).toBeLessThan(QUIET_MS);
   });
 });
 

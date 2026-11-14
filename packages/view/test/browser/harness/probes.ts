@@ -8,13 +8,21 @@
 // out of the browser files.
 
 import { DRAFT_DEBOUNCE_MS } from "../../../src/board-page/draft-mirror.ts";
-import { RECONNECT_DELAYS_MS } from "../../../src/board-page/reconnect.ts";
+import { reconnectDelay } from "../../../src/board-page/reconnect.ts";
 
 /** How long a test watches for something that must not happen, where no probe fits (`quiet`). */
 export const QUIET_MS = 1_500;
 
-/** The first wait before the board page reconnects: a socket it would open does so by then. */
-export const NO_RECONNECT_WAIT_MS: number = RECONNECT_DELAYS_MS[0] ?? 0;
+/**
+ * How long a board page that has opened `sockets` WebSockets may still wait before it opens one
+ * more: the wait before its next reconnect attempt. Each socket after the first is at most one
+ * attempt, and the attempt count only falls when a socket goes live, so `sockets - 1` attempts is
+ * an upper bound, and the board page's own `reconnectDelay` of it a wait no timer already armed
+ * outlasts (task 4.6: after a restart the page has already reconnected once, and its next wait is
+ * the second delay, not the first).
+ */
+export const noReconnectWaitMs = (sockets: number): number =>
+  reconnectDelay(Math.max(sockets - 1, 0));
 
 type Evaluates = { evaluate(run: () => unknown): Promise<unknown> };
 

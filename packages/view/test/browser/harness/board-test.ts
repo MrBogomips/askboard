@@ -15,7 +15,7 @@ import {
   pageHalf,
   pageHalfProblems,
 } from "./messages.ts";
-import { NO_RECONNECT_WAIT_MS, type Settleable, timerSettled } from "./probes.ts";
+import { noReconnectWaitMs, type Settleable, timerSettled } from "./probes.ts";
 import { reloadAndWait, viewFrameLost } from "./reload.ts";
 import { type BoardSession, type Scenario, startSession } from "./session.ts";
 import type { ReplayTranscript } from "./transcripts.ts";
@@ -233,10 +233,10 @@ export const expectNoCspProblem = (run: BoardRun): void => {
   expect(run.browser.cspProblems()).toEqual([]);
 };
 
-/** The board page opens no further WebSocket after its first reconnect delay (`timerSettled`). */
+/** The board page opens no further WebSocket once its next reconnect delay has passed (`timerSettled`). */
 export const expectNoReconnect = async (run: BoardRun, board: Settleable): Promise<void> => {
   const before = run.browser.sockets.length;
-  await timerSettled(NO_RECONNECT_WAIT_MS, board);
+  await timerSettled(noReconnectWaitMs(before), board);
   expect(run.browser.sockets.length).toBe(before);
 };
 

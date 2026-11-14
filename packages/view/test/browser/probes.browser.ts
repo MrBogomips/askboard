@@ -25,7 +25,7 @@ import {
 import {
   draftSettled,
   hostSettled,
-  NO_RECONNECT_WAIT_MS,
+  noReconnectWaitMs,
   timerSettled,
   viewSettled,
 } from "./harness/probes.ts";
@@ -91,7 +91,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           .first()
           .waitFor({ state: "visible", timeout: STEP_TIMEOUT_MS });
         const before = run.browser.sockets.length;
-        await timerSettled(NO_RECONNECT_WAIT_MS, board);
+        await timerSettled(noReconnectWaitMs(before), board);
         expect(run.browser.sockets.length).toBeGreaterThan(before);
         await run.session.restore();
         await board
