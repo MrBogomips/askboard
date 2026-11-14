@@ -179,16 +179,35 @@ describe("the axis of a far plan (design decision 8)", () => {
     },
   );
 
-  test.each([...ZOOMS])(
-    "counts the ticks at %s zoom to 9999-12-31 without walking them",
-    (zoom) => {
+  // The cost of `ticks` follows the ticks it draws, at most about MAX_TICKS, not the days of the
+  // span: a plan to 9999-12-31 costs what one of about 2,000 ticks does. This catches a walk that
+  // does real work per tick before thinning (building a date string per tick: ratios 27 to 212
+  // against the bound 20). It does not catch a light walk (a day number per tick: ratios 2 to 19);
+  // at 2.9 million steps that costs about 20 ms, no risk at today's caps. An unbounded walk fails
+  // by the test timeout. The ratio of the best of several calls, after a warm-up, holds on a busy
+  // machine, where an absolute bound in milliseconds does not (the first call alone took 66 ms).
+  const NEAR_DAYS: Readonly<Record<Zoom, number>> = { day: 1_999, week: 7 * 1_999, month: 62_000 };
+  const bestOf = (runs: number, call: () => unknown): number => {
+    let best = Number.POSITIVE_INFINITY;
+    for (let run = 0; run < runs; run += 1) {
       const from = performance.now();
+      call();
+      best = Math.min(best, performance.now() - from);
+    }
+    return best;
+  };
+
+  test.each([...ZOOMS])(
+    "counts the ticks at %s zoom to 9999-12-31 without walking them: it costs what an axis of 2,000 ticks does",
+    (zoom) => {
+      const near = dateOfDay(dayNumber(ORIGIN) + NEAR_DAYS[zoom]);
+      const nearAxis = ticks(ORIGIN, near, zoom);
+      expect(nearAxis.length).toBeGreaterThan(MAX_TICKS / 2 - 1);
+      expect(nearAxis.length).toBeLessThanOrEqual(MAX_TICKS);
       ticks(ORIGIN, FAR, zoom);
-      const took = performance.now() - from;
-      // A bound far above what this machine gives (about 2 ms): it catches a walk over every
-      // day of the span (about 3 s at day zoom, 400 ms at week, 100 ms at month), not a busy
-      // machine.
-      expect(took).toBeLessThan(50);
+      const nearMs = bestOf(7, () => ticks(ORIGIN, near, zoom));
+      const farMs = bestOf(7, () => ticks(ORIGIN, FAR, zoom));
+      expect(farMs).toBeLessThan(20 * Math.max(nearMs, 0.05));
     },
   );
 

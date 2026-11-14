@@ -27,6 +27,14 @@ describe("Codex interop", () => {
     expect(setup.replace(BLOCK, "")).toMatch(/^\s*codex_port\b/m);
   });
 
+  test("CI converts the sources in the codex job only; the shared setup skips the Codex files", () => {
+    expect(read(".github/actions/setup-bun/action.yml")).toContain("setup.sh --ci --no-codex");
+    expect(read(".github/workflows/codex.yml")).toContain("setup.sh --codex-only");
+    for (const workflow of ["check", "browser", "conformance", "openspec", "release"]) {
+      expect(read(`.github/workflows/${workflow}.yml`)).not.toContain("--codex-only");
+    }
+  });
+
   test("the block always runs the latest rulesync, never a pinned one", () => {
     const block = BLOCK.exec(read("setup.sh"))?.[1] ?? "";
     const fetches = block.match(/rulesync@[^\s"']+/g) ?? [];

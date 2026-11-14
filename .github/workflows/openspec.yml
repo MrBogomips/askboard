@@ -4,7 +4,7 @@ on:
     inputs:
       runs-on:
         type: string
-        default: macos-latest
+        default: ubuntu-24.04
 permissions:
   contents: read
 jobs:

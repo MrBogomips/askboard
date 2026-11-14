@@ -177,3 +177,43 @@ describe("codex-port block", () => {
     expect(existsSync(join(repo, "keep.txt"))).toBe(true);
   });
 });
+
+// The part of setup.sh outside the block: the toolchain check, the install and --no-codex, which
+// the CI jobs that need no Codex file use (CLAUDE.md, CI).
+const STUB_BUN = `#!/bin/sh
+case "$1" in
+  --version) echo 1.2.3 ;;
+  install) echo "stub bun $*" ;;
+esac
+`;
+
+describe("--no-codex", () => {
+  beforeEach(() => {
+    write("package.json", '{ "packageManager": "bun@1.2.3" }\n');
+    writeFileSync(join(bin, "bun"), STUB_BUN);
+    chmodSync(join(bin, "bun"), 0o755);
+  });
+
+  test("installs the dependencies and writes no Codex file", () => {
+    const { code, out } = run(["--ci", "--no-codex"]);
+    expect(code).toBe(0);
+    expect(out).toContain("stub bun install --frozen-lockfile");
+    expect(out).not.toContain("codex-port");
+    expect(existsSync(join(repo, "AGENTS.md"))).toBe(false);
+    expect(existsSync(join(repo, ".codex"))).toBe(false);
+  });
+
+  test("without it the same run writes them", () => {
+    const { code, out } = run(["--ci"]);
+    expect(code).toBe(0);
+    expect(out).toContain("rulesync 9.9.9 wrote AGENTS.md");
+  });
+
+  test("cannot be combined with an option that only runs the block", () => {
+    for (const other of ["--codex-only", "--check", "--dry-run", "--force"]) {
+      const { code, out } = run(["--no-codex", other]);
+      expect(code).not.toBe(0);
+      expect(out).toContain("--no-codex cannot be combined");
+    }
+  });
+});

@@ -203,7 +203,10 @@ describe("hostile lines take linear time (security review, finding R1)", () => {
     const started = performance.now();
     findAnchor([line, "## Next", "x"], name("Next"), true);
     findAnchor(["```", line, "```", "## Next"], name("Next"), true);
-    expect(performance.now() - started).toBeLessThan(200);
+    // The two scans take a few milliseconds; the quadratic ones took about 6 s on this line. The
+    // bound, 500 ms, is over a hundred times the first, which a busy runner does not reach, and a
+    // twelfth of the second.
+    expect(performance.now() - started).toBeLessThan(500);
   });
 
   test("a line separator inside a heading stays part of its text", () => {

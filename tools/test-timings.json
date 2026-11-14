@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "files": {
+    "tools/build/view.test.ts": 12094,
+    "packages/widgets/test/component-facts.test.ts": 10663,
+    "tools/release/publish.test.ts": 8766,
+    "tools/pattern-timing.test.ts": 8626,
+    "packages/bench/test/cli.test.ts": 8286,
+    "tools/release/start-script.test.ts": 7513,
+    "tools/release/smoke.test.ts": 7188,
+    "tools/codex-port.test.ts": 6071,
+    "packages/server/test/board-host/protocol.test.ts": 5141,
+    "packages/bench/test/run.test.ts": 4535,
+    "packages/widgets/src/chart/inherited-names.test.ts": 4365,
+    "tools/ci/changed-paths.test.ts": 3757,
+    "packages/server/test/board-host/connections.test.ts": 2535,
+    "packages/mod/test/fallback-client.test.ts": 2530,
+    "packages/server/test/board-host/widget-protocol.test.ts": 2500,
+    "packages/contract/test/widget-registry.test.ts": 2235,
+    "packages/server/test/board-host/presence.test.ts": 2139,
+    "packages/hooks/test/runner.test.ts": 2073,
+    "packages/server/test/mcp-tools/session-process.test.ts": 1795,
+    "packages/server/test/session-process.test.ts": 1788,
+    "packages/server/test/session-process-notices.test.ts": 1706,
+    "packages/server/test/board-host/lifecycle-protocol.test.ts": 1647,
+    "tools/build/mod.test.ts": 1547
+  }
+}

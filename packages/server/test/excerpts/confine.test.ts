@@ -312,9 +312,18 @@ describe("never telling whether a file outside the root exists (design decision 
       const { fs, calls } = spyFs();
       await locate(fs, box.root, pointer);
       const walked = calls.filter((entry) => entry.call !== "realpath").map((entry) => entry.path);
-      expect(walked.at(-1)).toBe(deepest);
+      // The walk looks at the root, what lies under it and the root's own ancestors, which exist
+      // since the root does (walk.ts). A link whose absolute target runs through those ancestors
+      // (a temporary folder that is no link, as on Linux) is followed to the first step outside
+      // them; where the folder is itself reached through a link (/var on macOS) it stops at once.
+      const ancestor = (path: string | undefined): boolean =>
+        path !== undefined && box.realRoot.startsWith(`${path}/`);
+      expect(walked).toContain(deepest);
+      expect(walked.slice(walked.lastIndexOf(deepest) + 1).every(ancestor)).toBe(true);
       for (const path of walked) {
-        expect(path === box.realRoot || path?.startsWith(`${box.realRoot}/`)).toBe(true);
+        expect(
+          path === box.realRoot || path?.startsWith(`${box.realRoot}/`) || ancestor(path),
+        ).toBe(true);
         expect(path?.startsWith(realOutside)).toBe(false);
       }
       expect(walked.some((path) => path?.startsWith(`${deepest}/`))).toBe(false);

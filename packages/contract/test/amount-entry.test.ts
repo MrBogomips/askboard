@@ -194,14 +194,17 @@ describe("comparing decimal strings", () => {
 
 describe("compareDecimal is linear in the digits (review 1.8 X-3)", () => {
   const DIGITS = 100_000;
-  const BOUND_MS = 50;
+  // Linear in the digits, the comparison takes a millisecond or two; a quadratic one takes seconds
+  // (a mutation with 2.5 billion character reads took 1.1 s, a real second pass takes more). 250 ms
+  // is over a hundred times the first, which a busy runner does not reach, and under the second.
+  const BOUND_MS = 250;
   const timed = (run: () => unknown): number => {
     const started = performance.now();
     run();
     return performance.now() - started;
   };
 
-  test("a 100,000-digit fraction ending in a 1 is compared in under 50 ms, and correctly", () => {
+  test("a 100,000-digit fraction ending in a 1 is compared in under 250 ms, and correctly", () => {
     const long = `1.${"0".repeat(DIGITS)}1`;
     let result: number | undefined;
     const ms = timed(() => {

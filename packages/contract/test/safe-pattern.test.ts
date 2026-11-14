@@ -351,21 +351,40 @@ describe("names that are not patterns", () => {
 });
 
 describe("the check is one pass", () => {
-  test("a 200-character pattern is checked in under 5 ms", () => {
+  // The cost of the check grows with the pattern's length, once: a pattern ten times as long costs
+  // about ten times as much. The flat test catches a pass whose cost grows with the length at every
+  // step (a rescan of the rest of the pattern: ratio about 50). The ratio of the best of several
+  // batches holds on a busy shared runner, where an absolute bound of 5 ms did not (#161); 30 sits
+  // between 10 (one pass) and 100. It does not catch a cost that grows only with the nesting (a
+  // stack copied at each level measured about 26, under the bound); at the 200-character cap that
+  // costs microseconds, and an exponential check still fails by the 30 s timeout.
+  const BATCH = 200;
+  const bestBatch = (pattern: string): number => {
+    let best = Number.POSITIVE_INFINITY;
+    for (let batch = 0; batch < 9; batch += 1) {
+      const started = performance.now();
+      for (let each = 0; each < BATCH; each += 1) patternProblem(pattern);
+      best = Math.min(best, performance.now() - started);
+    }
+    return best;
+  };
+  const growth = (small: string, large: string): number => {
+    expect(patternProblem(small)).toBeUndefined();
+    expect(patternProblem(large)).toBeUndefined();
+    bestBatch(large);
+    return bestBatch(large) / Math.max(bestBatch(small), 0.01);
+  };
+
+  test("a 200-character pattern costs about ten times a 20-character one", () => {
     const worst = `^${"(?:ab)".repeat(33)}`;
     expect(Array.from(worst).length).toBeLessThanOrEqual(PATTERN_MAX_CHARS);
-    patternProblem(worst);
-    const started = performance.now();
-    for (let each = 0; each < 20; each += 1) patternProblem(worst);
-    expect((performance.now() - started) / 20).toBeLessThan(5);
+    expect(growth(`^${"(?:ab)".repeat(3)}`, worst)).toBeLessThan(30);
   });
 
-  test("a deeply nested pattern is checked in under 5 ms", () => {
-    const nested = `^${"(?:".repeat(39)}a${")".repeat(39)}$`;
-    expect(Array.from(nested).length).toBeLessThanOrEqual(PATTERN_MAX_CHARS);
-    const started = performance.now();
-    expect(patternProblem(nested)).toBeUndefined();
-    expect(performance.now() - started).toBeLessThan(5);
+  test("a pattern nested 39 levels deep costs about ten times one nested 4 deep", () => {
+    const nested = (depth: number): string => `^${"(?:".repeat(depth)}a${")".repeat(depth)}$`;
+    expect(Array.from(nested(39)).length).toBeLessThanOrEqual(PATTERN_MAX_CHARS);
+    expect(growth(nested(4), nested(39))).toBeLessThan(30);
   });
 
   test("the module builds no RegExp but the compile check and runs no pattern", () => {

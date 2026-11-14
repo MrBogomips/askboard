@@ -267,7 +267,9 @@ describe("the live graph's recalculation", () => {
         });
       }
     }
-  });
+    // 2,000 recalculations compared with 2,000 rebuilds: over a second on a fast machine, and
+    // five on a shared 4-core runner with parallel files, so the default timeout does not do.
+  }, 60_000);
 
   test("times a rebuild and a recalculation at the limits: 500 tasks, each with 50 predecessors and 50 dependents", () => {
     const dense: Task[] = Array.from({ length: 500 }, (_, index) => {

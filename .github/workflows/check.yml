@@ -15,9 +15,20 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # The commit under test and its first parent, which the next step diffs.
+          fetch-depth: 2
           persist-credentials: false
-      - uses: ./.github/actions/setup-bun
-      - run: bun run check
+      # A pull request that changes only documents has nothing to check; the job still runs, so
+      # that its status exists and is the same for every change.
+      - id: paths
+        run: sh tools/ci/changed-paths.sh >> "$GITHUB_OUTPUT"
+      - name: Only documents changed
+        if: steps.paths.outputs.code != 'true'
+        run: echo "Only documents changed (docs/, openspec/, drafts/, Markdown outside the code), so nothing to check."
+      - if: steps.paths.outputs.code == 'true'
+        uses: ./.github/actions/setup-bun
+      - if: steps.paths.outputs.code == 'true'
+        run: bun run check
         env:
           # The licence check asks the GitHub API whether direct dependencies are archived.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

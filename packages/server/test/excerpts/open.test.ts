@@ -19,7 +19,6 @@ import { makeSandbox, type Sandbox, SENTINEL_TEXT, type SpyFs, spyFs } from "./h
 
 const LIMIT = 1_024;
 const HANG = 2_000;
-const AT_ONCE = 100;
 
 let box: Sandbox;
 let spy: SpyFs;
@@ -47,16 +46,18 @@ const reach = async (pointer: string, limit = LIMIT, fs: SourceFs = spy.fs) => {
   return text(await withRegularFile(fs, located.realPath, (file) => readAtMost(file, limit)));
 };
 
-/** Fails the test when the call does not settle within two seconds. */
-const withinHang = async <T>(call: Promise<T>): Promise<{ value: T; ms: number }> => {
-  const started = performance.now();
+/**
+ * Fails the test when the call does not settle within two seconds: a FIFO that is opened for
+ * reading and blocks never settles, so this is the whole of "at once". No tighter bound is asserted,
+ * which a busy machine would pass or fail by its load rather than by the code.
+ */
+const withinHang = async <T>(call: Promise<T>): Promise<T> => {
   let timer: Timer | undefined;
   const hang = new Promise<never>((_, reject) => {
     timer = setTimeout(() => reject(new Error(`no answer within ${HANG} ms`)), HANG);
   });
   try {
-    const value = await Promise.race([call, hang]);
-    return { value, ms: performance.now() - started };
+    return await Promise.race([call, hang]);
   } finally {
     clearTimeout(timer);
   }
@@ -99,9 +100,8 @@ describe("a regular file", () => {
 describe("what is not a regular file (board-host spec, Only regular files are read)", () => {
   test("a FIFO no process writes is not-a-file at once", async () => {
     mkfifo(join(box.root, "pipe.md"));
-    const { value, ms } = await withinHang(reach("pipe.md#L1-L1"));
+    const value = await withinHang(reach("pipe.md#L1-L1"));
     expect(value).toEqual({ refused: "not-a-file" });
-    expect(ms).toBeLessThan(AT_ONCE);
   });
 
   test("a FIFO swapped in just before the open is opened without blocking and refused", async () => {
@@ -113,9 +113,13 @@ describe("what is not a regular file (board-host spec, Only regular files are re
         mkfifo(path);
       },
     });
-    const { value, ms } = await withinHang(reach("docs/a.md#A"));
-    expect(value).toEqual({ refused: "outside-root" });
-    expect(ms).toBeLessThan(AT_ONCE);
+    const value = await withinHang(reach("docs/a.md#A"));
+    // Refused either way. A handle whose inode is not the real path's is outside-root; where the
+    // file system gives the freed inode number to the new FIFO (Linux does, at once), the stats
+    // match and the file is not-a-file.
+    expect(["outside-root", "not-a-file"]).toContain(
+      String((value as { refused?: string }).refused),
+    );
     expect(spy.calls.map((entry) => entry.call)).toContain("close");
   });
 
@@ -132,9 +136,8 @@ describe("what is not a regular file (board-host spec, Only regular files are re
     const listeners = [listening(join(box.root, "s.sock")), listening(join(box.root, "docs/s"))];
     try {
       for (const pointer of ["s.sock#L1-L1", "docs/s#L1-L1"]) {
-        const { value, ms } = await withinHang(reach(pointer));
+        const value = await withinHang(reach(pointer));
         expect(value).toEqual({ refused: "not-a-file" });
-        expect(ms).toBeLessThan(AT_ONCE);
       }
     } finally {
       for (const listener of listeners) listener.stop(true);

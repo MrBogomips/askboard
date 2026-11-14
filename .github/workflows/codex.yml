@@ -1,0 +1,32 @@
+name: Codex
+on:
+  workflow_call:
+    inputs:
+      runs-on:
+        type: string
+        default: ubuntu-24.04
+permissions:
+  contents: read
+jobs:
+  codex:
+    name: Codex files from the sources
+    runs-on: ${{ inputs.runs-on }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      # Only when CLAUDE.md, .claude/, .mcp.json or setup.sh changed, and nightly: a source rulesync
+      # cannot convert fails here (CLAUDE.md, Codex interop). Nothing in `bun run check` reads the files.
+      - id: paths
+        run: sh tools/ci/changed-paths.sh >> "$GITHUB_OUTPUT"
+      - name: No Codex source changed
+        if: steps.paths.outputs.codex != 'true'
+        run: echo "No source of the Codex files changed, so nothing to convert."
+      - if: steps.paths.outputs.codex == 'true'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: package.json
+      - if: steps.paths.outputs.codex == 'true'
+        run: sh ./setup.sh --codex-only

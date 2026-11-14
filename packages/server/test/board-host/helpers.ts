@@ -92,8 +92,21 @@ type Held = { stop(closeActive?: boolean): void; readonly port: number };
 const hold = (port: number, hostname: string): Held =>
   Bun.listen({ hostname, port, socket: { data: () => undefined } });
 
-/** A port on the loopback interface that was free a moment ago. */
+/**
+ * A port on the loopback interface that was free a moment ago. It is drawn below the range the
+ * system hands out to outgoing connections and to ports asked for by number 0, so that test files
+ * running in parallel (bun test --parallel) do not take the ports of one another's ranges.
+ */
 export const freePort = async (): Promise<number> => {
+  for (let tries = 0; tries < 50; tries += 1) {
+    const port = 20_000 + Math.floor(Math.random() * 12_000);
+    try {
+      hold(port, BOARD_HOST).stop(true);
+      return port;
+    } catch {
+      // Taken: draw another.
+    }
+  }
   const probe = hold(0, BOARD_HOST);
   probe.stop(true);
   return probe.port;

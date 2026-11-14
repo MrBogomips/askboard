@@ -11,7 +11,14 @@ import {
   LocaleContext,
 } from "../../src/catalog/port.ts";
 
-Object.assign(globalThis, { requestAnimationFrame: () => 0, cancelAnimationFrame: () => {} });
+/**
+ * What a server render needs of the frame functions: it runs no effect, so a component that names
+ * them loads and calls none. Exported so that draw.test.ts covers them: whether a render calls them
+ * depends on which files share the worker (bun test --parallel --no-isolate), and coverage must not.
+ */
+export const FRAME_STUBS = { requestAnimationFrame: () => 0, cancelAnimationFrame: () => {} };
+
+Object.assign(globalThis, FRAME_STUBS);
 
 const NONE = () => {};
 
