@@ -6,9 +6,9 @@
 
 import { spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { startServer } from "../src/agent.ts";
 import { readPluginServer } from "../src/plugin.ts";
 import { projectsRoot } from "../src/transcript.ts";
@@ -115,6 +115,24 @@ if (fromSubagent) {
 
 const chosen: string[] = [];
 
+// The answerer appends its record only after the board acknowledged the answer, and the run's
+// process group is killed when this process exits. A real claude spends seconds on its last turn;
+// this stand-in would exit at once, and on a busy machine the kill would come first. So it waits,
+// within a bound, until the case folder's records file holds one line for each answer.
+const answererRecorded = async (count: number) => {
+  const dir = settingsPath === undefined ? undefined : dirname(settingsPath);
+  if (dir === undefined || !existsSync(join(dir, "browser.sh"))) return;
+  const records = join(dir, "answerer.jsonl");
+  const deadline = Date.now() + 15_000;
+  while (Date.now() < deadline) {
+    const lines = existsSync(records)
+      ? readFileSync(records, "utf8").split("\n").filter(Boolean)
+      : [];
+    if (lines.length >= count) return;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+};
+
 const askboardArm = async (dir: string) => {
   const server = readPluginServer(dir, cwd);
   const session = await startServer({
@@ -161,6 +179,7 @@ const askboardArm = async (dir: string) => {
       });
       const event = JSON.parse(collected.text).asks?.[0]?.events?.[0];
       chosen.push(...(event?.choice ?? []));
+      await answererRecorded(index + 1);
     }
   } finally {
     await session.close();
