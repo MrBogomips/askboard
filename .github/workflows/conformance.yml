@@ -15,6 +15,10 @@ on:
       build-artifact:
         type: string
         default: ""
+      # False leaves the Playwright browser cache unused (the release's call, X-1).
+      cache:
+        type: boolean
+        default: true
       # A JSON list of bun, node-24 and node-26. Node 24 is the Node the shared setup installs
       # (package.json); node-26 sets Node 26 up after it.
       runtimes:
@@ -59,7 +63,7 @@ jobs:
       - id: playwright
         if: inputs.code
         run: echo "version=$(node -p 'require("playwright/package.json").version')" >> "$GITHUB_OUTPUT"
-      - if: inputs.code
+      - if: inputs.code && inputs.cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.PLAYWRIGHT_BROWSERS_PATH }}

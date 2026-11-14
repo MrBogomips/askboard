@@ -117,6 +117,7 @@ describe("the plan job's cadence table (decision 1)", () => {
         EVENT: "",
         INPUT: "",
         SCHEDULE: "",
+        ENGINES: "",
         ...env,
       },
     });
@@ -136,7 +137,8 @@ describe("the plan job's cadence table (decision 1)", () => {
 
   test("the step takes the event, the input and the schedule through env, as the plan step's env", () => {
     const step = planStep("cadence");
-    expect(Object.keys(step.env ?? {}).sort()).toEqual(["EVENT", "INPUT", "SCHEDULE"]);
+    expect(Object.keys(step.env ?? {}).sort()).toEqual(["ENGINES", "EVENT", "INPUT", "SCHEDULE"]);
+    expect(step.env?.ENGINES).toBe("${{ inputs.engines }}");
     expect(step.env?.EVENT).toBe("${{ github.event_name }}");
     expect(step.env?.INPUT).toBe("${{ inputs.cadence }}");
     expect(step.env?.SCHEDULE).toBe("${{ github.event.schedule }}");
@@ -217,6 +219,66 @@ describe("the plan job's cadence table (decision 1)", () => {
       expect(text).toContain("::error::");
     }
     expect(decide({ EVENT: "workflow_dispatch", INPUT: "hourly" }).text).toContain("hourly");
+  });
+
+  // Coordinator decision C6 (review 5.5, S-1): the release gate runs Chromium and WebKit only until
+  // #174 and #145 close; the `engines` input of the call narrows the cadence's engines.
+  test("an `engines` list narrows the cadence's engines and nothing else (C6)", () => {
+    const narrowed = '["chromium","webkit"]';
+    for (const cadence of ["smoke", "nightly", "weekly"]) {
+      const plain = decide({ EVENT: "workflow_call", INPUT: cadence });
+      const called = decide({ EVENT: "workflow_call", INPUT: cadence, ENGINES: narrowed });
+      expect(called.code).toBe(0);
+      expect(called.out.engines).toBe(narrowed);
+      expect({ ...called.out, engines: "" }).toEqual({ ...plain.out, engines: "" });
+    }
+    expect(
+      decide({ EVENT: "workflow_call", INPUT: "weekly", ENGINES: '["firefox"]' }).out.engines,
+    ).toBe('["firefox"]');
+  });
+
+  test("no `engines` input leaves every engine the cadence names: the schedules and the dispatch never set one", () => {
+    expect(decide({ EVENT: "schedule", SCHEDULE: WEEKLY }).out.engines).toBe(
+      '["chromium","firefox","webkit"]',
+    );
+    expect(decide({ EVENT: "workflow_call", INPUT: "weekly" }).out.engines).toBe(
+      '["chromium","firefox","webkit"]',
+    );
+    expect(decide({ EVENT: "workflow_dispatch", INPUT: "nightly" }).out.engines).toBe(
+      '["chromium","firefox","webkit"]',
+    );
+  });
+
+  test("an `engines` value that is not a JSON list of known engines fails, naming it, and sets no output", () => {
+    const refused = [
+      "chromium",
+      "[]",
+      '["opera"]',
+      '["chromium","chromium2"]',
+      '["chromium"] ; echo x',
+      '["chromium"],["webkit"]',
+      '["chromium","$(id)"]',
+      '[ "chromium" ]',
+    ];
+    for (const ENGINES of refused) {
+      const { code, out, text } = decide({ EVENT: "workflow_call", INPUT: "weekly", ENGINES });
+      expect(code).not.toBe(0);
+      expect(out).toEqual({});
+      expect(text).toContain("::error::");
+    }
+  });
+
+  test("the call takes `engines` as a string, optional and empty by default, and `no-cache` as a boolean, false by default (C6, X-1)", () => {
+    const call = (
+      e2e.workflow.on.workflow_call as { inputs: Record<string, Record<string, unknown>> }
+    ).inputs;
+    expect(call.engines?.type).toBe("string");
+    expect(call.engines?.required).not.toBe(true);
+    expect(call.engines?.default).toBe("");
+    expect(call["no-cache"]?.type).toBe("boolean");
+    expect(call["no-cache"]?.default).toBe(false);
+    // The comment names the Issues that are the condition to restore Firefox.
+    expect(e2e.text).toMatch(/#174[\s\S]*#145|#145[\s\S]*#174/);
   });
 
   test("every cron line of e2e.yml is in the table, and none is ci.yml's", () => {
@@ -450,13 +512,15 @@ describe("browser.yml (decisions 1 to 3, 5; C5)", () => {
 
   test("takes the inputs the design names, the defaults keeping today's manual run", () => {
     expect(Object.keys(inputs).sort()).toEqual(
-      ["build-artifact", "code", "engines", "runs-on", "set", "shards", "workers"].sort(),
+      ["build-artifact", "cache", "code", "engines", "runs-on", "set", "shards", "workers"].sort(),
     );
     expect(inputs["runs-on"]?.default).toBe("macos-latest");
     expect(inputs.set?.default).toBe("all");
     expect(JSON.parse(String(inputs.engines?.default))).toEqual(["chromium", "firefox", "webkit"]);
     expect(JSON.parse(String(inputs.shards?.default))).toEqual(["1/1"]);
     expect(inputs.workers?.default).toBe("");
+    expect(inputs.cache?.type).toBe("boolean");
+    expect(inputs.cache?.default).toBe(true);
     for (const name of ["engines", "shards", "set", "workers"])
       expect(inputs[name]?.type).toBe("string");
   });
@@ -627,7 +691,15 @@ describe("conformance.yml (decisions 1 to 3, Q1)", () => {
   const steps = (): Step[] => stepsOf(conformance.workflow, "conformance");
 
   test("takes the runtimes as JSON, defaulting to today's Bun and Node 24", () => {
-    expect(Object.keys(inputs).sort()).toEqual(["build-artifact", "code", "runs-on", "runtimes"]);
+    expect(Object.keys(inputs).sort()).toEqual([
+      "build-artifact",
+      "cache",
+      "code",
+      "runs-on",
+      "runtimes",
+    ]);
+    expect(inputs.cache?.type).toBe("boolean");
+    expect(inputs.cache?.default).toBe(true);
     expect(inputs.runtimes?.type).toBe("string");
     expect(JSON.parse(String(inputs.runtimes?.default))).toEqual(["bun", "node-24"]);
     expect(job(conformance.workflow, "conformance").strategy?.matrix).toEqual({
@@ -749,7 +821,14 @@ describe("the cadences' jobs (decisions 1 to 3)", () => {
   test("the weekly call from release.yml: publish needs e2e-macos, which calls e2e.yml with `weekly` and no secrets", () => {
     const call = job(release.workflow, "e2e-macos");
     expect(call.uses).toBe("./.github/workflows/e2e.yml");
-    expect(call.with).toEqual({ cadence: "weekly" });
+    // C6 (review 5.5, S-1): Chromium and WebKit only until #174 and #145 close, Firefox staying in the
+    // nightly and weekly cadences; and X-1: no Playwright cache in the release's run.
+    expect(call.with).toEqual({
+      cadence: "weekly",
+      engines: '["chromium","webkit"]',
+      "no-cache": true,
+    });
+    expect(release.text).toMatch(/#174[\s\S]*#145[\s\S]*Firefox|Firefox[\s\S]*#174[\s\S]*#145/);
     expect(call.secrets).toBeUndefined();
     expect(call.permissions).toEqual({ contents: "read" });
     expect(needsOf(job(release.workflow, "publish")).sort()).toEqual([
@@ -758,6 +837,33 @@ describe("the cadences' jobs (decisions 1 to 3)", () => {
       "smoke-linux",
     ]);
     expect(found(release.text, /secrets:\s*inherit/)).toBe("");
+  });
+});
+
+describe("the Playwright cache is an input (X-1)", () => {
+  test("browser.yml and conformance.yml restore the cache only when `cache` is true and code changed", () => {
+    for (const [workflow, name] of [
+      [browser.workflow, "browser"],
+      [conformance.workflow, "conformance"],
+    ] as const) {
+      const cache = stepsOf(workflow, name).find((step) => step.uses?.startsWith("actions/cache@"));
+      expect(String(cache?.if)).toContain("inputs.code");
+      expect(String(cache?.if)).toContain("inputs.cache");
+    }
+  });
+
+  test("e2e.yml passes the cache input to browser, perf and conformance, on unless no-cache is true", () => {
+    for (const name of ["browser", "perf", "conformance"]) {
+      expect(job(e2e.workflow, name).with?.cache).toBe("${{ !inputs.no-cache }}");
+    }
+  });
+
+  test("a pull request or a schedule, whose `inputs` are empty, leaves the cache on: the expression is a negation, not a comparison", () => {
+    for (const name of ["browser", "perf", "conformance"]) {
+      expect(String(job(e2e.workflow, name).with?.cache)).toMatch(
+        /^\$\{\{ !inputs\.no-cache \}\}$/,
+      );
+    }
   });
 });
 

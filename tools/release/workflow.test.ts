@@ -11,6 +11,7 @@ const FILE = join(ROOT, ".github", "workflows", "release.yml");
 const text = readFileSync(FILE, "utf8");
 
 type Step = {
+  id?: string;
   name?: string;
   uses?: string;
   if?: string;
@@ -28,6 +29,7 @@ type Job = {
   "timeout-minutes"?: number;
   // A job that calls a reusable workflow (`e2e-macos`) has no steps and no timeout of its own.
   steps?: Step[];
+  outputs?: Record<string, string>;
 };
 type Workflow = {
   on: Record<string, unknown>;
@@ -111,6 +113,26 @@ describe("the release workflow", () => {
     expect(
       uses.filter(({ action }) => action.startsWith("./")).map(({ action }) => action),
     ).toEqual(["./.github/actions/setup-bun", "./.github/workflows/e2e.yml"]);
+  });
+
+  // X-1 (review 5.5): the release run shares its artifact namespace with the e2e jobs of `e2e-macos`,
+  // so the jobs that read the artifact take the one the build job uploaded, by its ID.
+  test("build exposes the upload's artifact-id, and smoke-linux and publish download by that ID, not by name", () => {
+    const upload = steps("build").find((step) => step.uses?.startsWith("actions/upload-artifact@"));
+    expect(upload?.id).toBe("upload");
+    expect((job("build") as { outputs?: Record<string, string> }).outputs).toEqual({
+      "artifact-id": "${{ steps.upload.outputs.artifact-id }}",
+    });
+    for (const name of ["smoke-linux", "publish"]) {
+      const download = steps(name).find((step) =>
+        step.uses?.startsWith("actions/download-artifact@"),
+      );
+      expect(download?.with?.["artifact-ids"]).toBe("${{ needs.build.outputs.artifact-id }}");
+      expect(download?.with?.name).toBeUndefined();
+      expect(download?.with?.["merge-multiple"]).toBe(true);
+      expect(download?.with?.path).toBe("release");
+      expect(download?.with?.["digest-mismatch"] ?? "error").toBe("error");
+    }
   });
 
   test("publish needs build, smoke-linux and e2e-macos, and smoke-linux needs build", () => {

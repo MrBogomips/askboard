@@ -155,3 +155,51 @@ describe("main", () => {
     expect(Bun.file(path("out.json")).size).toBe(0);
   });
 });
+
+describe("mergeTimings reads own keys only (X-2)", () => {
+  // JSON.parse makes `__proto__` an own key, as a file read from disk does.
+  const parse = (text: string): Timings => JSON.parse(text) as Timings;
+  const own = (value: Timings): [string, number][] => Object.entries(value.files);
+
+  test("names that Object.prototype holds, in the base only, stay numbers and stay", () => {
+    const base = parse(
+      '{"version":1,"files":{"__proto__":5,"constructor":7,"toString":9,"a.ts":3}}',
+    );
+    const merged = mergeTimings(base, [timings({ "a.ts": 4 })]);
+    expect(own(merged)).toEqual([
+      ["toString", 9],
+      ["constructor", 7],
+      ["__proto__", 5],
+      ["a.ts", 4],
+    ]);
+    expect(JSON.stringify(merged)).toContain('"__proto__":5');
+  });
+
+  test("in a shard only, they come from the shard as numbers", () => {
+    const shard = parse('{"version":1,"files":{"__proto__":5,"constructor":7,"toString":9}}');
+    const merged = mergeTimings(timings({ "a.ts": 3 }), [shard]);
+    expect(own(merged)).toEqual([
+      ["toString", 9],
+      ["constructor", 7],
+      ["__proto__", 5],
+      ["a.ts", 3],
+    ]);
+  });
+
+  test("in both, an unchanged value is the base's and a changed one is the shard's", () => {
+    const base = parse('{"version":1,"files":{"__proto__":5,"constructor":7}}');
+    const shard = parse('{"version":1,"files":{"__proto__":5,"constructor":8}}');
+    const merged = mergeTimings(base, [shard]);
+    expect(own(merged)).toEqual([
+      ["constructor", 8],
+      ["__proto__", 5],
+    ]);
+  });
+
+  test("a shard lacking the names does not turn them into the prototype's members", () => {
+    const base = parse('{"version":1,"files":{"__proto__":5,"constructor":7,"a.ts":3}}');
+    const merged = mergeTimings(base, [timings({ "a.ts": 4 }), timings({ "b.ts": 2 })]);
+    for (const [, value] of own(merged)) expect(typeof value).toBe("number");
+    expect(own(merged).length).toBe(4);
+  });
+});

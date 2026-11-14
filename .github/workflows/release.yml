@@ -23,6 +23,10 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
+    outputs:
+      # The ID of the artifact this job uploaded: the jobs that read it name that one, not "release",
+      # since `e2e-macos` runs in this run too and its jobs hold the run's token (X-1).
+      artifact-id: ${{ steps.upload.outputs.artifact-id }}
     steps:
       - name: Refuse any ref but main
         if: github.ref != 'refs/heads/main'
@@ -52,7 +56,8 @@ jobs:
         run: node tools/release/smoke.ts release/tree --tools release/tools.json
       - name: Write the release files
         run: bun tools/release/package.ts --tree release/tree --out release
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      - id: upload
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release
           path: release/
@@ -77,7 +82,8 @@ jobs:
           node-version-file: package.json
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: release
+          artifact-ids: ${{ needs.build.outputs.artifact-id }}
+          merge-multiple: true
           path: release
       - name: Smoke the tree on Node
         run: node tools/release/smoke.ts release/tree --tools release/tools.json
@@ -87,12 +93,18 @@ jobs:
           sha256sum -c SHA256SUMS
 
   # The browser and conformance suites on macOS, in the weekly cadence's set (e2e.yml; e2e-cadence,
-  # decision 1): publishing waits for them. It reads the repository only: no secrets are passed.
+  # decision 1): publishing waits for them. No secrets are passed and the token reads the repository
+  # only, but its jobs share this run's artifact namespace and run code, so `publish` and `smoke-linux`
+  # download the build's artifact by ID, and the Playwright cache is off (X-1). Firefox is left out
+  # (coordinator decision C6): its full set fails on macOS until #174 and #145 close. Restore it by
+  # dropping `engines` once both are closed; the nightly and weekly cadences keep running it.
   e2e-macos:
     name: Browser and conformance on macOS
     uses: ./.github/workflows/e2e.yml
     with:
       cadence: weekly
+      engines: '["chromium","webkit"]'
+      no-cache: true
     permissions:
       contents: read
 
@@ -107,7 +119,8 @@ jobs:
     steps:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: release
+          artifact-ids: ${{ needs.build.outputs.artifact-id }}
+          merge-multiple: true
           path: release
       # The artifact is the build job's output, and that job runs dependency code: nothing in it is
       # trusted beyond the zip it names. The steps below read the version as one whole string, check the

@@ -31,6 +31,22 @@ on:
         description: Which cadence to run (smoke, nightly or weekly)
         type: string
         required: true
+      # Narrows the cadence's engines to this JSON list (chromium, firefox, webkit). Empty keeps
+      # every engine the cadence names. release.yml's call passes ["chromium","webkit"] (coordinator
+      # decision C6): Firefox's full set fails on macOS until #174 and #145 close, and a release must
+      # not wait for them. Restore Firefox in release.yml's `e2e-macos` call once both are closed; it
+      # stays in the nightly and weekly cadences, where its failures are informational.
+      engines:
+        description: Engines to run, as a JSON list; empty is the cadence's own
+        type: string
+        default: ""
+      # True turns the Playwright browser cache off. The release's call does (X-1): a cache entry
+      # written from main's scope would otherwise run inside the release's own run. Stated as a "no",
+      # since the empty `inputs` of a schedule or a pull request must still mean the cache is on.
+      no-cache:
+        description: Leave the Playwright browser cache unused
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -73,6 +89,7 @@ jobs:
           EVENT: ${{ github.event_name }}
           INPUT: ${{ inputs.cadence }}
           SCHEDULE: ${{ github.event.schedule }}
+          ENGINES: ${{ inputs.engines }}
         run: |
           case "$EVENT" in
             pull_request) cadence=smoke ;;
@@ -128,6 +145,15 @@ jobs:
               exit 1
               ;;
           esac
+          # The call's engines, when it narrows them: only a JSON list of known engines is taken.
+          if [ -n "$ENGINES" ]; then
+            engine='"(chromium|firefox|webkit)"'
+            if ! printf '%s\n' "$ENGINES" | grep -Eq "^\\[$engine(,$engine)*\\]\$"; then
+              echo "::error::'$ENGINES' is not a JSON list of chromium, firefox and webkit."
+              exit 1
+            fi
+            engines=$ENGINES
+          fi
           {
             echo "cadence=$cadence"
             echo "runner=$runner"
@@ -180,6 +206,7 @@ jobs:
       set: ${{ needs.plan.outputs.set }}
       engines: ${{ needs.plan.outputs.engines }}
       shards: ${{ needs.plan.outputs.shards }}
+      cache: ${{ !inputs.no-cache }}
 
   # The timed checks, serially and apart from the shards, judged on the median of three runs
   # (decision 6). Never a pull request's status, so this job alone is skipped by `if`.
@@ -194,6 +221,7 @@ jobs:
       set: perf
       engines: ${{ needs.plan.outputs.engines }}
       shards: '["1/1"]'
+      cache: ${{ !inputs.no-cache }}
 
   conformance:
     needs: [plan, build]
@@ -203,6 +231,7 @@ jobs:
       runs-on: ${{ needs.plan.outputs.runner }}
       build-artifact: ${{ needs.plan.outputs.build-artifact }}
       runtimes: ${{ needs.plan.outputs.runtimes }}
+      cache: ${{ !inputs.no-cache }}
 
   # The nightly's timings (C5): each engine's shard files are merged over the committed file and
   # uploaded as one artifact. Committing them is manual. A shard that failed uploaded nothing, and its

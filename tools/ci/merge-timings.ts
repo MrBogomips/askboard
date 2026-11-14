@@ -18,6 +18,11 @@ export type Timings = { readonly version: 1; readonly files: Readonly<Record<str
 
 const USAGE = "usage: bun tools/ci/merge-timings.ts <base> [<shard file>...] --out <file>";
 
+// Own keys only (threat model 3.5): `files["__proto__"]` or `files["constructor"]` of a file that lacks
+// them is Object.prototype's member, not a timing.
+const ownValue = (timings: Timings, path: string): number | undefined =>
+  Object.hasOwn(timings.files, path) ? timings.files[path] : undefined;
+
 /** The merge of the shard files over the base; throws, naming the path, when two shards disagree. */
 export const mergeTimings = (base: Timings, shards: readonly Timings[]): Timings => {
   const paths = new Set([
@@ -26,10 +31,10 @@ export const mergeTimings = (base: Timings, shards: readonly Timings[]): Timings
   ]);
   const merged = new Map<string, number>();
   for (const path of paths) {
-    const before = base.files[path];
+    const before = ownValue(base, path);
     const changed = new Set<number>();
     for (const shard of shards) {
-      const value = shard.files[path];
+      const value = ownValue(shard, path);
       if (value !== undefined && value !== before) changed.add(value);
     }
     if (changed.size > 1) {
