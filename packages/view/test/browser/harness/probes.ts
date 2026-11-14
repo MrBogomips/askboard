@@ -27,7 +27,7 @@ export type Settleable = {
 // Runs in the view's frame: two animation frames and a macrotask, so that a React render and the
 // effects after it have run and the message they post is on its way. A hidden page runs no
 // animation frames, so a long timer ends the wait there instead of hanging the test.
-const flushViewFrame = (): Promise<void> =>
+export const flushViewFrame = (): Promise<void> =>
   new Promise<void>((resolve) => {
     const hidden = setTimeout(resolve, 1_000);
     requestAnimationFrame(() =>
@@ -39,7 +39,8 @@ const flushViewFrame = (): Promise<void> =>
   });
 
 // Runs in the board page: one macrotask, after every message event already queued.
-const flushBoardPage = (): Promise<void> => new Promise<void>((resolve) => setTimeout(resolve, 0));
+export const flushBoardPage = (): Promise<void> =>
+  new Promise<void>((resolve) => setTimeout(resolve, 0));
 
 /**
  * View to board page. Flushes the view's frame, then the board page: a message the view posted

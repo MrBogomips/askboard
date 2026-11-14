@@ -3,11 +3,13 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { DRAFT_DEBOUNCE_MS } from "../../../src/board-page/draft-mirror.ts";
 import { RECONNECT_DELAYS_MS } from "../../../src/board-page/reconnect.ts";
-import { QUIET_MS } from "./board-test.ts";
 import {
   draftSettled,
+  flushBoardPage,
+  flushViewFrame,
   hostSettled,
   NO_RECONNECT_WAIT_MS,
+  QUIET_MS,
   quiet,
   type Settleable,
   timerSettled,
@@ -33,6 +35,45 @@ const fakeBoard = (calls: Call[]): Settleable => {
 };
 
 const order = (calls: readonly Call[]): string[] => calls.map((call) => call.on);
+
+// What `evaluate` runs in the browser, run here with a stand-in for the animation frame.
+describe("the functions the probes run in the page", () => {
+  const scope = globalThis as unknown as { requestAnimationFrame?: unknown };
+
+  test("flushViewFrame waits two animation frames and then a macrotask", async () => {
+    const events: string[] = [];
+    scope.requestAnimationFrame = (frame: () => void) => {
+      events.push("frame");
+      setTimeout(frame, 0);
+    };
+    try {
+      await flushViewFrame().then(() => events.push("done"));
+    } finally {
+      scope.requestAnimationFrame = undefined;
+    }
+    expect(events).toEqual(["frame", "frame", "done"]);
+  });
+
+  test("flushViewFrame ends on its own in a hidden page, which runs no animation frame", async () => {
+    scope.requestAnimationFrame = () => 0;
+    const began = performance.now();
+    try {
+      await flushViewFrame();
+    } finally {
+      scope.requestAnimationFrame = undefined;
+    }
+    expect(performance.now() - began).toBeGreaterThanOrEqual(950);
+  });
+
+  test("flushBoardPage resolves on a macrotask", async () => {
+    let queued = false;
+    setTimeout(() => {
+      queued = true;
+    }, 0);
+    await flushBoardPage();
+    expect(queued).toBe(true);
+  });
+});
 
 describe("viewSettled", () => {
   test("flushes the view frame, then the board page: one round trip each, in that order", async () => {
