@@ -45,6 +45,7 @@ import {
 } from "./child.ts";
 import { LINK_RECORDER, LINKS_VARIABLE, waitForOpened } from "./link-recorder.ts";
 import { type BoardProxy, startProxy } from "./proxy.ts";
+import { workerRuntimeDir } from "./runtime-dir.ts";
 import { type AskInput, askInputFor, questionTexts } from "./scenario-ask.ts";
 import type { BoardSession, ProjectFile, Scenario } from "./session.ts";
 import { type Stage, stageSession } from "./session-stage.ts";
@@ -468,6 +469,8 @@ const isolated = async (
   return {
     HOME: home,
     XDG_CONFIG_HOME: configHome,
+    // The session file and socket go in this worker's folder, not in the machine-wide one (e2e-cadence, decision 5a).
+    XDG_RUNTIME_DIR: workerRuntimeDir(),
     ...(withoutProject ? {} : { CLAUDE_PROJECT_DIR: project }),
   };
 };

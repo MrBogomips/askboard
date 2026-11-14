@@ -3,11 +3,12 @@ import { appendFileSync } from "node:fs";
 import { exists, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { BOARD_HOST, BOARD_PORT_RANGE, boardLink } from "@askboard/contract";
+import { BOARD_HOST, BOARD_PORT_RANGE, boardLink, sessionFolder } from "@askboard/contract";
 import { plainChoiceBoardDocument } from "@askboard/contract/fixtures";
 import { DEFAULT_INHERITED_ENV_VARS } from "@modelcontextprotocol/client/stdio";
 import { FakeChild, fakeMcpServer, fakeSpawn } from "./fake-child.ts";
 import { LINK_RECORDER, LINKS_VARIABLE } from "./link-recorder.ts";
+import { workerRuntimeDir } from "./runtime-dir.ts";
 import type { BoardSession, Scenario } from "./session.ts";
 import { type SessionProcessOptions, startSessionProcess } from "./session-process.ts";
 import { replayTranscripts } from "./transcripts.ts";
@@ -166,6 +167,7 @@ describe("startSessionProcess", () => {
       "BROWSER",
       LINKS_VARIABLE,
       "XDG_CONFIG_HOME",
+      "XDG_RUNTIME_DIR",
       "CLAUDE_PROJECT_DIR",
     ];
     for (const name of Object.keys(env)) expect(allowed).toContain(name);
@@ -194,6 +196,17 @@ describe("startSessionProcess", () => {
     expect(await read(join(projectDir, ".askboard", "config.json"))).toEqual(project);
     // The scenarios reach the user file through the session, to read what a board wrote.
     expect(session.userConfigPath).toBe(join(configHome, "askboard", "config.json"));
+  });
+
+  // e2e-cadence, design decision 5a: files in parallel never share the machine-wide session folder.
+  test("its session folder is the worker's runtime folder, never the machine-wide one", async () => {
+    const fake = fakeProcess();
+    await start(fake);
+    const env = fake.spawned[0]?.options.env ?? {};
+    expect(env.XDG_RUNTIME_DIR).toBe(workerRuntimeDir());
+    const folder = sessionFolder({ env, uid: process.getuid?.() ?? 0 });
+    expect(folder).toBe(`${workerRuntimeDir()}/askboard`);
+    expect(folder).not.toStartWith("/tmp/askboard-");
   });
 
   test("a scenario without a project starts the process without CLAUDE_PROJECT_DIR, the rest still its own", async () => {
