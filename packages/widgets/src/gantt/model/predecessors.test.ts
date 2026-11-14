@@ -21,6 +21,9 @@ const [question] = ganttBoardDocument.items;
 const [release] = question.props.items;
 const SENT = release.props as GanttOwnProps;
 
+/** Each dependency is read once for the panel; a few times leaves room for a second look. */
+const READS_PER_DEPENDENCY_MAX = 4;
+
 /**
  * The panel's boxes over a Gantt's own tasks, its rows as the grid shows them; the panel opened
  * on `opened`, by default what it holds.
@@ -340,9 +343,17 @@ describe("the boxes against canPrecede", () => {
     expectSame(compared(PLAN, editedRows(PLAN), linked, editedRows(linked), "u-1"));
   });
 
-  test("are counted once per panel: 500 tasks at the limits take well under the time of a frame", () => {
+  test("are counted once per panel: 500 tasks at the limits read each dependency once, not once per box", () => {
     // Ten layers of fifty, each task after the first layer after the fifty before it: fifty
     // predecessors and fifty dependents each. The panel opens for the last task, which has none.
+    let reads = 0;
+    const counted = <T>(items: readonly T[]): readonly T[] =>
+      new Proxy(items, {
+        get: (target, key, receiver) => {
+          if (typeof key === "string" && /^\d+$/.test(key)) reads += 1;
+          return Reflect.get(target, key, receiver);
+        },
+      });
     const tasks = Array.from({ length: 500 }, (_, index) => {
       const layer = index === 499 ? 0 : Math.floor(index / 50);
       const before = Array.from({ length: 50 }, (_, k) => `t${(layer - 1) * 50 + k}`);
@@ -350,22 +361,24 @@ describe("the boxes against canPrecede", () => {
         id: `t${index}`,
         label: `Task ${index}`,
         duration: 1,
-        ...(layer === 0 ? {} : { dependencies: before }),
+        ...(layer === 0 ? {} : { dependencies: counted(before) }),
       };
     });
     const value: GanttOwnProps = { start: "2026-11-02", tasks };
     const rows = ownTaskRows(value);
-    const from = performance.now();
+    reads = 0;
     const boxes = panelBoxes(value, rows, "t499", [], [], EN_US_SAY);
-    const took = performance.now() - from;
     expect(boxes).toHaveLength(499);
     // The first eight layers are at the dependents limit; the ninth has 49, the last none.
     expect(boxes.filter((box) => box.reason !== undefined).map((box) => box.id)).toEqual(
       Array.from({ length: 400 }, (_, index) => `t${index}`),
     );
-    // A bound far above what this machine gives (a few milliseconds): it catches a regression by
-    // an order of magnitude, as a count per candidate was (about 350 ms), not a busy machine.
-    expect(took).toBeLessThan(50);
+    // 450 tasks hold 50 dependencies each: 22,500 of them. The dependents are counted once for the
+    // panel, so each dependency is read once (a few times is allowed); counting them again for every
+    // one of the 499 boxes, as a regression did (about 350 ms), reads each about 499 times more.
+    const dependencies = 450 * 50;
+    expect(reads).toBeGreaterThan(0);
+    expect(reads).toBeLessThanOrEqual(READS_PER_DEPENDENCY_MAX * dependencies);
   });
 });
 

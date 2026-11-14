@@ -161,9 +161,18 @@ describe("a TextField's pattern, which only the board runs", () => {
 
   test("a text over the limit fails without the pattern running (the cap is the function's own)", () => {
     const heavy = { pattern: "^\\d*\\d*\\d*\\d{250}$" };
-    const started = performance.now();
-    expect(patternFailure(heavy, `${"1".repeat(999)}x`)).toEqual({ code: "pattern" });
-    expect(performance.now() - started).toBeLessThan(5);
+    const run = RegExp.prototype.test;
+    let runs = 0;
+    RegExp.prototype.test = function (this: RegExp, text: string) {
+      runs += 1;
+      return run.call(this, text);
+    };
+    try {
+      expect(patternFailure(heavy, `${"1".repeat(999)}x`)).toEqual({ code: "pattern" });
+    } finally {
+      RegExp.prototype.test = run;
+    }
+    expect(runs).toBe(0);
   });
 
   test("100 code points run the pattern and 101 do not, with or without maxLength", () => {
