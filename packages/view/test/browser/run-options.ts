@@ -23,11 +23,13 @@ export type Options = {
   readonly workers: number;
   readonly shard?: Shard;
   readonly updateTimings: boolean;
+  /** Where a full-set pass of one engine writes its timings, in place of the committed file (C5). */
+  readonly timingsOut?: string;
   readonly extra: readonly string[];
 };
 
 export const USAGE =
-  "usage: bun packages/view/test/browser/run.ts [--engines a,b] [--target test-server|session-process] [--runtime bun|node] [--no-build] [--serial] [--set smoke|full|perf|all] [--workers <n>] [--shard <k>/<n>] [--update-timings] [-- <bun test arguments>]";
+  "usage: bun packages/view/test/browser/run.ts [--engines a,b] [--target test-server|session-process] [--runtime bun|node] [--no-build] [--serial] [--set smoke|full|perf|all] [--workers <n>] [--shard <k>/<n>] [--update-timings] [--timings-out <file>] [-- <bun test arguments>]";
 
 /** Where the defaults come from: the environment, and the cores a run may use. */
 export type Defaults = {
@@ -64,7 +66,26 @@ const shardFrom = (value: string): Shard => {
 // the files of the pass, so only an unsharded run of every non-perf file may write it; the perf pass
 // is serial, whole and untimed, so a shard cannot share it out (it would run in full in every
 // shard): shard the smoke and full sets alone.
-const checkCombination = (set: SetName, shard: Shard | undefined, updateTimings: boolean): void => {
+// `--timings-out` is the sharded form of `--update-timings` (C5): one engine's full set, written to
+// a file of its own for a merge step to combine, so it takes a shard but not the committed file.
+const checkCombination = (
+  set: SetName,
+  shard: Shard | undefined,
+  updateTimings: boolean,
+  timingsOut: string | undefined,
+  engines: number,
+): void => {
+  if (timingsOut !== undefined) {
+    if (set !== "full") {
+      refuse(`--timings-out takes the full set, not ${set}: only its files are timed and merged`);
+    }
+    if (engines !== 1) {
+      refuse(`--timings-out takes one engine, not ${engines}: name it with --engines`);
+    }
+    if (updateTimings) {
+      refuse("--timings-out cannot be combined with --update-timings: they write different files");
+    }
+  }
   if (updateTimings && shard !== undefined) {
     refuse(
       "--update-timings cannot be sharded: each shard would replace the file with its own files",
@@ -82,7 +103,15 @@ const checkCombination = (set: SetName, shard: Shard | undefined, updateTimings:
   }
 };
 
-const WITH_VALUE = ["--engines", "--target", "--runtime", "--set", "--workers", "--shard"];
+const WITH_VALUE = [
+  "--engines",
+  "--target",
+  "--runtime",
+  "--set",
+  "--workers",
+  "--shard",
+  "--timings-out",
+];
 
 /** The options an argument list gives; throws the reason and the usage line when it is refused. */
 export const parseArgs = (args: readonly string[], { env, cores }: Defaults): Options => {
@@ -95,8 +124,9 @@ export const parseArgs = (args: readonly string[], { env, cores }: Defaults): Op
   let workers = Math.max(1, cores);
   let shard: Shard | undefined;
   let updateTimings = false;
+  let timingsOut: string | undefined;
   const options = (extra: readonly string[]): Options => {
-    checkCombination(set, shard, updateTimings);
+    checkCombination(set, shard, updateTimings, timingsOut, engines.length);
     return {
       engines,
       target,
@@ -107,6 +137,7 @@ export const parseArgs = (args: readonly string[], { env, cores }: Defaults): Op
       workers,
       ...(shard === undefined ? {} : { shard }),
       updateTimings,
+      ...(timingsOut === undefined ? {} : { timingsOut }),
       extra,
     };
   };
@@ -126,7 +157,9 @@ export const parseArgs = (args: readonly string[], { env, cores }: Defaults): Op
       else if (arg === "--runtime") runtime = runtimeFrom(value);
       else if (arg === "--set") set = setFrom(value);
       else if (arg === "--workers") workers = workersFrom(value);
-      else shard = shardFrom(value);
+      else if (arg === "--timings-out") {
+        timingsOut = value === "" ? refuse("--timings-out takes a file name") : value;
+      } else shard = shardFrom(value);
     }
   }
   return options([]);

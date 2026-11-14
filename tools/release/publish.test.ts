@@ -33,7 +33,10 @@ const workflow = Bun.YAML.parse(
   readFileSync(join(ROOT, ".github", "workflows", "release.yml"), "utf8"),
 ) as { jobs: { publish: { steps: Step[] } } };
 const publishSteps = workflow.jobs.publish.steps;
-const FIRST_RUN = publishSteps.findIndex((step) => step.run !== undefined);
+// The artifact-ID gate runs before the download and reads no file: the scripts under test start after it.
+const FIRST_RUN = publishSteps.findIndex(
+  (step) => step.run !== undefined && step.env?.ARTIFACT_ID === undefined,
+);
 
 const tools = ["bash", "git", "jq", "unzip", "zip", "diff", "find", "sha256sum"];
 const missing = tools.filter((tool) => Bun.which(tool) === null);
@@ -214,7 +217,8 @@ const runPublish = (workspace: string, remote: Remote, sha1 = MAIN_SHA): Outcome
   let output = "";
   let failed: number | undefined;
   publishSteps.forEach((step, index) => {
-    if (failed !== undefined || step.run === undefined) return;
+    if (failed !== undefined || step.run === undefined || step.env?.ARTIFACT_ID !== undefined)
+      return;
     const env: Record<string, string> = {
       PATH: `${remote.stubs}:${process.env.PATH ?? ""}`,
       ...baseEnv(remote),

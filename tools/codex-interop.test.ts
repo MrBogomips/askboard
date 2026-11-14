@@ -30,7 +30,7 @@ describe("Codex interop", () => {
   test("CI converts the sources in the codex job only; the shared setup skips the Codex files", () => {
     expect(read(".github/actions/setup-bun/action.yml")).toContain("setup.sh --ci --no-codex");
     expect(read(".github/workflows/codex.yml")).toContain("setup.sh --codex-only");
-    for (const workflow of ["check", "browser", "conformance", "openspec", "release"]) {
+    for (const workflow of ["check", "browser", "conformance", "e2e", "openspec", "release"]) {
       expect(read(`.github/workflows/${workflow}.yml`)).not.toContain("--codex-only");
     }
   });

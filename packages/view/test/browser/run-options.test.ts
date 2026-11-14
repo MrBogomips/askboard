@@ -76,6 +76,24 @@ describe("parseArgs", () => {
     }
   });
 
+  // `--timings-out <file>` (decision 5, C5): a shard job writes its timings to a file of its own, so
+  // it takes the full set and one engine, sharded or not, and never the committed engine file.
+  test("takes --timings-out with the full set and one engine, with or without --shard", () => {
+    const withOut = (...args: string[]) =>
+      parse("--set", "full", "--engines", "chromium", "--timings-out", "out/c-1of4.json", ...args);
+    expect(withOut().timingsOut).toBe("out/c-1of4.json");
+    expect(withOut("--shard", "1/4")).toMatchObject({
+      timingsOut: "out/c-1of4.json",
+      shard: { k: 1, n: 4 },
+    });
+    expect(parse("--set", "full", "--engines", "webkit").timingsOut).toBeUndefined();
+    expect("timingsOut" in parse("--set", "full", "--engines", "webkit")).toBe(false);
+    // The order of the options does not matter.
+    expect(
+      parse("--timings-out", "t.json", "--engines", "firefox", "--set", "full").timingsOut,
+    ).toBe("t.json");
+  });
+
   test("accepts each set and --serial, which changes nothing", () => {
     for (const set of ["smoke", "full", "perf", "all"] as const) {
       expect(parse("--set", set).set).toBe(set);
@@ -125,6 +143,38 @@ describe("parseArgs", () => {
       ["--set", "perf", "--update-timings"],
       /update-timings.*perf/,
     ],
+    [
+      "--timings-out with the smoke set",
+      ["--set", "smoke", "--engines", "chromium", "--timings-out", "t.json"],
+      /timings-out.*smoke/,
+    ],
+    [
+      "--timings-out with the perf set",
+      ["--set", "perf", "--engines", "chromium", "--timings-out", "t.json"],
+      /timings-out.*perf/,
+    ],
+    [
+      "--timings-out with the all set, by default",
+      ["--engines", "chromium", "--timings-out", "t.json"],
+      /timings-out.*all/,
+    ],
+    [
+      "--timings-out with two engines",
+      ["--set", "full", "--engines", "chromium,webkit", "--timings-out", "t.json"],
+      /timings-out.*one engine/,
+    ],
+    [
+      "--timings-out with every engine, by default",
+      ["--set", "full", "--timings-out", "t.json"],
+      /timings-out.*one engine/,
+    ],
+    [
+      "--timings-out with --update-timings",
+      ["--set", "full", "--engines", "chromium", "--timings-out", "t.json", "--update-timings"],
+      /timings-out.*update-timings/,
+    ],
+    ["--timings-out with no value", ["--timings-out"], /usage:/],
+    ["--timings-out with an empty value", ["--timings-out", ""], /timings-out/],
     ["--shard with the all set, by default", ["--shard", "1/2"], /shard.*all/],
     ["--shard with the all set", ["--set", "all", "--shard", "1/2"], /shard.*all/],
     ["--shard with the perf set", ["--set", "perf", "--shard", "1/2"], /shard.*perf/],
@@ -141,6 +191,7 @@ describe("parseArgs", () => {
     expect(() => parse("--workers", "0")).toThrow(USAGE);
     expect(() => parse("--set", "all", "--shard", "1/2")).toThrow(USAGE);
     expect(() => parse("--set", "smoke", "--update-timings")).toThrow(USAGE);
+    expect(() => parse("--set", "perf", "--timings-out", "t.json")).toThrow(USAGE);
     for (const option of [
       "--engines",
       "--target",
@@ -151,6 +202,7 @@ describe("parseArgs", () => {
       "--workers",
       "--shard",
       "--update-timings",
+      "--timings-out",
     ]) {
       expect(USAGE).toContain(option);
     }

@@ -24,6 +24,12 @@ export type Pass = {
   readonly files: readonly string[];
   /** The arguments of `bun test`, after the executable. */
   readonly args: readonly string[];
+  /**
+   * `--timings-out` (C5): the file this pass writes its timings to, which the runner first fills
+   * from `base` (the engine's committed file) or with an empty one, so that `bun test` balances
+   * the shard by the committed timings and the committed file stays as it is.
+   */
+  readonly timingsOut?: { readonly file: string; readonly base: string | undefined };
 };
 
 const belongs = (set: PassSet, entry: BrowserFileEntry): boolean =>
@@ -56,7 +62,8 @@ const argsOf = (
   hasTimings: (engine: Engine) => boolean,
 ): string[] => {
   const timed = set !== "perf";
-  const timings = timed && (options.updateTimings || hasTimings(engine));
+  const out = timed ? options.timingsOut : undefined;
+  const timings = timed && (out !== undefined || options.updateTimings || hasTimings(engine));
   return [
     "test",
     "--timeout",
@@ -65,8 +72,8 @@ const argsOf = (
     ...(timed && options.shard !== undefined
       ? [`--shard=${options.shard.k}/${options.shard.n}`]
       : []),
-    ...(timings ? ["--timings", timingsFile(engine)] : []),
-    ...(timed && options.updateTimings ? ["--update-timings"] : []),
+    ...(timings ? ["--timings", out ?? timingsFile(engine)] : []),
+    ...(timed && (out !== undefined || options.updateTimings) ? ["--update-timings"] : []),
     ...files,
     ...options.extra,
   ];
@@ -89,6 +96,16 @@ export const planPasses = (
     options.engines.flatMap((engine): Pass[] => {
       const files = filesOf(set, engine, manifest);
       if (files.length === 0) return [];
-      return [{ set, engine, files, args: argsOf(set, engine, files, options, hasTimings) }];
+      const args = argsOf(set, engine, files, options, hasTimings);
+      const seed =
+        options.timingsOut === undefined || set === "perf"
+          ? {}
+          : {
+              timingsOut: {
+                file: options.timingsOut,
+                base: hasTimings(engine) ? timingsFile(engine) : undefined,
+              },
+            };
+      return [{ set, engine, files, args, ...seed }];
     }),
   );

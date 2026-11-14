@@ -176,6 +176,50 @@ describe("planPasses: the bun test arguments", () => {
     expect(plan({ set: "full" })[0]?.args).not.toContain("--update-timings");
   });
 
+  // --timings-out (C5): the pass writes to the file it is given and never to the committed one; the
+  // runner seeds that file from the committed one, so the shard is still balanced by it.
+  describe("--timings-out", () => {
+    const out = "timings-out/chromium-2of4.json";
+    const sharded = {
+      set: "full",
+      engines: ["chromium"],
+      timingsOut: out,
+      shard: { k: 2, n: 4 },
+    } as const;
+
+    test("gives bun test --timings <file> --update-timings, with the shard, and not the committed file", () => {
+      const [pass] = plan(sharded, () => true);
+      expect(pass?.args).toContain("--shard=2/4");
+      expect(pass?.args[(pass?.args.indexOf("--timings") ?? -1) + 1]).toBe(out);
+      expect(pass?.args).toContain("--update-timings");
+      expect(pass?.args).not.toContain(timingsFile("chromium"));
+      expect(pass?.args.filter((arg) => arg === "--timings")).toHaveLength(1);
+    });
+
+    test("seeds the file from the committed one when it exists, else from nothing", () => {
+      expect(plan(sharded, () => true)[0]?.timingsOut).toEqual({
+        file: out,
+        base: timingsFile("chromium"),
+      });
+      expect(plan(sharded, () => false)[0]?.timingsOut).toEqual({ file: out, base: undefined });
+    });
+
+    test("works unsharded, and the timings come first in the arguments' order of use", () => {
+      const [pass] = plan({ set: "full", engines: ["firefox"], timingsOut: out }, () => true);
+      expect(pass?.args.join(" ")).not.toContain("--shard");
+      expect(pass?.args).toContain("--update-timings");
+      expect(pass?.timingsOut?.file).toBe(out);
+      expect(pass?.args.indexOf("--timings")).toBeLessThan(
+        pass?.args.indexOf("--update-timings") ?? 0,
+      );
+    });
+
+    test("a pass without it has no seed, and the committed file stays named for --update-timings", () => {
+      for (const pass of plan({ set: "full" }, () => true)) expect(pass.timingsOut).toBeUndefined();
+      expect("timingsOut" in (plan({ set: "smoke" })[0] ?? {})).toBe(false);
+    });
+  });
+
   test("no pass carries --no-isolate", () => {
     for (const set of ["smoke", "full", "perf", "all"] as const) {
       for (const pass of plan({ set }, () => true)) expect(pass.args).not.toContain("--no-isolate");

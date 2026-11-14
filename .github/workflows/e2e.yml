@@ -1,0 +1,280 @@
+name: E2E
+
+# The browser and conformance suites on a cadence (e2e-cadence, decisions 1 to 3). Like ci.yml this
+# file only composes reusable workflows; the `plan` job turns the event into the cadence's settings.
+#   smoke    every pull request   Linux: the smoke set in Chromium and conformance on Bun
+#   nightly  02:23 UTC            Linux: every browser file in three engines by four shards, the perf
+#                                 pass, conformance on Node 24 and Node 26
+#   weekly   Saturday 04:23 UTC   macOS: the nightly's set with conformance on Bun, Node 24 and Node 26;
+#   and before every release      release.yml calls it with `cadence: weekly` before it publishes
+# No ruleset requires these jobs (the PO's answer to Q2, 2026-11-14): a red e2e job blocks no merge.
+# The repository is public, so a pull request from a fork runs this file: it reads the repository and
+# nothing else (no secrets, no write token, `pull_request` and never `pull_request_target`), its
+# actions are the first-party ones pinned by SHA, and no `${{ }}` expression reaches a script except
+# through `env`.
+on:
+  pull_request:
+  schedule:
+    # Apart from ci.yml's 17 3 * * *. The plan job maps each line to its cadence.
+    - cron: "23 2 * * *"
+    - cron: "23 4 * * 6"
+  workflow_dispatch:
+    inputs:
+      cadence:
+        description: Which cadence to run
+        type: choice
+        options: [smoke, nightly, weekly]
+        default: smoke
+  workflow_call:
+    inputs:
+      cadence:
+        description: Which cadence to run (smoke, nightly or weekly)
+        type: string
+        required: true
+      # Narrows the cadence's engines to this JSON list (chromium, firefox, webkit). Empty keeps
+      # every engine the cadence names. release.yml's call passes ["chromium","webkit"] (coordinator
+      # decision C6): Firefox's full set fails on macOS until #174 and #145 close, and a release must
+      # not wait for them. Restore Firefox in release.yml's `e2e-macos` call once both are closed; it
+      # stays in the nightly and weekly cadences, where its failures are informational.
+      engines:
+        description: Engines to run, as a JSON list; empty is the cadence's own
+        type: string
+        default: ""
+      # True turns the Playwright browser cache off. The release's call does (X-1): a cache entry
+      # written from main's scope would otherwise run inside the release's own run. Stated as a "no",
+      # since the empty `inputs` of a schedule or a pull request must still mean the cache is on.
+      no-cache:
+        description: Leave the Playwright browser cache unused
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# A newer push to a pull request cancels the run it supersedes. A nightly run, a weekly run, a
+# dispatch and the release's call on one commit each have their own group, and no scheduled run is
+# cancelled.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}-${{ inputs.cadence || github.event.schedule || github.event_name }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  plan:
+    name: Plan the cadence
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.paths.outputs.code }}
+      cadence: ${{ steps.cadence.outputs.cadence }}
+      runner: ${{ steps.cadence.outputs.runner }}
+      build-artifact: ${{ steps.cadence.outputs.build-artifact }}
+      set: ${{ steps.cadence.outputs.set }}
+      engines: ${{ steps.cadence.outputs.engines }}
+      shards: ${{ steps.cadence.outputs.shards }}
+      runtimes: ${{ steps.cadence.outputs.runtimes }}
+      perf: ${{ steps.cadence.outputs.perf }}
+      timings: ${{ steps.cadence.outputs.timings }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The commit under test and its first parent, which the next step diffs.
+          fetch-depth: 2
+          persist-credentials: false
+      # The one list of documents, the one `check` uses: a schedule, a dispatch and the release's call
+      # get code=true; a pull request that changes only documents gets false.
+      - id: paths
+        run: sh tools/ci/changed-paths.sh >> "$GITHUB_OUTPUT"
+      - id: cadence
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT: ${{ inputs.cadence }}
+          SCHEDULE: ${{ github.event.schedule }}
+          ENGINES: ${{ inputs.engines }}
+        run: |
+          case "$EVENT" in
+            pull_request) cadence=smoke ;;
+            schedule)
+              case "$SCHEDULE" in
+                "23 2 * * *") cadence=nightly ;;
+                "23 4 * * 6") cadence=weekly ;;
+                *)
+                  echo "::error::No cadence is planned for the schedule '$SCHEDULE'."
+                  exit 1
+                  ;;
+              esac
+              ;;
+            workflow_dispatch | workflow_call) cadence=$INPUT ;;
+            *)
+              echo "::error::No cadence is planned for the event '$EVENT'."
+              exit 1
+              ;;
+          esac
+          case "$cadence" in
+            smoke)
+              runner=ubuntu-24.04
+              artifact=e2e-build-linux
+              set=smoke
+              engines='["chromium"]'
+              shards='["1/1"]'
+              runtimes='["bun"]'
+              perf=false
+              timings=false
+              ;;
+            nightly)
+              runner=ubuntu-24.04
+              artifact=e2e-build-linux
+              set=full
+              engines='["chromium","firefox","webkit"]'
+              shards='["1/4","2/4","3/4","4/4"]'
+              runtimes='["node-24","node-26"]'
+              perf=true
+              timings=true
+              ;;
+            weekly)
+              runner=macos-latest
+              artifact=e2e-build-macos
+              set=full
+              engines='["chromium","firefox","webkit"]'
+              shards='["1/4","2/4","3/4","4/4"]'
+              runtimes='["bun","node-24","node-26"]'
+              perf=true
+              timings=false
+              ;;
+            *)
+              echo "::error::'$cadence' is not a cadence: smoke, nightly or weekly."
+              exit 1
+              ;;
+          esac
+          # The call's engines, when it sets them: they replace the cadence's. Only a one-line JSON list
+          # of known engines is taken: grep matches line by line, so a value with a newline or a
+          # carriage return is refused first, before it could put a second line in $GITHUB_OUTPUT.
+          if [ -n "$ENGINES" ]; then
+            engine='"(chromium|firefox|webkit)"'
+            whole=$(printf '%s' "$ENGINES" | wc -c)
+            flat=$(printf '%s' "$ENGINES" | tr -d '\n\r' | wc -c)
+            if [ "$whole" -ne "$flat" ] ||
+              ! printf '%s\n' "$ENGINES" | grep -Eq "^\\[$engine(,$engine)*\\]\$"; then
+              echo "::error::The engines value is not a one-line JSON list of chromium, firefox and webkit."
+              exit 1
+            fi
+            engines=$ENGINES
+          fi
+          {
+            echo "cadence=$cadence"
+            echo "runner=$runner"
+            echo "build-artifact=$artifact"
+            echo "set=$set"
+            echo "engines=$engines"
+            echo "shards=$shards"
+            echo "runtimes=$runtimes"
+            echo "perf=$perf"
+            echo "timings=$timings"
+          } >> "$GITHUB_OUTPUT"
+
+  # Built once per run and read by the jobs below, which download it: an artifact is read only by the
+  # run that made it. Always runs, like every job here, so that its status exists for every change:
+  # with only documents changed it ends after one step (#173's rule).
+  build:
+    name: Build
+    needs: plan
+    runs-on: ${{ needs.plan.outputs.runner }}
+    timeout-minutes: 15
+    steps:
+      - name: Only documents changed
+        if: needs.plan.outputs.code != 'true'
+        run: echo "Only documents changed (see tools/ci/changed-paths.sh), so nothing to build."
+      - if: needs.plan.outputs.code == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - if: needs.plan.outputs.code == 'true'
+        uses: ./.github/actions/setup-bun
+      - if: needs.plan.outputs.code == 'true'
+        run: bun run build
+      - if: needs.plan.outputs.code == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ needs.plan.outputs.build-artifact }}
+          path: |
+            dist/
+            hooks/askboard-mod.js
+          if-no-files-found: error
+          retention-days: 1
+
+  browser:
+    needs: [plan, build]
+    uses: ./.github/workflows/browser.yml
+    with:
+      code: ${{ needs.plan.outputs.code == 'true' }}
+      runs-on: ${{ needs.plan.outputs.runner }}
+      build-artifact: ${{ needs.plan.outputs.build-artifact }}
+      set: ${{ needs.plan.outputs.set }}
+      engines: ${{ needs.plan.outputs.engines }}
+      shards: ${{ needs.plan.outputs.shards }}
+      cache: ${{ !inputs.no-cache }}
+
+  # The timed checks, serially and apart from the shards, judged on the median of three runs
+  # (decision 6). Never a pull request's status, so this job alone is skipped by `if`.
+  perf:
+    if: ${{ needs.plan.outputs.perf == 'true' }}
+    needs: [plan, build]
+    uses: ./.github/workflows/browser.yml
+    with:
+      code: ${{ needs.plan.outputs.code == 'true' }}
+      runs-on: ${{ needs.plan.outputs.runner }}
+      build-artifact: ${{ needs.plan.outputs.build-artifact }}
+      set: perf
+      engines: ${{ needs.plan.outputs.engines }}
+      shards: '["1/1"]'
+      cache: ${{ !inputs.no-cache }}
+
+  conformance:
+    needs: [plan, build]
+    uses: ./.github/workflows/conformance.yml
+    with:
+      code: ${{ needs.plan.outputs.code == 'true' }}
+      runs-on: ${{ needs.plan.outputs.runner }}
+      build-artifact: ${{ needs.plan.outputs.build-artifact }}
+      runtimes: ${{ needs.plan.outputs.runtimes }}
+      cache: ${{ !inputs.no-cache }}
+
+  # The nightly's timings (C5): each engine's shard files are merged over the committed file and
+  # uploaded as one artifact. Committing them is manual. A shard that failed uploaded nothing, and its
+  # files keep the committed values. Never a pull request's status, so it too is skipped by `if`.
+  timings:
+    name: Merge the shards' timings, ${{ matrix.engine }}
+    if: ${{ !cancelled() && needs.plan.outputs.timings == 'true' }}
+    needs: [plan, browser]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: ${{ fromJSON(needs.plan.outputs.engines) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-bun
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: timings-shard-${{ matrix.engine }}-*
+          path: shards
+          merge-multiple: true
+      - name: Merge the shard files over the committed file
+        env:
+          ENGINE: ${{ matrix.engine }}
+        run: |
+          set -- shards/*.json
+          if [ ! -e "$1" ]; then
+            echo "No shard timings arrived for $ENGINE, so the committed file stands."
+            exit 0
+          fi
+          mkdir -p merged
+          bun tools/ci/merge-timings.ts "packages/view/test/browser/timings/$ENGINE.json" "$@" --out "merged/$ENGINE.json"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: timings-merged-${{ matrix.engine }}
+          path: merged/${{ matrix.engine }}.json
+          if-no-files-found: ignore
+          retention-days: 14
