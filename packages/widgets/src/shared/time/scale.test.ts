@@ -180,9 +180,11 @@ describe("the axis of a far plan (design decision 8)", () => {
   );
 
   // The cost of `ticks` follows the ticks it draws, at most about MAX_TICKS, not the days of the
-  // span: a plan to 9999-12-31 costs what one of about 2,000 ticks does. A walk over every tick
-  // before thinning (2.9 million at day zoom, 416,000 at week, 96,000 at month) would cost 50 to
-  // 1,000 times as much. The ratio of the best of several calls, after a warm-up, holds on a busy
+  // span: a plan to 9999-12-31 costs what one of about 2,000 ticks does. This catches a walk that
+  // does real work per tick before thinning (building a date string per tick: ratios 27 to 212
+  // against the bound 20). It does not catch a light walk (a day number per tick: ratios 2 to 19);
+  // at 2.9 million steps that costs about 20 ms, no risk at today's caps. An unbounded walk fails
+  // by the test timeout. The ratio of the best of several calls, after a warm-up, holds on a busy
   // machine, where an absolute bound in milliseconds does not (the first call alone took 66 ms).
   const NEAR_DAYS: Readonly<Record<Zoom, number>> = { day: 1_999, week: 7 * 1_999, month: 62_000 };
   const bestOf = (runs: number, call: () => unknown): number => {

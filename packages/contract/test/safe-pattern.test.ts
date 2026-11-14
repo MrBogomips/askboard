@@ -352,9 +352,12 @@ describe("names that are not patterns", () => {
 
 describe("the check is one pass", () => {
   // The cost of the check grows with the pattern's length, once: a pattern ten times as long costs
-  // about ten times as much, where a second pass over what is read, or a stack copied at each level,
-  // would cost a hundred times. The ratio of the best of several batches holds on a busy shared
-  // runner, where an absolute bound of 5 ms did not (#161). 30 sits between 10 (one pass) and 100.
+  // about ten times as much. The flat test catches a pass whose cost grows with the length at every
+  // step (a rescan of the rest of the pattern: ratio about 50). The ratio of the best of several
+  // batches holds on a busy shared runner, where an absolute bound of 5 ms did not (#161); 30 sits
+  // between 10 (one pass) and 100. It does not catch a cost that grows only with the nesting (a
+  // stack copied at each level measured about 26, under the bound); at the 200-character cap that
+  // costs microseconds, and an exponential check still fails by the 30 s timeout.
   const BATCH = 200;
   const bestBatch = (pattern: string): number => {
     let best = Number.POSITIVE_INFINITY;

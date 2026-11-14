@@ -23,7 +23,7 @@ case $event in
     ;;
 esac
 
-if ! files=$(git diff --name-only HEAD^1 HEAD 2>/dev/null); then
+if ! files=$(git diff --no-renames --name-only HEAD^1 HEAD 2>/dev/null); then
   echo "code=true"
   echo "codex=true"
   exit 0
@@ -31,10 +31,13 @@ fi
 
 # Documents nothing in `bun run check` reads. docs/ is documents except the three files tests and
 # the view build read; CLAUDE.md is read by tools/codex-interop.test.ts and CHANGELOG.md by the
-# release tooling, so they are not here. openspec/ is validated by its own job.
+# release tooling, so they are not here. openspec/ is validated by its own job, except the approved
+# examples the contract tests read. A diff lists both paths of a rename (--no-renames), so a code
+# file moved into docs/ still counts.
 is_document() {
   case $1 in
     docs/ux-askboard-2026-10-27/DESIGN.md | docs/prd-askboard-2026-10-25/addendum.md | docs/architecture-askboard-2026-10-27/ARCHITECTURE-SPINE.md) return 1 ;;
+    openspec/changes/archive/2026-10-29-review-model-contract/examples/*) return 1 ;;
     docs/* | openspec/* | drafts/*) return 0 ;;
     CLAUDE.md | CHANGELOG.md) return 1 ;;
     */*) return 1 ;;

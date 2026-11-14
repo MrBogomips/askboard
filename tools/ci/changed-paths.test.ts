@@ -30,6 +30,19 @@ function commit(paths: string[]): void {
 
 function decide(event: string, changed: string[]): { code: string; codex: string } {
   commit(changed);
+  return run(event);
+}
+
+// The merge commit of a pull request that only renames `from` to `to`.
+function decideRename(from: string, to: string): { code: string; codex: string } {
+  commit([from]);
+  mkdirSync(dirname(join(repo, to)), { recursive: true });
+  git("mv", from, to);
+  git("commit", "-q", "-m", "rename");
+  return run("pull_request");
+}
+
+function run(event: string): { code: string; codex: string } {
   const result = Bun.spawnSync(["sh", SCRIPT], {
     cwd: repo,
     env: { ...process.env, GITHUB_EVENT_NAME: event },
@@ -63,6 +76,8 @@ describe("a pull request", () => {
     ],
     [["drafts/notes.md", "ROADMAP.md", "README.md"]],
     [["docs/ux-askboard-2026-10-27/EXPERIENCE.md"]],
+    // Only the folder the contract tests read is code.
+    [["openspec/changes/archive/2026-11-01-some-change/proposal.md"]],
   ])("that changes only documents needs no check: %j", (changed) => {
     expect(decide("pull_request", changed)).toEqual({ code: "false", codex: "false" });
   });
@@ -76,6 +91,8 @@ describe("a pull request", () => {
     ["packages/contract/README.md"],
     ["hooks/hooks.json"],
     ["CHANGELOG.md"],
+    // The contract tests read the approved examples.
+    ["openspec/changes/archive/2026-10-29-review-model-contract/examples/gantt.json"],
     // Tests and the view build read these three documents.
     ["docs/ux-askboard-2026-10-27/DESIGN.md"],
     ["docs/prd-askboard-2026-10-25/addendum.md"],
@@ -96,6 +113,14 @@ describe("a pull request", () => {
     [".mcp.json"],
   ])("that changes %s needs the Codex files regenerated, and the check", (path) => {
     expect(decide("pull_request", [path])).toEqual({ code: "true", codex: "true" });
+  });
+
+  test("that renames code into docs/ needs the check", () => {
+    expect(decideRename("packages/core/src/core.ts", "docs/core.ts").code).toBe("true");
+  });
+
+  test("that renames a Codex source away needs the Codex files regenerated", () => {
+    expect(decideRename("CLAUDE.md", "docs/CLAUDE.md")).toEqual({ code: "true", codex: "true" });
   });
 
   test("that changes no Codex source leaves the Codex job out", () => {
@@ -135,5 +160,17 @@ describe("the documents the tests read", () => {
     ]) {
       expect(existsSync(join(ROOT, file))).toBe(true);
     }
+  });
+
+  test("the approved examples folder the script keeps in the check exists, and tests read it", () => {
+    const folder = "openspec/changes/archive/2026-10-29-review-model-contract/examples";
+    expect(existsSync(join(ROOT, folder))).toBe(true);
+    const reader = Bun.spawnSync(
+      ["git", "grep", "-l", "review-model-contract/examples", "--", "packages"],
+      {
+        cwd: ROOT,
+      },
+    );
+    expect(reader.stdout.toString()).toContain("approved-examples.test.ts");
   });
 });
