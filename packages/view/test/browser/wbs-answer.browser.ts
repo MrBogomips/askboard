@@ -15,14 +15,9 @@ import {
   uj2ExpandedEditedValues,
 } from "@askboard/contract/fixtures";
 import { wbsQuestion } from "./fixtures/wbs-documents.ts";
-import {
-  eventually,
-  isFocused,
-  QUIET_MS,
-  STEP_TIMEOUT_MS,
-  TEST_TIMEOUT_MS,
-} from "./harness/board-test.ts";
+import { eventually, isFocused, STEP_TIMEOUT_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
 import { enginesFrom } from "./harness/engines.ts";
+import { hostSettled } from "./harness/probes.ts";
 import {
   enabledTools,
   pressIn,
@@ -117,7 +112,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           expect(await pressIn(board, "ArrowDown")).toEqual({ nodeId: "billing", cell: 3 });
           await enterField(run, tree, "21", { nodeId: "billing", cell: 3 });
           // Nothing but `ready` has left the view yet.
-          await Bun.sleep(QUIET_MS);
+          await hostSettled(board);
           expect(run.messages).toEqual([{ type: "ready", itemId: wbsQuestion.id }]);
           // Tab on to "Answer", then Enter.
           expect(await answerButton.isEnabled()).toBe(true);
@@ -126,7 +121,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           // Several questions hold their acts for Submit on the session process (E3, delivery).
           await run.submit?.();
           await eventually(() => run.messages.length > 1, "the answer message", STEP_TIMEOUT_MS);
-          await Bun.sleep(QUIET_MS);
+          await hostSettled(board);
           expect(run.messages).toHaveLength(2);
           const answers = run.messages.filter((message) => message.type === "answer");
           expect(answers).toHaveLength(1);

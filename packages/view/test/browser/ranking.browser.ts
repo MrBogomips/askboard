@@ -17,7 +17,6 @@ import {
 import {
   eventually,
   isFocused,
-  QUIET_MS,
   STEP_TIMEOUT_MS,
   TEST_TIMEOUT_MS,
   useEngine,
@@ -32,6 +31,7 @@ import {
   sentActs,
   sentDrafts,
 } from "./harness/lifecycle-test.ts";
+import { draftSettled, viewSettled } from "./harness/probes.ts";
 import {
   beginDrag,
   dragOver,
@@ -86,7 +86,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await board.view.locator('[data-change="moved"]').count()).toBe(0);
         expect(await counterText(board)).toBe("No changes");
         expect(await board.answer.isDisabled()).toBe(true);
-        await Bun.sleep(QUIET_MS);
+        await draftSettled(board);
         expect(run.messages.map((message) => message.type)).toEqual(["ready"]);
         expect(run.drafts).toEqual([]);
         expect(draftHolds(run.drafts, "plan", "priorities", undefined)).toBe(true);
@@ -170,7 +170,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const grip = board.view.locator('[data-node-id="portal"] [data-drag-handle]');
         await beginDrag(board, grip);
         await dragOver(board, rowOf(board, "speed"), HALF.top);
-        await Bun.sleep(QUIET_MS / 3);
+        await viewSettled(board);
         expect(await rowOf(board, "speed").getAttribute("data-drop")).toBeNull();
         await release(board);
         expect(await orderShown(board)).toEqual(SENT_ORDER);
@@ -276,7 +276,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await rowOf(board, "comfort").focus();
         await board.page.keyboard.press("ArrowDown");
         await board.page.keyboard.press("Enter");
-        await Bun.sleep(QUIET_MS);
+        await draftSettled(board);
         expect(await orderShown(board)).toEqual(MOVED);
         expect([sentDrafts(run).length, sentActs(run).length]).toEqual([drafts, acts]);
       },

@@ -23,8 +23,9 @@ import {
   ganttOf,
   rowTexts,
 } from "./fixtures/gantt-view.ts";
-import { eventually, LOAD_TIMEOUT_MS, QUIET_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
+import { eventually, LOAD_TIMEOUT_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
 import { enginesFrom } from "./harness/engines.ts";
+import { viewSettled } from "./harness/probes.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 import { useWidgetHost, type WidgetHostRun } from "./harness/widget-host-test.ts";
 
@@ -200,7 +201,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await durationOf(gantt, "portal")).toBe("16 d");
         await dragBy(run.board, await barEnd(gantt), -60);
         expect(await durationOf(gantt, "portal")).toBe("16 d");
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(run.board);
         expect(run.messages.map((message) => message.type)).toEqual(["ready", "answer"]);
       },
       TEST_TIMEOUT_MS,

@@ -6,8 +6,9 @@
 import { describe, expect, test } from "bun:test";
 import { uj2ExpandedBoardDocument } from "@askboard/contract/fixtures";
 import { cellTexts } from "./fixtures/wbs-documents.ts";
-import { QUIET_MS, STEP_TIMEOUT_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
+import { STEP_TIMEOUT_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
 import { enginesFrom } from "./harness/engines.ts";
+import { viewSettled } from "./harness/probes.ts";
 import { treeGridOf } from "./harness/tree-grid.ts";
 import { readyIn } from "./harness/tree-steps.ts";
 import { readViewBuild } from "./harness/view-build.ts";
@@ -60,7 +61,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await readyIn(run);
         const tree = treeGridOf(run.board);
         await tree.cell("build", 1).dblclick({ timeout: STEP_TIMEOUT_MS });
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(run.board);
         expect(await tree.editor.count()).toBe(0);
       },
       TEST_TIMEOUT_MS,

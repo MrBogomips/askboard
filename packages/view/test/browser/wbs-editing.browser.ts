@@ -9,8 +9,9 @@ import { describe, expect, test } from "bun:test";
 import { uj2ExpandedBoardDocument } from "@askboard/contract/fixtures";
 import { ganttOf, rowTexts } from "./fixtures/gantt-view.ts";
 import { cellTexts, totalRow, wbsPlan } from "./fixtures/wbs-documents.ts";
-import { isFocused, QUIET_MS, STEP_TIMEOUT_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
+import { isFocused, STEP_TIMEOUT_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
 import { enginesFrom } from "./harness/engines.ts";
+import { viewSettled } from "./harness/probes.ts";
 import { treeGridOf } from "./harness/tree-grid.ts";
 import {
   expectSteps,
@@ -65,7 +66,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(reporting?.[2]).not.toBe(reportingBefore?.[2]);
         expect(reporting?.[2]).toBe("Thu 11/26");
         expect(await run.board.answer.isDisabled()).toBe(false);
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(run.board);
         expect(run.messages).toEqual([{ type: "ready", itemId: "plan" }]);
         expect(run.browser.cspProblems()).toEqual([]);
       },
@@ -110,7 +111,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         ]);
         for (const key of ["Enter", "F2"]) {
           await run.board.page.keyboard.press(key);
-          await Bun.sleep(QUIET_MS);
+          await viewSettled(run.board);
           expect(await tree.editor.count()).toBe(0);
         }
         await expectSteps(run, tree, [
@@ -122,7 +123,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         ]);
         for (const key of ["Enter", "F2"]) {
           await run.board.page.keyboard.press(key);
-          await Bun.sleep(QUIET_MS);
+          await viewSettled(run.board);
           expect(await tree.editor.count()).toBe(0);
         }
         await expectUnchanged(run);

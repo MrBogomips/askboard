@@ -34,14 +34,9 @@ import {
   ganttOf,
   rowTexts,
 } from "./fixtures/gantt-view.ts";
-import {
-  eventually,
-  isFocused,
-  QUIET_MS,
-  STEP_TIMEOUT_MS,
-  TEST_TIMEOUT_MS,
-} from "./harness/board-test.ts";
+import { eventually, isFocused, STEP_TIMEOUT_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
 import { enginesFrom } from "./harness/engines.ts";
+import { hostSettled } from "./harness/probes.ts";
 import { pressIn, shiftTabToAddNode, treeFocus, treeGridOf } from "./harness/tree-grid.ts";
 import {
   enterField,
@@ -158,14 +153,14 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           expect(await derivedOutlines(gantt)).toEqual(["ux", "portal", "billing"]);
           expect(await counterText(gantt)).toBe("Your changes: 1 · 3 follow from the WBS");
           // Nothing has left the view yet.
-          await Bun.sleep(QUIET_MS);
+          await hostSettled(board);
           expect(run.messages).toEqual([{ type: "ready", itemId: planQuestion.id }]);
           // Tab on to "Answer", then Enter.
           expect(await board.answer.isEnabled()).toBe(true);
           await tabUntil(board, () => isFocused(board.answer), "Answer");
           await board.page.keyboard.press("Enter");
           await eventually(() => run.messages.length > 1, "the answer message", STEP_TIMEOUT_MS);
-          await Bun.sleep(QUIET_MS);
+          await hostSettled(board);
           expect(run.messages).toHaveLength(2);
           const answers = run.messages.filter((message) => message.type === "answer");
           expect(answers).toHaveLength(1);

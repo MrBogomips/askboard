@@ -9,14 +9,9 @@ import { describe, expect, test } from "bun:test";
 import { treeBoardDocument } from "@askboard/contract/fixtures";
 import type { ViewUpdate } from "../../src/view-protocol.ts";
 import { plan } from "./fixtures/tree-documents.ts";
-import {
-  eventually,
-  isFocused,
-  QUIET_MS,
-  STEP_TIMEOUT_MS,
-  TEST_TIMEOUT_MS,
-} from "./harness/board-test.ts";
+import { eventually, isFocused, STEP_TIMEOUT_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
 import { enginesFrom } from "./harness/engines.ts";
+import { viewSettled } from "./harness/probes.ts";
 import {
   deleteQuestion,
   enabledTools,
@@ -139,7 +134,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await tree.chevron("design").click({ timeout: STEP_TIMEOUT_MS });
         expect(await shownIds(tree)).toEqual(["design", ...FIXTURE_IDS.slice(4)]);
         expect(await pageOf(run)).toEqual(page);
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(board);
         expect(run.messages).toHaveLength(2);
         expect(run.browser.errors).toEqual([]);
         expect(run.browser.cspProblems()).toEqual([]);

@@ -26,9 +26,10 @@ import {
   rowTexts,
   withTasks,
 } from "./fixtures/gantt-view.ts";
-import { eventually, LOAD_TIMEOUT_MS, QUIET_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
+import { eventually, LOAD_TIMEOUT_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import { expectReadOnly, openerFor } from "./harness/gantt-steps.ts";
+import { viewSettled } from "./harness/probes.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 import { useWidgetHost } from "./harness/widget-host-test.ts";
 
@@ -171,7 +172,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(run.messages).toEqual([{ type: "ready", itemId: schedule.id }]);
         await run.board.answer.click();
         await eventually(() => run.messages.length > 1, "the answer message");
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(run.board);
         expect(run.messages).toEqual([
           { type: "ready", itemId: schedule.id },
           {

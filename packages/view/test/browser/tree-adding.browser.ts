@@ -14,8 +14,9 @@ import {
   wbs,
   withBuild,
 } from "./fixtures/tree-documents.ts";
-import { eventually, QUIET_MS, STEP_TIMEOUT_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
+import { eventually, STEP_TIMEOUT_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
 import { enginesFrom } from "./harness/engines.ts";
+import { viewSettled } from "./harness/probes.ts";
 import {
   enabledTools,
   focusRing,
@@ -174,7 +175,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           "u-2",
           ...FIXTURE_IDS.slice(6),
         ]);
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(board);
         expect(run.messages).toEqual([{ type: "ready", itemId: plan.id }]);
         // The draft holds both nodes, named and with no field; "Answer" sends them.
         await board.answer.click({ timeout: STEP_TIMEOUT_MS });
@@ -250,7 +251,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await pressIn(board, "Escape")).toEqual({ nodeId: "u-2", cell: 0 });
         expect(await tree.row("u-3").count()).toBe(0);
         expect(await board.answer.isEnabled()).toBe(true);
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(board);
         expect(run.messages).toEqual([{ type: "ready", itemId: plan.id }]);
         expect(run.browser.cspProblems()).toEqual([]);
       },

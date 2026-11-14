@@ -13,8 +13,9 @@ import type { ViewDocument } from "../../src/view-document.ts";
 import { MARKUP_LABEL } from "./fixtures/markup-document.ts";
 import { MARKUP_NOTE, markupTreeDocument } from "./fixtures/markup-tree-document.ts";
 import { largeTreeDocument, plan, treeDocumentWith, wbs } from "./fixtures/tree-documents.ts";
-import { eventually, LOAD_TIMEOUT_MS, QUIET_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
+import { eventually, LOAD_TIMEOUT_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
 import { enginesFrom } from "./harness/engines.ts";
+import { viewSettled } from "./harness/probes.ts";
 import { chevronAngle, nameLefts, rightGaps, treeGridOf } from "./harness/tree-grid.ts";
 import { FIXTURE_ROWS, readyIn } from "./harness/tree-steps.ts";
 import { readViewBuild } from "./harness/view-build.ts";
@@ -46,7 +47,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           "the question's ready message",
           LOAD_TIMEOUT_MS,
         );
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(run.board);
         expect(run.messages).toEqual([{ type: "ready", itemId: plan.id }]);
         const card = run.board.question(plan.id);
         expect(await card.getAttribute("aria-busy")).toBe("false");
@@ -71,7 +72,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           "the Tree's item-error message",
           LOAD_TIMEOUT_MS,
         );
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(run.board);
         expect(run.messages).toEqual([
           {
             type: "item-error",

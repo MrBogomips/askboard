@@ -8,8 +8,9 @@ import type { TreeNode } from "@askboard/contract";
 import { treeBoardDocument } from "@askboard/contract/fixtures";
 import { validateTreeProps } from "@askboard/contract/validate";
 import { plan, tallBranchTreeDocument, wbs, withBuild } from "./fixtures/tree-documents.ts";
-import { eventually, QUIET_MS, STEP_TIMEOUT_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
+import { eventually, STEP_TIMEOUT_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
 import { enginesFrom } from "./harness/engines.ts";
+import { viewSettled } from "./harness/probes.ts";
 import {
   enabledTools,
   type FocusAt,
@@ -109,7 +110,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           "billing",
         ]);
         expect(await placeOf(tree, "billing")).toEqual(["3", "1", "1"]);
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(board);
         expect(run.messages).toEqual([{ type: "ready", itemId: plan.id }]);
         // "Answer" sends the moved nodes, each with its fields.
         await board.answer.click({ timeout: STEP_TIMEOUT_MS });
@@ -199,7 +200,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await pressIn(board, "Tab")).toEqual({ nodeId: "portal" });
         expect(await pageOf(run)).toEqual(page);
         expect(await board.answer.isEnabled()).toBe(true);
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(board);
         expect(run.messages).toEqual([{ type: "ready", itemId: plan.id }]);
         expect(run.browser.cspProblems()).toEqual([]);
       },

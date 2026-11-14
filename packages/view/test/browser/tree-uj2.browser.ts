@@ -9,14 +9,9 @@ import { elementChanges, TREE_SHAPE } from "@askboard/contract";
 import { treeAnswer, treeBoardDocument, treeEditedValue } from "@askboard/contract/fixtures";
 import { validateTreeProps } from "@askboard/contract/validate";
 import { plan, wbs } from "./fixtures/tree-documents.ts";
-import {
-  eventually,
-  isFocused,
-  QUIET_MS,
-  STEP_TIMEOUT_MS,
-  TEST_TIMEOUT_MS,
-} from "./harness/board-test.ts";
+import { eventually, isFocused, STEP_TIMEOUT_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
 import { enginesFrom } from "./harness/engines.ts";
+import { hostSettled } from "./harness/probes.ts";
 import {
   type FocusAt,
   pressIn,
@@ -116,7 +111,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           await enterField(run, tree, "21", { nodeId: "billing", cell: 3 });
           expect(await tree.counter.textContent()).toBe("Your changes: 4");
           // Nothing has left the view yet.
-          await Bun.sleep(QUIET_MS);
+          await hostSettled(board);
           expect(run.messages).toEqual([{ type: "ready", itemId: plan.id }]);
           // Tab on to "Answer", then Enter: the answer's `when` is the time of that act.
           expect(await board.answer.isEnabled()).toBe(true);
@@ -129,7 +124,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           await board.page.keyboard.press("Enter");
           await eventually(() => run.messages.length > 1, "the answer message", STEP_TIMEOUT_MS);
           const received = Date.now();
-          await Bun.sleep(QUIET_MS);
+          await hostSettled(board);
           const answers = run.messages.filter((message) => message.type === "answer");
           expect(run.messages).toHaveLength(2);
           expect(answers).toHaveLength(1);
