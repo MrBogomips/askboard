@@ -82,12 +82,13 @@ export const placeIn = (
 };
 
 /**
- * The props with the card in `columnId`. With `sent`, the agent's props, the card stands at the
- * place the agent's order gives it among that column's other cards (the cards the column holds
- * that `sent` lists before the card stand above it), so that its move to another column is one
- * `set` whatever moves the user made before: the board's "Move to…". Without `sent`, every card
- * keeps its index in `cards`. The same props, by identity, when the card or the column is not the
- * item's or the card is already there. A raw value: `valueFor` arranges.
+ * The props with the card in `columnId`. With `sent`, the agent's props, the card stands at a slot
+ * of that column where its only change is its `set`, whatever moves the user made before: the
+ * board's "Move to…". The slot extends the column's longest kept run, the cards the answer would
+ * not `move` (the others in the order the column shows): right after the last card of that run
+ * that `sent` lists before the card, else at the top. Without `sent`, every card keeps its index
+ * in `cards`. The same props, by identity, when the card or the column is not the item's or the
+ * card is already there. A raw value: `valueFor` arranges.
  */
 export const moveTo = (
   props: KanbanProps,
@@ -100,12 +101,23 @@ export const moveTo = (
   const holds = props.columns.some((column) => column.id === columnId);
   if (card === undefined || !holds || card.column === columnId) return props;
   if (sent !== undefined) {
+    const without = Object.freeze({
+      ...props,
+      cards: Object.freeze(props.cards.filter(({ id }) => id !== cardId)),
+    });
+    const moved = new Set(
+      changesOf(sent, without)
+        .filter(({ op }) => op === "move")
+        .map(({ target }) => target.split(".")[1]),
+    );
+    const column = without.cards.filter((held) => held.column === columnId);
     const rank = new Map(sent.cards.map(({ id }, at) => [id, at]));
     const mine = rank.get(cardId) ?? index;
-    const above = props.cards.filter(
-      (held, at) => held.column === columnId && (rank.get(held.id) ?? at) < mine,
+    const before = column.filter(
+      (held) => !moved.has(held.id) && (rank.get(held.id) ?? Infinity) < mine,
     );
-    return placeIn(props, cardId, columnId, above.length);
+    const anchor = before[before.length - 1];
+    return placeIn(props, cardId, columnId, anchor === undefined ? 0 : column.indexOf(anchor) + 1);
   }
   const cards = props.cards.map((held, at) =>
     at === index ? Object.freeze({ ...held, column: columnId }) : held,

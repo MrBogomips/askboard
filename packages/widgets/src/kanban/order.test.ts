@@ -368,6 +368,103 @@ describe("moveTo after moves within the card's column (review 5.3, S-1)", () => 
   });
 });
 
+describe("moveTo into a column the user has reordered (review 5.3b, S-1)", () => {
+  const held = (sent: KanbanProps, edited: KanbanProps) => model.valueFor(sent, edited) ?? sent;
+  const own = (list: ReturnType<typeof changesOf>, card: string) =>
+    list.filter(({ target }) => target.split(".")[1] === card).map(({ op }) => op);
+
+  test("sent `a:doing c:todo b:doing`, To top on `b`, then Move to… `doing` on `c`: c's only change is its `set`", () => {
+    const sent: KanbanProps = {
+      columns: [
+        { id: "todo", label: "To do" },
+        { id: "doing", label: "Doing" },
+      ],
+      cards: [
+        { id: "a", label: "A", column: "doing" },
+        { id: "c", label: "C", column: "todo" },
+        { id: "b", label: "B", column: "doing" },
+      ],
+    };
+    const top = held(sent, model.moveWithin(sent, "b", "top"));
+    const next = held(sent, model.moveTo(top, "c", "doing", sent));
+    expect(changesOf(sent, next)).toEqual([
+      { op: "move", target: "board.b" },
+      { op: "set", target: "board.c.column", value: "doing" },
+    ]);
+    expect(idsIn(next, "doing")).toEqual(["b", "a", "c"]);
+    expect(model.movedOf(sent, next).slice().sort()).toEqual(["b", "c"]);
+    expect(valueFits(next, sent)).toBe(true);
+  });
+
+  test("a card with no card before it in the target column's kept run goes to the top", () => {
+    const sent: KanbanProps = {
+      columns: [
+        { id: "todo", label: "To do" },
+        { id: "doing", label: "Doing" },
+      ],
+      cards: [
+        { id: "c", label: "C", column: "todo" },
+        { id: "a", label: "A", column: "doing" },
+        { id: "b", label: "B", column: "doing" },
+      ],
+    };
+    const top = held(sent, model.moveWithin(sent, "b", "top"));
+    const next = held(sent, model.moveTo(top, "c", "doing", sent));
+    expect(idsIn(next, "doing")?.[0]).toBe("c");
+    expect(own(changesOf(sent, next), "c")).toEqual(["set"]);
+  });
+
+  test("after random edits that reorder the target column, the card's only change is its `set`", () => {
+    let reordered = 0;
+    for (let seed = 1; seed <= 400; seed++) {
+      const random = generator(seed);
+      const columns = Array.from({ length: 3 }, (_, at) => ({ id: `c${at}`, label: `C${at}` }));
+      const cards = Array.from({ length: 3 + random.int(9) }, (_, at) => ({
+        id: `k${at}`,
+        label: `Card ${at}`,
+        column: random.pick(columns).id,
+      }));
+      const sent: KanbanProps = { columns, cards };
+      const wasIn = new Map(cards.map(({ id, column }) => [id, column]));
+      let shown = sent;
+      for (let step = 0; step < 1 + random.int(8); step++) {
+        const mover = random.pick(cards).id;
+        const column = random.pick(columns).id;
+        const how = random.int(3);
+        const edited =
+          how === 0
+            ? model.moveWithin(shown, mover, random.pick(["up", "down", "top", "bottom"] as const))
+            : how === 1
+              ? model.moveTo(shown, mover, column, sent)
+              : model.placeIn(shown, mover, column, random.int(cards.length));
+        shown = held(sent, edited);
+      }
+      const options = shown.cards.flatMap((card) =>
+        columns
+          .filter(({ id }) => id !== card.column && id !== wasIn.get(card.id))
+          .map(({ id }) => ({ card: card.id, target: id })),
+      );
+      if (options.length === 0) continue;
+      const { card, target } = random.pick(options);
+      const next = held(sent, model.moveTo(shown, card, target, sent));
+      const list = changesOf(sent, next);
+      const where = { seed, card, target };
+      expect({ ...where, own: own(list, card) }).toEqual({ ...where, own: ["set"] });
+      // The target column's other cards are moved as they were: the card joins their kept run.
+      const inTarget = (id: string) =>
+        shown.cards.find((held) => held.id === id)?.column === target;
+      expect({ ...where, moved: model.movedOf(sent, next).filter(inTarget) }).toEqual({
+        ...where,
+        moved: model.movedOf(sent, shown).filter(inTarget),
+      });
+      if (changesOf(sent, shown).some(({ op }) => op === "move")) reordered += 1;
+      expect(valueFits(next, sent)).toBe(true);
+      expect(model.arranged(sent, next)).toEqual(next);
+    }
+    expect(reordered).toBeGreaterThan(50);
+  });
+});
+
 describe("any sequence of order edits", () => {
   const kanbanOf = (random: ReturnType<typeof generator>): KanbanProps => {
     const columns = Array.from({ length: 2 + random.int(4) }, (_, at) => ({
