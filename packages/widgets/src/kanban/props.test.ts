@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import type { KanbanProps } from "@askboard/contract";
-import { KANBAN_FIXTURE_ITEM } from "@askboard/contract/fixtures";
+import {
+  KANBAN_BOTH_PROPS,
+  KANBAN_FIXTURE_ITEM,
+  KANBAN_ORDER_ITEM,
+  KANBAN_REORDERED_PROPS,
+} from "@askboard/contract/fixtures";
 import { checkedKanbanProps, shownProps, valueFits } from "./props.ts";
 
 // The Kanban checks its props as an agent's before it shows (view-and-widgets spec: Kanban columns
@@ -138,5 +143,48 @@ describe("valueFits", () => {
     expect(shownProps("board", SENT, moved) === moved).toBe(valueFits(moved, SENT));
     const other = { ...moved, cards: moved.cards.slice(1) };
     expect(shownProps("board", SENT, other) === other).toBe(valueFits(other, SENT));
+  });
+});
+
+// A held value fits only where `ask-core` takes it (kanban-order, design decision 4): the agent's
+// columns and cards, labels and descriptions unchanged, in the order its own changes rebuild.
+describe("valueFits and the order", () => {
+  const ORDER = KANBAN_ORDER_ITEM.props;
+
+  test("holds the agent's cards in another order while it is the order the changes rebuild", () => {
+    expect(valueFits(KANBAN_REORDERED_PROPS, ORDER)).toBe(true);
+    expect(valueFits(KANBAN_BOTH_PROPS, ORDER)).toBe(true);
+    expect(shownProps("board", ORDER, KANBAN_BOTH_PROPS)).toBe(KANBAN_BOTH_PROPS);
+  });
+
+  test("fails for a list whose changes do not rebuild it, though each column keeps its order", () => {
+    // The reorder's column orders, with `write-docs` of `doing` first in the flat list.
+    const [first, second, third, ...rest] = KANBAN_REORDERED_PROPS.cards;
+    const interleaved = {
+      ...KANBAN_REORDERED_PROPS,
+      cards: [third, first, second, ...rest],
+    };
+    expect(valueFits(interleaved, ORDER)).toBe(false);
+    expect(shownProps("board", ORDER, interleaved)).toBe(ORDER);
+  });
+
+  test("fails for a changed label, a missing card, other columns and a card with another field", () => {
+    const [first, ...rest] = KANBAN_REORDERED_PROPS.cards;
+    for (const value of [
+      { ...KANBAN_REORDERED_PROPS, cards: [{ ...first, label: "other" }, ...rest] },
+      { ...KANBAN_REORDERED_PROPS, cards: rest },
+      { ...KANBAN_REORDERED_PROPS, columns: ORDER.columns.slice(0, 2) },
+      { ...KANBAN_REORDERED_PROPS, cards: [{ ...first, note: "x" }, ...rest] },
+    ]) {
+      expect(valueFits(value, ORDER)).toBe(false);
+      expect(shownProps("board", ORDER, value)).toBe(ORDER);
+    }
+  });
+
+  test("fails for a value in the order of one revision against the props of another", () => {
+    const next = { ...ORDER, cards: [...ORDER.cards].reverse() };
+    // The reorder is normal against the first list; against the reversed list its cards stay the
+    // same set but the list its changes rebuild differs.
+    expect(valueFits(KANBAN_REORDERED_PROPS, next)).toBe(false);
   });
 });

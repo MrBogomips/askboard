@@ -1,27 +1,22 @@
 import { describe, expect, test } from "bun:test";
 import { KANBAN_KEYS } from "@askboard/contract";
-import { kanbanKeyOf } from "../src/kanban/keys.ts";
+import { kanbanPressOf } from "../src/kanban/keys.ts";
 import { toolbarPressMove } from "../src/shared/toolbar-focus.ts";
 import { expectedActions, parityMismatches, reachedActions, type Taken } from "./key-presses.ts";
 
 // The Kanban's key table against its handlers (keyboard-shortcuts-help, design decision 9; spec:
 // Key tables match the handlers, Today's keys of the Kanban): the board's arrows through
-// `kanbanKeyOf` (`kanbanPressOf` once `kanban-order` has merged) and the toolbar's roving focus
-// through `toolbarPressMove`, which `MoveToolbar` calls, each key under each of the 16 sets of
-// modifiers. "Move to…" is a menu with no key.
-const CARDS = {
-  up: "cursor.up",
-  down: "cursor.down",
-  left: "cursor.left",
-  right: "cursor.right",
-} as const;
+// `kanbanPressOf`, which gives the cursor keys and kanban-order's in-column moves, and the toolbar's
+// roving focus through `toolbarPressMove`, which `MoveToolbar` calls, each key under each of the 16
+// sets of modifiers. "Move to…" is a menu with no key.
 
 const PARTS: readonly (readonly [string, Taken])[] = [
   [
     "board",
     (_key, _flags, press) => {
-      const card = kanbanKeyOf(press);
-      return card === undefined ? undefined : CARDS[card];
+      const taken = kanbanPressOf(press);
+      if (taken === undefined) return undefined;
+      return taken.kind === "cursor" ? `cursor.${taken.key}` : `move.${taken.move}`;
     },
   ],
   [

@@ -57,3 +57,32 @@ export const expectDrop = (board: Board, id: string, drop: string | null): Promi
     `${id}'s drop indicator to read ${drop}`,
     STEP_TIMEOUT_MS,
   );
+
+/**
+ * Moves the dragged card over the upper or the lower part of `card`, a quarter of its height from
+ * its top or its bottom: the place before it or after it (kanban-order), whose middle is the
+ * boundary.
+ */
+export const dragOverCard = async (
+  board: Board,
+  card: Locator,
+  part: "upper" | "lower",
+): Promise<void> => {
+  const box = await boxOf(card);
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height * (part === "upper" ? 0.25 : 0.75);
+  await board.page.mouse.move(x, y, { steps: 10 });
+  await board.page.mouse.move(x + 1, y);
+};
+
+/** Waits for the card's drop line to read `side` (before, after, or none). */
+export const expectLine = (board: Board, id: string, side: string | null): Promise<void> =>
+  eventually(
+    async () => (await cardOf(board, id).getAttribute("data-drop-line")) === side,
+    `${id}'s drop line to read ${side}`,
+    STEP_TIMEOUT_MS,
+  );
+
+/** How many cards of the Kanban show a drop line. */
+export const lineCount = (board: Board): Promise<number> =>
+  board.view.locator("[data-drop-line]").count();

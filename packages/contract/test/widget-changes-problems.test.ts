@@ -133,6 +133,30 @@ describe("an item's changes against its type's changes schema", () => {
   });
 });
 
+describe("a Kanban's changes", () => {
+  const kanban = { type: "kanban", id: "board" };
+  const over = (changes: unknown) =>
+    widgetChangesProblems(kanban, changes, withWidgetTypes(KANBAN_WIDGET));
+
+  test("a move of a card after a card passes, with its set or alone", () => {
+    expect(over([{ op: "move", target: "board.fix-login", after: "write-docs" }])).toEqual([]);
+    expect(
+      over([
+        { op: "set", target: "board.fix-login.column", value: "doing" },
+        { op: "move", target: "board.fix-login" },
+      ]),
+    ).toEqual([]);
+  });
+
+  test("a move with a parent fails, naming the item and the operation on the card", () => {
+    const [problem] = over([{ op: "move", target: "board.fix-login", parent: "write-docs" }]);
+    expect(problem?.message).toContain("item board");
+    expect(problem?.message).toContain("operation 0");
+    expect(problem?.message).toContain("move");
+    expect(problem?.message).toContain("board.fix-login");
+  });
+});
+
 describe("a type with no changes schema, or none the registry holds", () => {
   const item = { type: "readonly", id: "note" } as const;
 

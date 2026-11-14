@@ -53,6 +53,41 @@ const documentOf = (items: readonly unknown[], language?: Locale): ViewDocument 
 export const kanbanDocument = (language?: Locale): ViewDocument =>
   documentOf([kanbanItem(language)], language);
 
+/**
+ * A Kanban of three cards in `todo` (`a`, `c`, `d`) and one in `done` (`b`), for the order
+ * (kanban-order): the flat list interleaves them as an agent sends it, `a b c d`.
+ */
+export const orderItem = () => ({
+  ...kanbanItem(),
+  props: {
+    ...kanbanItem().props,
+    cards: [...kanbanItem().props.cards, { id: "d", label: "Review PR", column: "todo" }],
+  },
+});
+
+/** The question `plan` holding the Kanban of `orderItem`. */
+export const orderDocument = (language?: Locale): ViewDocument =>
+  documentOf([orderItem()], language);
+
+/**
+ * A Kanban of `a` in `todo`, then `b` and `c` in `done` (kanban-order, task 3.6): `a` dragged below
+ * `b` lands where keeping `b` and `c` and keeping `a` and `c` are runs of equal length.
+ */
+export const betweenItem = () => ({
+  ...kanbanItem(),
+  props: {
+    ...kanbanItem().props,
+    cards: [
+      { id: "a", label: "Fix login", column: "todo" },
+      { id: "b", label: "Ship docs", column: "done" },
+      { id: "c", label: "Write tests", column: "done" },
+    ],
+  },
+});
+
+/** The question `plan` holding the Kanban of `betweenItem`. */
+export const betweenDocument = (): ViewDocument => documentOf([betweenItem()]);
+
 /** The question `plan` holding the Tree `wbs`, then the Kanban. */
 export const treeAndKanbanDocument: ViewDocument = documentOf([wbs, kanbanItem()]);
 
@@ -68,6 +103,21 @@ export const kanbanAsk = {
     },
   ],
 } as const;
+
+/**
+ * The ask for the session process holding the Kanban of `orderItem` (kanban-order, task 4.1),
+ * beside `more` items.
+ */
+export const orderAsk = (...more: readonly unknown[]) => ({
+  ...kanbanAsk,
+  items: [
+    {
+      type: "question",
+      id: "plan",
+      props: { ...plan.props, items: [orderItem(), ...more] },
+    },
+  ],
+});
 
 type Mirrored = {
   readonly record: {

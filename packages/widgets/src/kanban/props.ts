@@ -5,10 +5,13 @@
 // shown only while it is the agent's Kanban with cards moved.
 
 import {
+  applyElementChanges,
+  elementChanges,
   KANBAN_MAX_CARDS,
   KANBAN_MAX_COLUMNS,
   KANBAN_MIN_CARDS,
   KANBAN_MIN_COLUMNS,
+  KANBAN_SHAPE,
   type KanbanProps,
   kanbanPropsProblems,
 } from "@askboard/contract";
@@ -63,30 +66,64 @@ export const checkedKanbanProps = (itemId: string, props: unknown): KanbanProps 
   throw new Error(`the Kanban "${itemId}" refuses its props: ${problems.join("; ")}`);
 };
 
-// Whether `edited` is the agent's Kanban with cards moved: the same columns and the same cards,
-// each with its own label and description, in the same order.
-const sameKanban = (sent: KanbanProps, edited: KanbanProps): boolean =>
-  sent.columns.length === edited.columns.length &&
-  sent.cards.length === edited.cards.length &&
-  sent.columns.every(
-    (column, at) =>
-      column.id === edited.columns[at]?.id && column.label === edited.columns[at]?.label,
-  ) &&
-  sent.cards.every((card, at) => {
-    const held = edited.cards[at];
+// Whether `edited` holds the agent's columns and the agent's cards by ID, each with its own label
+// and description, in any order.
+const sameKanban = (sent: KanbanProps, edited: KanbanProps): boolean => {
+  const held = new Map(edited.cards.map((card) => [card.id, card]));
+  return (
+    sent.columns.length === edited.columns.length &&
+    sent.cards.length === edited.cards.length &&
+    sent.columns.every(
+      (column, at) =>
+        column.id === edited.columns[at]?.id && column.label === edited.columns[at]?.label,
+    ) &&
+    sent.cards.every((card) => {
+      const same = held.get(card.id);
+      return same?.label === card.label && same.description === card.description;
+    })
+  );
+};
+
+const sameJson = (a: unknown, b: unknown): boolean => {
+  if (a === b) return true;
+  if (Array.isArray(a)) {
     return (
-      held?.id === card.id && held.label === card.label && held.description === card.description
+      Array.isArray(b) && a.length === b.length && a.every((item, at) => sameJson(item, b[at]))
     );
-  });
+  }
+  if (!isRecord(a) || !isRecord(b)) return false;
+  const keys = Object.keys(a);
+  return (
+    keys.length === Object.keys(b).length &&
+    keys.every((key) => Object.hasOwn(b, key) && sameJson(a[key], b[key]))
+  );
+};
+
+// Whether `edited` is in the form its own changes against `sent` rebuild, and those changes are
+// the Kanban's: a `set` of a card's column or a `move`. Then `ask-core` takes the value back
+// exactly (design decision 4).
+const inNormalForm = (sent: KanbanProps, edited: KanbanProps): boolean => {
+  const changes = elementChanges("kanban", sent, edited, KANBAN_SHAPE);
+  return (
+    changes.every(
+      ({ op, target }) => op === "move" || (op === "set" && target.endsWith(".column")),
+    ) && sameJson(applyElementChanges("kanban", sent, changes, KANBAN_SHAPE), edited)
+  );
+};
 
 /**
- * Whether the item shows `value` on a revision whose props are `props`: `value` is the agent's
- * Kanban with cards moved. The one predicate of `shownProps` and of the shell's drops of a held
- * value (the fact this chunk registers); a value, or props, that are no Kanban never fit.
+ * Whether the item shows `value` on a revision whose props are `props`: `value` holds that
+ * revision's columns and cards, labels and descriptions unchanged, with the cards in the order its
+ * own changes rebuild. The one predicate of `shownProps` and of the shell's drops of a held value
+ * (the fact this chunk registers), so that a held value, a restored draft and a value carried from
+ * an earlier answer are only ones `ask-core` takes; a value, or props, that are no Kanban never
+ * fit.
  */
 export const valueFits = (value: unknown, props: unknown): boolean => {
   try {
-    return sameKanban(checkedKanbanProps("", props), checkedKanbanProps("", value));
+    const sent = checkedKanbanProps("", props);
+    const edited = checkedKanbanProps("", value);
+    return sameKanban(sent, edited) && inNormalForm(sent, edited);
   } catch {
     return false;
   }

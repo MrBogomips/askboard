@@ -56,7 +56,7 @@ describe("the sets reopen-start-from-answer widens", () => {
       sessionFile: SESSION_FILE_FORMAT,
     }).toEqual({
       input: "1.13",
-      output: "1.12",
+      output: "1.13",
       envelopes: "1.14",
       document: "1.12",
       manifest: "1.1",

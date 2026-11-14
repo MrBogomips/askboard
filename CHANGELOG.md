@@ -2,6 +2,12 @@
 
 All notable changes to AskBoard are recorded here, newest first, in the layout of Keep a Changelog. Versions before 1.0.0 are 0.x releases: each ships what has merged at its release time (PRD §8).
 
+## Unreleased
+
+### Added
+
+- Kanban cards are ordered within their column, by drag (a line shows where the card would land) and from the keyboard (Alt+Shift with Up, Down, Home and End, or Ctrl or Cmd with Shift and Up and Down) and the toolbar's "Move up", "Move down", "To top" and "To bottom"; the answer carries the order as `move`s beside the `set`s of a card's column (Issue #79).
+
 ## 0.1.0 - 2026-11-11
 
 First release. AskBoard installs as a Claude Code plugin from a GitHub marketplace, at user or project scope, on macOS and Linux (Windows through WSL); it runs on Node 24.22.1 or later.

@@ -327,3 +327,16 @@ export {
   settingsKeysSaved,
   settingsWithKeys,
 } from "./keyboard-shortcuts-help-transcripts.ts";
+
+// The Kanban's order fixtures: a Kanban of interleaved cards, the props of a reorder, of a card
+// placed in another column and of both, with their changes (kanban-order, task 1.2).
+
+export {
+  KANBAN_BOTH_CHANGES,
+  KANBAN_BOTH_PROPS,
+  KANBAN_ORDER_ITEM,
+  KANBAN_PLACED_CHANGES,
+  KANBAN_PLACED_PROPS,
+  KANBAN_REORDER_CHANGES,
+  KANBAN_REORDERED_PROPS,
+} from "./kanban-order.ts";

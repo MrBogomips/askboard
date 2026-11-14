@@ -6,7 +6,14 @@
 import { useStrings } from "@askboard/view/catalog";
 import type { ReactNode } from "react";
 import { type RefObject, useRef } from "react";
-import { COLUMN, COLUMN_COUNT, COLUMN_HEAD, COLUMN_INTO, COLUMN_NAME } from "./classes.ts";
+import {
+  COLUMN,
+  COLUMN_COUNT,
+  COLUMN_HEAD,
+  COLUMN_INTO,
+  COLUMN_NAME,
+  COLUMN_TOP_LINE,
+} from "./classes.ts";
 import type { CardDragEvents } from "./drag.ts";
 import { useColumnDrop } from "./drag.ts";
 import type { KanbanColumnView } from "./model.ts";
@@ -16,6 +23,7 @@ export const Column = ({
   kanbanId,
   column,
   indicator,
+  topLine,
   editable,
   events,
   children,
@@ -24,6 +32,8 @@ export const Column = ({
   readonly column: KanbanColumnView;
   /** The drop indicator, while a card of another column is over it. */
   readonly indicator: "into" | undefined;
+  /** The drop line at the top of the column, while it holds no other card and a card is over it. */
+  readonly topLine: boolean;
   readonly editable: boolean;
   readonly events: RefObject<CardDragEvents>;
   readonly children: ReactNode;
@@ -45,6 +55,7 @@ export const Column = ({
           {column.cards.length}
         </span>
       </div>
+      {topLine ? <div aria-hidden="true" data-drop-line="top" className={COLUMN_TOP_LINE} /> : null}
       {children}
     </fieldset>
   );

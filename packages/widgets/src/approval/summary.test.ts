@@ -9,6 +9,9 @@ import {
 import {
   KANBAN_EDITED_PROPS,
   KANBAN_FIXTURE_ITEM,
+  KANBAN_ORDER_ITEM,
+  KANBAN_PLACED_PROPS,
+  KANBAN_REORDERED_PROPS,
   LATEX_EDITED_PROPS,
   LATEX_FIXTURE_ITEM,
 } from "@askboard/contract/fixtures";
@@ -288,5 +291,34 @@ describe("summarise, a whole-field change", () => {
       previous: "todo",
       next: "doing",
     });
+  });
+
+  test("a card placed in its column is one `moved` line naming it", () => {
+    const result = named([
+      {
+        id: KANBAN_ORDER_ITEM.id,
+        type: "kanban",
+        sent: KANBAN_ORDER_ITEM.props,
+        shown: KANBAN_REORDERED_PROPS,
+      },
+    ]);
+    expect(result.count).toBe(1);
+    expect(result.lines[0]).toMatchObject({ op: "move", name: "Add single sign-on" });
+  });
+
+  test("a card placed in another column elsewhere than its sent place is a set line then a move line", () => {
+    const result = named([
+      {
+        id: KANBAN_ORDER_ITEM.id,
+        type: "kanban",
+        sent: KANBAN_ORDER_ITEM.props,
+        shown: KANBAN_PLACED_PROPS,
+      },
+    ]);
+    expect(result.lines.map(({ op, name }) => [op, name])).toEqual([
+      ["set", "Audit the access log"],
+      ["move", "Audit the access log"],
+    ]);
+    expect(result.lines[0]).toMatchObject({ field: "column", previous: "todo", next: "doing" });
   });
 });

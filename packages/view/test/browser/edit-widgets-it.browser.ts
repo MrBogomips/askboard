@@ -42,6 +42,10 @@ const ENGLISH = [
   "Preview",
   "Kanban tools",
   "Move to…",
+  "Move up",
+  "Move down",
+  "To top",
+  "To bottom",
   "Timeline tools",
   "Move earlier",
   "Move later",
@@ -105,6 +109,13 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await board.view.getByLabel("Sorgente LaTeX", { exact: true }).count()).toBe(1);
         expect(await board.view.getByLabel("Anteprima", { exact: true }).count()).toBe(1);
         expect(await kanbanTool("Sposta in…").count()).toBe(1);
+        // The four tools that place a card (kanban-order), in the toolbar's order, before "Sposta in…".
+        expect(
+          await board.view
+            .getByRole("toolbar", { name: "Strumenti del Kanban" })
+            .getByRole("button")
+            .allTextContents(),
+        ).toEqual(["Sposta su", "Sposta giù", "In cima", "In fondo", "Sposta in…"]);
         for (const name of ["Sposta prima", "Sposta dopo", "Sposta nella corsia…"]) {
           expect(await timelineTool(name).count()).toBe(1);
         }
@@ -148,6 +159,17 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
             "Le tue modifiche: espressione modificata",
           "the LaTeX counter in Italian",
         );
+        // A card placed by "In cima": the counter and the names stay Italian.
+        await cardOf(board, "c").click();
+        await kanbanTool("In cima").click();
+        await eventually(
+          async () =>
+            ((await board.view.locator("[data-kanban-counter]").textContent()) ?? "").trim() ===
+            "Le tue modifiche: 1 spostata",
+          "the Kanban counter in Italian after In cima",
+        );
+        await expectNoEnglish(board);
+        // `a` leaves `todo`, so `c` is first there as it was sent: only `a` is a change.
         await cardOf(board, "a").click();
         await kanbanTool("Sposta in…").click();
         await board.view.getByRole("menuitem", { name: "In corso", exact: true }).click();

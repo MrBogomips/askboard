@@ -27,7 +27,15 @@ import {
 import type { Board } from "./harness/dom.ts";
 import { draftHolds } from "./harness/draft-results.ts";
 import { enginesFrom } from "./harness/engines.ts";
-import { beginDrag, cardOf, cardsIn, columnOf, dragOver, release } from "./harness/kanban-drag.ts";
+import {
+  beginDrag,
+  cardOf,
+  cardsIn,
+  columnOf,
+  dragOver,
+  dragOverCard,
+  release,
+} from "./harness/kanban-drag.ts";
 import {
   actsDone,
   answerOf,
@@ -114,12 +122,27 @@ const workThenReload = async (
   return board;
 };
 
-// Tries to move card `a` by drag and card `c` by "Move to…", on a Kanban that takes neither.
+// Tries to move card `a` by drag to another column and within its own, card `c` by the keys that
+// place it (kanban-order), by the toolbar's four tools and by "Move to…", on a Kanban that takes
+// none of them.
 const tryToMove = async (board: Board): Promise<void> => {
   await beginDrag(board, cardOf(board, "a"));
   await dragOver(board, columnOf(board, "doing"));
   await release(board);
+  await beginDrag(board, cardOf(board, "a"));
+  await dragOverCard(board, cardOf(board, "c"), "lower");
+  await release(board);
   await cardOf(board, "c").click();
+  await board.page.keyboard.press("Alt+Shift+ArrowUp");
+  await board.page.keyboard.press("Alt+Shift+Home");
+  await board.page.keyboard.press("Control+Shift+ArrowUp");
+  for (const name of ["Move up", "Move down", "To top", "To bottom"]) {
+    await board.view
+      .getByRole("toolbar", { name: "Kanban tools" })
+      .getByRole("button", { name, exact: true })
+      .click({ force: true, timeout: STEP_TIMEOUT_MS })
+      .catch(() => {});
+  }
   await moveTo(board)
     .click({ force: true, timeout: STEP_TIMEOUT_MS })
     .catch(() => {});

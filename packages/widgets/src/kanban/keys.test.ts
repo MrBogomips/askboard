@@ -1,50 +1,102 @@
 import { describe, expect, test } from "bun:test";
-import { KANBAN_FIXTURE_ITEM } from "@askboard/contract/fixtures";
-import { MODIFIED_FLAGS, pressOf, pressWith } from "../../test/key-presses.ts";
-import { kanbanKeyOf, kanbanTools, otherColumns } from "./keys.ts";
+import { KANBAN_FIXTURE_ITEM, KANBAN_ORDER_ITEM } from "@askboard/contract/fixtures";
+import { FLAG_SETS, pressOf, pressWith } from "../../test/key-presses.ts";
+import { kanbanPressOf, kanbanTools, otherColumns } from "./keys.ts";
 import { columnsOf } from "./model.ts";
 
-// The Kanban at the keyboard (view-and-widgets spec: Kanban at the keyboard; design decision 9):
-// the arrow keys are the cards' and nothing else is; "Move to…" acts only for a current card of a
-// Kanban that can change, and offers the other columns.
+// The Kanban at the keyboard (view-and-widgets spec: Kanban at the keyboard; kanban-order, design
+// decision 5; keyboard-shortcuts-help, decisions 7 and 9): the arrow keys with no modifier make a
+// card current, Alt+Shift with the arrow keys, Home and End and Ctrl or Cmd with Shift and the arrow
+// keys move it, and nothing else acts; each tool acts only where the current card of a Kanban that
+// can change can make its move.
 const COLUMNS = columnsOf(KANBAN_FIXTURE_ITEM.props);
 
-describe("kanbanKeyOf", () => {
-  test("names the four arrow keys with no modifier and no other key", () => {
-    expect(
-      ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].map((key) => kanbanKeyOf(pressWith(key))),
-    ).toEqual(["up", "down", "left", "right"]);
-    for (const key of ["Home", "End", "Enter", " ", "a", "toString", "__proto__"]) {
-      expect(kanbanKeyOf(pressWith(key))).toBeUndefined();
-    }
-  });
+const KEYS = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End"] as const;
 
-  test("Alt, Shift, Ctrl and Cmd with each arrow, Home and End give nothing (spec: Keys left to the browser)", () => {
-    for (const key of ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End"]) {
-      for (const flags of MODIFIED_FLAGS) {
-        expect({ key, flags, card: kanbanKeyOf(pressOf(key, flags)) }).toEqual({
-          key,
+type Taken = ReturnType<typeof kanbanPressOf>;
+
+// What the table of design decision 5 gives, key by key, under each hold that gives anything; the
+// holds are the port's (`pressHold`): Ctrl or Cmd alone are both `mod`.
+const TABLE: Partial<Record<string, Partial<Record<(typeof KEYS)[number], Taken>>>> = {
+  none: {
+    ArrowUp: { kind: "cursor", key: "up" },
+    ArrowDown: { kind: "cursor", key: "down" },
+    ArrowLeft: { kind: "cursor", key: "left" },
+    ArrowRight: { kind: "cursor", key: "right" },
+  },
+  "alt+shift": {
+    ArrowUp: { kind: "move", move: "up" },
+    ArrowDown: { kind: "move", move: "down" },
+    Home: { kind: "move", move: "top" },
+    End: { kind: "move", move: "bottom" },
+  },
+  "mod+shift": {
+    ArrowUp: { kind: "move", move: "top" },
+    ArrowDown: { kind: "move", move: "bottom" },
+  },
+};
+
+describe("kanbanPressOf", () => {
+  test("only the table's presses act: every key under each of the 16 sets of modifiers gives what the table says and no more", () => {
+    for (const flags of FLAG_SETS) {
+      for (const key of KEYS) {
+        const press = pressOf(key, flags);
+        expect({ flags, key, taken: kanbanPressOf(press) }).toEqual({
           flags,
-          card: undefined,
+          key,
+          taken: TABLE[press.hold]?.[key],
         });
       }
     }
   });
 
-  test("a press during composition gives nothing", () => {
-    expect(kanbanKeyOf({ ...pressWith("ArrowUp"), composing: true })).toBeUndefined();
+  test("Ctrl and Cmd together never act, nor does Alt with either, nor Alt or Shift alone", () => {
+    for (const hold of ["other", "mod+alt", "shift"] as const) {
+      for (const key of KEYS) expect(kanbanPressOf(pressWith(key, hold))).toBeUndefined();
+    }
+  });
+
+  test("a press while an input method composes does nothing, whatever the key and hold", () => {
+    for (const hold of ["none", "alt+shift", "mod+shift"] as const) {
+      for (const key of KEYS) {
+        expect(kanbanPressOf({ ...pressWith(key, hold), composing: true })).toBeUndefined();
+      }
+    }
+  });
+
+  test("any other key does nothing, under any hold", () => {
+    for (const key of ["Enter", " ", "Escape", "Tab", "a", "PageUp", "toString", "__proto__"]) {
+      for (const flags of FLAG_SETS) expect(kanbanPressOf(pressOf(key, flags))).toBeUndefined();
+    }
   });
 });
 
 describe("kanbanTools", () => {
-  test("Move to is on for a current card of a Kanban that can change", () => {
-    expect(kanbanTools("fix-login", false, COLUMNS)).toEqual({ moveTo: true });
+  const ALL = { moveTo: true, up: true, down: true, top: true, bottom: true };
+  const NONE = { moveTo: false, up: false, down: false, top: false, bottom: false };
+  const ORDER = columnsOf(KANBAN_ORDER_ITEM.props);
+
+  test("each tool is on for a current card in the middle of its column of a Kanban that can change", () => {
+    expect(kanbanTools("add-sso", false, ORDER)).toEqual(ALL);
   });
 
-  test("it is off with no current card, with a card the columns do not hold, and read-only", () => {
-    expect(kanbanTools(undefined, false, COLUMNS)).toEqual({ moveTo: false });
-    expect(kanbanTools("zz", false, COLUMNS)).toEqual({ moveTo: false });
-    expect(kanbanTools("fix-login", true, COLUMNS)).toEqual({ moveTo: false });
+  test("Move up and To top are off for the first card, Move down and To bottom for the last", () => {
+    expect(kanbanTools("fix-login", false, ORDER)).toEqual({
+      ...ALL,
+      up: false,
+      top: false,
+    });
+    expect(kanbanTools("audit", false, ORDER)).toEqual({ ...ALL, down: false, bottom: false });
+  });
+
+  test("a column's only card can only Move to…", () => {
+    expect(kanbanTools("release-notes", false, ORDER)).toEqual({ ...NONE, moveTo: true });
+  });
+
+  test("every tool is off with no current card, with a card the columns do not hold, and read-only", () => {
+    expect(kanbanTools(undefined, false, ORDER)).toEqual(NONE);
+    expect(kanbanTools("zz", false, ORDER)).toEqual(NONE);
+    expect(kanbanTools("add-sso", true, ORDER)).toEqual(NONE);
   });
 });
 

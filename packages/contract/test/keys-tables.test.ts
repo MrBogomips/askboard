@@ -189,23 +189,33 @@ describe("the Gantt's table (decision 9: today's keys)", () => {
   });
 });
 
-describe("the Kanban's table (decision 9: today's keys, kanban-order not merged)", () => {
-  test("the board's cursor, the toolbar's roving focus and the Move to… menu", () => {
+describe("the Kanban's table (decision 9: its keys, with kanban-order's in-column moves)", () => {
+  test("the board's cursor and in-column moves, the toolbar's roving focus and the Move to… menu", () => {
     expect(rows(KANBAN_KEYS)).toEqual([
       "board cursor.up navigation [none:ArrowUp] keys.action.cursor.up",
       "board cursor.down navigation [none:ArrowDown] keys.action.cursor.down",
       "board cursor.left navigation [none:ArrowLeft] keys.action.cursor.left",
       "board cursor.right navigation [none:ArrowRight] keys.action.cursor.right",
+      "board move.up tool [alt+shift:ArrowUp] kanban.moveUp",
+      "board move.down tool [alt+shift:ArrowDown] kanban.moveDown",
+      "board move.top tool [alt+shift:Home,mod+shift:ArrowUp] kanban.toTop",
+      "board move.bottom tool [alt+shift:End,mod+shift:ArrowDown] kanban.toBottom",
       ...TOOLBAR,
       "toolbar kanban.moveTo menu [] kanban.moveTo",
     ]);
   });
 
-  test("has no Home or End on the board, which the handler does not take", () => {
+  test("takes Home and End on the board only with Alt+Shift, and no hold but none, Alt+Shift and Ctrl or Cmd with Shift", () => {
     const board = KANBAN_KEYS.filter(({ part }) => part === "board").flatMap(({ keys }) => keys);
-    expect(board.map(({ key }) => key).sort()).toEqual(
-      ["ArrowDown", "ArrowLeft", "ArrowRight", "ArrowUp"].sort(),
-    );
+    expect(board.filter(({ key }) => key === "Home" || key === "End")).toEqual([
+      { key: "Home", hold: "alt+shift" },
+      { key: "End", hold: "alt+shift" },
+    ]);
+    expect([...new Set(board.map(({ hold }): string => hold))].sort()).toEqual([
+      "alt+shift",
+      "mod+shift",
+      "none",
+    ]);
   });
 });
 
@@ -360,11 +370,11 @@ describe("each table's readOnly, part by part (decision 2, review 1.6 S-3)", () 
     });
   });
 
-  test("the Kanban: the cursor and the toolbar's focus act; Move to… does not", () => {
+  test("the Kanban: the cursor and the toolbar's focus act; the in-column moves and Move to… do not", () => {
     expect(split(KANBAN_KEYS)).toEqual({
       board: {
         readOnly: ["cursor.up", "cursor.down", "cursor.left", "cursor.right"],
-        edits: [],
+        edits: ["move.up", "move.down", "move.top", "move.bottom"],
       },
       toolbar: { readOnly: [], edits: [...NAV_TOOLBAR, "kanban.moveTo"] },
     });

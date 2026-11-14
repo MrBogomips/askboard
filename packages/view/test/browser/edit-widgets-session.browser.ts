@@ -4,10 +4,15 @@
 // returns one `set` of its expression and `fetch` the item; a Kanban card dragged and another moved
 // with "Move to…" survive a reload of the tab with the leave-page prompt armed and are answered and
 // collected as two `set`s. Each real `collect` and `fetch` result passes its schema, the fetched
-// item inside the `questionId` wrapper `core` gives it.
+// item inside the `questionId` wrapper `core` gives it. The Kanban's order (kanban-order, task 4.1;
+// spec view-and-widgets: Kanban order end to end, Kanban order in the draft, A Kanban value fits a
+// revision): a card reordered in its column and another placed in another column reach `collect`
+// as a `move` and a `set` then `move`, and `fetch` returns the cards in the board's order; a
+// reorder survives a reload with the prompt armed; a reorder, an agent's change and a reload leave
+// the Kanban read-only, "Keep mine" drops the reorder and the answer sends nothing for it.
 
 import { describe, expect, test } from "bun:test";
-import { kanbanAsk, kanbanItem } from "./fixtures/kanban-documents.ts";
+import { kanbanAsk, kanbanItem, orderAsk, orderItem } from "./fixtures/kanban-documents.ts";
 import { latexAsk } from "./fixtures/latex-documents.ts";
 import { timelineAsk } from "./fixtures/timeline-documents.ts";
 import { checkedEvents, checkedFetchItem } from "./harness/approval-board.ts";
@@ -21,8 +26,17 @@ import {
   useEngine,
 } from "./harness/board-test.ts";
 import type { Board } from "./harness/dom.ts";
+import { draftHolds } from "./harness/draft-results.ts";
 import { enginesFrom } from "./harness/engines.ts";
-import { beginDrag, cardOf, cardsIn, columnOf, dragOver, release } from "./harness/kanban-drag.ts";
+import {
+  beginDrag,
+  cardOf,
+  cardsIn,
+  columnOf,
+  dragOver,
+  dragOverCard,
+  release,
+} from "./harness/kanban-drag.ts";
 import {
   actsDone,
   answerOf,
@@ -58,6 +72,33 @@ const reloaded = (board: Board, run: Parameters<typeof reloadBoard>[1]) =>
       .locator('[data-askboard-question="plan"]:not([aria-busy="true"])')
       .waitFor({ state: "attached", timeout: LOAD_TIMEOUT_MS }),
   );
+
+// The Kanban of the order ask: `d` dragged above `a` in `todo`, leaving `todo` as `order`; `c`
+// dragged above `b` in `done`.
+const reorderTodo = async (board: Board, order = "d,a,c"): Promise<void> => {
+  await beginDrag(board, cardOf(board, "d"));
+  await dragOverCard(board, cardOf(board, "a"), "upper");
+  await release(board);
+  await eventually(
+    async () => (await cardsIn(board, "todo")).join() === order,
+    `todo to read ${order}`,
+  );
+};
+const placeCInDone = async (board: Board): Promise<void> => {
+  await beginDrag(board, cardOf(board, "c"));
+  await dragOverCard(board, cardOf(board, "b"), "upper");
+  await release(board);
+  await eventually(async () => (await cardsIn(board, "done")).join() === "c,b", "c above b");
+};
+const orderMirrored = (run: Parameters<typeof sentDrafts>[0]) =>
+  sentDrafts(run).some((record) => record.questions.plan?.values?.board !== undefined);
+
+const LINE_START = "Read-only: your work";
+const who = { type: "text-field", id: "who", props: { label: "Who" } };
+const notice = (board: Board) =>
+  board.view.locator('[data-askboard-question="plan"] [data-askboard-notice="agent-change"]');
+const keepMine = (board: Board) =>
+  notice(board).getByRole("button", { name: "Keep mine", exact: true });
 
 const heldCards = async (board: Board) => ({
   todo: await cardsIn(board, "todo"),
@@ -195,6 +236,133 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           ["c", "done"],
         ]);
         expect(kanbanItem().props.cards.map((card) => card.id)).toEqual(["a", "b", "c"]);
+        expectNoCspProblem(run);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "one column reordered and one card placed in another: collect returns the move and the set then move, nothing for the untouched column, and fetch the cards in the board's order",
+      async () => {
+        const run = await start(lifecycleScenario(orderAsk(), dist));
+        const board = await openBoard(run, ["plan"]);
+        await placeCInDone(board);
+        // `c` left `todo` for `done`, so `todo` holds a, d, and `d` goes first.
+        await reorderTodo(board, "d,a");
+        expect(await cardsIn(board, "doing")).toEqual([]);
+        await eventually(() => orderMirrored(run), "the draft to hold the order");
+        await answerOf(board, "plan").click({ timeout: STEP_TIMEOUT_MS });
+        await actsDone(run, 1);
+        const events = checkedEvents(await run.session.collectJson());
+        expect(events).toHaveLength(1);
+        expect(events[0]).toMatchObject({ type: "answer", itemId: "plan", rev: 1 });
+        // Group by group in the order of the column IDs: `done` (the set and the move of `c`),
+        // then `todo` (the move of `d`); `b` stays and so does `a`, and nothing names `doing`.
+        expect(events[0]?.changes).toEqual([
+          { op: "set", target: "board.c.column", value: "done" },
+          { op: "move", target: "board.c" },
+          { op: "move", target: "board.d" },
+        ]);
+        const item = checkedFetchItem(await run.session.fetch("board"));
+        expect(item).toMatchObject({ type: "kanban", id: "board", questionId: "plan" });
+        const cards = (item.props as { cards: { id: string; column: string }[] }).cards;
+        const column = (id: string) =>
+          cards.filter((card) => card.column === id).map((card) => card.id);
+        expect({ todo: column("todo"), doing: column("doing"), done: column("done") }).toEqual({
+          todo: ["d", "a"],
+          doing: [],
+          done: ["c", "b"],
+        });
+        expect(orderItem().props.cards.map((card) => card.id)).toEqual(["a", "b", "c", "d"]);
+        expect(await cardsIn(board, "todo")).toEqual(["d", "a"]);
+        expectNoCspProblem(run);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a reorder not answered survives a reload of the tab, with the prompt armed and the card highlighted, and Answer sends its move alone",
+      async () => {
+        const run = await start(lifecycleScenario(orderAsk(), dist));
+        const board = await openBoard(run, ["plan"]);
+        expect(await promptArmed(board)).toBe(false);
+        await reorderTodo(board);
+        await eventually(() => orderMirrored(run), "the draft to hold the order");
+        await eventually(() => promptArmed(board), "the prompt to be armed");
+
+        await reloaded(board, run);
+        await eventually(
+          async () => (await cardsIn(board, "todo")).join() === "d,a,c",
+          "d above a again",
+        );
+        expect(await cardOf(board, "d").getAttribute("data-change")).toBe("moved");
+        expect(await cardOf(board, "a").getAttribute("data-change")).toBeNull();
+        await eventually(() => promptArmed(board), "the prompt to be armed after the reload");
+        expect(sentActs(run)).toEqual([]);
+
+        await answerOf(board, "plan").click({ timeout: STEP_TIMEOUT_MS });
+        await actsDone(run, 1);
+        const events = checkedEvents(await run.session.collectJson());
+        expect(events).toHaveLength(1);
+        expect(events[0]?.changes).toEqual([{ op: "move", target: "board.d" }]);
+        const item = checkedFetchItem(await run.session.fetch("board"));
+        const cards = (item.props as { cards: { id: string; column: string }[] }).cards;
+        expect(cards.filter((card) => card.column === "todo").map((card) => card.id)).toEqual([
+          "d",
+          "a",
+          "c",
+        ]);
+        expectNoCspProblem(run);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a reorder, the agent's change and a reload: the Kanban is read-only with the line, Keep mine drops the reorder, and the answer sends nothing for it",
+      async () => {
+        const run = await start(lifecycleScenario(orderAsk(who), dist));
+        const board = await openBoard(run, ["plan"]);
+        await reorderTodo(board);
+        await board.view.getByLabel("Who", { exact: true }).fill("Ada");
+        await eventually(
+          () =>
+            orderMirrored(run) &&
+            sentDrafts(run).some((record) => draftHolds([record], "plan", "who", "Ada")),
+          "the order and the field mirrored to the board page",
+        );
+        const agent = orderItem().props;
+        await run.session.update([
+          {
+            action: "change",
+            itemId: "board",
+            props: {
+              ...agent,
+              cards: agent.cards.map((each) =>
+                each.id === "a" ? { ...each, label: "Fix login, again" } : each,
+              ),
+            },
+          },
+        ]);
+        await notice(board).waitFor({ timeout: STEP_TIMEOUT_MS });
+        await reloaded(board, run);
+        await notice(board).waitFor({ timeout: STEP_TIMEOUT_MS });
+        const line = board.view.locator('[data-askboard-read-only="board"]');
+        await line.waitFor({ timeout: STEP_TIMEOUT_MS });
+        expect(await line.textContent()).toContain(LINE_START);
+        // Read-only: the agent's order shows, whatever the user held, and the order takes no move.
+        expect(await cardsIn(board, "todo")).toEqual(["a", "c", "d"]);
+        await keepMine(board).click();
+        await notice(board).waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
+        expect(await cardsIn(board, "todo")).toEqual(["a", "c", "d"]);
+        expect(await board.view.locator('[data-change="moved"]').count()).toBe(0);
+        await eventually(() => answerOf(board, "plan").isEnabled(), "Answer to be enabled");
+        await answerOf(board, "plan").click({ timeout: STEP_TIMEOUT_MS });
+        await actsDone(run, 2);
+        const events = checkedEvents(await run.session.collectJson());
+        const answer = events.find((event) => event.type === "answer");
+        expect(answer).toMatchObject({ rev: 1 });
+        expect(answer?.results).toEqual({ who: "Ada" });
+        expect(answer?.changes ?? []).toEqual([]);
         expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,

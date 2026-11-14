@@ -18,10 +18,16 @@ export const KANBAN_SCHEMA_IDS = /* @__PURE__ */ Object.freeze({
 } as const);
 
 /**
- * The Kanban's shape for the one generic diff (AD-20): its cards as a flat list, so that a moved
- * card is one `set` of its `column`. The columns are no elements: their changes are no Kanban's.
+ * The Kanban's shape for the one generic diff (AD-20): its cards as a flat list grouped by their
+ * `column` (kanban-order, design decision 1), so that a card moved to another column where the sent
+ * order puts it is one `set` of its `column`, and a card placed elsewhere in its column is a `move`
+ * after the card before it in that column. The columns are no elements: their changes are no
+ * Kanban's.
  */
-export const KANBAN_SHAPE: ElementShape = /* @__PURE__ */ Object.freeze({ elements: "cards" });
+export const KANBAN_SHAPE: ElementShape = /* @__PURE__ */ Object.freeze({
+  elements: "cards",
+  group: "column",
+});
 
 export type KanbanColumn = { readonly id: string; readonly label: string };
 
@@ -44,11 +50,23 @@ export type KanbanItem = {
   readonly props: KanbanProps;
 };
 
-/** A Kanban's only change: a card moved to a column. */
-export type KanbanChange = {
+/** A card moved to a column. */
+export type KanbanColumnChange = {
   readonly op: "set";
   /** `<item>.<card>.column`. */
   readonly target: string;
   /** The ID of the column. */
   readonly value: string;
 };
+
+/** A card placed in its column (kanban-order): right after `after`, a card of the same column, or first. */
+export type KanbanMove = {
+  readonly op: "move";
+  /** `<item>.<card>`. */
+  readonly target: string;
+  /** The ID of the card before it in its column, absent for the first. */
+  readonly after?: string;
+};
+
+/** A Kanban's changes: a card moved to a column, and a card placed within its column. */
+export type KanbanChange = KanbanColumnChange | KanbanMove;
