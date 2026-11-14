@@ -9,7 +9,7 @@ The browser and conformance suites run in CI only when dispatched by hand. They 
 
 ## What Changes
 
-The PO's plan item 2 on #171. Plan item 1 merged as #173 (Linux for pull requests, the documents-only gate `tools/ci/changed-paths.sh`, the Playwright cache, parallel unit tests); this change builds on it and repeats none of it. The defaults below were taken in an unattended run and are recorded as defaults: the PO has not answered them yet (design.md, Defaults D1 to D6).
+The PO's plan item 2 on #171. Plan item 1 merged as #173 (Linux for pull requests, the documents-only gate `tools/ci/changed-paths.sh`, the Playwright cache, parallel unit tests); this change builds on it and repeats none of it. The defaults below were taken in an unattended run and are recorded as defaults: the PO has not answered them yet (design.md, Defaults D1 to D6, and the coordinator's decisions C1 to C4 after group 0).
 
 - **A cadence for the suites** (NFR-7, AD-1; D1 to D3):
   - Every pull request, on Linux: the Chromium smoke set, plus conformance in AD-1's three configurations on Bun.
@@ -18,9 +18,9 @@ The PO's plan item 2 on #171. Plan item 1 merged as #173 (Linux for pull request
   - The suites move from `ci.yml`'s dispatch-only jobs to a caller workflow of their own, which uses #173's documents-only gate and always-run jobs. The dist build is made once and shared by the jobs that need it.
   - A release waits for the macOS run of the suites before it publishes.
 - **One manifest of the browser files.** Each file is listed with its engines (all three unless a requirement names fewer), whether it is in the smoke set, and whether it is a perf file. A repository test keeps the manifest and the files in agreement, and checks that the smoke set covers each check the spine names.
-- **The runner runs files in parallel within an engine** (D4). `packages/view/test/browser/run.ts` gains a smoke, full or perf set, a worker count, and shards balanced by recorded timings. The perf files run in a separate serial pass, one engine at a time, with nothing else running. Locally, `bun run test:e2e` runs the full set in parallel, then the perf pass. A new `bun run test:e2e:smoke` runs what a pull request runs.
-- **Speed gates are judged in the perf pass, on the median of three runs** (D6, #146's proposed default). The gates themselves are unchanged. The functional outcomes in the same scenarios still hold on every run. This is a new requirement in `view-and-widgets`, and it defines "the test machine" that the Markdown bounds name.
-- **Round-trip probes replace the fixed 1.5 s waits.** Each wait for "nothing happened" becomes a probe whose return shows that whatever was sent before it has arrived. Where a product timer is under test, the wait is that timer's constant plus the probe. A wait that no probe can replace is named, and its reason is given. A repository test refuses a bare sleep on `QUIET_MS`, whole or a fraction.
+- **The runner runs files in parallel within an engine, one engine at a time** (D4, C2). `packages/view/test/browser/run.ts` gains a smoke, full or perf set, a worker count (all cores by default), and shards balanced by recorded timings. Each worker gives the session processes it starts a short runtime folder of its own, so parallel files never share a session folder (C3). The perf files run in a separate serial pass, one engine at a time, with nothing else running. Locally, `bun run test:e2e` runs the full set in parallel, then the perf pass. A new `bun run test:e2e:smoke` runs what a pull request runs.
+- **Speed gates are judged in the perf pass, on the median of three runs** (D6, #146's proposed default), including the Document review's four Chromium gates on the cost of placing quotes (C1). The gates themselves are unchanged. The functional outcomes in the same scenarios still hold on every run. This is a new requirement in `view-and-widgets`, and it defines "the test machine" that the Markdown bounds name.
+- **Round-trip probes replace the fixed 1.5 s waits.** Each wait for "nothing happened" becomes a probe whose return shows that whatever was sent before it has arrived. Where a product timer is under test, the wait is that timer's constant plus the probe. A wait that no probe can replace is named, and its reason is given. A repository test refuses a bare sleep on `QUIET_MS`, whole or a fraction, or on a literal of its value (C4).
 - **The spine's Tests row** states the cadence, the smoke set's rule, the per-file engine rule and the perf pass. The CI section of `CLAUDE.md` and its Development commands describe the new commands and triggers.
 - **Deferred** (D5): reusing one session process per file for tests that are not about the lifecycle (#171, item C4). It needs its own review of NFR-10's isolation of epochs and discarded asks, so it moves to its own Issue, #172.
 
@@ -32,7 +32,7 @@ The PO's plan item 2 on #171. Plan item 1 merged as #173 (Linux for pull request
 
 ### Modified Capabilities
 
-- `view-and-widgets`: a new requirement on how the timed bounds that this spec names are judged (in the perf pass, serially, on the median of three runs, gates unchanged). It also defines the "test machine" that the Markdown bounded work requirement names.
+- `view-and-widgets`: a new requirement on how the timed bounds that this spec names, and the browser suite's other wall-clock gates, are judged (in the perf pass, serially, on the median of three runs, gates unchanged). It also defines the "test machine" that the Markdown bounded work requirement names.
 - `packaging`: The release workflow gains a gate: the browser and conformance suites on macOS pass before publishing.
 
 ## Impact
@@ -40,7 +40,8 @@ The PO's plan item 2 on #171. Plan item 1 merged as #173 (Linux for pull request
 - **Test tooling:**
   - `packages/view/test/browser/run.ts` and new runner modules beside it.
   - `harness/suites.ts` (the manifest), `harness/perf.ts` (the median rule) and `harness/probes.ts` (the round-trip probes).
-  - `harness/board-test.ts`, whose `QUIET_MS` and `expectNoReconnect` change.
+  - `harness/board-test.ts`, whose `QUIET_MS` and `expectNoReconnect` change, and `harness/session-process.ts`, whose session processes get a runtime folder per worker (`harness/runtime-dir.ts`).
+  - `document-review.browser.ts`'s timing block, moved into a new perf file.
   - About 60 browser files: their waits, and the narrowed or perf files' engine loops.
   - `package.json` scripts `test:e2e` and `test:e2e:smoke`, plus new tests under `packages/view/test/browser/harness/` and `tools/ci/`; `tools/release/workflow.test.ts` and `tools/codex-interop.test.ts` follow the workflows.
 - **CI:**

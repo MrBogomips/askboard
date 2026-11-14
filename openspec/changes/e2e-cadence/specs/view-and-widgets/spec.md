@@ -3,7 +3,7 @@
 ## ADDED Requirements
 
 ### Requirement: Timed bounds judged in the perf pass
-Each time bound this spec states for the view or a widget (the LaTeX and Markdown bounds, the Table's gates of design decision 13) SHALL be judged in the perf pass, the test machine: the timed files alone, one at a time, one engine at a time, nothing else running. Each bound SHALL hold for the median of three runs in fresh pages, with its value unchanged. The functional outcomes of the same scenarios SHALL hold on every run (AD-8, NFR-5, NFR-12).
+Each time bound this spec states for the view or a widget (LaTeX, Markdown, the Table), and each other wall-clock gate the browser suite asserts, SHALL be judged in the perf pass, the test machine: the timed files alone, one at a time, one engine at a time, nothing else running. Each SHALL hold for the median of three runs in fresh pages, its value unchanged; the functional outcomes of the same scenarios SHALL hold on every run (AD-8, NFR-5, NFR-12).
 
 #### Scenario: One slow run of three
 - **WHEN** the perf pass measures a Table edit at its bounds in WebKit three times, at 92, 131 and 97 ms against the 100 ms gate
@@ -19,7 +19,11 @@ Each time bound this spec states for the view or a widget (the LaTeX and Markdow
 
 #### Scenario: Not judged beside other work
 - **WHEN** the browser suite runs its files in parallel, locally or in a CI shard
-- **THEN** no time bound of this spec is asserted there, and the timed files run afterwards in the perf pass
+- **THEN** no time bound of this spec and no other wall-clock gate is asserted there, and the timed files run afterwards in the perf pass
+
+#### Scenario: The Document review's cost of placing
+- **WHEN** the perf pass places 100 near-miss quotes of 2,000 characters in a Document review in Chromium three times, and types in a card beside 99 of them and alone three times each
+- **THEN** each gate (placed within 15 s, a key beside 99 quotes under four times its cost alone plus 60 ms, and with 32 Document reviews shown within 20 s and a key under 150 ms) is judged once on the medians, and no file outside the perf pass asserts them
 
 #### Scenario: The Markdown test machine
 - **WHEN** the Markdown bounded work requirement names "the test machine"
