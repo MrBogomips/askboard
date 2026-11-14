@@ -19,6 +19,8 @@ jobs:
     env:
       # With CI set and no BROWSER, no board can be shown (AD-18): the recorder opens nothing.
       BROWSER: ${{ github.workspace }}/packages/view/test/browser/fixtures/record-link.sh
+      # The engines' downloads, in a folder the cache below keeps between runs.
+      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.playwright-browsers
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -26,7 +28,15 @@ jobs:
       - uses: ./.github/actions/setup-bun
       # Before the engine's download, so that a missing piece fails the job first.
       - run: bun run build
-      # The pinned playwright's own binary, so the engine matches its version.
+      # Keyed by the engine and the pinned playwright's version, so a bump downloads a fresh build.
+      - id: playwright
+        run: echo "version=$(node -p 'require("playwright/package.json").version')" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.PLAYWRIGHT_BROWSERS_PATH }}
+          key: playwright-${{ runner.os }}-${{ matrix.engine }}-${{ steps.playwright.outputs.version }}
+      # The pinned playwright's own binary, so the engine matches its version. With the cache hit
+      # it downloads nothing; --with-deps still installs the system packages (Linux).
       - name: Install ${{ matrix.engine }} with its system dependencies
         run: node_modules/.bin/playwright install --with-deps ${{ matrix.engine }}
       - name: Browser tests against the built session process

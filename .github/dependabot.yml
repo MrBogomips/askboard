@@ -6,10 +6,27 @@ updates:
       - /.github/actions/setup-bun
     schedule:
       interval: weekly
+    groups:
+      # One pull request a week for the minor and patch bumps; a major gets its own.
+      actions:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
   - package-ecosystem: bun
     directory: /
     schedule:
       interval: weekly
+    groups:
+      # Every dependency is a development dependency: one pull request a week for the minor and
+      # patch bumps, one CI run; a major gets its own, so a breaking bump never holds the others.
+      bun-dev:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
     ignore:
       # Follows the Bun pin in packageManager, which Dependabot does not bump: bump both by hand
       # (tools/workspace.test.ts fails if they differ).

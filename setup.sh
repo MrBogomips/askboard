@@ -1,8 +1,9 @@
 #!/bin/sh
 # Sets up an AskBoard checkout or worktree, locally and on CI (CLAUDE.md, Development commands).
 #
-#   ./setup.sh [--ci] [--codex-only] [--dry-run | --check] [--force]
+#   ./setup.sh [--ci] [--no-codex] [--codex-only] [--dry-run | --check] [--force]
 #   --ci          as CI runs it, also when CI is set: bun install --frozen-lockfile
+#   --no-codex    the toolchain check and the install only, no Codex files (the CI jobs that read none)
 #   --codex-only  only regenerate the Codex files (CLAUDE.md, Codex interop)
 #   --dry-run, --check, --force
 #                 passed to codex_port (see its block); they imply --codex-only
@@ -209,22 +210,28 @@ codex_port() (
 # <<< codex-port <<<
 
 main() {
-  ci=0 codex_only=0 codex_args=
+  ci=0 codex_only=0 no_codex=0 codex_args=
   if [ -n "${CI:-}" ]; then ci=1; fi
   for arg in "$@"; do
     case $arg in
       --ci) ci=1 ;;
+      --no-codex) no_codex=1 ;;
       --codex-only) codex_only=1 ;;
       --dry-run | --check | --force) codex_only=1 codex_args="$codex_args $arg" ;;
-      *) fail "unknown option '$arg' (use --ci, --codex-only, --dry-run, --check or --force)" ;;
+      *) fail "unknown option '$arg' (use --ci, --no-codex, --codex-only, --dry-run, --check or --force)" ;;
     esac
   done
+  if [ "$no_codex" = 1 ] && [ "$codex_only" = 1 ]; then
+    fail "--no-codex cannot be combined with --codex-only, --dry-run, --check or --force"
+  fi
   if [ "$codex_only" = 0 ]; then
     check_toolchain
     if [ "$ci" = 1 ]; then bun install --frozen-lockfile; else bun install; fi
   fi
-  # shellcheck disable=SC2086 # codex_args holds whole option words only
-  codex_port $codex_args
+  if [ "$no_codex" = 0 ]; then
+    # shellcheck disable=SC2086 # codex_args holds whole option words only
+    codex_port $codex_args
+  fi
 }
 
 main "$@"
