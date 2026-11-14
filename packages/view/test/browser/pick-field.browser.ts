@@ -16,7 +16,6 @@ import { plan } from "./fixtures/tree-documents.ts";
 import {
   eventually,
   expectNoCspProblem,
-  QUIET_MS,
   STEP_TIMEOUT_MS,
   TEST_TIMEOUT_MS,
   useEngine,
@@ -30,6 +29,7 @@ import {
   openBoard,
   sentDrafts,
 } from "./harness/lifecycle-test.ts";
+import { draftSettled } from "./harness/probes.ts";
 import { tabIntoGroup } from "./harness/tab-stops.ts";
 import { readyIn } from "./harness/tree-steps.ts";
 import { readViewBuild } from "./harness/view-build.ts";
@@ -140,7 +140,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await fieldOf(view, "region").getByRole("radio").count()).toBe(3);
         const entered = await tabIntoGroup(run.board, plan.props.text, group);
         expect(entered).toContain("Europe");
-        await Bun.sleep(QUIET_MS);
+        await draftSettled(run.board);
         expect(
           await fieldOf(view, "region").locator('[role="radio"][aria-checked="true"]').count(),
         ).toBe(0);
@@ -148,7 +148,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await view.getByRole("button", { name: "Clear", exact: true }).count()).toBe(0);
         await page.keyboard.press("ArrowDown");
         await eventually(() => focused(radio(view, "North America")), "focus on North America");
-        await Bun.sleep(QUIET_MS);
+        await draftSettled(run.board);
         expect(draftHolds(run.drafts, "plan", "region", undefined)).toBe(true);
         expect(await radio(view, "North America").getAttribute("aria-checked")).toBe("false");
         await page.keyboard.press("Space");
@@ -232,7 +232,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await page.keyboard.press("Space");
         await holding(run, "tags", ["a", "c"], "the draft to hold a and c in the options' order");
         await page.keyboard.press("Enter");
-        await Bun.sleep(QUIET_MS);
+        await draftSettled(run.board);
         expect(draftHolds(run.drafts, "plan", "tags", ["a", "c"])).toBe(true);
         await page.keyboard.press("Space");
         await box(view, "Gamma").focus();
@@ -292,7 +292,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await radio(view, "Italy").count()).toBe(0);
         expect(draftHolds(run.drafts, "plan", "country", ITALY)).toBe(true);
         await page.keyboard.press("Enter");
-        await Bun.sleep(QUIET_MS);
+        await draftSettled(run.board);
         expect(JSON.stringify(run.drafts).toLowerCase()).not.toContain("fran");
         expect(run.messages.map((message) => message.type)).toEqual(["ready"]);
         await filter.fill("zzz");
@@ -326,7 +326,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await page.keyboard.press("Tab");
         await eventually(() => focused(radio(view, "France")), "focus on the first option shown");
         expect(await radio(view, "France").getAttribute("aria-checked")).toBe("false");
-        await Bun.sleep(QUIET_MS);
+        await draftSettled(run.board);
         expect(draftHolds(run.drafts, "plan", "country", ITALY)).toBe(true);
       },
       TEST_TIMEOUT_MS,
@@ -361,7 +361,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         for (const name of ["Finland", "Ireland", "Poland"]) {
           expect(await radio(view, name).getAttribute("aria-checked")).toBe("false");
         }
-        await Bun.sleep(QUIET_MS);
+        await draftSettled(run.board);
         expect(draftHolds(run.drafts, "plan", "country", ITALY)).toBe(true);
       },
       TEST_TIMEOUT_MS,
@@ -515,7 +515,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await radio(view, "Spain")
           .click({ force: true, noWaitAfter: true })
           .catch(() => undefined);
-        await Bun.sleep(QUIET_MS);
+        await draftSettled(board);
         expect(await radio(view, "Italy").getAttribute("aria-checked")).toBe("true");
         expect(sentDrafts(run).length).toBe(drafts);
         expectNoCspProblem(run);

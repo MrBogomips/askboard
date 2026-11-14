@@ -44,7 +44,6 @@ import {
   expectNoCspProblem,
   expectNoReconnect,
   LOAD_TIMEOUT_MS,
-  QUIET_MS,
   reloadBoard,
   STEP_TIMEOUT_MS,
   TEST_TIMEOUT_MS,
@@ -64,6 +63,7 @@ import {
   sentActs,
   sentDrafts,
 } from "./harness/lifecycle-test.ts";
+import { draftSettled, hostSettled } from "./harness/probes.ts";
 import {
   annotationsHeld,
   DOCUMENT,
@@ -245,7 +245,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await eventually(async () => (await detached(view).count()) === 1, "the list after reload");
         expect(await answerOf(board, "plan").isDisabled()).toBe(true);
         expect(await hintOf(board)).toBe("Delete the detached comments in Release notes first.");
-        await Bun.sleep(QUIET_MS);
+        await hostSettled(board);
         expect(sentActs(run)).toHaveLength(1);
 
         await detached(view)
@@ -479,7 +479,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           expect(await hintOf(board)).toBeUndefined();
           const before = JSON.stringify(sentDrafts(run).at(-1));
           expect(await select(view, "drafts")).toBe(true);
-          await Bun.sleep(QUIET_MS);
+          await draftSettled(board);
           expect(await tool(view, "Comment").count()).toBe(0);
           expect(await tool(view, "Suggest edit").count()).toBe(0);
           expect(await view.getByRole("dialog").count()).toBe(0);
@@ -792,7 +792,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       await refusal.waitFor({ timeout: STEP_TIMEOUT_MS });
       expect((await refusal.textContent()) ?? "").toMatch(/\(\d+\.\d MB, at most 6 MB\)/);
       expect(sentActs(run)).toEqual([]);
-      await expectNoReconnect(run);
+      await expectNoReconnect(run, board);
       expect(run.browser.sockets.length).toBe(socketsBefore);
       expect(await board.banner("Connection lost, retrying").count()).toBe(0);
       // The user's work is still there, in every review.

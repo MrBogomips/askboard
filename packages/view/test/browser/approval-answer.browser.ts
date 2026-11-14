@@ -24,7 +24,6 @@ import {
   eventually,
   expectNoCspProblem,
   isFocused,
-  QUIET_MS,
   STEP_TIMEOUT_MS,
   TEST_TIMEOUT_MS,
   useEngine,
@@ -43,6 +42,7 @@ import {
   optionOf,
   sentActs,
 } from "./harness/lifecycle-test.ts";
+import { hostSettled, viewSettled } from "./harness/probes.ts";
 import { treeGridOf } from "./harness/tree-grid.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 
@@ -91,14 +91,14 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await answerOf(board, PLAN).click({ timeout: STEP_TIMEOUT_MS });
         await error(board, PLAN).waitFor({ timeout: STEP_TIMEOUT_MS });
         await eventually(() => isFocused(promptOf(board, PLAN, REASON)), "focus in the prompt");
-        await Bun.sleep(QUIET_MS);
+        await hostSettled(board);
         expect(sentActs(run)).toEqual([]);
         expect((await run.session.collect()).events).toEqual([]);
         // Writing the reason clears the error, and deleting it again does not bring it back.
         await promptOf(board, PLAN, REASON).fill(WHY);
         await error(board, PLAN).waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
         await promptOf(board, PLAN, REASON).fill("");
-        await Bun.sleep(QUIET_MS / 3);
+        await viewSettled(board);
         expect(await error(board, PLAN).count()).toBe(0);
         await promptOf(board, PLAN, REASON).fill(WHY);
         await answerOf(board, PLAN).click({ timeout: STEP_TIMEOUT_MS });
@@ -142,7 +142,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await dialog(board).waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
         await eventually(() => isFocused(answerOf(board, PLAN)), "focus back on Answer");
         expect(await isPressed(decisionOf(board, PLAN, "Reject"))).toBe(true);
-        await Bun.sleep(QUIET_MS);
+        await hostSettled(board);
         expect(sentActs(run)).toHaveLength(1);
         // Confirming sends the revision: the Tree was left alone, so its answered edit is carried as
         // the card shows it, and the event holds the result and the Tree's earlier rename, which a
@@ -234,7 +234,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         // A note keeps the revision's work once the rename is undone, which alone would end it.
         await promptOf(board, PLAN, OPEN_NOTE).fill(WHY);
         await renameNode(board, "ux", "UX design");
-        await Bun.sleep(QUIET_MS);
+        await hostSettled(board);
         for (const name of ["Approve", "Approve with changes", "Reject"]) {
           expect(await isPressed(decisionOf(board, PLAN, name))).toBe(false);
         }
@@ -254,7 +254,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(first?.changes).toEqual([{ op: "set", target: "wbs.ux.label", value: UX }]);
         // The revision starts from the answer: the Tree keeps the rename, the verdict and the note.
         await renameNode(board, "ux", "UX design");
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(board);
         const cell = treeGridOf(board).cell("ux", 0);
         expect(await cell.textContent()).toContain("UX design");
         expect(await cell.textContent()).not.toContain(UX);
@@ -287,7 +287,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await dialog(board).getByRole("button", { name: "Cancel", exact: true }).click();
         await dialog(board).waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
         await eventually(() => isFocused(buttonOf(board, PLAN, "More")), "focus on More");
-        await Bun.sleep(QUIET_MS);
+        await hostSettled(board);
         expect(sentActs(run)).toHaveLength(1);
         await chooseFromMore(board, PLAN, "Decline");
         await dialog(board).getByRole("button", { name: "Send", exact: true }).click();
@@ -311,7 +311,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await error(board, REVIEW).waitFor({ timeout: STEP_TIMEOUT_MS });
         await eventually(() => isFocused(promptOf(board, REVIEW, REASON)), "focus in the prompt");
         expect(await optionOf(board, REVIEW, "PostgreSQL").isChecked()).toBe(true);
-        await Bun.sleep(QUIET_MS);
+        await hostSettled(board);
         expect(sentActs(run)).toEqual([]);
         // A first answer, delivered; then the recommended option asks first.
         await decisionOf(board, REVIEW, "Approve").click();
@@ -328,7 +328,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await dialog(board).waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
         await eventually(() => isFocused(accept), "focus back on Accept recommended");
         expect(await optionOf(board, REVIEW, "PostgreSQL").isChecked()).toBe(true);
-        await Bun.sleep(QUIET_MS);
+        await hostSettled(board);
         expect(sentActs(run)).toHaveLength(1);
         expect(await treeGridOf(board).grid.count()).toBe(1);
         expectNoCspProblem(run);

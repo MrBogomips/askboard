@@ -4,8 +4,9 @@
 
 import { expect } from "bun:test";
 import { plan } from "../fixtures/tree-documents.ts";
-import { eventually, isFocused, LOAD_TIMEOUT_MS, QUIET_MS, STEP_TIMEOUT_MS } from "./board-test.ts";
+import { eventually, isFocused, LOAD_TIMEOUT_MS, STEP_TIMEOUT_MS } from "./board-test.ts";
 import type { Board } from "./dom.ts";
+import { hostSettled } from "./probes.ts";
 import {
   type FocusAt,
   groupQuestion,
@@ -61,7 +62,8 @@ export const readyIn = async (run: WidgetHostRun): Promise<void> => {
 /** Nothing has changed: "Answer" is disabled and no view message but `ready` left the view. */
 export const expectUnchanged = async (run: WidgetHostRun): Promise<void> => {
   expect(await run.board.answer.isDisabled()).toBe(true);
-  await Bun.sleep(QUIET_MS);
+  // `messages` is the host page's binding, or the session process's act frames (`widgetBoardFor`).
+  await hostSettled(run.board);
   expect(run.messages).toEqual([{ type: "ready", itemId: plan.id }]);
 };
 

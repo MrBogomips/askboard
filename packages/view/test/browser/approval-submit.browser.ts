@@ -16,7 +16,6 @@ import {
   eventually,
   expectNoCspProblem,
   isFocused,
-  QUIET_MS,
   reloadBoard,
   STEP_TIMEOUT_MS,
   TEST_TIMEOUT_MS,
@@ -35,6 +34,7 @@ import {
   optionOf,
   sentActs,
 } from "./harness/lifecycle-test.ts";
+import { hostSettled } from "./harness/probes.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 
 const dist = await readViewBuild();
@@ -178,7 +178,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await promptOf(board, REVIEW, REASON).waitFor({ timeout: STEP_TIMEOUT_MS });
         await barButton(board, "Select recommended").click();
         await eventually(() => optionOf(board, REVIEW, "PostgreSQL").isChecked(), "PostgreSQL");
-        await Bun.sleep(QUIET_MS);
+        await hostSettled(board);
         expect(await held(board, REVIEW)).toBe(false);
         expect(await submit(board).isDisabled()).toBe(true);
         expect(sentActs(run)).toEqual([]);
@@ -206,7 +206,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await eventually(() => isFocused(submit(board)), "focus back on Submit");
         expect(await held(board, PLAN)).toBe(true);
         expect(await submit(board).isEnabled()).toBe(true);
-        await Bun.sleep(QUIET_MS);
+        await hostSettled(board);
         expect(sentActs(run)).toHaveLength(1);
         await submit(board).click();
         await dialogButton(board, "Submit").click();
@@ -233,7 +233,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await eventually(() => isFocused(submit(board)), "focus back on Submit");
         expect(await barButton(board, "Submitted").getAttribute("aria-pressed")).toBe("true");
         expect(await held(board, PLAN)).toBe(true);
-        await Bun.sleep(QUIET_MS);
+        await hostSettled(board);
         expect(sentActs(run)).toHaveLength(1);
         await barButton(board, "Immediate").click();
         await dialogButton(board, "Send and switch").click();
@@ -260,7 +260,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await dialog(board).count()).toBe(0);
         expect(await held(board, PLAN)).toBe(true);
         expect(await held(board, REVIEW)).toBe(true);
-        await Bun.sleep(QUIET_MS);
+        await hostSettled(board);
         expect(sentActs(run)).toEqual([]);
         expect((await run.session.collect()).events).toEqual([]);
         expectNoCspProblem(run);
@@ -282,7 +282,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await barButton(board, "Submitted").getAttribute("aria-pressed")).toBe("true");
         expect(await held(board, PLAN)).toBe(true);
         expect(await held(board, REVIEW)).toBe(true);
-        await Bun.sleep(QUIET_MS);
+        await hostSettled(board);
         expect(sentActs(run)).toEqual([]);
         expect((await run.session.collect()).events).toEqual([]);
         expectNoCspProblem(run);
@@ -300,7 +300,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await expectReviewShownAndAsked(board);
         expect(await dialog(board).count()).toBe(0);
         await expectBothStillHeld(run);
-        await Bun.sleep(QUIET_MS);
+        await hostSettled(board);
         expect(sentActs(run)).toEqual([]);
         expect((await run.session.collect()).events).toEqual([]);
         expectNoCspProblem(run);
@@ -320,7 +320,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await expectReviewShownAndAsked(board);
         expect(await barButton(board, "Submitted").getAttribute("aria-pressed")).toBe("true");
         await expectBothStillHeld(run);
-        await Bun.sleep(QUIET_MS);
+        await hostSettled(board);
         expect(sentActs(run)).toEqual([]);
         expect((await run.session.collect()).events).toEqual([]);
         expectNoCspProblem(run);
@@ -347,7 +347,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         ]);
         await eventually(() => dialogButton(board, "Submit").isDisabled(), "its Submit to wait");
         await dialogButton(board, "Submit").click({ force: true });
-        await Bun.sleep(QUIET_MS);
+        await hostSettled(board);
         expect(sentActs(run)).toHaveLength(1);
         await dialogButton(board, "Cancel").click();
         await dialog(board).waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });

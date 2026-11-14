@@ -8,16 +8,11 @@
 
 import { describe, expect, test } from "bun:test";
 import { atomAsk, atomDocument } from "./fixtures/atom-documents.ts";
-import {
-  eventually,
-  QUIET_MS,
-  STEP_TIMEOUT_MS,
-  TEST_TIMEOUT_MS,
-  useEngine,
-} from "./harness/board-test.ts";
+import { eventually, STEP_TIMEOUT_MS, TEST_TIMEOUT_MS, useEngine } from "./harness/board-test.ts";
 import { draftHolds } from "./harness/draft-results.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import { answerOf, lifecycleScenario, openBoard, sentDrafts } from "./harness/lifecycle-test.ts";
+import { draftSettled } from "./harness/probes.ts";
 import { readyIn } from "./harness/tree-steps.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 import { useWidgetHost, type WidgetHostRun } from "./harness/widget-host-test.ts";
@@ -60,7 +55,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           await view.getByRole("switch", { name: "Notify me" }).getAttribute("aria-checked"),
         ).toBe("false");
         expect(await run.board.answer.isDisabled()).toBe(true);
-        await Bun.sleep(QUIET_MS);
+        await draftSettled(run.board);
         expect(run.messages.map((message) => message.type)).toEqual(["ready"]);
         expect(run.drafts).toEqual([]);
       },
@@ -255,7 +250,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           .getByLabel("Name", { exact: true })
           .press("x", { noWaitAfter: true })
           .catch(() => undefined);
-        await Bun.sleep(QUIET_MS);
+        await draftSettled(board);
         expect(await board.view.getByLabel("Name", { exact: true }).inputValue()).toBe("Ada");
         expect(await board.view.locator('[id="notify:state"]').textContent()).toBe("On");
         expect(sentDrafts(run).length).toBe(drafts);

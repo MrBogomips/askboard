@@ -78,7 +78,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await second.receipt("delivered to the agent").waitFor({ timeout: STEP_TIMEOUT_MS });
         await run.session.exit();
         await shows(second, DISCARDED);
-        await expectNoReconnect(run);
+        await expectNoReconnect(run, second);
         expectPageHalf(run, clicked);
         expectNoCspProblem(run);
       },
@@ -92,7 +92,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const board = await run.open();
         await run.session.exit();
         await expectDiscarded(board);
-        await expectNoReconnect(run);
+        await expectNoReconnect(run, board);
         expectPageHalf(run);
       },
       TEST_TIMEOUT_MS,
@@ -105,7 +105,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const board = await run.open();
         await run.session.restart();
         await expectDiscarded(board);
-        await expectNoReconnect(run);
+        await expectNoReconnect(run, board);
         expectPageHalf(run);
       },
       TEST_TIMEOUT_MS,
@@ -168,14 +168,14 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const second = await run.open();
         await shows(first, MOVED);
         expect(await enabledCount(first.options)).toBe(0);
-        await expectNoReconnect(run);
+        await expectNoReconnect(run, first);
         await first.continueHere.click({ timeout: STEP_TIMEOUT_MS });
         await shows(second, MOVED);
         await second.continueHere.waitFor({ state: "visible", timeout: STEP_TIMEOUT_MS });
         await first.banner(MOVED).first().waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
         await first.receipt("delivered to the agent").waitFor({ timeout: STEP_TIMEOUT_MS });
         expect(await first.continueHere.count()).toBe(0);
-        await expectNoReconnect(run);
+        await expectNoReconnect(run, second);
         expectPageHalf(run, clicked);
         expectNoCspProblem(run);
       },

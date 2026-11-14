@@ -13,7 +13,6 @@ import { plan } from "./fixtures/tree-documents.ts";
 import {
   eventually,
   isFocused,
-  QUIET_MS,
   STEP_TIMEOUT_MS,
   TEST_TIMEOUT_MS,
   useEngine,
@@ -28,6 +27,7 @@ import {
   sentActs,
   sentDrafts,
 } from "./harness/lifecycle-test.ts";
+import { draftSettled, viewSettled } from "./harness/probes.ts";
 import { tabIntoGroup, tabLeavesGroup } from "./harness/tab-stops.ts";
 import { pressIn, treeGridOf } from "./harness/tree-grid.ts";
 import {
@@ -83,7 +83,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await board.answer.isEnabled()).toBe(true);
         await draftHolding(run, { decision: "reject" }, "the draft to hold reject");
         // Selecting sends nothing: the question's `ready` is the one view message.
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(board);
         expect(run.messages.map((message) => message.type)).toEqual(["ready"]);
         await decision(board, "Reject").click();
         await eventually(async () => !(await pressed(board, "Reject")), "Reject to clear");
@@ -294,7 +294,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await decision(board, "Reject").focus();
         await board.page.keyboard.press("Space");
         await board.page.keyboard.press("ArrowRight");
-        await Bun.sleep(QUIET_MS);
+        await draftSettled(board);
         expect(await pressed(board, "Reject")).toBe(true);
         expect([sentDrafts(run).length, sentActs(run).length]).toEqual([drafts, acts]);
       },

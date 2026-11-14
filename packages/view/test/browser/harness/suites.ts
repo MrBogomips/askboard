@@ -125,6 +125,7 @@ export const BROWSER_FILES: Readonly<Record<string, BrowserFileEntry>> = {
   "presence.browser.ts": {},
   "presentation.browser.ts": {},
   "presentation-persistence.browser.ts": {},
+  "probes.browser.ts": {},
   "ranking.browser.ts": {},
   "ranking-keys.browser.ts": {},
   "ranking-keys-session.browser.ts": {},

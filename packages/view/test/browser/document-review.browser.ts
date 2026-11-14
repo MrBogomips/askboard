@@ -20,8 +20,9 @@ import {
   reviewDocument,
   reviewItem,
 } from "./fixtures/document-review-documents.ts";
-import { eventually, QUIET_MS, STEP_TIMEOUT_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
+import { eventually, STEP_TIMEOUT_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
 import { enginesFrom } from "./harness/engines.ts";
+import { draftSettled, viewSettled } from "./harness/probes.ts";
 import {
   annotationsHeld,
   card,
@@ -69,7 +70,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await doc.textContent()).toContain("[x](javascript:alert(1))");
         expect(await doc.locator('a[href^="javascript"]').count()).toBe(0);
         expect(await doc.locator("strong").textContent()).toBe("remembers");
-        await Bun.sleep(QUIET_MS);
+        await draftSettled(run.board);
         expect(run.messages.filter((message) => message.type === "ready")).toHaveLength(1);
         expect(run.drafts).toEqual([]);
         expect(await run.board.answer.isDisabled()).toBe(true);
@@ -250,7 +251,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const dialog = await openCardOn(view, "drafts", "Suggest edit");
         await dialog.getByRole("button", { name: "Done" }).click();
         await card(view).waitFor({ state: "hidden", timeout: STEP_TIMEOUT_MS });
-        await Bun.sleep(QUIET_MS);
+        await draftSettled(run.board);
         expect(run.drafts).toEqual([]);
         expect(await marks(view).count()).toBe(0);
       },
@@ -424,7 +425,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           "the limit message",
         );
         expect(await card(view).count()).toBe(0);
-        await Bun.sleep(QUIET_MS);
+        await draftSettled(run.board);
         expect(run.drafts.length).toBe(before);
         expect(await marks(view).count()).toBe(100);
         expect(run.browser.cspProblems()).toEqual([]);
@@ -835,7 +836,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         ]);
         expect(frame.url()).toBe(before);
         await link.click({ button: "middle" });
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(run.board);
         expect(run.messages.filter((message) => message.type === "open-link")).toHaveLength(1);
         await link.focus();
         await page.keyboard.press("Enter");
@@ -896,14 +897,14 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await view.getByRole("link", { name: "docs", exact: true }).count()).toBe(1);
         await pin(view, "Comment 1").click();
         await card(view).waitFor({ timeout: STEP_TIMEOUT_MS });
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(run.board);
         expect(opened(run)).toEqual([]);
         await card(view).getByRole("button", { name: "Close" }).click();
         await card(view).waitFor({ state: "hidden", timeout: STEP_TIMEOUT_MS });
         await pin(view, "Comment 1").focus();
         await page.keyboard.press("Enter");
         await card(view).waitFor({ timeout: STEP_TIMEOUT_MS });
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(run.board);
         expect(opened(run)).toEqual([]);
         await page.keyboard.press("Escape");
         await card(view).waitFor({ state: "hidden", timeout: STEP_TIMEOUT_MS });
@@ -944,7 +945,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await pin(view, "Comment 1").focus();
         await page.keyboard.press("Enter");
         await card(view).waitFor({ timeout: STEP_TIMEOUT_MS });
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(run.board);
         expect(opened(run)).toEqual([]);
         expect(run.browser.cspProblems()).toEqual([]);
       },
@@ -967,7 +968,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await replacement.evaluate((el) => el.closest("a") !== null)).toBe(false);
         expect(await view.getByRole("link", { name: "the guide", exact: true }).count()).toBe(1);
         await replacement.click({ position: { x: 2, y: 2 } });
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(run.board);
         expect(opened(run)).toEqual([]);
       },
       TEST_TIMEOUT_MS,
@@ -1058,7 +1059,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await run.board.answer.isDisabled()).toBe(true);
         // A second restore, as a reload would give: the annotation and the block are still there.
         await restoreAnnotations(run, document, [commentOn("u-1", "ab", "Which ab?")], 2);
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(run.board);
         expect(await list(view).count()).toBe(1);
         expect(await run.board.answer.isDisabled()).toBe(true);
         expect(await hintOf(run)).toBe("Delete the detached comments in the document first.");

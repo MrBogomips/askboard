@@ -166,7 +166,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           /\(6\.\d MB, at most 6 MB\)/,
         );
         expect(sentActs(run)).toEqual([]);
-        await expectNoReconnect(run);
+        await expectNoReconnect(run, board);
         expect(run.browser.sockets.length).toBe(socketsBefore);
         expect(await connectionLost(board).count()).toBe(0);
         // The user's work is still there.
