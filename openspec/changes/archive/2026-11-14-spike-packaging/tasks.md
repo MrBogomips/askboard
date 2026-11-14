@@ -63,3 +63,5 @@ Commands run from `openspec/changes/spike-packaging/probe/` unless they name the
 - Open the pull request, check that CI passes, squash-merge after the product owner approves, then archive the change on main and remove the worktree and its branch.
 - The `packaging` and `hooks` epics build on the decisions recorded here.
 - The product owner decided §11 entry 7 (NFR-6) on 2026-10-30, granting the exception subject to entry 8, and files entry 8 (AXFX NFR-1) in the planning repository with the text in `findings.md`, § Follow-up: the AXFX NFR-1 request (§11 entry 8).
+
+Note (2026-11-14): the tasks left unticked above moved to Issue #108 (comment 6879928523) when this change was archived; the PO records each outcome in `findings.md`.

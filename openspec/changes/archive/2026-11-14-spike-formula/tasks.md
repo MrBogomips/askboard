@@ -56,3 +56,5 @@ Commands run from `openspec/changes/spike-formula/probe/` unless they name the r
 - Open the pull request, check that CI passes, squash-merge after the product owner approves, then archive the change on main and remove the worktree and its branch.
 - The `contract` and `compute` epics build on the decisions recorded here, starting with the derived fields of the widgets SOLUTION-DESIGN §3.1 builds first.
 - Mark phase 1's formula spike done on the "AskBoard Implementation Roadmap" page.
+
+Note (2026-11-14): the tasks left unticked above moved to Issue #108 (comment 6879928523) when this change was archived; the PO records each outcome in `findings.md`.

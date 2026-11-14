@@ -64,15 +64,15 @@ The mod SHALL be built into one self-contained module file that the hooks file n
 - **THEN** it holds no import or require statement
 
 ### Requirement: The plugin's skill and agents
-The plugin SHALL carry its skill in the default `skills/` folder at the plugin root, where Claude Code finds it as `askboard:askboard`, and its manifest SHALL declare no `skills` or `agents` path. The first version SHALL ship no agent (FR-28, FR-29, AD-19).
+The plugin SHALL carry its two skills, `askboard` and `askboard-help`, in the default `skills/` folder at the plugin root, where Claude Code finds them as `askboard:askboard` and `askboard:askboard-help`, and its manifest SHALL declare no `skills` or `agents` path. The first version SHALL ship no agent (FR-28, FR-29, AD-19).
 
 #### Scenario: The plugin's layout
 - **WHEN** the repository is checked as a plugin
-- **THEN** `skills/askboard/SKILL.md` exists, `.claude-plugin/plugin.json` has no `skills` or `agents` key, and there is no `agents/` folder at the plugin root
+- **THEN** `skills/askboard/SKILL.md` and `skills/askboard-help/SKILL.md` exist, `.claude-plugin/plugin.json` has no `skills` or `agents` key, and there is no `agents/` folder at the plugin root
 
 #### Scenario: The tool description names the skill
 - **WHEN** the `ask` tool's description is read
-- **THEN** the skill it names is the shipped skill's `name`
+- **THEN** the skill it names is the `askboard` skill's `name`
 
 ### Requirement: The start script runs the bundle on Node
 The start script SHALL be POSIX `sh`, find the plugin root from its own path, and replace itself with Node running `dist/askboard.mjs` with the arguments it was given, so Claude Code stays the parent of the session process (AD-5). It SHALL do so only when `node` on `PATH` is 24.22.1 or later, and it SHALL make no network request.
@@ -140,11 +140,11 @@ The root `package.json`, every `packages/*/package.json` and `.claude-plugin/plu
 - **THEN** the server's reported version equals the version in `.claude-plugin/plugin.json`
 
 ### Requirement: The release tree
-A release SHALL assemble the plugin as a tree holding only the plugin manifest, the marketplace file, the hooks file, the built mod, the start script, the bundle, the view build, the skill folder, `LICENSE`, `README.md`, `CHANGELOG.md` and the bundle's notices. It SHALL hold no `package.json`, no lockfile, no `bin/` or `agents/` folder, no symbolic link, and no source, test or tooling file.
+A release SHALL assemble the plugin as a tree holding only the plugin manifest, the marketplace file, the hooks file, the built mod, the start script, the bundle, the view build, the two skill folders, `LICENSE`, `README.md`, `CHANGELOG.md` and the bundle's notices. It SHALL hold no `package.json`, no lockfile, no `bin/` or `agents/` folder, no symbolic link, and no source, test or tooling file.
 
 #### Scenario: Assembling from a built checkout
 - **WHEN** the assembly runs after `bun run build`
-- **THEN** the tree holds exactly the listed files, each byte-identical to its built or committed source, and a run of the start script in the tree answers the handshake with AskBoard's tools on Node
+- **THEN** the tree holds exactly the listed files, `skills/askboard/` and `skills/askboard-help/` included, each byte-identical to its built or committed source, and a run of the start script in the tree answers the handshake with AskBoard's tools on Node
 
 #### Scenario: Assembling from an unbuilt checkout
 - **WHEN** the assembly runs with `dist/askboard.mjs` or the built mod missing
