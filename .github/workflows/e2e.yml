@@ -145,11 +145,16 @@ jobs:
               exit 1
               ;;
           esac
-          # The call's engines, when it narrows them: only a JSON list of known engines is taken.
+          # The call's engines, when it sets them: they replace the cadence's. Only a one-line JSON list
+          # of known engines is taken: grep matches line by line, so a value with a newline or a
+          # carriage return is refused first, before it could put a second line in $GITHUB_OUTPUT.
           if [ -n "$ENGINES" ]; then
             engine='"(chromium|firefox|webkit)"'
-            if ! printf '%s\n' "$ENGINES" | grep -Eq "^\\[$engine(,$engine)*\\]\$"; then
-              echo "::error::'$ENGINES' is not a JSON list of chromium, firefox and webkit."
+            whole=$(printf '%s' "$ENGINES" | wc -c)
+            flat=$(printf '%s' "$ENGINES" | tr -d '\n\r' | wc -c)
+            if [ "$whole" -ne "$flat" ] ||
+              ! printf '%s\n' "$ENGINES" | grep -Eq "^\\[$engine(,$engine)*\\]\$"; then
+              echo "::error::The engines value is not a one-line JSON list of chromium, firefox and webkit."
               exit 1
             fi
             engines=$ENGINES

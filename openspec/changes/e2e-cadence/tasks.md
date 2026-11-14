@@ -166,6 +166,9 @@ Group 5 follows group 2; #171 plan item 1 has merged (#173, design.md M1), so no
 - [x] 5.8 Fix X-2 (security review 5.5, L): `tools/ci/merge-timings.ts` reads own keys only. Tests first in `tools/ci/merge-timings.test.ts` (`__proto__`, `constructor`, `toString` in the base only, a shard only, both). Verify: they fail first, then pass.
   - Note: reads through `Object.hasOwn`; 4 new cases (merge-timings 15 pass). Two of them failed first (a base-only `__proto__` came out as `{}`, and `constructor` was lost). Refs #171.
 
+- [x] 5.9 Fix the security re-review's finding (L) and harden the release: `engines` in `e2e.yml` refuses a newline or carriage return before grep matches; `smoke-linux` and `publish` stop unless the build's artifact-id is a non-empty run of digits; the `engines` comment and test say it replaces the cadence's engines. Tests first in `tools/ci/e2e-workflows.test.ts` and `tools/release/workflow.test.ts`. Verify: they fail first, then pass.
+  - Note: `engines` refuses any value whose length changes when `\n` and `\r` are removed (5 new refused cases); a gate step with the ID in env (`case` on non-digits) opens both jobs, tested by running it on 10 values. `publish.test.ts` skips the gate step. 2 tests failed first. Refs #171.
+
 ## 6. Documents
 
 - [ ] 6.1 The spine (decision 8). Append the CI cadence clause to the Tests row, in the words of decision 8 (which carries Node 26 by Q1's answer, task 0.1). Set `updated` to the task's date, and add one `sources` line naming this change's defaults D1 to D6 as taken under the unattended run of 2026-11-14, after kanban-order's line (M2). Tests: none (document). Verify: `git diff` of the spine changes only the frontmatter and that row. The row's existing sentences are byte-identical, and the clause names the smoke set, the manifest's engine rule, the perf pass and the three cadences.

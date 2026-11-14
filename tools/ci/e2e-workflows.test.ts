@@ -222,8 +222,8 @@ describe("the plan job's cadence table (decision 1)", () => {
   });
 
   // Coordinator decision C6 (review 5.5, S-1): the release gate runs Chromium and WebKit only until
-  // #174 and #145 close; the `engines` input of the call narrows the cadence's engines.
-  test("an `engines` list narrows the cadence's engines and nothing else (C6)", () => {
+  // #174 and #145 close; the `engines` input of the call replaces the cadence's engines.
+  test("an `engines` list replaces the cadence's engines and nothing else (C6)", () => {
     const narrowed = '["chromium","webkit"]';
     for (const cadence of ["smoke", "nightly", "weekly"]) {
       const plain = decide({ EVENT: "workflow_call", INPUT: cadence });
@@ -259,6 +259,11 @@ describe("the plan job's cadence table (decision 1)", () => {
       '["chromium"],["webkit"]',
       '["chromium","$(id)"]',
       '[ "chromium" ]',
+      '["chromium"]\ncadence=x',
+      '["chromium"]\n',
+      '["chromium"]\r',
+      '["chromium"]\r\nrunner=x',
+      '\n["chromium"]',
     ];
     for (const ENGINES of refused) {
       const { code, out, text } = decide({ EVENT: "workflow_call", INPUT: "weekly", ENGINES });

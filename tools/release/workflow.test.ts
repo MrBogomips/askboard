@@ -223,6 +223,30 @@ describe("the release workflow", () => {
     ).toBe("package.json");
   });
 
+  // Hardening (security re-review 5.9): a job that reads the artifact by ID stops first unless the
+  // build's output is a non-empty run of digits. The value reaches the script through env.
+  test("smoke-linux and publish stop unless the build's artifact-id is a non-empty run of digits, checked before the download", () => {
+    for (const name of ["smoke-linux", "publish"]) {
+      const list = steps(name);
+      const at = list.findIndex((step) => step.env?.ARTIFACT_ID !== undefined);
+      const download = list.findIndex((step) =>
+        step.uses?.startsWith("actions/download-artifact@"),
+      );
+      expect(at).toBeGreaterThanOrEqual(0);
+      expect(at).toBeLessThan(download);
+      const gate = list[at] as Step;
+      expect(gate.env?.ARTIFACT_ID).toBe("${{ needs.build.outputs.artifact-id }}");
+      expect(gate.run).not.toContain("${{");
+      const run = (value: string): number =>
+        Bun.spawnSync(["sh", "-c", gate.run ?? "exit 99"], {
+          env: { PATH: process.env.PATH ?? "", ARTIFACT_ID: value },
+        }).exitCode;
+      expect(run("1234567890")).toBe(0);
+      for (const bad of ["", "abc", "12a", "12 34", "12\n34", "12\n", "\n12", "-1", "1.5", "$(id)"])
+        expect(run(bad)).not.toBe(0);
+    }
+  });
+
   test("publish runs no code of the repository or the artifact: no checkout, no setup, no package manager", () => {
     for (const step of steps("publish")) {
       expect(step.uses?.startsWith("actions/checkout@") ?? false).toBe(false);
