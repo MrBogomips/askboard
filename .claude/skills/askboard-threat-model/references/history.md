@@ -281,7 +281,7 @@ Conventions:
 - **F42: scripts from `file://` in Firefox** · #4, renderer spike · design finding, accepted
   2026-10-30
   Firefox runs a relative `<script src>` from a `file://` page despite a hash-only `script-src`.
-  Where: `openspec/changes/spike-renderer/findings.md`. Status: AD-8's rule that no view code creates
+  Where: `openspec/changes/archive/2026-11-14-spike-renderer/findings.md`. Status: AD-8's rule that no view code creates
   a script element with a URL, and a loader that refuses such loads.
 
 ## The mod and the hooks (AD-4, AD-10, AD-19)

@@ -1,5 +1,5 @@
 {
-  "description": "Error fixtures, adapted from the formula spike's probe (openspec/changes/spike-formula/probe/fixtures/errors.json): addresses and references rewritten to flat ones, a child addressed by its own ID. `expected` compares the error kind only; `warnings` compares the set of kind@address from buildGraph alone. `changed` says why an expectation differs from the probe's. Generated hostile input is in hostile.ts.",
+  "description": "Error fixtures, adapted from the formula spike's probe (openspec/changes/archive/2026-11-14-spike-formula/probe/fixtures/errors.json): addresses and references rewritten to flat ones, a child addressed by its own ID. `expected` compares the error kind only; `warnings` compares the set of kind@address from buildGraph alone. `changed` says why an expectation differs from the probe's. Generated hostile input is in hostile.ts.",
   "cases": [
     {
       "id": "missing-reference",

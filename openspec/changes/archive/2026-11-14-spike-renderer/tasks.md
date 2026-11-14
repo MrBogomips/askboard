@@ -63,3 +63,5 @@ Commands run from `openspec/changes/spike-renderer/probe/` unless they name the 
 - Open the pull request, check that CI passes, squash-merge after the product owner approves, then archive the change on main and remove the worktree and its branch.
 - The `view` and `widgets` epics build on the decisions recorded here, starting with the widgets SOLUTION-DESIGN §3.1 builds first.
 - Mark phase 1's renderer spike done on the "AskBoard Implementation Roadmap" page.
+
+Note (2026-11-14): the tasks left unticked above moved to Issue #108 (comment 6879928523) when this change was archived; the PO records each outcome in `findings.md`.

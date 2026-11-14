@@ -41,3 +41,5 @@
 - Open the pull request, check that CI passes, squash-merge after the product owner approves, then archive the change on main and remove the worktree and its branch.
 - E1 builds `mod`, `hooks` and the local API on the decisions recorded here. When the product owner sets OQ2's target, it feeds the benchmark.
 - Mark phase 1's mod delivery spike done on the "AskBoard Implementation Roadmap" page (and phase 0, still pending).
+
+Note (2026-11-14): the tasks left unticked above moved to Issue #108 (comment 6879928523) when this change was archived; the PO records each outcome in `findings.md`.

@@ -10,7 +10,7 @@ See proposal.md for why the early benchmark comes now. What it starts from:
 - **`packages/bench`** is empty: an entry point, and a manifest with no dependencies. `bun.lock` is frozen, so `bench` can declare nothing (proposal, open question 9).
   - The import check lets `bench` import `contract` only.
   - AD-19 forbids Bun-only APIs in a unit.
-- **The mod delivery spike's harness** (`openspec/changes/spike-mod-delivery/harness/`) shows the transcript layout and the method:
+- **The mod delivery spike's harness** (`openspec/changes/archive/2026-11-14-spike-mod-delivery/harness/`) shows the transcript layout and the method:
   - transcripts are `<projects>/<folder>/<session>.jsonl`, and subagents' are `<session>/subagents/agent-<id>.jsonl`;
   - total input is input plus cache creation plus cache read;
   - a nested `claude` needs an environment cleaned of the launching session's variables (finding O5);
