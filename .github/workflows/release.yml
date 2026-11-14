@@ -86,9 +86,19 @@ jobs:
           cd release
           sha256sum -c SHA256SUMS
 
+  # The browser and conformance suites on macOS, in the weekly cadence's set (e2e.yml; e2e-cadence,
+  # decision 1): publishing waits for them. It reads the repository only: no secrets are passed.
+  e2e-macos:
+    name: Browser and conformance on macOS
+    uses: ./.github/workflows/e2e.yml
+    with:
+      cadence: weekly
+    permissions:
+      contents: read
+
   publish:
     name: Publish the release branch, the tag and the GitHub release
-    needs: [build, smoke-linux]
+    needs: [build, smoke-linux, e2e-macos]
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 10

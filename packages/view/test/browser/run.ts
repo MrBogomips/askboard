@@ -8,8 +8,9 @@
 // file), `perf` (the timed bounds, serially, judged alone) and `all`, which is `full` then `perf`.
 // `--shard k/n` takes one part of each smoke or full pass, balanced by `timings/<engine>.json` when
 // it exists; it is refused with the `perf` and `all` sets, whose perf pass is never sharded.
-// `--update-timings` writes those files, on an unsharded `full` or `all` run only. See
-// `run-options.ts` and `run-plan.ts`.
+// `--update-timings` writes those files, on an unsharded `full` or `all` run only; `--timings-out
+// <file>` writes one engine's full set, sharded or not, to a file of its own instead (the nightly's
+// shard jobs, merged by `tools/ci/merge-timings.ts`). See `run-options.ts` and `run-plan.ts`.
 //
 // The tests talk to the test server, or with `--target session-process` to the built session
 // process `dist/askboard.mjs` (task 9.3), on Bun or with `--runtime node` on Node 24; the ask
@@ -18,9 +19,9 @@
 //
 // Usage: see USAGE in `run-options.ts`.
 
-import { existsSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { BROWSER_FILES } from "./harness/suites.ts";
 import { type Options, parseArgs, USAGE } from "./run-options.ts";
 import { type Pass, planPasses, timingsFile } from "./run-plan.ts";
@@ -53,7 +54,18 @@ const build = async (): Promise<number> => {
 
 type PassRun = { pass: Pass; code: number; output: string; seconds: number };
 
+// The file a `--timings-out` pass writes starts as the engine's committed timings (or empty), so
+// that `bun test` balances the shard by them: Bun reads the file, runs, and rewrites it.
+const seedTimings = (pass: Pass, from: string): void => {
+  if (pass.timingsOut === undefined) return;
+  mkdirSync(dirname(pass.timingsOut.file), { recursive: true });
+  if (pass.timingsOut.base === undefined) {
+    writeFileSync(pass.timingsOut.file, `${JSON.stringify({ version: 1, files: {} })}\n`);
+  } else copyFileSync(join(from, pass.timingsOut.base), pass.timingsOut.file);
+};
+
 const runPass = async (pass: Pass, options: Options): Promise<PassRun> => {
+  seedTimings(pass, ROOT);
   const started = performance.now();
   const child = Bun.spawn([process.execPath, ...pass.args], {
     cwd: ROOT,
@@ -93,8 +105,12 @@ const main = async (args: readonly string[]): Promise<number> => {
     return 1;
   }
   if (options.build && (await build()) !== 0) return 1;
-  const passes = planPasses(options, BROWSER_FILES, (engine) =>
-    existsSync(join(ROOT, timingsFile(engine))),
+  // The runner works from the repository root; a relative file is the caller's own.
+  const timingsOut = options.timingsOut === undefined ? undefined : resolve(options.timingsOut);
+  const passes = planPasses(
+    timingsOut === undefined ? options : { ...options, timingsOut },
+    BROWSER_FILES,
+    (engine) => existsSync(join(ROOT, timingsFile(engine))),
   );
   // The engines run in turn, a pass after a pass: three engines at once saturate the machine and add
   // failures that only load causes (task 0.3).

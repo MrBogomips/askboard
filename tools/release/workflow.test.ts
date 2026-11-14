@@ -21,11 +21,13 @@ type Step = {
 };
 type Job = {
   "runs-on"?: string;
+  uses?: string;
   needs?: string | string[];
   if?: string;
   permissions?: Record<string, string>;
   "timeout-minutes"?: number;
-  steps: Step[];
+  // A job that calls a reusable workflow (`e2e-macos`) has no steps and no timeout of its own.
+  steps?: Step[];
 };
 type Workflow = {
   on: Record<string, unknown>;
@@ -41,7 +43,7 @@ const job = (name: string): Job => {
   if (found === undefined) throw new Error(`no job ${name}`);
   return found;
 };
-const steps = (name: string): Step[] => job(name).steps;
+const steps = (name: string): Step[] => job(name).steps ?? [];
 const runs = (name: string): string[] =>
   steps(name).flatMap((step) => (step.run ? [step.run] : []));
 const needs = (name: string): string[] => {
@@ -49,14 +51,14 @@ const needs = (name: string): string[] => {
   return declared === undefined ? [] : Array.isArray(declared) ? declared : [declared];
 };
 const allSteps = Object.entries(jobs).flatMap(([name, value]) =>
-  value.steps.map((step) => ({ job: name, step })),
+  (value.steps ?? []).map((step) => ({ job: name, step })),
 );
 const indexOfRun = (name: string, fragment: string): number =>
   steps(name).findIndex((step) => step.run?.includes(fragment));
 
 describe("the release workflow", () => {
-  test("has the three jobs, on the runners the design names", () => {
-    expect(Object.keys(jobs)).toEqual(["build", "smoke-linux", "publish"]);
+  test("has the four jobs, on the runners the design names", () => {
+    expect(Object.keys(jobs)).toEqual(["build", "smoke-linux", "e2e-macos", "publish"]);
     expect(job("build")["runs-on"]).toBe("macos-latest");
     expect(job("smoke-linux")["runs-on"]).toBe("ubuntu-24.04");
     expect(job("publish")["runs-on"]).toBe("ubuntu-24.04");
@@ -104,14 +106,15 @@ describe("the release workflow", () => {
     const names = remote.map(({ action }) => action.split("@")[0]);
     expect(names).toContain("actions/upload-artifact");
     expect(names).toContain("actions/download-artifact");
-    // Local actions are the repository's own: only the shared setup.
+    // Local actions and workflows are the repository's own: the shared setup, and e2e.yml, which
+    // e2e-macos calls (e2e-cadence, decision 1).
     expect(
       uses.filter(({ action }) => action.startsWith("./")).map(({ action }) => action),
-    ).toEqual(["./.github/actions/setup-bun"]);
+    ).toEqual(["./.github/actions/setup-bun", "./.github/workflows/e2e.yml"]);
   });
 
-  test("publish needs build and smoke-linux, and smoke-linux needs build", () => {
-    expect(needs("publish").sort()).toEqual(["build", "smoke-linux"]);
+  test("publish needs build, smoke-linux and e2e-macos, and smoke-linux needs build", () => {
+    expect(needs("publish").sort()).toEqual(["build", "e2e-macos", "smoke-linux"]);
     expect(needs("smoke-linux")).toEqual(["build"]);
     expect(needs("build")).toEqual([]);
   });
@@ -259,10 +262,12 @@ describe("the release workflow", () => {
     expect(env).toBeGreaterThan(version);
   });
 
-  test("every job has a timeout", () => {
+  test("every job that runs steps has a timeout; the one that calls e2e.yml has none, and e2e.yml's jobs do", () => {
     for (const name of Object.keys(jobs)) {
-      expect(job(name)["timeout-minutes"]).toBeGreaterThan(0);
+      if (job(name).uses !== undefined) expect(job(name)["timeout-minutes"]).toBeUndefined();
+      else expect(job(name)["timeout-minutes"]).toBeGreaterThan(0);
     }
+    expect(job("e2e-macos").uses).toBe("./.github/workflows/e2e.yml");
   });
 
   const actionlint = Bun.which("actionlint");

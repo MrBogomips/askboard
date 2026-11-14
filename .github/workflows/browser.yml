@@ -1,43 +1,125 @@
 name: Browser
+# The browser tests of one set in each engine and shard it is given (e2e-cadence, decisions 1 to 3 and
+# 5). The defaults are the manual run: every engine, the set `all`, no shard, a build of its own.
 on:
   workflow_call:
     inputs:
       runs-on:
         type: string
         default: macos-latest
+      # False when only documents changed: the job still runs and ends after one step, so that its
+      # status exists for every change (#173).
+      code:
+        type: boolean
+        default: true
+      # The run's build artifact (decision 2); empty builds in the job.
+      build-artifact:
+        type: string
+        default: ""
+      # smoke, full, perf or all (run.ts --set).
+      set:
+        type: string
+        default: all
+      # JSON lists: the engines, and the shards as k/n ("1/1" is no shard).
+      engines:
+        type: string
+        default: '["chromium","firefox","webkit"]'
+      shards:
+        type: string
+        default: '["1/1"]'
+      # run.ts --workers; empty is one per core.
+      workers:
+        type: string
+        default: ""
 permissions:
   contents: read
 jobs:
   browser:
-    name: Browser tests, ${{ matrix.engine }}
+    name: Browser tests, ${{ matrix.engine }}, shard ${{ matrix.shard }}
     runs-on: ${{ inputs.runs-on }}
-    timeout-minutes: 30
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
-        engine: [chromium, firefox, webkit]
+        engine: ${{ fromJSON(inputs.engines) }}
+        shard: ${{ fromJSON(inputs.shards) }}
     env:
       # With CI set and no BROWSER, no board can be shown (AD-18): the recorder opens nothing.
       BROWSER: ${{ github.workspace }}/packages/view/test/browser/fixtures/record-link.sh
       # The engines' downloads, in a folder the cache below keeps between runs.
       PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.playwright-browsers
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Only documents changed
+        if: ${{ !inputs.code }}
+        run: echo "Only documents changed (see tools/ci/changed-paths.sh), so no browser tests."
+      - if: inputs.code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup-bun
+      - if: inputs.code
+        uses: ./.github/actions/setup-bun
       # Before the engine's download, so that a missing piece fails the job first.
-      - run: bun run build
+      - name: Build
+        if: inputs.code && inputs.build-artifact == ''
+        run: bun run build
+      - name: Download the run's build
+        if: inputs.code && inputs.build-artifact != ''
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ inputs.build-artifact }}
+          path: .
       # Keyed by the engine and the pinned playwright's version, so a bump downloads a fresh build.
       - id: playwright
+        if: inputs.code
         run: echo "version=$(node -p 'require("playwright/package.json").version')" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - if: inputs.code
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.PLAYWRIGHT_BROWSERS_PATH }}
           key: playwright-${{ runner.os }}-${{ matrix.engine }}-${{ steps.playwright.outputs.version }}
       # The pinned playwright's own binary, so the engine matches its version. With the cache hit
       # it downloads nothing; --with-deps still installs the system packages (Linux).
-      - name: Install ${{ matrix.engine }} with its system dependencies
-        run: node_modules/.bin/playwright install --with-deps ${{ matrix.engine }}
+      - name: Install the engine with its system dependencies
+        if: inputs.code
+        env:
+          ENGINE: ${{ matrix.engine }}
+        run: node_modules/.bin/playwright install --with-deps "$ENGINE"
+      # The full set writes this shard's timings to a file of its own (C5); the `timings` job of
+      # e2e.yml merges an engine's shard files. The name has no slash, which artifact names forbid.
+      - id: timings
+        if: ${{ inputs.code && inputs.set == 'full' }}
+        env:
+          ENGINE: ${{ matrix.engine }}
+          SHARD: ${{ matrix.shard }}
+        run: |
+          shard="${SHARD%/*}of${SHARD#*/}"
+          {
+            echo "name=timings-shard-${ENGINE}-${shard}"
+            echo "file=timings-out/${ENGINE}-${shard}.json"
+          } >> "$GITHUB_OUTPUT"
       - name: Browser tests against the built session process
-        run: bun packages/view/test/browser/run.ts --no-build --target session-process --engines ${{ matrix.engine }}
+        if: inputs.code
+        env:
+          ENGINE: ${{ matrix.engine }}
+          SHARD: ${{ matrix.shard }}
+          SET: ${{ inputs.set }}
+          WORKERS: ${{ inputs.workers }}
+          TIMINGS_FILE: ${{ steps.timings.outputs.file }}
+        run: |
+          set -- --no-build --target session-process --set "$SET" --engines "$ENGINE"
+          # A shard of 1/1 is no shard, which the all and perf sets would refuse.
+          if [ "$SHARD" != "1/1" ]; then set -- "$@" --shard "$SHARD"; fi
+          if [ -n "$WORKERS" ]; then set -- "$@" --workers "$WORKERS"; fi
+          if [ -n "$TIMINGS_FILE" ]; then
+            mkdir -p "$(dirname "$TIMINGS_FILE")"
+            set -- "$@" --timings-out "$TIMINGS_FILE"
+          fi
+          exec bun packages/view/test/browser/run.ts "$@"
+      - name: Keep this shard's timings
+        if: ${{ inputs.code && inputs.set == 'full' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ steps.timings.outputs.name }}
+          path: ${{ steps.timings.outputs.file }}
+          if-no-files-found: error
+          retention-days: 7
