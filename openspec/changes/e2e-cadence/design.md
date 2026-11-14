@@ -49,26 +49,27 @@ ADs relied on:
 
 - `check`, `openspec`, `codex`, the runners, triggers and concurrency of `ci.yml`, `tools/ci/changed-paths.sh`, Dependabot, `setup.sh --no-codex`, `bun run test` and the unit-test timing gates. #171 plan item 1 built them (#173); this change uses them as they are and edits `ci.yml` only as decision 1 says.
 - One session process per file (D5): #172.
-- Branch rulesets and required checks: a repository setting the PO holds (Open Questions, Q2).
-- Node 26: the spine lists it, and this change adds it only if the PO agrees (Q1).
+- Branch rulesets and required checks: the PO declined them (Q2's answer); the pull-request e2e jobs report statuses that block nothing.
 - The other runs in the Tests row (live model calls, legacy negotiation, the formula, time zone and locale fixtures, the token report): unchanged.
 
 ## Defaults taken (unattended run, 2026-11-14)
 
 The PO was unavailable. These are the coordinator's defaults for #171 and are not PO answers. Task 0.1 records any answer that differs, and `/opsx:update` follows it.
 
+Answer (2026-11-14, on #171): the PO answered Q1 (yes) and Q2 (no) and left D1 to D6 as they stand; Q1 adds Node 26 to D2 and D3, as the table says.
+
 | ID | Default |
 |---|---|
 | D1 | Every pull request, on `ubuntu-24.04`: the browser smoke set in Chromium, and conformance in AD-1's three configurations on Bun. |
-| D2 | Nightly on `main`, on `ubuntu-24.04`: the full browser suite in Chromium, Firefox and WebKit, four shards per engine; the perf pass; conformance on Node 24. |
-| D3 | Weekly and before every release, on `macos-latest`: the nightly set, with conformance on Bun and Node 24. |
+| D2 | Nightly on `main`, on `ubuntu-24.04`: the full browser suite in Chromium, Firefox and WebKit, four shards per engine; the perf pass; conformance on Node 24 and Node 26 (Node 26 by Q1's answer). |
+| D3 | Weekly and before every release, on `macos-latest`: the nightly set, with conformance on Bun, Node 24 and Node 26 (Node 26 by Q1's answer). |
 | D4 | Locally, `bun run test:e2e` runs the full set with files in parallel within each engine and the engines in turn (C2), then the perf files in a separate serial pass, then conformance on Bun. |
 | D5 | Reusing one session process per file (#171 item C4) is deferred to its own Issue, #172, because it needs an NFR-10 review. |
 | D6 | Speed gates are judged in the perf pass on the median of three runs, with the gates unchanged (#146's proposed default). |
 
 ## Coordinator decisions after group 0 (unattended run, 2026-11-14)
 
-Group 0's record (`drafts/e2e-cadence-group0.md`) raised four findings. The coordinator decided them in the unattended run; they are not PO answers, and an answer of the PO on #171 that differs goes through `/opsx:update`.
+Group 0's record (`drafts/e2e-cadence-group0.md`) raised four findings (C1 to C4); review 2.5 raised a fifth (C5). The coordinator decided them in the unattended run; they are not PO answers, and an answer of the PO on #171 that differs goes through `/opsx:update`.
 
 | ID | Finding (task) | Decision | Where |
 |---|---|---|---|
@@ -76,6 +77,7 @@ Group 0's record (`drafts/e2e-cadence-group0.md`) raised four findings. The coor
 | C2 | Decision 5's worker default (`cores / (2 × engines)`, 2 on 14 cores) is too low; three engines at once saturate the machine and add load-only flakes (0.3(c)) | Engines run in turn, each with `availableParallelism()` workers (about 3 min per engine on 14 cores); `--workers` overrides; CI's shards stay as designed | Decision 5, task 2.2 |
 | C3 | Every session process of every worker shares `/tmp/askboard-<uid>`; one load flake (`header.browser.ts`, `connect ENOENT /tmp/askboard-501/8031.sock`) came from it (0.3(a)) | Each `bun test` worker gives the session processes it starts a short runtime folder of its own, as `XDG_RUNTIME_DIR` | Decision 5a, task 2.1 |
 | C4 | Two `Bun.sleep(1500)` literals escape the guard (0.5(c)) | The guard also refuses a literal equal to `QUIET_MS` | Decision 7, tasks 4.1 and 4.5 |
+| C5 | Review 2.5 (S-1): `run.ts` refuses `--update-timings` with `--shard`, so the nightly's shard jobs cannot refresh the engine's timings file (task 2.6) | Each shard job writes its timings to a separate per-shard file through a runner option, `--timings-out <file>`, and uploads it as an artifact; a small merge script combines an engine's shard files into its timings file; `--update-timings` stays refused with `--shard` | Decision 5, tasks 5.2 and 5.3 |
 
 ## Decisions
 
@@ -93,12 +95,12 @@ A new `.github/workflows/e2e.yml` owns the cadence. Like `ci.yml`, it only compo
   | Cadence | Runner | Browser | Perf pass | Conformance |
   |---|---|---|---|---|
   | `smoke` (pull request) | `ubuntu-24.04` | smoke set, Chromium, one shard | no | Bun, three configurations |
-  | `nightly` (daily cron) | `ubuntu-24.04` | full set, three engines × 4 shards | yes | Node 24, three configurations |
-  | `weekly` (weekly cron, release call) | `macos-latest` | full set, three engines × 4 shards | yes | Bun and Node 24 |
+  | `nightly` (daily cron) | `ubuntu-24.04` | full set, three engines × 4 shards | yes | Node 24 and Node 26, three configurations |
+  | `weekly` (weekly cron, release call) | `macos-latest` | full set, three engines × 4 shards | yes | Bun, Node 24 and Node 26 |
 
   The cadence and the event reach its script through `env`, never as `${{ }}` inside `run`, as `tools/release/workflow.test.ts` requires of `release.yml`.
 - **The `code` output** is `tools/ci/changed-paths.sh`'s, unchanged: the `plan` job checks out at depth 2 and runs the script, as `check.yml` does. The gate has one list of documents, the one `check` uses; this change adds no list and no output to the script. A schedule, a dispatch and the release call (whose event is the caller's `workflow_dispatch`) get `code=true`.
-- **Every job always runs** (#173's rule). When `code` is false, `build`, `browser` and `conformance` each end after one step that says why, so the pull-request statuses exist under the same names for every change, ready for Q2's ruleset. `browser.yml` and `conformance.yml` gain an input `code` (boolean, default `true`) for this.
+- **Every job always runs** (#173's rule). When `code` is false, `build`, `browser` and `conformance` each end after one step that says why, so the pull-request statuses exist under the same names for every change (#173's rule; no ruleset requires them, by Q2's answer). `browser.yml` and `conformance.yml` gain an input `code` (boolean, default `true`) for this.
 - **Concurrency**, in `ci.yml`'s shape with the cadence added: `group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}-${{ inputs.cadence || github.event.schedule || github.event_name }}`, with `cancel-in-progress` only for `pull_request`. A nightly, a weekly run and a dispatch on the same commit each have their own group, and no scheduled run is cancelled.
 - **The jobs:** `plan`, then `build`, then `browser` (calls `browser.yml`), `perf` (calls `browser.yml` with the perf set) and `conformance` (calls `conformance.yml`). `perf` alone is skipped by `if` on a pull request (the plan's perf output is false): it is never a pull-request status, so the always-run rule does not apply to it.
 - **Release.** `release.yml` gains a job `e2e-macos` that calls `e2e.yml` with `cadence: weekly`. `publish` adds it to its `needs`. This adds a gate to the requirement The release workflow (delta spec `packaging`), and `tools/release/workflow.test.ts` moves with it: the job list and `publish`'s needs.
@@ -178,7 +180,9 @@ It also includes the lifecycle board page, because it holds NFR-10's discarded a
 - `--timings`: every smoke and full pass passes `--timings packages/view/test/browser/timings/<engine>.json` when that file exists, so the slow files start first, as `bun run test` does with `tools/test-timings.json`. The files use that file's format (`{"version": 1, "files": {<path>: <ms>}}`).
 - `--shard <k>/<n>`: passed to `bun test`, and balanced by the same timings file. Without the file, shards split by file count.
 - **Isolation.** The browser passes keep Bun's `--parallel` default (each file isolated), unlike `bun run test`'s `--no-isolate`: the harness keeps module state per file (the browser, the engine list), and task 0.3 found `--no-isolate` within 2%. No pass takes `--no-isolate`.
-- `--update-timings`: writes the timings file of each engine run. Refreshing the committed files is a manual commit, and the nightly run uploads its own timings as an artifact for that purpose.
+- `--update-timings`: writes the timings file of each engine run. Refreshing the committed files is a manual commit, and the nightly run uploads its own timings as an artifact for that purpose. It is refused with `--shard` and with the `smoke` and `perf` sets (task 2.6).
+- `--timings-out <file>` (C5): with `--set full`, and with or without `--shard`, the pass writes its per-file timings to `<file>`, in the same format, and never to the committed engine file; with more than one engine, or with `smoke`, `perf` or `all`, it is refused. The runner copies the engine's committed file (or an empty `{"version": 1, "files": {}}`) to `<file>` and gives `bun test` `--timings <file> --update-timings`, so the shard is still balanced by the committed timings. Needs probe (task 5.2): whether Bun, under `--shard`, keeps or drops the entries of files the shard did not run.
+- **Merging shard timings** (C5): `tools/ci/merge-timings.ts <base> <shard file>… --out <file>` takes, for each path, the value of the one shard file that differs from `<base>` (or holds a path `<base>` lacks), else `<base>`'s; two shard files that both differ on a path is an error. It works whichever way the probe answers. The nightly's `timings` job downloads each engine's shard artifacts, merges them and uploads one file per engine; committing them stays manual (Workflow follow-up).
 
 The perf set never takes `--parallel` or `--shard`. It runs its files one at a time, with the engines in turn, after the other set has finished.
 
@@ -237,9 +241,9 @@ Each `bun test` worker gives the session processes it starts a runtime folder of
 
 Task 6.1 appends this text to the row, after "Node 24 and 26.", and changes nothing else in it:
 
-> **CI cadence:** every pull request that changes more than documents runs, on Linux, the browser smoke set in Chromium (the files that cover the checks above, listed with every browser file's engines in the suite manifest) and the conformance suite in its three configurations on Bun; every night `main` runs, on Linux, every browser file in each engine the manifest gives it, the timed checks in a perf pass of their own (serially, judged on the median of three runs) and the conformance suite on Node 24; every week and before every release the same runs on macOS, with conformance on Bun and Node 24. A browser file runs in all three engines unless a requirement names fewer, and its manifest entry cites it.
+> **CI cadence:** every pull request that changes more than documents runs, on Linux, the browser smoke set in Chromium (the files that cover the checks above, listed with every browser file's engines in the suite manifest) and the conformance suite in its three configurations on Bun; every night `main` runs, on Linux, every browser file in each engine the manifest gives it, the timed checks in a perf pass of their own (serially, judged on the median of three runs) and the conformance suite on Node 24 and 26; every week and before every release the same runs on macOS, with conformance on Bun, Node 24 and Node 26. A browser file runs in all three engines unless a requirement names fewer, and its manifest entry cites it.
 
-If the PO accepts Q1, "on Node 24" in the nightly clause becomes "on Node 24 and 26". The frontmatter's `updated` is set to the task's date, and `sources` gains one line for this change's defaults, after kanban-order's line, which is on `main` (M2).
+The clause carries Node 26 by Q1's answer (2026-11-14). The frontmatter's `updated` is set to the task's date, and `sources` gains one line for this change's defaults, after kanban-order's line, which is on `main` (M2).
 
 ### 9. CLAUDE.md
 
@@ -248,7 +252,7 @@ Task 6.2 edits only these, in the CI section #173 wrote and in Development comma
 - the composition bullet: `ci.yml` composes `openspec.yml`, `check.yml` and `codex.yml`; `e2e.yml` composes `browser.yml` (now with its set, engines, shards, workers, shared build and `code` inputs; its Playwright cache unchanged) and `conformance.yml` (runtimes and the shared build);
 - the `changed-paths.sh` bullet: the e2e jobs read the same `code` output;
 - the Triggers bullet: its sentence "Browser and conformance run only on demand (`workflow_dispatch`): run them locally (…) before a merge that touches the view, the server or the conformance suite" becomes the cadence of decision 1, and the local rule becomes `bun run test:e2e:smoke` before every pull request that touches the view, the server or the conformance suite, and `bun run test:e2e` before one that changes the harness, the runner or a widget's rendering; the "Known: WebKit …" sentence stays unless task 0.6 shows it fixed or filed;
-- the ruleset bullet: the e2e statuses beside the three it lists (for Q2), named as task 5.3 builds them;
+- the ruleset bullet: one clause saying that the e2e statuses are not required checks (Q2's answer, 2026-11-14), so a red e2e job does not block a merge;
 - the Development commands lines for `test:e2e`, the new `test:e2e:smoke`, and the runner's `--set`, `--workers`, `--shard` and `--update-timings`; the sentence on `--engines a,b` and `--serial` says that the engines now always run in turn (decision 5).
 
 A red scheduled run is filed by whoever sees it, as The backlog says, with `source:e2e`. The workflow writes no Issues, because it holds no write token (decision 3).
@@ -306,12 +310,14 @@ None of these is a Claude Code run-time assumption. All concern tools.
 
 ## Migration Plan
 
-- The merge turns the pull-request jobs on. Until the PO adds them to a ruleset (Q2), a red e2e job does not block a merge, as `check` does not today.
+- The merge turns the pull-request jobs on. They are not required checks (Q2's answer): a red e2e job does not block a merge, as `check` does not today.
 - **Rollback:** delete the `schedule` and `pull_request` triggers in `e2e.yml`. The runner's new options are additive, and `--set full --workers 1` runs the files one at a time as today, with the engines in turn and the probes in place of the waits.
 
 ## Open Questions
 
-Both are posted on #171 with `needs-po`. Neither changes the tasks except where noted.
+Both were posted on #171 with `needs-po` and answered by the PO on 2026-11-14 (task 0.1).
 
 - **Q1.** Should Node 26 join the nightly and weekly conformance runs, so that the spine's "Node 24 and 26" holds? Proposed default: yes, one more matrix entry on each. If the PO says no, the Tests row says Node 26 is run on demand.
+  - Answer (2026-11-14): yes. Node 26 is one more conformance matrix entry in the nightly and weekly cadences (D2, D3, decision 1's table, decision 8's clause; task 5.3).
 - **Q2.** Should `e2e / browser` (smoke) and `e2e / conformance` become required checks in the `main` ruleset? Proposed default: yes, after two weeks of green runs on Linux, so that first-run Linux faults do not block unrelated merges. This is a repository setting, outside this change's tasks.
+  - Answer (2026-11-14): no. No ruleset is added; the jobs keep #173's always-run rule so their statuses stay uniform, and decision 9 has CLAUDE.md say they are not required.

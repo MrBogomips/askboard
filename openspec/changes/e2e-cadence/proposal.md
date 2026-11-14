@@ -9,12 +9,12 @@ The browser and conformance suites run in CI only when dispatched by hand. They 
 
 ## What Changes
 
-The PO's plan item 2 on #171. Plan item 1 merged as #173 (Linux for pull requests, the documents-only gate `tools/ci/changed-paths.sh`, the Playwright cache, parallel unit tests); this change builds on it and repeats none of it. The defaults below were taken in an unattended run and are recorded as defaults: the PO has not answered them yet (design.md, Defaults D1 to D6, and the coordinator's decisions C1 to C4 after group 0).
+The PO's plan item 2 on #171. Plan item 1 merged as #173 (Linux for pull requests, the documents-only gate `tools/ci/changed-paths.sh`, the Playwright cache, parallel unit tests); this change builds on it and repeats none of it. The defaults below were taken in an unattended run and are recorded as defaults (design.md, Defaults D1 to D6, and the coordinator's decisions C1 to C4 after group 0). The PO answered the two open questions on #171 on 2026-11-14: Node 26 joins the nightly and weekly conformance runs (Q1, yes), and the pull-request jobs do not become required checks (Q2, no).
 
 - **A cadence for the suites** (NFR-7, AD-1; D1 to D3):
   - Every pull request, on Linux: the Chromium smoke set, plus conformance in AD-1's three configurations on Bun.
-  - Nightly on `main`, on Linux: the full browser suite in the three engines, in four shards per engine; the perf pass; conformance on Node 24.
-  - Weekly, and before every release, on macOS: the same set as the nightly run.
+  - Nightly on `main`, on Linux: the full browser suite in the three engines, in four shards per engine; the perf pass; conformance on Node 24 and Node 26 (Q1).
+  - Weekly, and before every release, on macOS: the same browser set as the nightly run, with conformance on Bun, Node 24 and Node 26.
   - The suites move from `ci.yml`'s dispatch-only jobs to a caller workflow of their own, which uses #173's documents-only gate and always-run jobs. The dist build is made once and shared by the jobs that need it.
   - A release waits for the macOS run of the suites before it publishes.
 - **One manifest of the browser files.** Each file is listed with its engines (all three unless a requirement names fewer), whether it is in the smoke set, and whether it is a perf file. A repository test keeps the manifest and the files in agreement, and checks that the smoke set covers each check the spine names.
