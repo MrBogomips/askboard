@@ -14,7 +14,7 @@
     "@askboard/molecules": "workspace:*",
     "@askboard/view": "workspace:*",
     "@modelcontextprotocol/server": "2.4.0",
-    "ws": "8.22.1"
+    "ws": "8.22.2"
   },
   "devDependencies": {
     "@types/node": "26.6.6",
