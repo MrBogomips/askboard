@@ -3,15 +3,16 @@
 // the board stays usable while it is open. It holds the presentation keys as segmented controls
 // (WAI-ARIA radio groups with arrow keys, Home and End), the Language indicator, and the
 // behaviour keys as read-only rows under "Applies from the next session". Esc or the close
-// control dismisses it. Everything is built from text nodes (AD-8): no markup is parsed. The text
-// comes from `settings-panel-data.ts`; each new data replaces the content and keeps the focus on
-// the same segment.
+// control dismisses it. The presentation group ends with the user's key overrides, read-only.
+// Everything is built from text nodes (AD-8): no markup is parsed. The text comes from
+// `settings-panel-data.ts`; each new data replaces the content and keeps the focus on the same
+// segment.
 
 import type { PresentationSetting } from "@askboard/contract";
 import { SEGMENT, SEGMENTS } from "../shell/segment-classes.ts";
 import { segmentAfterKey } from "../shell/segment-keys.ts";
 import { element } from "./page-chrome.ts";
-import type { PanelControl, PanelData, PanelRow } from "./settings-panel-data.ts";
+import type { PanelControl, PanelData, PanelKeysRow, PanelRow } from "./settings-panel-data.ts";
 
 /** What the panel does with the user's acts. */
 export type PanelActions = {
@@ -117,6 +118,26 @@ const readOnlyRow = (document: Document, row: PanelRow): HTMLElement => {
   return shown;
 };
 
+// The Keys row (keyboard-shortcuts-help, design decision 19): read-only, after the presentation
+// controls. Every string is a text node; the warnings hold file text that the data already escaped
+// and isolated (U+2068 to U+2069), so it reads in its own order inside the sentence.
+const keysRow = (document: Document, row: PanelKeysRow): HTMLElement => {
+  const shown = element(document, "div", READ_ONLY);
+  shown.dataset.askboardSetting = "keys";
+  shown.append(
+    element(document, "span", LABEL, row.label),
+    element(document, "span", CODE, row.value),
+    element(document, "span", `${CODE} text-muted-foreground`, row.source),
+    element(document, "span", "text-body text-muted-foreground", row.note),
+  );
+  for (const warning of row.warnings) {
+    const line = element(document, "span", ERROR, warning);
+    line.dataset.askboardKeysWarning = "";
+    shown.append(line);
+  }
+  return shown;
+};
+
 const bodyOf = (
   document: Document,
   data: PanelData,
@@ -125,6 +146,7 @@ const bodyOf = (
   const presentation = element(document, "section", GROUP);
   presentation.append(
     ...data.controls.map((control) => presentationRow(document, control, choose)),
+    keysRow(document, data.keys),
   );
   const language = element(document, "section", GROUP);
   const indicator = element(document, "div", READ_ONLY);

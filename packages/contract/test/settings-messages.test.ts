@@ -78,8 +78,11 @@ describe("setting, from the board page", () => {
 });
 
 describe("settings, from board-host", () => {
-  test("every key has its row, in the configuration's order", () => {
-    expect(Object.keys(settingsWithEveryKey.keys)).toEqual([...CONFIGURATION_KEYS]);
+  test("every key the previous minor defines has its row, in the configuration's order", () => {
+    // The user's keys row is optional and arrives with keyboard-shortcuts-help (settings-keys-messages).
+    expect(Object.keys(settingsWithEveryKey.keys)).toEqual(
+      CONFIGURATION_KEYS.filter((key) => key !== "keys"),
+    );
   });
 
   test.each([

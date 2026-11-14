@@ -105,9 +105,9 @@ describe("widget results over the board protocol", () => {
       first.send({ version, type: "draft", record });
       expect(await first.closed()).toBe(BOARD_CLOSE_CODES.moved);
       expect(((await second.next()) as { type: string }).type).toBe("board");
-      expect(((await second.next()) as { type: string }).type).toBe("state");
       const restored = (await second.next()) as { type: string; record: unknown };
       expect(restored.type).toBe("draft");
+      expect(((await second.next()) as { type: string }).type).toBe("state");
       expect(restored.record).toEqual(record);
       expect(validateBoardMessage("toPage", restored).ok).toBe(true);
       second.socket.terminate();

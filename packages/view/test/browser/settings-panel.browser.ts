@@ -37,8 +37,10 @@ const settingsButton = (board: Board, name = "Settings") =>
 const rowOf = (board: Board, key: string, name = "Settings") =>
   panel(board, name).locator(`[data-askboard-setting="${key}"]`);
 
+// The panel's text without the isolates (U+2068, U+2069) that keep a file's text apart from the
+// sentence around it, which a reader does not see.
 const textOf = async (locator: ReturnType<typeof panel>): Promise<string> =>
-  (await locator.textContent()) ?? "";
+  ((await locator.textContent()) ?? "").replace(/[\u2068\u2069]/g, "");
 
 const openPanel = async (board: Board, name = "Settings") => {
   await settingsButton(board, name).click({ timeout: STEP_TIMEOUT_MS });
@@ -153,7 +155,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(text.indexOf("is not applied")).toBeLessThan(
           text.indexOf("Applies from the next session"),
         );
-        expect(text).toContain("fontSize is not a known key");
+        // File text is isolated from the sentence (U+2068 and U+2069), which a reader does not see.
+        expect(text.replace(/[\u2068\u2069]/g, "")).toContain("fontSize is not a known key");
         // The project's editor is ignored: the row carries the warning.
         expect(await textOf(rowOf(board, "editor"))).toContain("The project's editor is ignored");
       },

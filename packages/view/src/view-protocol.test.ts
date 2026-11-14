@@ -3,6 +3,10 @@ import {
   type BoardState,
   type DraftRecord,
   JSON_MAX_DEPTH,
+  KEY_ACTION_MAX_CHARS,
+  KEY_COMBINATION_MAX_CHARS,
+  KEY_OVERRIDE_MAX_COMBINATIONS,
+  KEY_OVERRIDES_MAX_ACTIONS,
   SCHEMA_IDS,
   SCHEMA_SETS,
 } from "@askboard/contract";
@@ -11,6 +15,7 @@ import {
   lifecycleBoardDocument,
   lifecycleDraftRecord,
 } from "@askboard/contract/fixtures";
+import { validateConfiguration } from "@askboard/contract/validate";
 import {
   fieldProblems,
   ITEM_ERROR_MAX_CHARS,
@@ -859,6 +864,86 @@ describe("the presentation in an update (settings-languages, task 8.2)", () => {
         readViewUpdate({ type: "state", state: waiting, presentation: wrong }),
       ).toBeUndefined();
     }
+  });
+});
+
+describe("the user's keys in an update (keyboard-shortcuts-help, task 10.1)", () => {
+  const keys = { "move.top": ["Mod+Alt+ArrowUp"], "select.all": [] } as const;
+  const updateWith = (value: unknown) =>
+    readViewUpdate({ type: "state", state: waiting, keys: value });
+
+  test("go with the state and read back", () => {
+    const update = { type: "state", state: waiting, keys } as const;
+    expect(readViewUpdate(viewUpdateResult(update).structuredContent)).toEqual(update);
+  });
+
+  test("the entry is not atBoot: a Snapshot's and a booted view's data carry none", () => {
+    expect("atBoot" in UPDATE_FIELDS.keys).toBe(false);
+  });
+
+  test("an empty object is a valid, empty set of overrides", () => {
+    expect(updateWith({})).toEqual({ type: "state", state: waiting, keys: {} });
+  });
+
+  test("the contract's bounds, and one past each: the figures are the constants'", () => {
+    const actions = (count: number) =>
+      Object.fromEntries(Array.from({ length: count }, (_, at) => [`own.action${at}`, []]));
+    const many = (count: number) =>
+      Array.from({ length: count }, (_, at) => String.fromCharCode(97 + at));
+    expect(updateWith(actions(KEY_OVERRIDES_MAX_ACTIONS))).toBeDefined();
+    expect(updateWith(actions(KEY_OVERRIDES_MAX_ACTIONS + 1))).toBeUndefined();
+    expect(updateWith({ a: many(KEY_OVERRIDE_MAX_COMBINATIONS) })).toBeDefined();
+    expect(updateWith({ a: many(KEY_OVERRIDE_MAX_COMBINATIONS + 1) })).toBeUndefined();
+    expect(updateWith({ a: ["x".repeat(KEY_COMBINATION_MAX_CHARS)] })).toBeDefined();
+    expect(updateWith({ a: ["x".repeat(KEY_COMBINATION_MAX_CHARS + 1)] })).toBeUndefined();
+    expect(updateWith({ a: [""] })).toBeUndefined();
+    expect(updateWith({ ["x".repeat(KEY_ACTION_MAX_CHARS)]: [] })).toBeDefined();
+    expect(updateWith({ ["x".repeat(KEY_ACTION_MAX_CHARS + 1)]: [] })).toBeUndefined();
+    expect(updateWith({ "": [] })).toBeUndefined();
+  });
+
+  test("it admits what the configuration schema admits at each bound and refuses what it refuses", () => {
+    // The oracle is the schema itself, so a bound changed in the constants alone fails here.
+    const actions = (count: number) =>
+      Object.fromEntries(Array.from({ length: count }, (_, at) => [`own.action${at}`, ["F2"]]));
+    const cases: readonly Record<string, readonly string[]>[] = [
+      actions(KEY_OVERRIDES_MAX_ACTIONS),
+      actions(KEY_OVERRIDES_MAX_ACTIONS + 1),
+      { ["x".repeat(KEY_ACTION_MAX_CHARS)]: ["F2"] },
+      { ["x".repeat(KEY_ACTION_MAX_CHARS + 1)]: ["F2"] },
+      { a: Array.from({ length: KEY_OVERRIDE_MAX_COMBINATIONS }, () => "F2") },
+      { a: Array.from({ length: KEY_OVERRIDE_MAX_COMBINATIONS + 1 }, () => "F2") },
+      { a: ["x".repeat(KEY_COMBINATION_MAX_CHARS)] },
+      { a: ["x".repeat(KEY_COMBINATION_MAX_CHARS + 1)] },
+    ];
+    for (const keys of cases) {
+      const schema = validateConfiguration({ version: "1.0", keys }).ok;
+      expect({
+        keys: Object.keys(keys).length,
+        viewAdmits: updateWith(keys) !== undefined,
+      }).toEqual({ keys: Object.keys(keys).length, viewAdmits: schema });
+    }
+  });
+
+  test("anything else is no update: a list, a number, a text, null, a list holding a non-string", () => {
+    for (const wrong of [
+      ["move.top"],
+      3,
+      "move.top",
+      null,
+      { "move.top": "Mod+Alt+ArrowUp" },
+      { "move.top": 3 },
+      { "move.top": [3] },
+      { "move.top": [null] },
+      { "move.top": [["Mod+Alt+ArrowUp"]] },
+      { "move.top": { 0: "Mod+Alt+ArrowUp" } },
+    ]) {
+      expect(updateWith(wrong)).toBeUndefined();
+    }
+  });
+
+  test("a name that is no action is still a name: the check leaves its meaning to the board page", () => {
+    expect(updateWith(JSON.parse('{"__proto__":["Mod+Alt+ArrowUp"]}'))).toBeDefined();
   });
 });
 

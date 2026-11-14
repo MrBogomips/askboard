@@ -24,6 +24,11 @@ export const LATEX_WIDGET: WidgetType = {
       props: { expression: "x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}" },
     },
   },
+  help: {
+    mouse:
+      "Type or correct the LaTeX in the source box; the preview beside it redraws as you write.",
+    answer: "The agent receives the whole expression as you wrote it, even if it does not draw.",
+  },
   skill: {
     use: "one mathematical expression in LaTeX that the user reads and corrects, with a live preview",
     notes: [

@@ -307,7 +307,12 @@ const observedOf = (measures: readonly RunMeasure[]): Report["observed"] => {
   };
 };
 
-const EXPECTED_SKILL = "askboard:askboard";
+// AskBoard's two skills (keyboard-shortcuts-help, design decision 11): the listing the benchmark
+// measures holds both; the AskBoard arm still allows only the first (`command.ts`).
+const EXPECTED_SKILLS: ReadonlySet<string> = new Set([
+  "askboard:askboard",
+  "askboard:askboard-help",
+]);
 
 const differencesOf = (
   observed: Report["observed"],
@@ -318,12 +323,12 @@ const differencesOf = (
     pinned !== undefined && values.length > 0 && values.some((value) => value !== pinned);
   const { settings } = context;
   const unexpected = distinct(
-    Object.values(arms).flatMap((arm) => arm.skills.filter((skill) => skill !== EXPECTED_SKILL)),
+    Object.values(arms).flatMap((arm) => arm.skills.filter((skill) => !EXPECTED_SKILLS.has(skill))),
   );
   return [
     ...(unexpected.length > 0
       ? [
-          `skills: ${unexpected.join(", ")} listed beside ${EXPECTED_SKILL}; the listing is part of T and a call to one counts as preparation`,
+          `skills: ${unexpected.join(", ")} listed beside ${[...EXPECTED_SKILLS].join(" and ")}; the listing is part of T and a call to one counts as preparation`,
         ]
       : []),
     ...(differs(observed.models, settings.model)

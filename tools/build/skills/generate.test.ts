@@ -16,6 +16,8 @@ import { PROBE_WIDGET } from "@askboard/contract/fixtures";
 import { MOLECULE_SKILLS, READY_MOLECULES } from "@askboard/molecules";
 import { taggedBlocks } from "./blocks.ts";
 import { generateSkill, TEMPLATES } from "./generate.ts";
+import { generateHelpSkill } from "./help.ts";
+import { PANEL_NOTE } from "./keys.ts";
 import { contextTypes } from "./references.ts";
 
 const { files, examples } = generateSkill();
@@ -38,6 +40,7 @@ describe("the generated files", () => {
     expect([...files.keys()]).toEqual([
       "SKILL.md",
       "references/answers.md",
+      "references/updates.md",
       "references/items.md",
       "references/context.md",
       ...WIDGET_TYPES.map(({ type }) => `references/widgets/${type}.md`),
@@ -60,9 +63,12 @@ describe("the generated files", () => {
     expect(again.examples).toEqual(examples);
   });
 
+  // The language section names the project's instructions files, CLAUDE.md and AGENTS.md (the
+  // skills spec, "The ask's language taught"): a file name the agent reads, not an AI named as
+  // author, so that one name is set aside before the check.
   test("name no AI tool or vendor", () => {
     for (const [name, text] of files)
-      expect(text, name).not.toMatch(/claude|anthropic|co-authored/i);
+      expect(text.replaceAll("CLAUDE.md", ""), name).not.toMatch(/claude|anthropic|co-authored/i);
   });
 
   test("hold every tagged block as one of the examples, in order", () => {
@@ -83,6 +89,23 @@ describe("SKILL.md frontmatter", () => {
     expect((head.description ?? "").length).toBeGreaterThan(0);
   });
 
+  test("says when to load the skill: the criterion first, no precondition", () => {
+    const description = head.description ?? "";
+    expect(description.length).toBeLessThanOrEqual(600);
+    expect(description.slice(0, 150)).toContain("complex");
+    expect(description.slice(0, 150)).toContain("visual, interactive board");
+    for (const word of [
+      "AskUserQuestion",
+      "AskBoard",
+      "before you ask",
+      "in chat or with AskUserQuestion",
+      "when the user asks for AskBoard",
+      "A simple, self-explanatory choice stays in AskUserQuestion",
+    ])
+      expect(description, word).toContain(word);
+    expect(description).not.toContain("are available");
+  });
+
   test("grants no tool and names no widget", () => {
     expect(skill).not.toContain("allowed-tools");
     for (const { type } of WIDGET_TYPES)
@@ -91,24 +114,46 @@ describe("SKILL.md frontmatter", () => {
 });
 
 describe("SKILL.md routing", () => {
-  test("sends references, widgets, more than four options and several questions to AskBoard", () => {
-    expect(skill).toContain("## Which tool asks");
-    expect(skill).toContain("references");
-    expect(skill).toContain("a widget");
-    expect(skill).toContain("more than four options");
-    expect(skill).toContain("several questions");
-  });
+  const start = skill.indexOf("## Which tool asks");
+  const next = skill.indexOf("\n## ", start + 1);
+  const section = skill.slice(start, next);
 
-  test("sends a yes or no and a short choice without references to AskUserQuestion", () => {
-    expect(skill).toContain("AskUserQuestion for a yes or no or a short choice without references");
-  });
-
-  test("makes a subagent ask every question through AskBoard, and an asking rule override", () => {
-    expect(skill).toContain(
+  test("routes by the question's complexity, with the cases as examples", () => {
+    expect(start).toBeGreaterThan(-1);
+    for (const phrase of [
+      "how hard the question is to grasp",
+      "depend on one another",
+      "bare IDs",
+      "visual artifact",
+      "examples",
+      "judge",
+      "Use AskUserQuestion for a simple, self-explanatory choice",
       "A subagent cannot use AskUserQuestion: it asks every question through AskBoard",
+      "asking rule",
+      "overrides",
+      "instruction from the user about how to ask",
+    ]) {
+      expect(section, phrase).toContain(phrase);
+    }
+  });
+
+  test("names no count", () => {
+    expect(section).not.toContain("more than four");
+    expect(section).not.toContain("several questions");
+  });
+
+  test("says why the board", () => {
+    expect(section).toContain("sees the context beside the question");
+    expect(section).toContain("works on it");
+    expect(section).toContain("follow-ups");
+    expect(section).toContain("while you keep working");
+  });
+
+  test("never puts a complex question in chat prose", () => {
+    expect(section).toContain(
+      "Never put a complex question to the user in chat prose: ask it on the board",
     );
-    expect(skill).toContain("asking rule");
-    expect(skill).toContain("overrides");
+    expect(section).toContain("when no board can be shown, see When an ask cannot go on");
   });
 });
 
@@ -263,6 +308,55 @@ describe("the item index", () => {
     for (const { use } of Object.values(MOLECULE_SKILLS)) expect(catalogue).toContain(use);
   });
 
+  test("has the user-goal section before the context items, naming only known types", () => {
+    const at = catalogue.indexOf("## By what the user has to do");
+    expect(at).toBeGreaterThan(-1);
+    expect(at).toBeLessThan(catalogue.indexOf("## Context items"));
+    const section = catalogue.slice(at, catalogue.indexOf("## Context items"));
+    const known = new Set<string>([
+      ...contextTypes(),
+      ...WIDGET_TYPES.map(({ type }) => type),
+      ...READY_MOLECULES.map(({ molecule }) => molecule),
+    ]);
+    for (const [, name] of section.matchAll(/`([^`]+)`/g))
+      expect(known.has(name ?? ""), name).toBe(true);
+    expect(skill).toContain(
+      "What each type is for, the types by what the user has to do, and a complete ask",
+    );
+  });
+
+  test("ends the catalogue with a complete ask, reported as an example", () => {
+    const blocks = taggedBlocks(catalogue);
+    const last = blocks.at(-1);
+    expect(last?.kind).toBe("ask");
+    const ask = last?.value as {
+      askId?: string;
+      language?: string;
+      items: {
+        props: {
+          text: string;
+          options: { recommended?: boolean }[];
+          items: { type: string; props: { pointer?: string; title?: string } }[];
+        };
+      }[];
+    };
+    expect(ask.askId).toBeTruthy();
+    expect(ask.language).toBeTruthy();
+    expect(ask.items).toHaveLength(1);
+    expect(ask.items[0]?.props.items.map(({ type }) => type)).toContain("excerpt");
+    // The question cites a document by ID, and the excerpt beside it names the same ID.
+    const id = /\b[A-Z]{1,4}-\d+\b/.exec(ask.items[0]?.props.text ?? "")?.[0];
+    expect(id).toBeDefined();
+    const excerpt = ask.items[0]?.props.items.find(({ type }) => type === "excerpt")?.props;
+    expect(`${excerpt?.pointer ?? ""} ${excerpt?.title ?? ""}`).toContain(id ?? "-");
+    expect(ask.items[0]?.props.options.filter((o) => o.recommended === true)).toHaveLength(1);
+    expect(
+      examples
+        .filter((e) => e.file === "references/items.md")
+        .map(({ kind, value }) => ({ kind, value })),
+    ).toEqual(blocks);
+  });
+
   test("names every item type of the contract in backticks, a test-made one included", () => {
     for (const type of [...NON_WIDGET_ITEM_TYPES, ...WIDGET_TYPES.map((entry) => entry.type)]) {
       expect(skill, type).toContain(`\`${type}\``);
@@ -357,5 +451,64 @@ describe("generateSkill's inputs", () => {
       "a Probe (`probe`): a pick among options",
     );
     expect(more.files.get("SKILL.md")).toContain("[`probe`](references/widgets/probe.md)");
+  });
+});
+
+describe("the pointer to the help skill", () => {
+  test("SKILL.md names askboard-help for questions on using the board, within 9,000 characters", () => {
+    const skill = generateSkill().files.get("SKILL.md") ?? "";
+    expect(skill).toContain("`askboard-help` skill");
+    expect(skill).toContain("never put the question in an ask");
+    expect(skill.length).toBeLessThanOrEqual(9000);
+  });
+
+  // Review 7.3, X-21; skills spec, "A usage question" and "A usage question as a follow-up".
+  test("sends to askboard-help only a question the user asks in the terminal", () => {
+    const lines = (generateSkill().files.get("SKILL.md") ?? "").split("\n");
+    const routing = lines.filter((line) => line.includes("`askboard-help` skill"));
+    expect(routing).toHaveLength(1);
+    expect(routing[0]).toContain("asks in the terminal");
+    expect(routing[0]).toContain("never put the question in an ask");
+  });
+
+  test("tells the agent to answer a usage question asked as a follow-up with update at once, without loading askboard-help, from files read as files", () => {
+    const skill = generateSkill().files.get("SKILL.md") ?? "";
+    const lines = skill.split("\n").filter((line) => line.includes("askboard-help"));
+    const followUp = lines.filter((line) => line.includes("follow-up"));
+    expect(followUp).toHaveLength(1);
+    expect(followUp[0]).toContain("usage question");
+    expect(followUp[0]).toContain("`update`");
+    expect(followUp[0]).toContain("at once");
+    expect(followUp[0]).toContain("without loading `askboard-help`");
+    expect(followUp[0]).toContain("Keys section");
+    expect(followUp[0]).toContain("skills/askboard-help/references/");
+    // The folder is named as plain text: no Markdown link to it, so the one-level rule holds.
+    expect(skill).not.toMatch(/\]\([^)]*askboard-help/);
+    // No other line mentions the help skill in a way that sends a follow-up there.
+    for (const line of lines.filter((l) => l !== followUp[0])) {
+      expect(line).not.toContain("follow-up");
+    }
+  });
+
+  test("the Ranking's reference lists its keys and, the board showing its panel, says the panel shows the keys in effect", () => {
+    const ranking =
+      generateSkill({ keyTablesOnBoard: ["ranking"] }).files.get("references/widgets/ranking.md") ??
+      "";
+    expect(ranking).toContain("| Move up | list | Alt+Shift+↑ (⌥⇧↑) |");
+    expect(ranking).toContain("| Keep this order | list | Enter (↩) |");
+    expect(ranking).toContain("keys in effect");
+  });
+
+  // Skills spec, "The keys panel where the board shows it" and "A table the board does not show
+  // yet": the shipped registry with the contract's own list, nothing passed in.
+  test("on the shipped registry both Ranking references say the keys panel shows the keys in effect, and both Gantt references say there is none yet", () => {
+    for (const generated of [generateSkill(), generateHelpSkill()]) {
+      const ranking = generated.files.get("references/widgets/ranking.md") ?? "";
+      expect(ranking).toContain(PANEL_NOTE);
+      expect(ranking).not.toContain("shows no keys panel");
+      const gantt = generated.files.get("references/widgets/gantt.md") ?? "";
+      expect(gantt).toContain("The board shows no keys panel for the Gantt yet");
+      expect(gantt).not.toContain(PANEL_NOTE);
+    }
   });
 });

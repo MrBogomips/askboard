@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
+import { amendedApprovedText } from "../src/fixtures/index.ts";
 import {
   OUTPUT_FORMAT_VERSION,
   RESULT_VERSIONS,
@@ -13,7 +14,16 @@ import { validateAgainst } from "../src/validate.ts";
 // The tool envelopes (owner `mcp-tools`): the requests as the approved tool definitions describe
 // them, and the results, which name both their versions (finding F12).
 const fixture = async (path: string) => Bun.file(join(import.meta.dir, "fixtures", path));
-const approved = (await (await fixture("tools.json")).json()) as { tools: { name: string }[] };
+const approvedFile = (await (await fixture("tools.json")).json()) as {
+  tools: { name: string; description: string }[];
+};
+// The approved definitions with the recorded amendments applied (agent-facing-gaps, design decision 4).
+const approved = {
+  tools: approvedFile.tools.map((tool) => ({
+    ...tool,
+    description: amendedApprovedText(`tools.json#${tool.name}.description`, tool.description),
+  })),
+};
 
 const versions = { result: "1.0", output: "1.0" };
 const askResult = {
@@ -165,9 +175,9 @@ describe("the collect result", () => {
 });
 
 describe("the server instructions", () => {
-  test("are the approved text, whole", async () => {
+  test("are the approved text with the recorded amendments applied, whole", async () => {
     const text = await (await fixture("server-instructions.md")).text();
-    expect(SERVER_INSTRUCTIONS).toBe(text.trimEnd());
+    expect(SERVER_INSTRUCTIONS).toBe(amendedApprovedText("server-instructions.md", text.trimEnd()));
   });
 
   test("name ask, update, collect and fetch, and not snapshot, which the approved text leaves out", () => {

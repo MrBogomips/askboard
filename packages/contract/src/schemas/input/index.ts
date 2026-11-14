@@ -12,7 +12,8 @@
 // items (design decisions 1, 3 and 8);
 // form-widget's admits `required` on the input atoms, a TextField's `minLength` and `pattern`, and the PickField
 // (design decisions 2, 3 and 4); table-widget's admits the Table as a widget item, a question's and
-// a layout's (design decisions 2 and 16).
+// a layout's (design decisions 2 and 16); document-review's admits the Document review's props and
+// item (design decisions 1 and 13).
 
 import type { MoleculeProps } from "../../molecules/index.ts";
 import moleculeDefinition from "../../molecules/molecule-definition.json" with { type: "json" };
@@ -36,7 +37,7 @@ import update from "./update.json" with { type: "json" };
 // The question props with each registered type's item composed in.
 const questionProps = composeQuestionProps(questionPropsBase);
 
-export const INPUT_FORMAT_VERSION = "1.12";
+export const INPUT_FORMAT_VERSION = "1.13";
 
 export const inputFormat: SchemaSet = {
   name: "input",

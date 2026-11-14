@@ -3,7 +3,8 @@ import { ERROR_TEXT_MAX_CHARS, RESULT_VERSIONS, SCHEMA_IDS } from "@askboard/con
 import { lifecycleUpdate, lifecycleUpdateResult } from "@askboard/contract/fixtures";
 import { validateAgainst } from "@askboard/contract/validate";
 import type { UpdateOutcome } from "@askboard/core";
-import { connect, depsWith, EPOCH, fakeCore, jsonOf, textOf } from "./helpers.ts";
+import { ASK_ID, connect, depsWith, EPOCH, fakeCore, jsonOf, textOf } from "./helpers.ts";
+import { worstCore, worstPlanItems, worstPointerItems } from "./worst-ask.ts";
 
 // MCP adapter spec: Updating an ask, Refused updates, Closed and discarded asks in update and fetch
 // (ask-lifecycle, task 4.2), against a fake core.
@@ -246,5 +247,61 @@ describe("unresolved pointers", () => {
   test("an update with no unresolved pointer has no warnings", async () => {
     const { result } = await call({ kind: "updated", askId: A, state: "waiting", applied: [] }, {});
     expect(jsonOf(result)).not.toHaveProperty("warnings");
+  });
+});
+
+// The mcp-adapter spec's "The same on update" (result-bound, Refs #98): the worst ask's question is
+// sent again by an update, through the real `ask-core`.
+describe("the worst ask sent again by an update", () => {
+  const question = (items: readonly unknown[]) => ({ text: "Does this fit?", items });
+
+  test("is applied, and each kind of warning ends in its closing warning, at most 20,000 characters in all", async () => {
+    const { deps } = depsWith(worstCore());
+    const { client, close } = await connect(deps);
+    const asked = await client.callTool({
+      name: "ask",
+      arguments: {
+        askId: ASK_ID,
+        items: [
+          {
+            type: "question",
+            id: "plan",
+            props: { text: "Does this fit?", options: [{ label: "Yes" }, { label: "No" }] },
+          },
+        ],
+      },
+    });
+    expect(asked.isError).toBeFalsy();
+    const result = await client.callTool({
+      name: "update",
+      arguments: {
+        askId: ASK_ID,
+        actions: [
+          {
+            action: "change",
+            itemId: "plan",
+            props: question([...worstPlanItems(), ...worstPointerItems()]),
+          },
+        ],
+      },
+    });
+    await close();
+    expect(result.isError).toBeFalsy();
+    const json = jsonOf(result) as {
+      applied: { action: string; itemId: string; rev: number }[];
+      warnings: { code: string; message: string }[];
+    };
+    expect(json.applied).toEqual([{ action: "change", itemId: "plan", rev: 2 }]);
+    expect(validateAgainst(SCHEMA_IDS.updateResult, json).ok).toBe(true);
+    expect(JSON.stringify(json.warnings).length).toBeLessThanOrEqual(20_000);
+    const unresolved = json.warnings.filter((warning) => warning.code === "unresolved-pointer");
+    const formula = json.warnings.filter((warning) => warning.code === "formula");
+    expect(unresolved.length + formula.length).toBe(json.warnings.length);
+    // The unresolved warnings come first, each kind ending in its closing warning.
+    expect(json.warnings.slice(0, unresolved.length)).toEqual(unresolved);
+    expect(unresolved.at(-1)?.message).toMatch(/more unresolved pointers are left out: /);
+    expect(formula.at(-1)?.message).toMatch(/more formula warnings are left out\.$/);
+    expect(JSON.stringify(unresolved).length).toBeLessThanOrEqual(10_000);
+    expect(JSON.stringify(formula).length).toBeLessThanOrEqual(10_000);
   });
 });

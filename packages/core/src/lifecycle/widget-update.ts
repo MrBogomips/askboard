@@ -28,6 +28,11 @@ export type WidgetUpdate = {
   readonly source: MoleculeSource | undefined;
   expansion: Map<string, ExpansionEntry>;
   references: Map<string, Json>;
+  /**
+   * Every ID a reference of the ask has expanded to, with that reference's ID, for the ask's life:
+   * never pruned, so an ID the expansion map lost (a dropped or changed reference) stays held.
+   */
+  expanded: Map<string, string>;
 };
 
 /** A widget item or reference the agent names, in the question that holds it. */
@@ -40,7 +45,13 @@ export type WidgetHolder = {
 
 export type WidgetStep =
   | { readonly ok: true; readonly props: QuestionProps }
-  | { readonly ok: false; readonly detail: string; readonly itemId?: string };
+  | {
+      readonly ok: false;
+      readonly detail: string;
+      readonly itemId?: string;
+      /** The refusal is an ID in use (`in-use`), not a fault of the props. */
+      readonly inUse?: true;
+    };
 
 // The question's own list: the walker's start, and the list a molecule reference lives in.
 const itemsOf = (props: unknown): readonly SentItem[] => {
@@ -93,6 +104,11 @@ const widgetIdsOf = (
   return ids;
 };
 
+// Joins the IDs of an expansion to the never-pruned set of expanded IDs.
+const holdExpanded = (widgets: WidgetUpdate, map: ReadonlyMap<string, ExpansionEntry>): void => {
+  for (const [id, { reference }] of map) widgets.expanded.set(id, reference);
+};
+
 const SAY_PROBLEMS = 3;
 
 // The first problems of an expansion, in a sentence.
@@ -129,6 +145,7 @@ export const replaceQuestionItems = (
     return { ok: false, itemId: collision, detail: `the ID "${collision}" is in use in the ask` };
   // Older entries still address answers on kept revisions; the new entries describe this one.
   widgets.expansion = new Map([...widgets.expansion, ...sent.map]);
+  holdExpanded(widgets, sent.map);
   for (const [id, reference] of references) widgets.references.set(id, reference);
   return { ok: true, props: expanded.props };
 };
@@ -150,11 +167,26 @@ export const expandAdded = (
   if (!sent.ok)
     return { ok: false, detail: inWords(sent.problems), itemId: sent.problems[0]?.itemId };
   const held = widgetIdsOf(model, widgets, types);
-  const taken = [...references.keys(), ...sent.map.keys()].find((id) => held.has(id));
+  // An expanded ID of the added reference is one no item or earlier expansion holds, held or deleted
+  // (review 3.3, X-1): `change` refuses the same through `expandedTaken`.
+  const taken = [...references.keys(), ...sent.map.keys()].find(
+    (id) => held.has(id) || model.inUse(id) || widgets.expanded.has(id),
+  );
   if (taken !== undefined) {
-    return { ok: false, detail: `the ID "${taken}" is in use in the ask`, itemId: taken };
+    // An expanded ID is no ID the agent wrote: the refusal names the reference to rename, as the
+    // expansion's own check does when an ask is sent.
+    const entry = sent.map.get(taken);
+    const detail =
+      entry === undefined
+        ? `the ID "${taken}" is in use in the ask`
+        : `the molecule reference "${entry.reference}" expands to the item "${taken}", an ID in use in the ask; item IDs are never reused`;
+    // A fault of the props where a widget or reference holds the ID, as before; an expanded ID the
+    // model or an earlier expansion holds is an ID in use.
+    const inUse = sent.map.has(taken) && !held.has(taken);
+    return { ok: false, detail, itemId: taken, ...(inUse ? { inUse: true as const } : {}) };
   }
   widgets.expansion = new Map([...widgets.expansion, ...sent.map]);
+  holdExpanded(widgets, sent.map);
   for (const [id, props] of references) widgets.references.set(id, props);
   return { ok: true, item: sent.items[0] as AddedItem };
 };
@@ -220,6 +252,7 @@ export const changedReference = (
   if (!sent.ok) return { ok: false, detail: inWords(sent.problems), itemId: reference };
   const fresh = new Map([...sent.map].filter(([, entry]) => entry.reference === reference));
   widgets.expansion = withEntriesOf(widgets.expansion, reference, fresh);
+  holdExpanded(widgets, fresh);
   widgets.references.set(reference, merged);
   const [expanded] = sent.items as [{ readonly props: QuestionProps }];
   return { ok: true, props: expanded.props };

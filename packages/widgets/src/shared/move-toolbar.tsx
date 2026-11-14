@@ -7,6 +7,7 @@
 // focus keeps it and the next Enter does nothing; a disabled menu never opens. The menus are not
 // modal, as the Tree's "More" menu, so they lock no scroll and add no style element.
 
+import { keyPressOf } from "@askboard/view/catalog";
 import { DropdownMenu } from "radix-ui";
 import { type KeyboardEvent, useRef, useState } from "react";
 import {
@@ -19,7 +20,7 @@ import {
   TOOLBAR,
   TOOLS,
 } from "./move-classes.ts";
-import { toolbarFocus, toolbarMoveOf, toolbarStop } from "./toolbar-focus.ts";
+import { toolbarFocus, toolbarPressMove, toolbarStop } from "./toolbar-focus.ts";
 
 /** One tool of the row: a button that runs, or a menu whose options call `onChoose`. */
 export type MoveTool = {
@@ -120,7 +121,7 @@ export const MoveToolbar = ({
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
     // A menu is portaled out of the toolbar but its keys bubble here: they are the menu's.
     if (!event.currentTarget.contains(event.target as Node)) return;
-    const move = toolbarMoveOf(event.key);
+    const move = toolbarPressMove(keyPressOf(event));
     if (move === undefined) return;
     event.preventDefault();
     buttons.current[toolbarFocus(enabled, at, move)]?.focus();

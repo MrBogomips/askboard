@@ -26,6 +26,11 @@ export const ROW_WIDGET: WidgetType = {
       },
     },
   },
+  help: {
+    mouse:
+      "It places two to four items side by side, and stacks them on a narrow board: use the items themselves.",
+    answer: "Nothing of its own: each item inside it gives its own answer.",
+  },
   skill: {
     use: "2 to 4 items side by side; a narrow board stacks them",
     notes: [

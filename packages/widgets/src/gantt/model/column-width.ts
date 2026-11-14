@@ -3,6 +3,8 @@
 // 120 px and 60% of the widget's width; the edge's keys step it by 16 px, or 64 with Shift, Home
 // and End take the limits, and a fit takes the longest visible name. Plain ECMAScript.
 
+import type { KeyPress } from "./keys.ts";
+
 /** The narrowest the column goes, in px. */
 export const COLUMN_MIN = 120;
 
@@ -40,6 +42,30 @@ export const keyWidth = (
   if (key === "Home") return COLUMN_MIN;
   if (key === "End") return maxWidth(widget);
   return undefined;
+};
+
+/** What a key on the focused edge asks for: a width, or the fit. */
+export type EdgeAction =
+  | { readonly kind: "width"; readonly width: number }
+  | { readonly kind: "fit" };
+
+/**
+ * What a press on the focused edge does, or undefined when the press is not the edge's (keyboard-
+ * shortcuts-help, design decision 7): the arrows left and right with no modifier or Shift, Home,
+ * End and Enter with no modifier, and nothing else, so that Shift with Enter, Home or End, and any
+ * press with Alt, Ctrl or Cmd, keep their default.
+ */
+export const edgeKeyAction = (
+  press: KeyPress,
+  width: number,
+  widget: number,
+): EdgeAction | undefined => {
+  if (press.altKey || press.ctrlKey || press.metaKey) return undefined;
+  const arrow = press.key === "ArrowLeft" || press.key === "ArrowRight";
+  if (press.shiftKey && !arrow) return undefined;
+  if (press.key === "Enter") return Object.freeze({ kind: "fit" });
+  const next = keyWidth(width, press.key, press.shiftKey, widget);
+  return next === undefined ? undefined : Object.freeze({ kind: "width", width: next });
 };
 
 /** The width that shows the longest of the visible names whole, within the limits. */

@@ -19,6 +19,7 @@ import {
   shownFor,
   shownResultFor,
   statusOf,
+  unchangedOf,
 } from "./question-state.ts";
 
 const [question] = plainChoiceBoardDocument.items;
@@ -515,5 +516,65 @@ describe("an answer's content, results included (approval-scale-ranking, design 
       note: "Ok.",
     });
     expect(Object.hasOwn(contentOf({ choice: ["SQLite"] }), "results")).toBe(false);
+  });
+});
+
+// View-and-widgets: Which items an answer holds unchanged (reopen-start-from-answer, design
+// decision 2): the one reader of `unchanged`, by the answer's role.
+describe("which items an answer holds unchanged", () => {
+  test("the listed IDs when the answer holds the list, whatever its role", () => {
+    for (const role of ["current", "previous"] as const) {
+      const holds = unchangedOf({ unchanged: ["plan", "roadmap"] }, role);
+      expect(holds("plan")).toBe(true);
+      expect(holds("roadmap")).toBe(true);
+      expect(holds("board")).toBe(false);
+    }
+  });
+
+  test("an empty list holds none, whatever its role", () => {
+    for (const role of ["current", "previous"] as const) {
+      const holds = unchangedOf({ unchanged: [] }, role);
+      expect(holds("plan")).toBe(false);
+      expect(holds("roadmap")).toBe(false);
+    }
+  });
+
+  test("a current answer without the list holds every ID: it names the current revision", () => {
+    const holds = unchangedOf({ choice: ["SQLite"] }, "current");
+    expect(holds("plan")).toBe(true);
+    expect(holds("anything-else")).toBe(true);
+  });
+
+  test("a previous answer without the list holds none: a field lost on the way carries nothing", () => {
+    const holds = unchangedOf({ choice: ["SQLite"] }, "previous");
+    expect(holds("plan")).toBe(false);
+    expect(holds("anything-else")).toBe(false);
+  });
+
+  test("an ID is read as an own entry of the list, never as an inherited name", () => {
+    const holds = unchangedOf({ unchanged: ["plan"] }, "previous");
+    expect(holds("constructor")).toBe(false);
+    expect(holds("__proto__")).toBe(false);
+    expect(holds("toString")).toBe(false);
+  });
+
+  test("the answer's content keeps the list, an empty one included, and none when it has none", () => {
+    expect(contentOf({ choice: ["a"], unchanged: ["plan"] })).toEqual({
+      choice: ["a"],
+      unchanged: ["plan"],
+    });
+    expect(contentOf({ unchanged: [] })).toEqual({ unchanged: [] });
+    expect(Object.hasOwn(contentOf({ choice: ["a"] }), "unchanged")).toBe(false);
+  });
+
+  test("the content's list is a copy, not the answer's array", () => {
+    const given = { unchanged: ["plan"] };
+    const content = contentOf(given);
+    expect(content.unchanged).not.toBe(given.unchanged);
+  });
+
+  test("the draft's answer message carries no list: the board never sends one", () => {
+    const sent = answerOf(question, { choice: ["SQLite"] }, new Date("2026-11-08T10:00:00Z"));
+    expect(Object.hasOwn(sent, "unchanged")).toBe(false);
   });
 });

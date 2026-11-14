@@ -16,7 +16,7 @@ export type AskingRule = (typeof ASKING_RULES)[number];
  * design decision 6). `with-references` is the text that describes the hook's predicate.
  */
 export const ASKING_RULE_TEXTS: Readonly<Record<AskingRule, string>> = Object.freeze({
-  none: "No question is taken from AskUserQuestion: the agent chooses, question by question, where it goes.",
+  none: "No question is taken from AskUserQuestion: the agent chooses where each question goes, by how complex it is to grasp.",
   always: "Every question goes to AskBoard, whatever it holds.",
   "with-references": WITH_REFERENCES_DESCRIPTION,
 });

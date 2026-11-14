@@ -7,7 +7,7 @@ paradigm: 'hexagonal (ports and adapters) around an ask core, one process per Cl
 scope: 'AskBoard first version: MCP server and board host per Claude Code session, sandboxed view and widgets, compute graph, Claude Code mod and hooks, shipped skills and agents, Snapshots, light benchmark, plugin packaging and operations'
 status: final
 created: '2026-10-27'
-updated: '2026-11-09'
+updated: '2026-11-14'
 binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14, FR-15, FR-18, FR-19, FR-20, FR-21, FR-22, FR-23, FR-24, FR-25, FR-26, FR-27, FR-28, FR-29, FR-30, FR-31, FR-32, FR-33, FR-34, FR-35, NFR-1, NFR-2, NFR-3, NFR-4, NFR-5, NFR-6, NFR-7, NFR-8, NFR-9, NFR-10, NFR-11, AXFX FR-36, AXFX FR-37, AXFX FR-38, AXFX FR-39, AXFX FR-40, AXFX FR-41, AXFX NFR-1, AXFX NFR-2, AXFX NFR-3, AXFX NFR-5, AXFX NFR-8]
 sources:
   - 'AskBoard PRD (prd-askboard-2026-10-25/prd.md, final)'
@@ -42,6 +42,10 @@ sources:
   - 'OpenSpec change form-widget, proposal.md, open questions 1, 3 and 4: the Form built from the input atoms and a PickField with no form library, field checks in the registry, the pattern run only in the view (accepted under the PO''s unattended handoff, 2026-11-07)'
   - 'OpenSpec change keep-mine-shown-revision, proposal.md, open question 4: no derived values in an answer naming an earlier revision (accepted under the PO''s unattended handoff, 2026-11-08)'
   - 'OpenSpec change table-widget, proposal.md, open questions 1, 3, 4 and 6: the Table on its own grid, column formulas with row references and single reads, totals as item fields, cell entries in the draft (accepted under the PO''s unattended handoff, 2026-11-08)'
+  - 'OpenSpec change agent-facing-gaps, proposal.md and design decision 7: AD-6 names `deleted` among the typed results that are not errors (Issues #73 and #75, 2026-11-09)'
+  - 'OpenSpec change document-review, proposal.md, open questions 5 and 12: suggested edits in the annotation body, the Markdown renderer shared with the widgets (accepted under the PO''s unattended handoff, 2026-11-08)'
+  - 'OpenSpec change reopen-start-from-answer, proposal.md, open question 1: a reopened question starts from the user''s previous answer when it is unchanged and fits, and the held draft record comes before the board state on connect (accepted under the PO''s unattended handoff, 2026-11-08)'
+  - 'OpenSpec change result-bound, design.md, decisions 1, 2 and 6: the unresolved-pointer warnings of `ask` and `update` get their own 10,000 characters, a closing warning counts the rest, and AD-6 says so (accepted under the PO''s unattended handoff, 2026-11-09)'
   - 'OpenSpec change kanban-order, proposal.md, open questions 1 and 2: the generic diff gains a grouped flat list, a card moved to another column at its sent place gives one set and no move (accepted under the PO''s unattended handoff, 2026-11-09)'
 companions: ['SOLUTION-DESIGN.md']
 ---
@@ -115,7 +119,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
     - `ask-core` imports only `contract` and `compute`.
     - Every adapter imports `ask-core` ports and `contract`, never another adapter.
     - The session process entry point (`packages/server/src/main.ts`, with the files beside it outside the server unit folders) composes the units: it may import `ask-core`, `contract`, every server unit and `hooks`, whose hook mode (`askboard hook <event>`) and local API client run from the same executable (AD-19), and no unit imports it.
-    - `view` imports only `contract` and `compute`. `widgets` imports only `contract`, `compute` and `view`'s `CatalogRenderer` port. A server unit imports `view` only for `assemble` (AD-9).
+    - `view` imports only `contract` and `compute`. `widgets` imports only `contract`, `compute`, `view`'s `CatalogRenderer` port and `view`'s Markdown renderer, each provided at run time by one chunk (AD-9). A server unit imports `view` only for `assemble` (AD-9).
     - `compute` and `ask-core` use no DOM, Node-only or Bun-only API.
     - CI fails on any import that crosses the dependency diagram.
   - **Run time:** `mod`, `hooks` and `bench` are out-of-process clients. They talk to the session process only through schemas in `contract` (AD-7).
@@ -214,10 +218,10 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
   - **Schemas and validation:**
     - Input schemas are generic JSON Schema 2020-12. Every item is `{type, id, props}`: a `type` discriminator, the item's ID and an object of props. A molecule reference is such an item (AD-9). There is no root `anyOf`/`oneOf`/`allOf`, and top-level property names are 1–64 characters from `[A-Za-z0-9_.-]`.
     - Per-widget schemas, the molecule reference and definition formats, and the asking-rule predicates exist only in `contract`. Each ready-made molecule's parameter schema is part of its definition, data in `molecules` written in `contract`'s definition format. Tool definitions never include any of them.
-    - The skills' reference files, examples and asking-rule texts are generated from `contract` and `molecules` at build time. CI fails when a shipped file differs from its generated form, or when an example fails validation.
+    - The skills' reference files, examples and asking-rule texts, in both skills (`askboard` and `askboard-help`), are generated from `contract`, `molecules` and the view's English strings (`@askboard/view/strings`) at build time. CI fails when a shipped file differs from its generated form, or when an example fails validation.
     - The server validates every request against `contract`.
       - A request the agent must fix returns `isError` text naming the item ID and the expected shape, under 4,000 characters, with the first problems first.
-      - A problem confined to one item that leaves the board usable is a typed warning in a successful result: an unresolved pointer (FR-8), a formula error (FR-14).
+      - A problem confined to one item that leaves the board usable is a typed warning in a successful result: an unresolved pointer (FR-8), a formula error (FR-14), each kind within its share of the result bound: past it, one closing warning counts the rest.
   - **Re-sending an ask:**
     - `ask` with the ID of an open ask returns that ask's board only when the request is identical and comes from the owner. Identical means deep-equal after RFC 8785 canonicalization to the first accepted request. It then opens no tab and sends no notice.
     - Any other `ask` with the ID of an open, closed or discarded ask is refused, naming the ID as in use.
@@ -225,7 +229,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
     - A result is one text block carrying JSON in its `contract` envelope. No tool uses `outputSchema` or `structuredContent` until the benchmark shows that the model reads only one representation.
     - A result stays under 30,000 characters. Answers carry only what changed (FR-20). `collect` pages with `more: true`.
     - `fetch` returns one item, or a range of it, with a continuation cursor, and omits excerpt text and image bytes.
-    - Typed results that are not errors: `open`, `postponed`, `closed`, `discarded`, `unavailable`.
+    - Typed results that are not errors: `open`, `postponed`, `closed`, `discarded`, `unavailable`, `deleted` (`fetch` of an item the agent deleted, or one inside a deleted question or area).
 
 ### AD-7 — The contract: AskBoard's own versioned schemas for every run-time message [ADOPTED]
 
@@ -267,7 +271,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
       - diagram anchors as node or edge IDs as written in the diagram source, else the quoted label;
       - diff anchors as side (`old` or `new`), file path and line on that side;
       - text anchors as quote or position selectors.
-    - **Annotations:** they share one shape modelled on the W3C Web Annotation Data Model, a target (item ID plus selector) and a body. Its fields are fixed in `contract` before the first annotating widget is built: `{id, target: {selector}, body: {text}}`, the item ID being the key of the answer's `results`, with one selector type per kind of position above (`element` and `label` for diagrams and graphs, `region` for images, `line` for diffs, `quote` and `position` for text).
+    - **Annotations:** they share one shape modelled on the W3C Web Annotation Data Model, a target (item ID plus selector) and a body. Its fields are fixed in `contract` before the first annotating widget is built: `{id, target: {selector}, body: {text?, replacement?}}`, a body holding a comment, a suggested edit that replaces the target's text (an empty one deleting it), or both, the item ID being the key of the answer's `results`, with one selector type per kind of position above (`element` and `label` for diagrams and graphs, `region` for images, `line` for diffs, `quote` and `position` for text).
     - **Values:**
       - calendar dates are RFC 3339 `full-date` strings;
       - durations are integer days against the item's working calendar, which is optional and defaults to Monday to Friday with no holidays;
@@ -331,7 +335,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
     - A component is ready when its asynchronous work has settled and its content has been laid out once. A question counts as visible when all its items are ready. A container that hides items, such as Tabs, still mounts them, hidden, so they report ready.
     - Each item renders inside an error boundary. An item that throws shows an error state and reports the error to the board page, and its question never counts as visible (AD-10).
   - **Build and assembly:**
-    - At build time, `view` publishes a manifest: a shell chunk, library chunks for code that several components use, and one chunk per catalog component, each with its SHA-256, its styles, the licence notices of the code it contains and the chunks it needs. The widgets in `packages/widgets` are catalog components like the atoms in `view`: the view build bundles each as a component chunk of the same manifest, and a widget imports from `view` only the `CatalogRenderer` port. Nothing is bundled at run time. Every chunk is a classic script, so a chunk that holds `import.meta` fails the build.
+    - At build time, `view` publishes a manifest: a shell chunk, library chunks for code that several components use, and one chunk per catalog component, each with its SHA-256, its styles, the licence notices of the code it contains and the chunks it needs. The widgets in `packages/widgets` are catalog components like the atoms in `view`: the view build bundles each as a component chunk of the same manifest, and a widget imports from `view` only the `CatalogRenderer` port and the Markdown renderer, which a library chunk provides to every chunk that renders Markdown. Nothing is bundled at run time. Every chunk is a classic script, so a chunk that holds `import.meta` fails the build.
     - One pure function exported by `view`, `assemble(boardDocument, manifest)`, builds both a board's srcdoc (called by the board page) and every Snapshot (called by `snapshot`), with its CSP. It inlines the shell and the chunks the board's items need, with the library chunks those need in turn.
     - In a Snapshot, `assemble` carries each diagram that has a kept render as its light and dark SVG, which a small chunk shows as a `blob:` image, and leaves that diagram's renderer chunk out. A diagram with no kept render gets its renderer chunk.
     - The view renders each diagram in both themes and sends the SVG text to the board page as a typed view message. `board-host` keeps the latest render per item and board revision, as data: it never serves one as a page (AD-8).
@@ -350,7 +354,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
 - **Rule:**
   - **What becomes an answer:**
     - An answer event comes only from an explicit user action on its question on the board. An answer the agent records on the user's behalf with `update` (FR-19) is held by `ask-core` as that question's answer, marked recorded, with `who` and the core's time, and reported in that call's result; like every change the agent's own call makes, it is not logged (AD-3): no event carries it, so neither push nor `collect` delivers it; `fetch` returns it marked `recorded`.
-    - Choice and input widgets start with nothing chosen and no value set, whatever the agent marks as recommended or default. A recommended option is only labelled.
+    - Choice and input widgets start with nothing chosen and no value set, whatever the agent marks as recommended or default. A recommended option is only labelled. A question the agent reopens may start from the user's own previous answer, which the user still sends by an explicit act (AD-20).
     - Submit sends only answers created by user actions. A review widget (Table, Tree, Gantt, Form over agent content) reports untouched content as unchanged, never as a chosen value.
     - Unsent work never reaches the agent until the user sends it (AD-20).
   - **Epochs and states:**
@@ -447,6 +451,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
     - The schema names these keys, and the board's settings panel shows the presentation and behaviour ones (FR-35):
       - presentation: `theme`, `density`, `contextPlacement`;
       - behaviour: `defaultLanguage` (`en-US` or `it-IT`, FR-34), `askingRule` (FR-30, AD-16), `snapshotFolder` (FR-27), `editor` (AD-8);
+      - the user's keys: `keys`, for an action, the combinations that replace its keys, `[]` to remove them (NFR-12);
       - molecule defaults: `defaultMinimumMargin`, the project default for the sales-estimate-review molecule's `minimumMargin` (AD-9).
     - Only the session process reads them, through one `Config` port in `ask-core`: once at start, and the user configuration's presentation keys again whenever it opens a board. Start is the first time it needs a setting, never before its first request after `server/discover` (AD-2). It merges them key by key, project keys winning, and changes take effect from the next session, except the board's presentation writes below.
     - **Presentation keys:**
@@ -455,7 +460,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
       - Each session process reads the presentation keys from the user configuration again whenever it opens a board, so later boards of every running session open with the change.
       - A presentation key set in the project configuration wins and shows read-only.
     - The session process accepts a settings write only for `theme`, `density` and `contextPlacement`, with a value the configuration schema allows, and refuses any other key, so the board never writes a command to run. Behavioural settings show read-only, with their file and key, and keep the next-session rule.
-    - `editor` is the one key read only from the user configuration, an exception to the merge: a project-level `editor` is ignored, with a warning (AD-8).
+    - `editor` and `keys` are the keys read only from the user configuration, exceptions to the merge: a project-level `editor` is ignored, with a warning (AD-8), and so is a project-level `keys`, since an agent can write that file and agent content never chooses what a key does (AD-8). `keys` is read again whenever the session process opens a board, passes the contract's key-override check and is dropped whole when any combination fails it, with one warning for each problem, at most eight in all, the project file's `project-keys-ignored` first when it sets `keys`, then the user file's first problems (the board protocol's bound on a row's warnings); a board never writes it, and the settings write above still admits only the presentation keys.
     - `hooks` and `mod` read effective settings only through the local API.
     - An unknown key is a warning. A file with an unsupported major version is ignored, with a diagnostic, and so is a file that cannot be read, is not JSON or fails the configuration schema: none of its keys applies, never part of them, and the settings panel shows the file as not applied, with the problem. The session process never writes a presentation key into a user configuration that fails its check.
   - **Project folders:**
@@ -582,9 +587,9 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
     - Every board command carries an action ID that the board page makes. `ask-core` applies each action ID once per ask, so a command resent after a dropped connection, a submit or a revision included, is never appended twice.
     - Switching to immediate delivery sends what is held, the same way.
   - **Drafts:**
-    - Unsent work is a per-ask **draft record**. Per question it holds the edited values, the widgets' results, held answers, declines, postpones, held undos and open-prompt text, keyed by item ID and `rev`, and also the question's context placement, the text in its follow-up composers, the user's notes on options and the entries: the text an input atom, or a Table's cell by row and field, holds that gives no value, which keeps its question from being answered until the user corrects or clears it. For the board it holds the delivery mode and the open tab or the question in view.
+    - Unsent work is a per-ask **draft record**. Per question it holds the edited values, the widgets' results, held answers, declines, postpones, held undos and open-prompt text, keyed by item ID and `rev`, and also the question's context placement, the text in its follow-up composers, the user's notes on options and the entries: the text an input atom, or a Table's cell by row and field, holds that gives no value, which keeps its question from being answered until the user corrects or clears it, and whether the board started the revision from the question's previous answer. For the board it holds the delivery mode and the open tab or the question in view.
     - The board page mirrors the draft record to `ask-core` over the board protocol. `ask-core` holds it apart from the log and never exposes it to `collect`, `fetch`, Snapshots, the mod or the local API.
-    - A reconnecting or taking-over board restores it from `ask-core`. No AskBoard page uses Web Storage, IndexedDB or cookies.
+    - A reconnecting or taking-over board restores it from `ask-core`, which `board-host` sends before the board state, so the view takes both together. No AskBoard page uses Web Storage, IndexedDB or cookies.
     - A record over the draft limit is mirrored without the work of whole questions, largest first, and the board says which; the board page keeps the whole record for the user's copy and the leave-page prompt.
 
 ### AD-21 — Board connection and discard [ADOPTED]
@@ -809,13 +814,13 @@ askboard/
     core/                # ask-core: asks, revisions, board documents, event logs, drafts, ports (BoardAddress, MoleculeSource, SourceFiles, Config, SnapshotWriter, FormulaEngine use)
     compute/             # buildGraph, FormulaEngine port and adapter, PERT, CPM scheduling
     server/              # session process: mcp-tools, board-host (board listener, local API), excerpts, molecule-source, snapshot, notifier, hook mode
-    view/                # board page, assemble, view shell, CatalogRenderer port, atoms, layouts
+    view/                # board page, assemble, view shell, CatalogRenderer port, Markdown renderer, atoms, layouts
     widgets/             # the 18 catalogue widgets as catalog components
     molecules/           # ready-made molecules as input-format data
     mod/                 # Claude Code mod: push transport, pending-asks status
     hooks/               # Claude Code hooks: out-of-process client of the local API (AD-1, AD-16)
     bench/               # benchmark runner, scripted answerer, report, cost model
-  skills/                # Agent Skills: SKILL.md and its references, all generated from contract and molecules
+  skills/                # Agent Skills (askboard, askboard-help): SKILL.md and its references, all generated from contract, molecules and the view's English strings
   agents/                # shipped agents (none in the first version; Deferred)
   scripts/               # start script (Node form); the launcher (executable form)
   tools/                 # repository checks: import boundaries (AD-1), licences (AD-19)

@@ -108,3 +108,4 @@ export type TreeOrigin = "agent" | "edited";
 
 /** A Tree item in a question. */
 export type TreeItem = { readonly type: "tree"; readonly id: string; readonly props: TreeProps };
+export { TREE_KEYS, type TreeKeyAction } from "./keys.ts";

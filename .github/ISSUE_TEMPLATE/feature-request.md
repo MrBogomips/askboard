@@ -6,8 +6,9 @@ labels: ["type:feature", "source:po"]
 ---
 
 <!--
-Search open and closed Issues for a duplicate first. Labels: one type and one source; change
-source:po when the request comes from an end-to-end test (source:e2e) or a review (source:review).
+Search open and closed Issues for a duplicate first. Labels: one type, one source and one area or
+more (area:<name>, the function or module; CLAUDE.md, Labels); change source:po when the request
+comes from an end-to-end test (source:e2e) or a review (source:review).
 Keep the Issue self-contained: everything needed is written here, images attached or linked from the
 repository, never a path on someone's machine.
 -->

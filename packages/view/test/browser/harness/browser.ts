@@ -86,6 +86,8 @@ export type BoardContextOptions = {
   /** The browser's own locale and time zone (settings-languages, task 7.4). */
   readonly locale?: string;
   readonly timezoneId?: string;
+  /** The browser's user agent, for what a page reads of its platform (key labels, keyboard-shortcuts-help). */
+  readonly userAgent?: string;
 };
 
 /** One browser context with its recorders; every tab a test opens belongs to it. */
@@ -108,6 +110,7 @@ export class BoardContext {
       colorScheme: options.colorScheme ?? "light",
       ...(options.locale === undefined ? {} : { locale: options.locale }),
       ...(options.timezoneId === undefined ? {} : { timezoneId: options.timezoneId }),
+      ...(options.userAgent === undefined ? {} : { userAgent: options.userAgent }),
     });
     // Bounded below a test's timeout, so a stuck step fails with what it waited for.
     context.setDefaultTimeout(ACTION_TIMEOUT_MS);

@@ -1,7 +1,7 @@
-// The Ranking's model (view-and-widgets spec: Ranking reorder, Ranking at the keyboard; design
-// decision 8): the order is a list of element IDs, each once. A move by one step and a drop before
-// or after a row are the only edits, so every order a drop makes is one that single moves of the
-// same row make too. Pure: an edit that changes nothing returns the same array it was given.
+// The Ranking's model (view-and-widgets spec: Ranking reorder; design decision 8): the order is a
+// list of element IDs, each once. It holds the agent's order, a drop before or after a row, and the
+// counter's moved rows; the moves of a selection or of a row are `moves.ts`'s. Pure: an edit that
+// changes nothing returns the same array it was given.
 
 import type { RankingProps } from "@askboard/contract";
 
@@ -36,13 +36,6 @@ export const holdsOrder = (result: unknown, props: RankingProps): boolean =>
 const placed = (order: readonly string[], id: string, at: number): readonly string[] => {
   const rest = order.filter((other) => other !== id);
   return [...rest.slice(0, at), id, ...rest.slice(at)];
-};
-
-/** `order` with `id` one place up (-1) or down (1); the same order at an edge or for an unknown ID. */
-export const moveBy = (order: readonly string[], id: string, delta: -1 | 1): readonly string[] => {
-  const from = order.indexOf(id);
-  const to = from + delta;
-  return from < 0 || to < 0 || to >= order.length ? order : placed(order, id, to);
 };
 
 /**

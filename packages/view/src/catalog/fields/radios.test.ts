@@ -32,6 +32,16 @@ const button = (log: string[], name: string) => ({
   },
 });
 
+// A key event with no modifier held.
+const arrow = (key: string) => ({
+  key,
+  altKey: false,
+  ctrlKey: false,
+  metaKey: false,
+  shiftKey: false,
+  preventDefault: () => {},
+});
+
 describe("useRadios (view-and-widgets spec: Radios with manual activation)", () => {
   test("gives each radio the attributes of radioAt", () => {
     const radio = drawn(1);
@@ -49,8 +59,8 @@ describe("useRadios (view-and-widgets spec: Radios with manual activation)", () 
     radio(0).ref(button(log, "first") as unknown as HTMLButtonElement);
     radio(1).ref(button(log, "second") as unknown as HTMLButtonElement);
     radio(2).ref(button(log, "third") as unknown as HTMLButtonElement);
-    radio(2).onKeyDown({ key: "ArrowDown", preventDefault: () => {} });
-    radio(0).onKeyDown({ key: "ArrowDown", preventDefault: () => {} });
+    radio(2).onKeyDown(arrow("ArrowDown"));
+    radio(0).onKeyDown(arrow("ArrowDown"));
     expect(log).toEqual(["first", "second"]);
     expect(checks).toEqual([]);
   });
@@ -61,7 +71,7 @@ describe("useRadios (view-and-widgets spec: Radios with manual activation)", () 
     const log: string[] = [];
     radio(1).ref(button(log, "second") as unknown as HTMLButtonElement);
     radio(1).ref(null);
-    radio(0).onKeyDown({ key: "ArrowDown", preventDefault: () => {} });
+    radio(0).onKeyDown(arrow("ArrowDown"));
     radio(2).onClick();
     expect(log).toEqual([]);
     expect(checks).toEqual([2]);

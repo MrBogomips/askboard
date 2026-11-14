@@ -78,9 +78,15 @@ describe("workspace layout", () => {
     },
   );
 
-  test("view exports ./assemble and ./catalog besides its root entry", async () => {
+  test("view exports ./assemble, ./catalog, ./markdown and ./strings besides its root entry", async () => {
     const manifest = await readJson(join(packageDir("view"), "package.json"));
-    expect(Object.keys(manifest.exports).sort()).toEqual([".", "./assemble", "./catalog"]);
+    expect(Object.keys(manifest.exports).sort()).toEqual([
+      ".",
+      "./assemble",
+      "./catalog",
+      "./markdown",
+      "./strings",
+    ]);
   });
 
   test("server holds the six server unit folders", () => {
@@ -195,7 +201,7 @@ describe("the plugin carries the skill", () => {
 
   test("the skill named in ask's description is the skill's name", async () => {
     const description = TOOL_DEFINITIONS.find(({ name }) => name === "ask")?.description ?? "";
-    const named = /The (\S+) skill/.exec(description)?.[1];
+    const named = /[Tt]he (\S+) skill/.exec(description)?.[1];
     const own = /^name: (.+)$/m.exec(await skillText())?.[1];
     expect(named).toBeDefined();
     expect(named).toBe(own);

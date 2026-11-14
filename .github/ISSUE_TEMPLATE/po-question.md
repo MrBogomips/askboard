@@ -7,7 +7,7 @@ labels: ["type:question", "needs-po"]
 
 <!--
 Search open and closed Issues for a duplicate first. Add one source label: source:review,
-source:e2e or source:po. A question about an existing Issue goes on that Issue as a comment, with
+source:e2e or source:po, and one area label or more (area:<name>; CLAUDE.md, Labels). A question about an existing Issue goes on that Issue as a comment, with
 needs-po, instead of a new Issue. Keep the Issue self-contained: the PO decides from what is written
 here, with no path on someone's machine.
 -->

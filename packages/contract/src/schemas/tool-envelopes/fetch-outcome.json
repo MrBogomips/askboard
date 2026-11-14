@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:askboard:tool-envelopes:fetch-outcome",
   "title": "Fetch outcome",
-  "description": "What fetch returns when the ask is discarded, which an ask ID unknown to this session's epoch counts as (AD-6, AD-10, AD-21). A typed result, not an error. A closed ask's items are still fetched.",
+  "description": "What fetch returns when it cannot give the item and the agent cannot fix the request (AD-6, AD-10, AD-21). A typed result, not an error. discarded: the ask is discarded, which an ask ID unknown to this session's epoch counts as; it carries no itemId. deleted (since agent-facing-gaps): the item is one an update deleted, or one inside a deleted question or area; its ID is never reused, and the result names it in itemId and carries unchecked while the ask has no owner. Which of the two is a rule of the outcome, written as an if/then/else, since the contract compiles in strict mode and refuses a root combinator. A closed ask's items are still fetched.",
   "type": "object",
   "properties": {
     "versions": {
@@ -15,9 +15,25 @@
       "$ref": "urn:askboard:input:id"
     },
     "outcome": {
-      "const": "discarded"
+      "enum": ["discarded", "deleted"]
+    },
+    "itemId": {
+      "$ref": "urn:askboard:input:id"
+    },
+    "unchecked": {
+      "const": true
     }
   },
   "required": ["versions", "epoch", "askId", "outcome"],
-  "additionalProperties": false
+  "additionalProperties": false,
+  "if": {
+    "properties": { "outcome": { "const": "deleted" } }
+  },
+  "then": {
+    "properties": { "itemId": { "$ref": "urn:askboard:input:id" } },
+    "required": ["itemId"]
+  },
+  "else": {
+    "properties": { "itemId": false, "unchecked": false }
+  }
 }

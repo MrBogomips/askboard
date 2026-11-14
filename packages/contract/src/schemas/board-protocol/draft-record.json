@@ -77,6 +77,10 @@
             }
           }
         },
+        "prefilled": {
+          "description": "Since reopen-start-from-answer: the board filled this question's work on this revision from the previous answer the agent's reopen left, so a reload does not fill it again over what the user undid. Not unsent work on its own; it is never part of an answer.",
+          "const": true
+        },
         "other": {
           "type": "string",
           "maxLength": 10000

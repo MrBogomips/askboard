@@ -34,7 +34,7 @@ const sources: SourceFiles = {
   editorTarget: async () => undefined,
 };
 
-const session = async () => {
+const session = async (files: SourceFiles = sources) => {
   const core = new AskCore({
     randomness: { bytes: (count) => crypto.getRandomValues(new Uint8Array(count)) },
     showing: { check: async () => ({ showable: true }), open: () => undefined },
@@ -42,7 +42,7 @@ const session = async () => {
     identity: { gitUserName: async () => "Paola Greco", loginName: async () => "paola" },
     report: () => undefined,
     clock: runtimeClock,
-    sources,
+    sources: files,
     projectRoot: "/home/paola/orders",
   });
   const { client, close } = await connect(depsWith(core).deps);
@@ -144,6 +144,70 @@ describe("fetch of a question with context", () => {
     );
     const text = JSON.stringify(fetched);
     for (const held of [BYTES, "We retry", "retries: 3"]) expect(text).not.toContain(held);
+    await close();
+  });
+});
+
+// The mcp-adapter spec's "Many missing excerpts" (result-bound, Refs #98): 40 excerpts whose pointers
+// of 1,024 characters lead outside the project folder.
+describe("many missing excerpts", () => {
+  const outside: SourceFiles = {
+    ...sources,
+    resolveExcerpt: async () => ({ status: "unresolved", reason: "outside-root" }),
+  };
+  const pointer = (n: number) => `${`../${n}-`.padEnd(1_016, "a")}#Intro-x`;
+  const excerpts = Array.from({ length: 40 }, (_, n) => ({
+    type: "excerpt",
+    id: `ex-${String(n).padStart(2, "0")}`,
+    props: { pointer: pointer(n) },
+  }));
+
+  test("the ask result holds the warnings that fit and one closing warning counting the rest", async () => {
+    const { call, close } = await session(outside);
+    const asked = await call("ask", askWith(excerpts));
+    expect(validateAgainst(SCHEMA_IDS.askResult, asked).ok).toBe(true);
+    const warnings = asked.warnings as { code: string; itemId: string; message: string }[];
+    expect(warnings[0]?.code).toBe("no-hooks");
+    const unresolved = warnings.slice(1);
+    expect(unresolved.every((warning) => warning.code === "unresolved-pointer")).toBe(true);
+    expect(JSON.stringify(unresolved).length).toBeLessThanOrEqual(10_000);
+    const closing = unresolved.at(-1);
+    const left = Number(
+      closing?.message.match(/and (\d+) more unresolved pointers are left out/)?.[1],
+    );
+    // The kept warnings, the closing one and the count make up the 40 excerpts, in order.
+    expect(unresolved.length + left).toBe(40);
+    expect(unresolved.slice(0, -1).map((warning) => warning.itemId)).toEqual(
+      excerpts.slice(0, unresolved.length - 1).map((excerpt) => excerpt.id),
+    );
+    expect(closing?.itemId).toBe(excerpts[unresolved.length - 1]?.id);
+    await close();
+  });
+
+  test("fetch of the question returns every excerpt's pointer, status and reason", async () => {
+    const { call, close } = await session(outside);
+    await call("ask", askWith(excerpts));
+    let fetched = await call("fetch", { askId: ASK_ID, itemId: "fix" });
+    const pages = [fetched];
+    while (fetched.continuation) {
+      fetched = await call("fetch", {
+        askId: ASK_ID,
+        itemId: "fix",
+        continuation: fetched.continuation,
+      });
+      pages.push(fetched);
+    }
+    // The item's JSON text comes in parts, whose concatenation is the whole item.
+    const item = JSON.parse(pages.map((page) => page.part).join("")) as {
+      props: { items: { id: string; props: Record<string, unknown> }[] };
+    };
+    expect(item.props.items.map((entry) => entry.props)).toEqual(
+      excerpts.map(({ props }) => ({
+        pointer: props.pointer,
+        status: "unresolved",
+        reason: "outside-root",
+      })),
+    );
     await close();
   });
 });

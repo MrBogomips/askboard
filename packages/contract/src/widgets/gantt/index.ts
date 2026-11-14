@@ -110,3 +110,4 @@ export const ganttShape = (props: object): ElementShape =>
   (props as { readonly workPackages?: unknown }).workPackages === undefined
     ? GANTT_SHAPE
     : GANTT_PLAN_SHAPE;
+export { GANTT_KEYS, type GanttKeyAction } from "./keys.ts";

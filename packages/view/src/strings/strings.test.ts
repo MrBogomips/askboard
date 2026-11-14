@@ -192,3 +192,31 @@ describe("the board's language (task 7.2)", () => {
     expect(htmlLang("it-IT")).toBe("it");
   });
 });
+
+// View-and-widgets: Reopened question (reopen-start-from-answer, design decision 5; open question
+// 5): the one line under the title says where the question started, in both languages.
+describe("the reopened notice's lines (reopen-start-from-answer)", () => {
+  test("en-US", () => {
+    expect(t("en-US", "reopened.carried")).toBe(
+      "Your previous answer is filled in. Change it or answer again.",
+    );
+    expect(t("en-US", "reopened.notCarried")).toBe(
+      'This question starts from the agent\'s version, not from your previous answer. "Start from my previous answer" brings back what still fits.',
+    );
+  });
+
+  test("it-IT", () => {
+    expect(t("it-IT", "reopened.carried")).toBe(
+      "La tua risposta precedente è già inserita. Modificala o rispondi di nuovo.",
+    );
+    expect(t("it-IT", "reopened.notCarried")).toBe(
+      'Questa domanda riparte dalla versione dell\'agente, non dalla tua risposta precedente. "Parti dalla mia risposta precedente" recupera ciò che è ancora valido.',
+    );
+  });
+
+  test("the notCarried line names the button as the button reads, in each language", () => {
+    for (const language of ["en-US", "it-IT"] as const) {
+      expect(t(language, "reopened.notCarried")).toContain(`"${t(language, "reopened.start")}"`);
+    }
+  });
+});

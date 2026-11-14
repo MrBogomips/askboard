@@ -156,7 +156,8 @@ export const closedAskSnapshotTranscript: SnapshotTranscript = {
 /**
  * A takeover: the tab that lost the board asks for a Snapshot after `moved`, and gets no reply,
  * since only the ask's live board takes one; it sends its last draft and is closed. The tab that
- * took the board opens with that draft, asks with its unsent work, and gets the reply.
+ * took the board opens with that draft, before the state (reopen-start-from-answer, design
+ * decision 9), asks with its unsent work, and gets the reply.
  */
 export const takeoverSnapshotTranscript: SnapshotTranscript = {
   askId: LIFECYCLE.askId,
@@ -169,8 +170,8 @@ export const takeoverSnapshotTranscript: SnapshotTranscript = {
     { socket: 1, from: "page", message: lifecycleLastDraft },
     { socket: 1, from: "host", close: BOARD_CLOSE_CODES.moved },
     { socket: 2, from: "host", message: lifecycleBoard },
-    { socket: 2, from: "host", message: lifecycleWaiting },
     { socket: 2, from: "host", message: lifecycleLastDraft },
+    { socket: 2, from: "host", message: lifecycleWaiting },
     { socket: 2, from: "page", message: request(EXCHANGE_REQUEST_IDS.liveTab, true) },
     {
       socket: 2,

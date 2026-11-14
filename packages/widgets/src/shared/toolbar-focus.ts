@@ -2,6 +2,8 @@
 // approval-scale-ranking; the Kanban's and the Timeline's, since latex-kanban-timeline), pure: which tool a key moves to and which holds the Tab stop, skipping
 // disabled tools and stopping at the ends (Tree open question 10).
 
+import type { KeyPress } from "@askboard/contract";
+
 /** A focus move among the toolbar's tools. */
 export type ToolbarMove = "previous" | "next" | "first" | "last";
 
@@ -15,6 +17,14 @@ const TOOLBAR_KEYS: Readonly<Record<string, ToolbarMove>> = {
 /** The move among a toolbar's tools a key makes, or none: the horizontal arrows, Home and End. */
 export const toolbarMoveOf = (key: string): ToolbarMove | undefined =>
   Object.hasOwn(TOOLBAR_KEYS, key) ? TOOLBAR_KEYS[key] : undefined;
+
+/**
+ * The move among a toolbar's tools a press makes: the horizontal arrows, Home and End held with no
+ * modifier, and none for any other hold or during composition, so that the browser keeps them
+ * (keyboard-shortcuts-help, design decision 7).
+ */
+export const toolbarPressMove = (press: KeyPress): ToolbarMove | undefined =>
+  press.hold === "none" && !press.composing ? toolbarMoveOf(press.key) : undefined;
 
 const enabledAt = (enabled: readonly boolean[]): number[] =>
   enabled.flatMap((on, at) => (on ? [at] : []));

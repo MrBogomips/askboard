@@ -55,6 +55,12 @@ export const TABLE_WIDGET: WidgetType = {
       },
     },
   },
+  help: {
+    mouse:
+      "Click a cell to edit it, use Add row and Delete row in the toolbar, and click an on or off cell to switch it. Computed columns and totals are read-only.",
+    answer:
+      "The agent receives the cells you changed, the rows you added or deleted, and the totals and computed cells that follow from them.",
+  },
   skill: {
     use: "a grid of typed columns to edit, with totals and formula columns",
     notes: [

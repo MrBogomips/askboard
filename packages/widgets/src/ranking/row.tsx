@@ -1,12 +1,15 @@
-// One row of the Ranking (view-and-widgets spec: Ranking reorder; DESIGN.md: Ranking): a grip
-// handle, the position number, the label and the description. The row is draggable by its handle
-// and a drop target while the Ranking can change; it is one option of the list, the current one
-// holding the list's Tab stop. A moved row's position number takes the change highlight. The label
+// One row of the Ranking (view-and-widgets spec: Ranking reorder, Ranking row selection; DESIGN.md:
+// Ranking): a check box, a grip handle, the position number, the label and the description. The
+// check box (out of the Tab order, none in a read-only Ranking) selects the row; Shift+click extends
+// from the last row clicked. The row is draggable by its handle and a drop target while the Ranking
+// can change; it is one option of the list, the current one holding the list's Tab stop, and
+// `aria-selected` says whether it is selected. A moved row's position number takes the change highlight. The label
 // and description are the agent's content, shown as text (AD-8).
 
 import type { RankingElement } from "@askboard/contract";
 import { useStrings } from "@askboard/view/catalog";
 import { type RefObject, useRef } from "react";
+import { SelectBox } from "../shared/select-box.tsx";
 import {
   DESCRIPTION,
   DRAGGED_ROW,
@@ -64,6 +67,9 @@ export const RankingRow = ({
   element,
   position,
   current,
+  selected,
+  selectLabel,
+  onPick,
   moved,
   dragged,
   indicator,
@@ -78,6 +84,12 @@ export const RankingRow = ({
   readonly position: number;
   /** The list's current row, holding its Tab stop. */
   readonly current: boolean;
+  /** The row is selected. */
+  readonly selected: boolean;
+  /** The check box's accessible name. */
+  readonly selectLabel: string;
+  /** The check box was clicked, with Shift held for a range. */
+  readonly onPick: (range: boolean) => void;
   /** Not where the agent put it. */
   readonly moved: boolean;
   /** Being dragged. */
@@ -103,7 +115,7 @@ export const RankingRow = ({
         rowRef(node);
       }}
       role="option"
-      aria-selected={current}
+      aria-selected={selected}
       aria-current={current ? "true" : undefined}
       tabIndex={current ? 0 : -1}
       data-ranking-row={element.id}
@@ -114,6 +126,15 @@ export const RankingRow = ({
       onFocus={onFocus}
       onMouseDown={onFocus}
     >
+      {editable ? (
+        <SelectBox
+          state={selected ? "checked" : "none"}
+          label={selectLabel}
+          node={element.id}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={(event) => onPick(event.shiftKey)}
+        />
+      ) : null}
       {editable ? <Handle handle={handle} name={element.label} /> : null}
       <span data-position="" className={moved ? POSITION_MOVED : POSITION}>
         {position}

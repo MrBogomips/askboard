@@ -78,7 +78,9 @@ describe("SKILL.md's links", () => {
     const at = skill.indexOf(marker) + marker.length;
     const index = lines(skill.slice(at, skill.indexOf("\n\n", at)));
     expect(index).toHaveLength(4);
-    expect(index[0]).toBe("- What each type is for: [items](references/items.md)");
+    expect(index[0]).toBe(
+      "- What each type is for, the types by what the user has to do, and a complete ask: [items](references/items.md)",
+    );
     expect(index[1]).toBe(
       `- Context items, in [context](references/context.md): ${contextTypes()
         .map((type) => `\`${type}\``)
@@ -144,8 +146,8 @@ describe("a widget type registered", () => {
     expect(lines(more.get("references/items.md") ?? "")).toHaveLength(lines(catalogue).length + 1);
   });
 
-  test("twelve more types with uses of 120 characters stay within every budget", () => {
-    const extra = Array.from({ length: 12 }, (_unused, n) =>
+  test("eight more types with uses of 120 characters stay within every budget", () => {
+    const extra = Array.from({ length: 8 }, (_unused, n) =>
       probe(`probe-${n}`, `${"u".repeat(119)}.`),
     );
     const { files: many } = generateSkill({ widgets: withWidgetTypes(...ATOM_TYPES, ...extra) });

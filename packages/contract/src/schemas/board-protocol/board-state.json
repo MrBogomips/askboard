@@ -130,6 +130,14 @@
           },
           "additionalProperties": true
         },
+        "unchanged": {
+          "description": "Since reopen-start-from-answer: present only for an answer on an earlier revision than the question's current one, the IDs of the question and of its items, at any depth, whose props equal those of the revision this answer names, so a board that holds only the current revision can tell what the agent changed since (AD-20); possibly empty, which says nothing is unchanged. Absent, every item is unchanged on a current answer and none on a previous one. Never logged, and in no `fetch`, `collect` or tool result; a Snapshot's data holds it as the live board receives it, for the agent that reads the Snapshot.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "urn:askboard:input:id"
+          }
+        },
         "declined": {
           "const": true
         },

@@ -3,6 +3,8 @@
 // fit"): the header's edge dragged by the pointer, held between 120 px and 60% of the widget,
 // stepped, set to its limits and fitted by the keyboard, a cut name's title, and the width as view
 // state: no message leaves the view, "Answer" stays disabled, and the counter reads "No changes".
+// The edge takes its keys with exactly the holds its table names (keyboard-shortcuts-help, review
+// 1.6 S-1): Shift with Enter, Home or End leaves the width alone and the key's default unprevented.
 
 import { describe, expect, test } from "bun:test";
 import { ganttPlanBoardDocument } from "@askboard/contract/fixtures";
@@ -12,6 +14,7 @@ import { type GanttParts, ganttOf, withTasks } from "./fixtures/gantt-view.ts";
 import { eventually, LOAD_TIMEOUT_MS, QUIET_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import { openerFor } from "./harness/gantt-steps.ts";
+import { recordedKeys, recordKeys } from "./harness/tree-grid.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 import { useWidgetHost } from "./harness/widget-host-test.ts";
 
@@ -118,6 +121,37 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await edge.getAttribute("aria-valuemin")).toBe("120");
         expect(await edge.evaluate((element) => element === document.activeElement)).toBe(true);
         expect(await run.board.page.evaluate(() => location.href)).toBe(url);
+        await expectNotAnAnswer(run);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "Shift with Enter, Home or End on the focused edge leaves the width alone and does not prevent the key; Shift with an arrow still steps it",
+      async () => {
+        const run = await opened();
+        const gantt = ganttOf(run.board);
+        const { page } = run.board;
+        const edge = gantt.root.getByRole("separator", { name: "Resize the Task column" });
+        await edge.focus();
+        await recordKeys(run.board);
+        const start = (await widths(gantt)).column;
+        for (const key of ["Shift+Enter", "Shift+Home", "Shift+End"])
+          await page.keyboard.press(key);
+        expect((await widths(gantt)).column).toBe(start);
+        expect(await edge.getAttribute("aria-valuenow")).toBe(String(start));
+        // The same edge, the same hold: an arrow is the edge's and is prevented.
+        await page.keyboard.press("Shift+ArrowRight");
+        expect((await widths(gantt)).column).toBe(start + 64);
+        // The modifier keys' own presses are in the record too.
+        const keys = (await recordedKeys(run.board)).filter((key) => key !== "Shift+Shift");
+        expect(keys).toEqual([
+          "Shift+Enter",
+          "Shift+Home",
+          "Shift+End",
+          "Shift+ArrowRight prevented",
+        ]);
+        expect(await edge.evaluate((element) => element === document.activeElement)).toBe(true);
         await expectNotAnAnswer(run);
       },
       TEST_TIMEOUT_MS,

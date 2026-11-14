@@ -19,4 +19,5 @@ export {
   type KanbanItem,
   type KanbanProps,
 } from "./constants.ts";
+export { KANBAN_KEYS, type KanbanKeyAction } from "./keys.ts";
 export { KANBAN_WIDGET } from "./widget.ts";

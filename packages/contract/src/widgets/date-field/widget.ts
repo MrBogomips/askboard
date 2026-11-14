@@ -33,6 +33,10 @@ export const DATE_FIELD_WIDGET: WidgetType = {
       props: { label: "Start date", min: "2026-01-01" },
     },
   },
+  help: {
+    mouse: "Type a date, or open the calendar and click a day.",
+    answer: "The agent receives the day you chose.",
+  },
   skill: {
     use: "a calendar day the user types or picks, optionally within a range",
     notes: [

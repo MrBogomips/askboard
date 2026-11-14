@@ -1,6 +1,11 @@
 import { describe, expect, mock, test } from "bun:test";
 import { BOARD_PROTOCOL_VERSION, type HostMessage } from "@askboard/contract";
-import { PLAIN_CHOICE, plainChoiceBoardDocument } from "@askboard/contract/fixtures";
+import {
+  keyOverridesExample,
+  PLAIN_CHOICE,
+  plainChoiceBoardDocument,
+  settingsWithKeys,
+} from "@askboard/contract/fixtures";
 import type { BoardHostMessage } from "./host-messages.ts";
 import { boardLinkOf, connectBoard, type SocketLike } from "./socket.ts";
 
@@ -151,5 +156,35 @@ describe("the board's WebSocket (design decision 8)", () => {
     ]) {
       expect(boardLinkOf(new URL(href))).toBeUndefined();
     }
+  });
+});
+
+// The user's keys reach the model only in a settings message the page's validator passed
+// (keyboard-shortcuts-help, task 10.1; security re-review 8.13, guard 1).
+describe("a settings message with keys, as the socket delivers it", () => {
+  const keysRow = (row: unknown) =>
+    JSON.stringify({ ...settingsWithKeys, keys: { ...settingsWithKeys.keys, keys: row } });
+
+  test("one that passed the validator is delivered, one the validator refused never is", () => {
+    const { socket, onMessage, onInvalid } = open();
+    socket?.emit("open");
+    socket?.emit("message", {
+      data: keysRow({ from: "user", writable: false, value: keyOverridesExample }),
+    });
+    expect(onMessage).toHaveBeenCalledTimes(1);
+    for (const refused of [
+      {
+        from: "user",
+        writable: false,
+        value: keyOverridesExample,
+        other: { file: "project", value: {} },
+      },
+      { from: "default", writable: false, value: keyOverridesExample },
+      { from: "project", writable: false, value: keyOverridesExample },
+    ]) {
+      socket?.emit("message", { data: keysRow(refused) });
+    }
+    expect(onMessage).toHaveBeenCalledTimes(1);
+    expect(onInvalid).toHaveBeenCalledTimes(3);
   });
 });

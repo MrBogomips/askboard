@@ -293,6 +293,41 @@ export { UNREGISTERED_TYPE } from "./unregistered-type.ts";
 
 export { snapshotToolbarData } from "./snapshot-toolbar.ts";
 
+// The amendments to the approved tool descriptions and server instructions, and the function that
+// applies them to an approved text (agent-facing-gaps, design decision 4).
+
+export {
+  APPROVED_TEXT_AMENDMENTS,
+  type ApprovedTextAmendment,
+  amendedApprovedText,
+} from "./approved-amendments.ts";
+
+// The Document review's entry, an item, results, an act, an answer event and a fetch result
+// (document-review, task 1.3): what a test gives the shipped registry through `withWidgetTypes`
+// while the type is not registered.
+
+export {
+  DOCUMENT_REVIEW_FIXTURE_ITEM,
+  DOCUMENT_REVIEW_RESULTS,
+  DOCUMENT_REVIEW_TYPES,
+  documentReviewAct,
+  documentReviewAnswerEvent,
+  documentReviewFetchItemResult,
+} from "./document-review.ts";
+
+// The user's key overrides, the settings messages that carry them and their transcript
+// (keyboard-shortcuts-help, tasks 8.4 and 8.5).
+
+export { keyOverridesExample } from "./keyboard-shortcuts-help.ts";
+export {
+  densitySetting,
+  keyboardKeysTranscript,
+  settingsKeysIgnored,
+  settingsKeysNotApplied,
+  settingsKeysSaved,
+  settingsWithKeys,
+} from "./keyboard-shortcuts-help-transcripts.ts";
+
 // The Kanban's order fixtures: a Kanban of interleaved cards, the props of a reorder, of a card
 // placed in another column and of both, with their changes (kanban-order, task 1.2).
 

@@ -8,6 +8,7 @@ import { ganttPlanLinkProblems, ganttPropsProblems } from "./checks.ts";
 import ganttChanges from "./gantt-changes.json" with { type: "json" };
 import ganttProps from "./gantt-props.json" with { type: "json" };
 import { GANTT_ANSWER_DERIVED, ganttShape } from "./index.ts";
+import { GANTT_KEYS } from "./keys.ts";
 import {
   GANTT_EXPECTED,
   GANTT_FIELDS,
@@ -52,6 +53,13 @@ export const GANTT_WIDGET: WidgetType = {
       id: "plan",
       props: { start: "2026-01-05", tasks: [{ id: "build", label: "Build", duration: 5 }] },
     },
+  },
+  keys: GANTT_KEYS,
+  help: {
+    mouse:
+      "Click a start, duration or dependencies cell to edit it, drag a bar to move it or its end to resize it (Escape cancels a drag), drag the edge of the Task column to resize it, and pick Day, Week or Month to zoom a plan.",
+    answer:
+      "The agent receives the starts, durations and dependencies you changed; the dates and the critical path are worked out from them.",
   },
   skill: {
     use: "a schedule the user adjusts: tasks, durations, dependencies, with dates and the critical path computed",

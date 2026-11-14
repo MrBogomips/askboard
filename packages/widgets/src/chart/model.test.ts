@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import type { ChartPoint, ChartProps } from "@askboard/contract";
 import { CHART_FIXTURE_ITEMS } from "@askboard/contract/fixtures";
+import { MODIFIED_FLAGS, pressOf, pressWith } from "../../test/key-presses.ts";
 import {
   CHART_KEYS,
   type ChartKey,
+  chartKeyAction,
   firstPoint,
   highlightedPoints,
   isChartKey,
@@ -266,5 +268,41 @@ describe("isChartKey", () => {
     for (const key of [" ", "Enter", "a", "PageDown", "Tab", "arrowleft", ""]) {
       expect(isChartKey(key)).toBe(false);
     }
+  });
+});
+
+// What a press does on a focused chart (design decision 7, review 1.6 S-2): the six keys move the
+// current point and Space or Enter highlight it, each with no modifier held; any other hold, any
+// other key and a press during composition give nothing, so that the browser keeps them.
+describe("chartKeyAction", () => {
+  test("the six keys with no modifier move the current point", () => {
+    for (const key of CHART_KEYS) {
+      expect(chartKeyAction(pressWith(key))).toEqual({ kind: "move", key });
+    }
+  });
+
+  test("Space and Enter with no modifier highlight the current point", () => {
+    expect(chartKeyAction(pressWith(" "))).toEqual({ kind: "highlight" });
+    expect(chartKeyAction(pressWith("Enter"))).toEqual({ kind: "highlight" });
+  });
+
+  test("Alt, Shift, Ctrl and Cmd with each of the eight keys give nothing", () => {
+    for (const key of [...CHART_KEYS, " ", "Enter"]) {
+      for (const flags of MODIFIED_FLAGS) {
+        expect({ key, flags, action: chartKeyAction(pressOf(key, flags)) }).toEqual({
+          key,
+          flags,
+          action: undefined,
+        });
+      }
+    }
+  });
+
+  test("another key, and a press during composition, give nothing", () => {
+    for (const key of ["a", "PageDown", "Tab", "Escape", "F2", "Delete", "arrowleft", ""]) {
+      expect(chartKeyAction(pressWith(key))).toBeUndefined();
+    }
+    expect(chartKeyAction({ ...pressWith("Enter"), composing: true })).toBeUndefined();
+    expect(chartKeyAction({ ...pressWith("ArrowLeft"), composing: true })).toBeUndefined();
   });
 });

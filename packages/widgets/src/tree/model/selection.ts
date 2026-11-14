@@ -7,14 +7,12 @@
 // by a range over the visible rows. Plain ECMAScript.
 
 import type { TreeNode, TreeProps } from "@askboard/contract";
+import type { CheckState } from "../../shared/select-box.tsx";
 import { locate, type Nodes } from "./nodes.ts";
 import type { TreeRow } from "./rows.ts";
 
 /** The selected nodes' IDs. */
 export type Selection = ReadonlySet<string>;
-
-/** A row's check box: all of its branch selected, some of it, or none. */
-export type CheckState = "checked" | "partial" | "none";
 
 /** No node selected. */
 export const NO_SELECTION: Selection = new Set();

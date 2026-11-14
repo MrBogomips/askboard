@@ -61,9 +61,9 @@ describe("MOLECULE_SKILLS", () => {
   });
 
   test("fails the key check for a molecule that is not ready, and for one left out", () => {
-    expect(keyProblems({ ...MOLECULE_SKILLS, kanban: { use: "x", example: {} } })).toEqual([
-      '"kanban" is no ready molecule',
-    ]);
+    expect(
+      keyProblems({ ...MOLECULE_SKILLS, kanban: { use: "x", help: "y", example: {} } }),
+    ).toEqual(['"kanban" is no ready molecule']);
     const { "wbs-pert": _left, ...rest } = MOLECULE_SKILLS;
     expect(keyProblems(rest)).toEqual(['"wbs-pert" has no teaching data']);
   });
@@ -76,6 +76,12 @@ describe("MOLECULE_SKILLS", () => {
     const use = MOLECULE_SKILLS[name]?.use ?? "";
     expect(use.length).toBeGreaterThanOrEqual(1);
     expect(use.length).toBeLessThanOrEqual(200);
+  });
+
+  test.each(names)("%s: its help has 1 to 300 characters", (name) => {
+    const help = MOLECULE_SKILLS[name]?.help ?? "";
+    expect(help.length).toBeGreaterThanOrEqual(1);
+    expect(help.length).toBeLessThanOrEqual(300);
   });
 
   test.each(names)("%s: its example passes the parameters and the reference check", (name) => {

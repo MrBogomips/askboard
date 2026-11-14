@@ -14,12 +14,20 @@ const BIDI: ReadonlySet<number> = new Set([
   0x061c, 0x200e, 0x200f, 0x202a, 0x202b, 0x202c, 0x202d, 0x202e, 0x2066, 0x2067, 0x2068, 0x2069,
 ]);
 
-const isEscaped = (code: number): boolean =>
+/**
+ * Whether agent text shows this code point as a `\uXXXX` escape: the C0 controls (a line feed and
+ * a tab among them), DEL, the C1 controls and the bidirectional controls. The contract's one list
+ * of escaped characters: `agentTextRuns` reads it, and so does a Document review's check of the
+ * characters its document refuses (document-review, design decision 1).
+ */
+export const isEscapedCodePoint = (code: number): boolean =>
   code < 0x20 || (code >= 0x7f && code <= 0x9f) || BIDI.has(code);
 
 const shown = (point: string): string => {
   const code = point.codePointAt(0) ?? 0;
-  return isEscaped(code) ? `\\u${code.toString(16).toUpperCase().padStart(4, "0")}` : point;
+  return isEscapedCodePoint(code)
+    ? `\\u${code.toString(16).toUpperCase().padStart(4, "0")}`
+    : point;
 };
 
 // In code points: an escape is six ASCII characters, any other unit one code point, which is two

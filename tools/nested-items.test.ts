@@ -155,6 +155,7 @@ const CORE_READS: readonly Read[] = [
   { file: "packages/core/src/lifecycle/updates.ts", text: "item.props.items", reason: AREA },
   { file: "packages/core/src/lifecycle/widget-fetch.ts", text: "area.props.items", reason: AREA },
   { file: "packages/core/src/lifecycle/model.ts", text: "{ items } = (props", reason: START },
+  { file: "packages/core/src/lifecycle/unchanged.ts", text: "{ items } = props", reason: START },
   {
     file: "packages/core/src/lifecycle/widget-fetch.ts",
     text: "{ items } = props",
@@ -213,6 +214,11 @@ const VIEW_READS: readonly Read[] = [
     count: 2,
   },
   {
+    file: "packages/view/src/board-page/model.ts",
+    text: "nestedWidgetItemsOf(question.props.items)",
+    reason: HANDED,
+  },
+  {
     file: "packages/view/src/board-page/references.ts",
     text: "nestedWidgetItemsOf(question.props.items)",
     reason: HANDED,
@@ -236,6 +242,12 @@ const VIEW_READS: readonly Read[] = [
     file: "packages/view/src/shell/agent-change.ts",
     text: "valueItemsOf(shown.props.items)",
     reason: HANDED,
+  },
+  {
+    file: "packages/view/src/shell/agent-change.ts",
+    text: "area.props.items",
+    reason: VIEW_AREA,
+    count: 2,
   },
   {
     file: "packages/view/src/shell/board-content.ts",
@@ -268,6 +280,11 @@ const VIEW_READS: readonly Read[] = [
   {
     file: "packages/view/src/shell/card-acts.ts",
     text: "nestedItemById(shown.props.items",
+    reason: HANDED,
+  },
+  {
+    file: "packages/view/src/shell/card-acts.ts",
+    text: "valueItemsOf(question.props.items)",
     reason: HANDED,
   },
   {

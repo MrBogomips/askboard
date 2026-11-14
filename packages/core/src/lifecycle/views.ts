@@ -31,6 +31,12 @@ export type AnswerView = AnswerContent & {
   readonly values?: Readonly<Record<string, unknown>>;
   /** The results its widget items gave, by expanded item ID (AD-20); none without. */
   readonly results?: Readonly<Record<string, unknown>>;
+  /**
+   * The IDs of the question and of its items, at any depth, whose props equal those of the revision
+   * this answer names (reopen-start-from-answer); none when nothing does. Never logged, never in
+   * `fetch` or `collect`.
+   */
+  readonly unchanged?: readonly string[];
 };
 
 /** The widget content kept for each answer event, by cursor (AD-20). */
@@ -106,7 +112,12 @@ const keptPart = (part: unknown): Readonly<Record<string, unknown>> | undefined 
     ? (part as Readonly<Record<string, unknown>>)
     : undefined;
 
-const answerView = (answer: FetchAnswer, received: number, kept: KeptValues): AnswerView => {
+const answerView = (
+  answer: FetchAnswer,
+  received: number,
+  kept: KeptValues,
+  unchanged: readonly string[] | undefined,
+): AnswerView => {
   const delivered = "cursor" in answer ? seqOf(answer.cursor) <= received : true;
   const held = "cursor" in answer ? kept.get(answer.cursor) : undefined;
   const values = keptPart(held?.values);
@@ -116,6 +127,7 @@ const answerView = (answer: FetchAnswer, received: number, kept: KeptValues): An
     delivered,
     ...(values === undefined ? {} : { values }),
     ...(results === undefined ? {} : { results }),
+    ...(unchanged === undefined ? {} : { unchanged: [...unchanged] }),
   };
 };
 
@@ -140,21 +152,47 @@ export type QuestionFacts = {
   readonly status: QuestionStatus;
 };
 
-/** One question as `board-host` shows it, its answers marked delivered once `received` passes. */
+// The revision the current answer names: its event's, or the current one for a recorded answer.
+const currentRevOf = (question: QuestionRecord, current: CurrentAnswer): number =>
+  current.kind === "logged" ? current.entry.event.rev : question.rev;
+
+/**
+ * One question as `board-host` shows it, its answers marked delivered once `received` passes, each
+ * with what its revision shares with the current one (`model` compares, once per pair).
+ */
 export const questionView = (
   { question, entries, status }: QuestionFacts,
   received: number,
   kept: KeptValues = new Map(),
+  model?: BoardModel,
 ): LifecycleQuestionView => {
   const answer = fullAnswer(question, status.answer);
+  // Only an answer on an earlier revision names what is unchanged since it: on the current one
+  // everything is, and the field would say nothing. Where the comparison cannot be made the list is
+  // empty, never absent, which a board would read as "all unchanged" (NFR-10).
+  const unchangedAt = (rev: number | undefined): readonly string[] | undefined => {
+    if (rev === question.rev) return undefined;
+    return rev === undefined ? [] : (model?.unchangedSince(question, rev) ?? []);
+  };
+  const current =
+    answer === undefined || status.answer === undefined
+      ? undefined
+      : answerView(answer, received, kept, unchangedAt(currentRevOf(question, status.answer)));
   return {
     itemId: question.id,
     rev: question.rev,
     state: status.state,
-    ...(answer === undefined ? {} : { answer: answerView(answer, received, kept) }),
+    ...(current === undefined ? {} : { answer: current }),
     ...(question.previous === undefined
       ? {}
-      : { previous: answerView(question.previous, received, kept) }),
+      : {
+          previous: answerView(
+            question.previous,
+            received,
+            kept,
+            unchangedAt(question.previousRev),
+          ),
+        }),
     thread: threadOf(question, entries),
   };
 };

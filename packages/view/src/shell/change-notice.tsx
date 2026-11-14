@@ -81,7 +81,7 @@ const WidgetLine = ({ change }: { readonly change: WidgetChange }) => {
 };
 
 /** The new revision, read-only, marked against the earlier one where the view knows it. */
-const AgentChange = ({
+export const AgentChange = ({
   question,
   earlier,
 }: {
@@ -123,8 +123,10 @@ export type ChangeNoticeProps = {
   readonly earlier: ViewQuestion | undefined;
   /** What is at stake: "Your 17 changes on this question". */
   readonly stake: string;
-  /** A choice is on its way. */
+  /** "Keep mine" waits: a choice is on its way, or the card cannot be used. */
   readonly busy: boolean;
+  /** "Reload, losing my work" waits; a failed card keeps it, since the agent's revision may replace the item (Issue #103). */
+  readonly reloadBusy?: boolean;
   readonly onReload: () => void;
   readonly onKeep: () => void;
 };
@@ -135,6 +137,7 @@ export const ChangeNotice = ({
   earlier,
   stake,
   busy,
+  reloadBusy = busy,
   onReload,
   onKeep,
 }: ChangeNoticeProps) => {
@@ -155,7 +158,7 @@ export const ChangeNotice = ({
         >
           {text("change.show")}
         </button>
-        <button type="button" className={BUTTON_SECONDARY} disabled={busy} onClick={onReload}>
+        <button type="button" className={BUTTON_SECONDARY} disabled={reloadBusy} onClick={onReload}>
           {text("change.reload")}
         </button>
         <button type="button" className={BUTTON_SECONDARY} disabled={busy} onClick={onKeep}>
@@ -191,20 +194,28 @@ const AnswerText = ({ answer }: { readonly answer: CurrentAnswer }) => {
   );
 };
 
-/** "Reopened by the agent", with the previous answer read-only and the way to start from it. */
+/**
+ * "Reopened by the agent", with the previous answer read-only and the way to start from it, and one
+ * line saying where the question started: from that answer (`carried`, the work on its current
+ * revision holds the prefill mark) or from the agent's version (reopen-start-from-answer, design
+ * decision 5).
+ */
 export const ReopenedNotice = ({
   previous,
   disabled,
+  carried,
   onStart,
 }: {
   readonly previous: CurrentAnswer;
   readonly disabled: boolean;
+  readonly carried: boolean;
   readonly onStart: () => void;
 }) => {
   const text = useStrings();
   return (
     <div data-askboard-notice="reopened" className={NOTICE}>
       <p className={NOTICE_TITLE}>{text("reopened.title")}</p>
+      <p>{text(carried ? "reopened.carried" : "reopened.notCarried")}</p>
       <div className="flex flex-wrap items-start gap-md">
         <div className="flex min-w-48 flex-1 flex-col gap-1 rounded-md bg-muted p-sm">
           <p className={SECTION_LABEL}>{text("reopened.previous")}</p>

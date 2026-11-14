@@ -8,7 +8,7 @@
 // name is text, never markup (AD-8).
 
 import { useStrings } from "@askboard/view/catalog";
-import { type KeyboardEvent, useId, useLayoutEffect, useRef } from "react";
+import { useId, useLayoutEffect, useRef } from "react";
 import {
   QUESTION,
   QUESTION_ERROR,
@@ -18,8 +18,7 @@ import {
   TOOL,
 } from "./classes.ts";
 import { deletedWith, type DeleteQuestion as Question } from "./deleting.ts";
-import { treeKeyOf } from "./key-event.ts";
-import { keyAction } from "./model/keys.ts";
+import { questionKeyDown } from "./question-keys.ts";
 
 export const DeleteQuestion = ({
   question,
@@ -37,15 +36,8 @@ export const DeleteQuestion = ({
     cancel.current?.focus();
   }, []);
 
-  // Escape means "Cancel", as it cancels an edit (`keys.ts`); the buttons take Enter and Space.
-  const onKeyDown = (event: KeyboardEvent<HTMLFieldSetElement>): void => {
-    if (keyAction(treeKeyOf(event), "edit")?.kind !== "cancel") return;
-    event.preventDefault();
-    onCancel();
-  };
-
   return (
-    <fieldset aria-labelledby={id} className={QUESTION_ROW} onKeyDown={onKeyDown}>
+    <fieldset aria-labelledby={id} className={QUESTION_ROW} onKeyDown={questionKeyDown(onCancel)}>
       <p id={id} className={QUESTION}>
         <span className={QUESTION_NAME}>“{question.label}”</span>{" "}
         <span className={QUESTION_REST}>

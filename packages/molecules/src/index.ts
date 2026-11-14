@@ -35,6 +35,11 @@ export const READY_MOLECULES: readonly MoleculeDefinition[] = deepFreeze([
 export type MoleculeSkill = {
   /** When to use the molecule, 1 to 200 characters. */
   readonly use: string;
+  /**
+   * What the user sees and does with it, and what the agent receives, for the help skill's
+   * reference of the molecule (keyboard-shortcuts-help, design decision 10): 1 to 300 characters.
+   */
+  readonly help: string;
   /** The `data` of a reference to it, as an agent sends it. */
   readonly example: unknown;
   /**

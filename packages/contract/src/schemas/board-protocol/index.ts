@@ -11,8 +11,12 @@
 // minor adds the widget results to the answer act, the draft record and the board state (design
 // decision 6); atoms' minor adds the entries of the input atoms to the draft record (design
 // decision 3); table-widget's minor adds the cell entries of a Table to it (design decision 8).
+// Reopen-start-from-answer's minor adds `unchanged` to the board state's answers and `prefilled` to
+// the draft record (design decisions 1 and 4). Keyboard-shortcuts-help's minor adds the user's key
+// overrides to the settings in effect and two warning codes (design decision 19).
 
 import type { EditorOutcome, SourceStatus } from "../../context/resolution.ts";
+import type { KeyOverrideRule } from "../../keys/overrides.ts";
 import type { SchemaSet } from "../../versions.ts";
 import type { BoardDocument, LifecycleBoardDocument } from "../board-document/index.ts";
 import type {
@@ -46,7 +50,7 @@ import state from "./state.json" with { type: "json" };
 import time from "./time.json" with { type: "json" };
 import version from "./version.json" with { type: "json" };
 
-export const BOARD_PROTOCOL_VERSION = "1.8";
+export const BOARD_PROTOCOL_VERSION = "1.10";
 
 export const boardProtocol: SchemaSet = {
   name: "board-protocol",
@@ -328,6 +332,11 @@ export type DraftQuestion = {
   readonly note?: string;
   /** The follow-up composer's text. */
   readonly composer?: string;
+  /**
+   * Since reopen-start-from-answer: the board filled this work from the previous answer; not
+   * unsent work on its own, and never part of an answer.
+   */
+  readonly prefilled?: true;
   readonly held?: HeldAct;
   /** Where the user placed the question's context, since 1.2; never unsent work (excerpts). */
   readonly context?: "beside" | "inline";
@@ -361,6 +370,15 @@ export type CurrentAnswer = {
   readonly values?: Readonly<Record<string, unknown>>;
   /** Since widget-registry: the logged result of each widget item, by expanded item ID. */
   readonly results?: Readonly<Record<string, unknown>>;
+  /**
+   * Since reopen-start-from-answer: present only for an answer on an earlier revision than the
+   * question's current one, the IDs of the question and of its items, at any depth, whose props
+   * equal those of the revision the answer names; possibly empty, which says nothing is unchanged.
+   * Absent, every item is unchanged on a current answer and none on a previous one (NFR-10). Never
+   * logged, and in no `fetch`, `collect` or tool result; a Snapshot's data holds it as the live
+   * board receives it, for the agent that reads the Snapshot.
+   */
+  readonly unchanged?: readonly string[];
   readonly declined?: true;
   readonly when: string;
   readonly receipt: Receipt;
@@ -494,7 +512,9 @@ export type SettingWarningCode =
   | "unknown-key"
   | "project-editor-ignored"
   | "editor-file-writable-by-others"
-  | "snapshot-folder-replaced";
+  | "snapshot-folder-replaced"
+  | "project-keys-ignored"
+  | "keys-not-applied";
 
 export type SettingWarning = {
   readonly code: SettingWarningCode;
@@ -502,7 +522,22 @@ export type SettingWarning = {
   readonly key: string;
   /** The value replaced, for `snapshot-folder-replaced`. */
   readonly value?: string;
+  /** The key-override rule that failed, for `keys-not-applied`. */
+  readonly rule?: KeyOverrideRule;
+  /** The action whose override failed, for `keys-not-applied`. */
+  readonly action?: string;
+  /** The combination at fault, as the file wrote it, for `keys-not-applied`. */
+  readonly binding?: string;
+  /** The other action of a conflict, for `keys-not-applied`. */
+  readonly with?: string;
 };
+
+/**
+ * The most warnings one settings row holds (`$defs.row.properties.warnings.maxItems` of
+ * `settings.json`; keyboard-shortcuts-help, review 10.5, S-46): the most problems of a refused
+ * `keys` that Settings lists, and the most lines `ask-core` writes about them.
+ */
+export const SETTING_ROW_WARNINGS_MAX = 8;
 
 /** One key in effect; `value` is absent only for `editor` and `defaultMinimumMargin`. */
 export type SettingRow<T> = {
@@ -515,9 +550,13 @@ export type SettingRow<T> = {
   readonly warnings?: readonly [SettingWarning, ...SettingWarning[]];
 };
 
+/**
+ * Every key's row; the user's `keys` row is optional and admits no `other`, since a project file's
+ * keys never reach a board (keyboard-shortcuts-help, design decision 19).
+ */
 export type SettingsRows = {
-  readonly [K in ConfigurationKey]: SettingRow<ConfigurationValues[K]>;
-};
+  readonly [K in Exclude<ConfigurationKey, "keys">]: SettingRow<ConfigurationValues[K]>;
+} & { readonly keys?: Omit<SettingRow<ConfigurationValues["keys"]>, "other"> };
 
 export type FileProblemCode = "unreadable" | "not-json" | "version" | "schema";
 

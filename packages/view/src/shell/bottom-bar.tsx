@@ -17,6 +17,7 @@ import { useRef, useState } from "react";
 import { useLanguage, useStrings } from "../catalog/port.ts";
 import type { ViewDocument, ViewQuestion } from "../view-document.ts";
 import type { ViewAct } from "../view-protocol.ts";
+import type { ReadOnlyOf, ShownOf } from "./agent-change.ts";
 import type { BoardDraft, Delivery } from "./board-draft.ts";
 import { type Senders, sendSubmit } from "./card-acts.ts";
 import { entriesWithCells } from "./cell-entries.ts";
@@ -35,7 +36,14 @@ import {
   SEGMENT,
   SEGMENTS,
 } from "./styles.ts";
-import { confirmedPress, type SubmitState, submitPress, updatesLabel } from "./submit.ts";
+import {
+  confirmedPress,
+  immediateBlocked,
+  type LoadOf,
+  type SubmitState,
+  submitPress,
+  updatesLabel,
+} from "./submit.ts";
 
 const Warning = ({ warning }: { readonly warning: string }) => (
   <span className="flex items-center gap-1.5">
@@ -64,6 +72,12 @@ export type BottomBarProps = {
     readonly derived: DerivedStore;
   };
   readonly onSelectRecommended: () => void;
+  /** The items of a question the card makes read-only; Submit's field block skips them. */
+  readonly readOnlyOf?: ReadOnlyOf;
+  /** The question each card shows; Submit's gates read that revision (Issue #92). */
+  readonly shownOf?: ShownOf;
+  /** The ready tracker's status of each question: Submit sends no act held on one not `visible`. */
+  readonly load?: LoadOf;
   /** Submit found a held answer lacking the reason it requires: go to its prompt with the error. */
   readonly onNeedsReason: (questionId: string) => void;
   readonly onJump: (questionId: string) => void;
@@ -73,8 +87,20 @@ export type BottomBarProps = {
 };
 
 export const BottomBar = (props: BottomBarProps) => {
-  const { single, document, state, delivery, warning, submit, recommendations, locked, context } =
-    props;
+  const {
+    single,
+    document,
+    state,
+    delivery,
+    warning,
+    submit,
+    recommendations,
+    locked,
+    context,
+    readOnlyOf,
+    shownOf,
+    load,
+  } = props;
   const [confirming, setConfirming] = useState(false);
   // Submit asks once more when it would replace a verdict the agent has received (design decision 6).
   const [replacing, setReplacing] = useState<
@@ -108,6 +134,9 @@ export const BottomBar = (props: BottomBarProps) => {
         results: context.results?.record(),
         entries: entriesWithCells(context.entries?.record(), context.cellEntries?.record()),
         state,
+        ...(readOnlyOf === undefined ? {} : { readOnlyOf }),
+        ...(shownOf === undefined ? {} : { shownOf }),
+        ...(load === undefined ? {} : { load }),
       },
     );
   // Submit's one command: every held act, in the order the user produced them (AD-20), after a
@@ -126,8 +155,9 @@ export const BottomBar = (props: BottomBarProps) => {
       props.onNeedsReason(pressed.questionId);
       return;
     }
-    // A held answer's question holds a blocking field: nothing is sent, the board goes to it.
-    if (pressed.kind === "field-block") {
+    // A held answer's question holds a blocking field, or a held act's question is loading or failed:
+    // nothing is sent, the board goes to it.
+    if (pressed.kind === "field-block" || pressed.kind === "unusable") {
       props.onJump(pressed.questionId);
       return;
     }
@@ -145,11 +175,12 @@ export const BottomBar = (props: BottomBarProps) => {
     }
     setReplacing(undefined);
     if (outcome.kind === "needs-reason") props.onNeedsReason(outcome.questionId);
-    else if (outcome.kind === "field-block") props.onJump(outcome.questionId);
-    else if (outcome.kind === "send") sendActsOf(outcome.acts, then);
+    else if (outcome.kind === "field-block" || outcome.kind === "unusable") {
+      props.onJump(outcome.questionId);
+    } else if (outcome.kind === "send") sendActsOf(outcome.acts, then);
   };
   // Leaving submitted delivery with held work asks first, and waits whenever Submit waits.
-  const blockedSwitch = submit.held > 0 && delivery === "submitted" && submit.disabled;
+  const blockedSwitch = immediateBlocked(submit, delivery);
   const toImmediate = () => {
     if (delivery === "immediate") return;
     if (submit.held > 0) setConfirming(true);

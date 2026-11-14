@@ -21,6 +21,10 @@ export const VALUE_WIDGET: WidgetType = {
       props: { label: "Budget", kind: "money", amount: "12480.50", currency: "EUR" },
     },
   },
+  help: {
+    mouse: "Read it: it shows a number, percentage, amount, date or duration as the agent gave it.",
+    answer: "Nothing: a figure is for reading and gives no answer.",
+  },
   skill: {
     use: "a figure the user reads: a number, percentage, amount, date or duration",
     notes: [

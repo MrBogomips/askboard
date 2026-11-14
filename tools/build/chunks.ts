@@ -32,9 +32,23 @@ export type ChunkDefinition = {
  */
 export const HOST_ONLY_CHUNKS: ReadonlySet<string> = new Set(["ext-apps"]);
 
-/** A document's styles for the shell, a component's own utilities, nothing for a library. */
-export const stylePlanOf = (kind: ChunkKind): StylePlan | undefined =>
-  (({ shell: "document", component: "utilities", library: undefined }) as const)[kind];
+/**
+ * The libraries that carry styles: their own utilities, scanned from their sources. The Markdown
+ * renderer's classes live in the library, so the Text and the Document review are styled by the
+ * one stylesheet (document-review, design decision 6).
+ */
+export const STYLED_LIBRARIES: ReadonlySet<string> = new Set(["markdown"]);
+
+/**
+ * A document's styles for the shell, a component's own utilities, nothing for a library unless
+ * it is one of `STYLED_LIBRARIES`.
+ */
+export const stylePlanOf = (kind: ChunkKind, name?: string): StylePlan | undefined =>
+  kind === "library"
+    ? name !== undefined && STYLED_LIBRARIES.has(name)
+      ? "utilities"
+      : undefined
+    : ({ shell: "document", component: "utilities" } as const)[kind];
 
 /** Where component chunks are found: the view's catalog, then the widgets (design decision 8). */
 export const COMPONENT_ROOTS: readonly string[] = [CATALOG_DIR, WIDGETS_SRC];

@@ -3,7 +3,13 @@
 // by the IDs of their series and category, as the result names them, and every lookup goes through
 // a `Map`, so an inherited name (`__proto__`, `constructor`) is an ID like any other.
 
-import type { ChartHighlights, ChartPoint, ChartProps, ChartResult } from "@askboard/contract";
+import type {
+  ChartHighlights,
+  ChartPoint,
+  ChartProps,
+  ChartResult,
+  KeyPress,
+} from "@askboard/contract";
 
 const holdsNumber = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value);
@@ -103,6 +109,22 @@ export type ChartKey = (typeof CHART_KEYS)[number];
 /** Whether a `KeyboardEvent.key` is one a chart moves by. */
 export const isChartKey = (key: string): key is ChartKey =>
   (CHART_KEYS as readonly string[]).includes(key);
+
+/** What a press does on a focused chart: moves the current point, or highlights it. */
+export type ChartKeyAction =
+  | { readonly kind: "move"; readonly key: ChartKey }
+  | { readonly kind: "highlight" };
+
+/**
+ * What a press does, or undefined when it is the browser's (keyboard-shortcuts-help, design
+ * decision 7): the six keys move the current point and Space or Enter highlight it, each held with
+ * no modifier and outside composition, and nothing else, whose default stays.
+ */
+export const chartKeyAction = (press: KeyPress): ChartKeyAction | undefined => {
+  if (press.hold !== "none" || press.composing) return undefined;
+  if (isChartKey(press.key)) return { kind: "move", key: press.key };
+  return press.key === " " || press.key === "Enter" ? { kind: "highlight" } : undefined;
+};
 
 type Place = { readonly series: number; readonly category: number };
 

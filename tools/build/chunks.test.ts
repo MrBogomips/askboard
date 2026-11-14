@@ -11,6 +11,8 @@ import {
   chunkDefinitions,
   componentChunks,
   HOST_ONLY_CHUNKS,
+  STYLED_LIBRARIES,
+  stylePlanOf,
   widgetChunkProblems,
 } from "./chunks.ts";
 import { collectNotices } from "./licences.ts";
@@ -143,6 +145,17 @@ describe("the components a chunk registers", () => {
   test("a name of the object prototype is no chunk's entry", () => {
     expect(chunkComponents("constructor")).toEqual(["constructor"]);
     expect(chunkComponents("toString")).toEqual(["toString"]);
+  });
+});
+
+describe("which chunks carry styles (document-review, design decision 6)", () => {
+  test("the shell has a document's, a component its utilities, and a library none but the Markdown renderer's", () => {
+    expect(stylePlanOf("shell")).toBe("document");
+    expect(stylePlanOf("component", "text")).toBe("utilities");
+    expect(stylePlanOf("library", "react")).toBeUndefined();
+    expect(stylePlanOf("library")).toBeUndefined();
+    expect(stylePlanOf("library", "markdown")).toBe("utilities");
+    expect([...STYLED_LIBRARIES]).toEqual(["markdown"]);
   });
 });
 

@@ -1,98 +1,72 @@
 import { describe, expect, test } from "bun:test";
 import { KANBAN_FIXTURE_ITEM, KANBAN_ORDER_ITEM } from "@askboard/contract/fixtures";
+import { FLAG_SETS, pressOf, pressWith } from "../../test/key-presses.ts";
 import { kanbanPressOf, kanbanTools, otherColumns } from "./keys.ts";
 import { columnsOf } from "./model.ts";
 
 // The Kanban at the keyboard (view-and-widgets spec: Kanban at the keyboard; kanban-order, design
-// decision 5): the arrow keys with no modifier make a card current, Alt+Shift with the arrow keys,
-// Home and End and Ctrl or Cmd with Shift and the arrow keys move it, and nothing else acts; each
-// tool acts only where the current card of a Kanban that can change can make its move.
+// decision 5; keyboard-shortcuts-help, decisions 7 and 9): the arrow keys with no modifier make a
+// card current, Alt+Shift with the arrow keys, Home and End and Ctrl or Cmd with Shift and the arrow
+// keys move it, and nothing else acts; each tool acts only where the current card of a Kanban that
+// can change can make its move.
 const COLUMNS = columnsOf(KANBAN_FIXTURE_ITEM.props);
-
-// A hold is the modifier keys of a press; each row of the table names what a key does under it.
-const HOLDS = {
-  none: {},
-  shift: { shiftKey: true },
-  alt: { altKey: true },
-  altShift: { altKey: true, shiftKey: true },
-  ctrl: { ctrlKey: true },
-  meta: { metaKey: true },
-  ctrlShift: { ctrlKey: true, shiftKey: true },
-  metaShift: { metaKey: true, shiftKey: true },
-  ctrlMetaShift: { ctrlKey: true, metaKey: true, shiftKey: true },
-  ctrlAltShift: { ctrlKey: true, altKey: true, shiftKey: true },
-  metaAltShift: { metaKey: true, altKey: true, shiftKey: true },
-} as const;
-
-const press = (key: string, hold: keyof typeof HOLDS, composing = false) =>
-  kanbanPressOf({
-    key,
-    altKey: false,
-    shiftKey: false,
-    ctrlKey: false,
-    metaKey: false,
-    composing,
-    ...HOLDS[hold],
-  });
 
 const KEYS = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End"] as const;
 
-// What the table of design decision 5 gives, key by key, under each hold that gives anything.
-const TABLE: Partial<
-  Record<keyof typeof HOLDS, Partial<Record<(typeof KEYS)[number], ReturnType<typeof press>>>>
-> = {
+type Taken = ReturnType<typeof kanbanPressOf>;
+
+// What the table of design decision 5 gives, key by key, under each hold that gives anything; the
+// holds are the port's (`pressHold`): Ctrl or Cmd alone are both `mod`.
+const TABLE: Partial<Record<string, Partial<Record<(typeof KEYS)[number], Taken>>>> = {
   none: {
     ArrowUp: { kind: "cursor", key: "up" },
     ArrowDown: { kind: "cursor", key: "down" },
     ArrowLeft: { kind: "cursor", key: "left" },
     ArrowRight: { kind: "cursor", key: "right" },
   },
-  altShift: {
+  "alt+shift": {
     ArrowUp: { kind: "move", move: "up" },
     ArrowDown: { kind: "move", move: "down" },
     Home: { kind: "move", move: "top" },
     End: { kind: "move", move: "bottom" },
   },
-  ctrlShift: {
-    ArrowUp: { kind: "move", move: "top" },
-    ArrowDown: { kind: "move", move: "bottom" },
-  },
-  metaShift: {
+  "mod+shift": {
     ArrowUp: { kind: "move", move: "top" },
     ArrowDown: { kind: "move", move: "bottom" },
   },
 };
 
 describe("kanbanPressOf", () => {
-  test("only the table's presses act: every key under every hold gives what the table says and no more", () => {
-    for (const hold of Object.keys(HOLDS) as (keyof typeof HOLDS)[]) {
+  test("only the table's presses act: every key under each of the 16 sets of modifiers gives what the table says and no more", () => {
+    for (const flags of FLAG_SETS) {
       for (const key of KEYS) {
-        expect({ hold, key, press: press(key, hold) }).toEqual({
-          hold,
+        const press = pressOf(key, flags);
+        expect({ flags, key, taken: kanbanPressOf(press) }).toEqual({
+          flags,
           key,
-          press: TABLE[hold]?.[key],
+          taken: TABLE[press.hold]?.[key],
         });
       }
     }
   });
 
-  test("Ctrl and Cmd together never act, nor does Alt with either", () => {
-    for (const hold of ["ctrlMetaShift", "ctrlAltShift", "metaAltShift"] as const) {
-      for (const key of KEYS) expect(press(key, hold)).toBeUndefined();
+  test("Ctrl and Cmd together never act, nor does Alt with either, nor Alt or Shift alone", () => {
+    for (const hold of ["other", "mod+alt", "shift"] as const) {
+      for (const key of KEYS) expect(kanbanPressOf(pressWith(key, hold))).toBeUndefined();
     }
   });
 
   test("a press while an input method composes does nothing, whatever the key and hold", () => {
-    for (const hold of Object.keys(HOLDS) as (keyof typeof HOLDS)[]) {
-      for (const key of KEYS) expect(press(key, hold, true)).toBeUndefined();
+    for (const hold of ["none", "alt+shift", "mod+shift"] as const) {
+      for (const key of KEYS) {
+        expect(kanbanPressOf({ ...pressWith(key, hold), composing: true })).toBeUndefined();
+      }
     }
   });
 
   test("any other key does nothing, under any hold", () => {
     for (const key of ["Enter", " ", "Escape", "Tab", "a", "PageUp", "toString", "__proto__"]) {
-      for (const hold of Object.keys(HOLDS) as (keyof typeof HOLDS)[]) {
-        expect(press(key, hold)).toBeUndefined();
-      }
+      for (const flags of FLAG_SETS) expect(kanbanPressOf(pressOf(key, flags))).toBeUndefined();
     }
   });
 });

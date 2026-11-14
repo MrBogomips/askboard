@@ -7,7 +7,7 @@
 
 import { Checkbox } from "radix-ui";
 import { type KeyboardEvent, useRef, useState } from "react";
-import { nextFocus } from "../fields/roving.ts";
+import { checkboxKeyOf } from "../fields/roving.ts";
 import { questionTextId, useStrings } from "../port.ts";
 import { OptionDetails, OtherField } from "./option-details.tsx";
 import { MARK, OptionText, optionAria, ROW } from "./option-text.tsx";
@@ -29,15 +29,11 @@ export const MultipleChoice = ({ item, value, onValueChange, disabled, extras }:
   const toggleOther = (checked: boolean) =>
     extras?.onOtherChange(checked ? (other ?? "") : undefined);
   const onKeyDown = (index: number, flip: () => void) => (event: KeyboardEvent) => {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      flip();
-      return;
-    }
-    const next = nextFocus(event.key, index, count);
-    if (next === undefined) return;
+    const action = checkboxKeyOf(event, index, count);
+    if (action === undefined) return;
     event.preventDefault();
-    boxes.current[next]?.focus();
+    if (action.kind === "flip") flip();
+    else boxes.current[action.index]?.focus();
   };
   const boxAt = (index: number) => ({
     ref: (box: HTMLButtonElement | null) => {

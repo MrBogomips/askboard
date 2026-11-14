@@ -100,6 +100,8 @@ The output format takes the next minor after `main`'s: it admits the Kanban's `m
 
 Bound on 2026-11-09, on origin/main ac9f891f (the branch's base; `origin/main` had not moved, so no merge was needed): output format 1.12 (main 1.11); every other set equals main's (input format 1.12, tool envelopes 1.12, board document 1.11, board protocol 1.8, Snapshot data 1.2, view manifest 1.1).
 
+Rebound on 2026-11-14, merged with origin/main 1600645b: `document-review` (#115) merged first and took output format 1.12, so this change's output format is 1.13 (main 1.12); every other set equals main's (input format 1.13, tool envelopes 1.14, board document 1.12, board protocol 1.10, Snapshot data 1.3, view manifest 1.1, configuration 1.1).
+
 ### 9. The skill
 
 `KANBAN_WIDGET.skill`: `use` "cards the user moves between 2 to 12 columns and orders within them, such as statuses, priorities or owners"; notes (each at most 300 characters, `SKILL_NOTE_MAX`): the order of `cards` is each column's order, top to bottom; the changes are `set`s of `<id>.<card>.column` and `move`s of `<id>.<card>`, applied in order to the `cards` list, a `move` going right after `after` (a card of the same column) or first in the list without it; a column the user did not reorder gets no `move`. `bun run build:skills` regenerates `skills/askboard/`; `check:skills` keeps its budgets.

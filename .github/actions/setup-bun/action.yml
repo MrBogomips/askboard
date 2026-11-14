@@ -1,5 +1,5 @@
 name: Set up the repository
-description: Node from package.json, Bun from npm at the packageManager version, and the pinned dependencies.
+description: Node from package.json, Bun from npm at the packageManager version, then setup.sh --ci (the pinned dependencies and the Codex files).
 runs:
   using: composite
   steps:
@@ -14,5 +14,6 @@ runs:
         version=$(node -p 'require("./package.json").packageManager.replace(/^bun@/, "")')
         npm install --global --strict-allow-scripts --allow-scripts="bun@${version}" "bun@${version}"
         bun --version
-    - run: bun install --frozen-lockfile
+    # The same setup as a local checkout (CLAUDE.md, Development commands).
+    - run: sh ./setup.sh --ci
       shell: bash

@@ -19,4 +19,5 @@ export {
   type TimelineLane,
   type TimelineProps,
 } from "./constants.ts";
+export { TIMELINE_KEYS, type TimelineKeyAction } from "./keys.ts";
 export { TIMELINE_WIDGET } from "./widget.ts";

@@ -1,12 +1,14 @@
 // The configuration (owner `ask-core`, AD-14; settings-languages design decision 2): one schema for
 // the user file and the project file. `ask-core` is the one reader: it validates each file, merges
-// them key by key and applies the rules a schema cannot say.
+// them key by key and applies the rules a schema cannot say. keyboard-shortcuts-help's minor adds
+// `keys`, the user's key overrides.
 
+import type { KeyOverrides } from "../../keys/notation.ts";
 import { SNAPSHOT_FOLDER } from "../../project-folder.ts";
 import type { SchemaSet } from "../../versions.ts";
 import config from "./config.json" with { type: "json" };
 
-export const CONFIGURATION_VERSION = "1.0";
+export const CONFIGURATION_VERSION = "1.1";
 
 export const configurationSet: SchemaSet = {
   name: "configuration",
@@ -27,6 +29,7 @@ export const CONFIGURATION_KEYS = [
   "snapshotFolder",
   "editor",
   "defaultMinimumMargin",
+  "keys",
 ] as const;
 
 export type PresentationKey = (typeof PRESENTATION_KEYS)[number];
@@ -50,6 +53,8 @@ export type ConfigurationValues = {
   readonly editor: readonly string[];
   /** A percentage, read by the sales molecule's epic (open question B14). */
   readonly defaultMinimumMargin: number;
+  /** The user's key overrides (keyboard-shortcuts-help); read from the user file only. */
+  readonly keys: KeyOverrides;
 };
 
 /**
@@ -68,4 +73,4 @@ export const CONFIGURATION_DEFAULTS = {
   defaultLanguage: "en-US",
   askingRule: "none",
   snapshotFolder: SNAPSHOT_FOLDER,
-} as const satisfies Omit<ConfigurationValues, "editor" | "defaultMinimumMargin">;
+} as const satisfies Omit<ConfigurationValues, "editor" | "defaultMinimumMargin" | "keys">;

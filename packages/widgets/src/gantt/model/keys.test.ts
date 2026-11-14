@@ -6,6 +6,9 @@ import {
   gridKeyAction,
   isGridKey,
   type KeyPress,
+  type PanelAction,
+  panelKeyAction,
+  switchKeyMove,
   toolbarKeyMove,
 } from "./keys.ts";
 
@@ -170,5 +173,88 @@ describe("the toolbar's keys", () => {
     ["End", { metaKey: true }, undefined],
   ] as const)("%j with %j moves the focus to the %s tool", (key, modifiers, to) => {
     expect(toolbarKeyMove(press(key, modifiers))).toBe(to);
+  });
+});
+
+// The "Critical path" switch moves the focus back to the zoom on exactly ArrowLeft or Home, held
+// with no modifier (keyboard-shortcuts-help, design decision 7, review 1.6 S-1); Space is Radix's.
+describe("the switch's keys", () => {
+  test.each([
+    ["ArrowLeft", "previous"],
+    ["Home", "first"],
+  ] as const)("%s with no modifier moves the focus %s", (key, to) => {
+    expect(switchKeyMove(press(key))).toBe(to);
+  });
+
+  test.each([
+    ["ArrowLeft", { shiftKey: true }],
+    ["Home", { shiftKey: true }],
+    ["ArrowLeft", { altKey: true }],
+    ["ArrowLeft", { ctrlKey: true }],
+    ["ArrowLeft", { metaKey: true }],
+    ["Home", { altKey: true }],
+    ["Home", { ctrlKey: true }],
+    ["Home", { metaKey: true }],
+    ["ArrowLeft", { altKey: true, shiftKey: true }],
+    ["Home", { ctrlKey: true, shiftKey: true }],
+  ] as const)("%s with %p gives nothing, and keeps its default", (key, held) => {
+    expect(switchKeyMove(press(key, held))).toBeUndefined();
+  });
+
+  test.each(["ArrowRight", "End", "ArrowUp", " ", "Enter", "Escape", "Tab", "toString"])(
+    "%j is not the switch's",
+    (key) => {
+      expect(switchKeyMove(press(key))).toBeUndefined();
+    },
+  );
+});
+
+// The predecessors panel's keys, as its handler took them before they became a function of the
+// press: Enter is done, Escape cancels, the arrows move between the boxes, Delete and Backspace are
+// taken (their default is prevented: WebKit would go back) and change nothing; any modifier leaves
+// the key to the browser.
+describe("the predecessors panel's keys", () => {
+  test.each([
+    ["Enter", { kind: "done" }],
+    ["Escape", { kind: "cancel" }],
+    ["ArrowDown", { kind: "move", step: 1 }],
+    ["ArrowUp", { kind: "move", step: -1 }],
+    ["Backspace", { kind: "swallow" }],
+    ["Delete", { kind: "swallow" }],
+  ] as const satisfies readonly (readonly [string, PanelAction])[])(
+    "%s with no modifier is %p",
+    (key, action) => {
+      expect(panelKeyAction(press(key))).toEqual(action);
+    },
+  );
+
+  test("every key with any modifier gives nothing, as the handler refused them", () => {
+    for (const key of ["Enter", "Escape", "ArrowDown", "ArrowUp", "Backspace", "Delete"]) {
+      for (const held of [
+        { shiftKey: true },
+        { altKey: true },
+        { ctrlKey: true },
+        { metaKey: true },
+        { altKey: true, shiftKey: true },
+      ] satisfies Partial<KeyPress>[]) {
+        expect({ key, held, action: panelKeyAction(press(key, held)) }).toEqual({
+          key,
+          held,
+          action: undefined,
+        });
+      }
+    }
+  });
+
+  test.each(["ArrowLeft", "ArrowRight", "Home", "End", " ", "F2", "Tab", "a", "toString"])(
+    "%j is not the panel's: Space is Radix's, the rest the browser's",
+    (key) => {
+      expect(panelKeyAction(press(key))).toBeUndefined();
+    },
+  );
+
+  test("gives frozen actions", () => {
+    expect(Object.isFrozen(panelKeyAction(press("Enter")))).toBe(true);
+    expect(Object.isFrozen(panelKeyAction(press("ArrowDown")))).toBe(true);
   });
 });

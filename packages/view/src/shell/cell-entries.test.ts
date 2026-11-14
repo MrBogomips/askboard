@@ -581,7 +581,7 @@ describe("a cell entry goes with the item's value (design decision 8)", () => {
     expect(held.record().size).toBe(0);
     expect(board.work(QUESTION)).toBeUndefined();
     held.set("odd", cells({ "constructor.toString": "x" }));
-    fillFrom(question, { results: {} }, context);
+    fillFrom(question, { results: {} }, "current", context);
     expect(held.record().size).toBe(0);
   });
 

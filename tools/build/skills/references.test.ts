@@ -263,3 +263,15 @@ describe("renderContextReference", () => {
     );
   });
 });
+
+describe("the updates reference's place among the files (agent-facing-gaps)", () => {
+  test("SKILL.md links it once, and it links nothing", async () => {
+    const { generateSkill } = await import("./generate.ts");
+    const { files } = generateSkill();
+    const links = (text: string) => [...text.matchAll(/\]\(([^)\s]+)\)/g)].map((m) => m[1]);
+    expect(
+      links(files.get("SKILL.md") ?? "").filter((t) => t === "references/updates.md"),
+    ).toHaveLength(1);
+    expect(links(files.get("references/updates.md") ?? "")).toEqual([]);
+  });
+});

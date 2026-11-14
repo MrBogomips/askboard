@@ -1,7 +1,7 @@
 // The output format's minor for the Kanban's order (kanban-order, task 1.3; contract spec, "Kanban
 // order in the output format's next minor"; design decision 8): the output format takes one minor
-// past `main`'s for the Kanban's `move`, every other set keeps `main`'s. Bound on 2026-11-09 on
-// origin/main ac9f891f (main 1.11). The number is held here and in the constant only
+// past `main`'s for the Kanban's `move`, every other set keeps `main`'s. Bound on 2026-11-14 on
+// origin/main 1600645b (main 1.12), after the first binding on ac9f891f. The number is held here and in the constant only
 // (askboard-contract-versioning, Rule 1); a change that widens the output format after this one
 // moves the pin in this file.
 
@@ -29,8 +29,8 @@ const setOf = (name: string) => {
 
 describe("the output format's minor for the Kanban's order", () => {
   test("is one minor past main's, and the set carries the constant", () => {
-    // `main` held output format 1.11 when this was bound.
-    expect(OUTPUT_FORMAT_VERSION).toBe("1.12");
+    // `main` held output format 1.12 (document-review) when this was bound.
+    expect(OUTPUT_FORMAT_VERSION).toBe("1.13");
     expect(setOf("output").version).toBe(OUTPUT_FORMAT_VERSION);
   });
 
@@ -46,20 +46,20 @@ describe("the output format's minor for the Kanban's order", () => {
       localApi: LOCAL_API_VERSION,
       sessionFile: SESSION_FILE_FORMAT,
     }).toEqual({
-      input: "1.12",
-      envelopes: "1.12",
-      document: "1.11",
-      protocol: "1.8",
-      snapshot: "1.2",
+      input: "1.13",
+      envelopes: "1.14",
+      document: "1.12",
+      protocol: "1.10",
+      snapshot: "1.3",
       manifest: "1.1",
-      configuration: "1.0",
+      configuration: "1.1",
       localApi: "1.0",
       sessionFile: "1.0",
     });
   });
 
   test("a receiver at the new minor accepts the previous minor and refuses major 2", () => {
-    expect(unsupportedVersion(setOf("output"), "1.11")).toBeUndefined();
+    expect(unsupportedVersion(setOf("output"), "1.12")).toBeUndefined();
     expect(unsupportedVersion(setOf("output"), OUTPUT_FORMAT_VERSION)).toBeUndefined();
     expect(unsupportedVersion(setOf("output"), "2.0")).toBeDefined();
   });

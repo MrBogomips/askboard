@@ -8,6 +8,12 @@ export const PREVIEW_MAX_CHARS = 10_000;
 /** The longest note the agent writes on an option (FR-3). */
 export const ANNOTATION_MAX_CHARS = 2_000;
 
+/**
+ * The longest replacement of a suggested edit, in code points (document-review, design decision 2):
+ * beside the comment's bound, since an edit may rewrite a passage of up to 2,000 characters longer.
+ */
+export const ANNOTATION_REPLACEMENT_MAX_CHARS = 4_000;
+
 // Text the user writes on the board and the agent's replies.
 
 /** The longest note: the open prompt's text, sent with an answer, a decline or alone (FR-7). */

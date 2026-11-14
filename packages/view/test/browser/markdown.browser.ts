@@ -13,7 +13,7 @@ import {
   ALIGN_CLASSES,
   MARKDOWN_ALLOWED_ATTR,
   MARKDOWN_ALLOWED_TAGS,
-} from "../../src/catalog/text/markdown.ts";
+} from "../../src/markdown/markdown.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import { MarkdownFrame, type Rendered } from "./harness/markdown-frame.ts";
 

@@ -9,7 +9,7 @@
 // props: it reads them and reports the next (AD-9, kanban-order design decisions 5 and 7).
 
 import type { KanbanProps } from "@askboard/contract";
-import { useStrings } from "@askboard/view/catalog";
+import { keyPressOf, useStrings } from "@askboard/view/catalog";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FRAME } from "../shared/move-classes.ts";
 import { MoveToolbar } from "../shared/move-toolbar.tsx";
@@ -116,14 +116,7 @@ export const KanbanWidget = ({
   };
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>): void => {
-    const press = kanbanPressOf({
-      key: event.key,
-      altKey: event.altKey,
-      shiftKey: event.shiftKey,
-      ctrlKey: event.ctrlKey,
-      metaKey: event.metaKey,
-      composing: event.nativeEvent.isComposing,
-    });
+    const press = kanbanPressOf(keyPressOf(event));
     const from = current ?? stop;
     if (press === undefined || from === undefined) return;
     if (press.kind === "move") {

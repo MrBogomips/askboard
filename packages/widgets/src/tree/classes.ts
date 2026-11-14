@@ -152,10 +152,6 @@ export const DRAG_HANDLE =
 /** The row being dragged, dimmed. */
 export const DRAGGED_ROW = "opacity-50";
 
-export const CHECKBOX =
-  "size-[14px] cursor-pointer align-middle accent-primary focus-visible:outline-2 " +
-  "focus-visible:outline-offset-1 focus-visible:outline-ring";
-
 export const SELECTED_ROW = "aria-selected:bg-accent";
 
 /** The toolbar's right end: the selection count, then the counter of the user's changes. */

@@ -9,7 +9,7 @@
 // question into the draft record in one update, as a linked edit does (molecules, design decision
 // 11).
 
-import type { ElementShape, FieldCheckFailure, Locale } from "@askboard/contract";
+import type { ElementShape, FieldCheckFailure, KeyTable, Locale } from "@askboard/contract";
 import {
   createContext,
   type ReactNode,
@@ -188,6 +188,24 @@ export type ComponentFacts = {
    * board does); a type that registers none never blocks.
    */
   readonly check?: (result: unknown, props: unknown) => FieldCheckFailure | undefined;
+  /**
+   * The item's result points into the agent's content of the revision it was made on (document-
+   * review, design decision 15): a passage quoted from a document's text, a place on an image. On a
+   * revision the board cannot show, after a reload or a takeover under kept work, such a result
+   * would be made on one revision's content and sent naming another's, so the item is read-only
+   * then, as an item that registers `shape` is (`readOnlyItemsOf`), and its field check is not
+   * run, since the content it places against is not the content the answer names. A type whose
+   * result means the same on any revision (a Scale's value, a TextField's text) registers none.
+   */
+  readonly revisionBound?: true;
+  /**
+   * The type's key table (keyboard-shortcuts-help, design decision 5): the item frame of a type that
+   * registers one gives its widget the keys panel, which lists the table's entries by group, opens
+   * on the Keys button and on `?`, and lists only the entries marked `readOnly` while the item
+   * takes no edits. The chunk registers the contract's table for its type, as it registers `fits`
+   * and `check`, so the shell imports no registry. A type with no table registers none.
+   */
+  readonly keys?: KeyTable;
 };
 
 /** The two strings a required reason uses: the open prompt's label and its field error. */
@@ -393,3 +411,13 @@ export const useTheme = (): Theme => {
 
 export const useOpenLink = (): ((itemId: string, url: string) => void) =>
   useContext(HostContext).openLink;
+
+// The key helpers and the key hint and Keys button of the port (keyboard-shortcuts-help, design
+// decisions 3 to 5), which the chunks reach through this module like every other name here.
+
+export type { KeyInEffect, KeySource } from "./keys/effective.ts";
+export { KeyHint, KeysButton, MenuKeys, useKeysPanel } from "./keys/key-help.tsx";
+export { useKeyTable } from "./keys/key-table.tsx";
+export type { KeysPanelControl } from "./keys/keys-button.ts";
+export { type KeyPlatform, keyLabel, useKeyPlatform } from "./keys/label.ts";
+export { isTextTarget, type KeyEventFields, keyPressOf } from "./keys/press.ts";

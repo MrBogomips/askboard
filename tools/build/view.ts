@@ -201,7 +201,14 @@ const buildChunks = async (
         files: packages.files.get(name) ?? [],
         fonts: packages.fonts.get(name) ?? [],
       };
-      const finished = await finish(name, stylePlanOf(kind), bundle, work, fontLicences, loaded);
+      const finished = await finish(
+        name,
+        stylePlanOf(kind, name),
+        bundle,
+        work,
+        fontLicences,
+        loaded,
+      );
       return { ...finished, kind, ...(hostOnly ? { hostOnly } : {}), needs: [...needs].sort() };
     }),
   );

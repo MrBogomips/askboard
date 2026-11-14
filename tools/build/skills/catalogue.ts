@@ -4,7 +4,9 @@
 
 import type { MoleculeDefinition, WidgetType } from "@askboard/contract";
 import type { MoleculeSkill } from "@askboard/molecules";
+import { exampleBlock } from "./blocks.ts";
 import { CONTEXT_TEACHING } from "./context-examples.ts";
+import { COMPLETE_ASK_EXAMPLE, renderPayoff } from "./payoff.ts";
 import { contextTypes } from "./references.ts";
 
 type Skills = Readonly<Record<string, MoleculeSkill>>;
@@ -20,6 +22,7 @@ export const catalogueText = (
   [
     "# Item catalogue",
     "This is what each item type is for, to choose among them; `SKILL.md` links the reference of each type.",
+    renderPayoff(widgets, molecules),
     "## Context items",
     contextTypes()
       .map((type) => `- \`${type}\`: ${CONTEXT_TEACHING.find((entry) => entry.type === type)?.use}`)
@@ -28,6 +31,9 @@ export const catalogueText = (
     widgets.map(({ type, noun, skill }) => `- ${noun} (\`${type}\`): ${skill?.use}`).join("\n"),
     "## Molecules",
     molecules.map(({ molecule }) => `- \`${molecule}\`: ${skills[molecule]?.use}`).join("\n"),
+    "## A complete ask",
+    "One question that cites a decision by ID, with the decision beside it:",
+    exampleBlock(COMPLETE_ASK_EXAMPLE),
   ].join("\n\n");
 
 /** The four lines of `SKILL.md`'s `{{itemIndex}}` slot: the catalogue, then a link for each type. */
@@ -36,7 +42,7 @@ export const itemIndex = (
   molecules: readonly MoleculeDefinition[],
 ): string =>
   [
-    `- What each type is for: ${link("items", "references/items.md")}`,
+    `- What each type is for, the types by what the user has to do, and a complete ask: ${link("items", "references/items.md")}`,
     `- Context items, in ${link("context", "references/context.md")}: ${contextTypes()
       .map((type) => `\`${type}\``)
       .join(", ")}`,

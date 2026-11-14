@@ -250,6 +250,52 @@ describe("warnings and limits", () => {
     expect(quiet).not.toHaveProperty("warnings");
   });
 
+  // Core spec, "An update past the bound" (result-bound; Refs #98).
+  test("an update past the bound: 60 excerpts of 300-character pointers, the warnings within 10,000 characters, the last counting the rest", async () => {
+    const pointers = Array.from(
+      { length: 60 },
+      (_, n) => `${String(n).padStart(2, "0")}${"m".repeat(295)}.md`,
+    );
+    expect(pointers.every((pointer) => pointer.length === 300)).toBe(true);
+    const missing = { status: "unresolved", reason: "not-found" } as const;
+    const fakes = contextCoreWith({
+      answers: Object.fromEntries(pointers.map((p) => [p, { resolveExcerpt: missing }])),
+    });
+    await fakes.core.ask(contextAsk([excerpt("retry-adr", ADR_POINTER)]));
+    const outcome = await fakes.core.update({
+      askId: CONTEXT_ASK_ID,
+      actions: [
+        {
+          action: "add",
+          item: {
+            type: "question",
+            id: "many",
+            props: {
+              text: "Which of these still hold?",
+              options: [{ label: "All" }, { label: "None" }],
+              items: pointers.map((pointer, n) => excerpt(`ex-${n}`, pointer)) as [
+                ContextItem,
+                ...ContextItem[],
+              ],
+            },
+          },
+        },
+      ],
+    });
+    expect(outcome.kind).toBe("updated");
+    const warnings = (outcome.kind === "updated" && outcome.warnings) || [];
+    expect(JSON.stringify(warnings).length).toBeLessThanOrEqual(10_000);
+    const kept = warnings.length - 1;
+    expect(kept).toBeGreaterThan(0);
+    expect(warnings.at(-1)?.message).toBe(
+      `The pointer of ex-${kept} did not resolve (not-found), and ${60 - kept - 1} more unresolved pointers are left out: fetch their questions to read each one's reason.`,
+    );
+    const unresolved = (boardItemsOf(fakes.core, CONTEXT_ASK_ID, "many") ?? []).filter(
+      (item) => "status" in item.props && item.props.status === "unresolved",
+    );
+    expect(unresolved).toHaveLength(60);
+  });
+
   test("the per-ask image limit counts the images the other questions hold", async () => {
     const big = "A".repeat(((10 * 1024 * 1024) / 3) * 4);
     const answer = {

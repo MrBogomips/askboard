@@ -19,9 +19,8 @@ export const TOOL =
   "focus-visible:outline-offset-1 focus-visible:outline-ring aria-disabled:text-muted-foreground " +
   "aria-disabled:opacity-50";
 
-/** The counter, at the toolbar row's right: the change dot, then its text, cut before it overprints a tool. */
-export const COUNTER =
-  "ml-auto flex min-w-0 items-center gap-[6px] text-control text-foreground-secondary";
+/** The counter: the change dot, then its text, cut before it overprints a tool. */
+export const COUNTER = "flex min-w-0 items-center gap-[6px] text-control text-foreground-secondary";
 
 export const COUNTER_TEXT = "min-w-0 truncate";
 
@@ -38,7 +37,7 @@ export const LIST = "flex flex-col";
  */
 export const ROW =
   "group/row flex items-start gap-2 border-t border-border px-2 py-[6px] text-body text-foreground " +
-  "first:border-t-0 aria-[current=true]:bg-primary-subtle " +
+  "first:border-t-0 aria-selected:bg-accent aria-[current=true]:bg-primary-subtle " +
   "aria-[current=true]:shadow-[inset_2px_0_0_0_var(--primary)] focus-visible:outline-2 " +
   "focus-visible:-outline-offset-2 focus-visible:outline-ring";
 
@@ -67,3 +66,16 @@ export const LABEL = "min-w-0 break-words";
 
 /** The description, in `muted-foreground`. */
 export const DESCRIPTION = "min-w-0 break-words text-muted-foreground";
+
+/** The toolbar's right end: the selection count, then the counter of the user's changes. */
+export const STATUS = "ml-auto flex min-w-0 items-center gap-3";
+
+export const SELECTION_COUNT = "shrink-0 text-control text-foreground-secondary";
+
+/** The "More" menu's panel and its items, as the Tree's look. */
+export const MENU =
+  "z-20 flex min-w-36 flex-col gap-0.5 rounded-md border border-border bg-popover p-1 text-control text-foreground shadow-md";
+
+export const MENU_ITEM =
+  "flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 outline-none select-none " +
+  "data-[highlighted]:bg-accent data-[disabled]:cursor-not-allowed data-[disabled]:text-muted-foreground data-[disabled]:opacity-50";

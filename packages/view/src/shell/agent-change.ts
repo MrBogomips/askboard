@@ -15,6 +15,7 @@ import { valueItemsOf } from "../nested-items.ts";
 import { t } from "../strings/index.ts";
 import {
   questionsOf,
+  type ViewArea,
   type ViewDocument,
   type ViewQuestion,
   type ViewQuestionProps,
@@ -106,9 +107,11 @@ export const workingQuestion = (
  * `shown`, a revision other than the one its answer names (`revisionFor`), as after a reload when
  * the page never saw the revision the work was made on (FR-6, AD-10, AD-20): the items whose type
  * edits the agent's content, which is to say registers the element `shape` its answer's `changes`
- * are computed from. An edit made on the shown props would be diffed by `ask-core` against the
- * kept revision's, and carry the agent's change as the user's. None while the card shows the
- * revision its answer names; the other types keep working.
+ * are computed from, and the items whose result points into the agent's content of the revision it
+ * was made on (`ComponentFacts.revisionBound`, document-review, design decision 15). An edit made
+ * on the shown props would be diffed by `ask-core` against the kept revision's, and carry the
+ * agent's change as the user's; a result placed on the shown content would be sent naming another
+ * revision. None while the card shows the revision its answer names; the other types keep working.
  */
 export const readOnlyItemsOf = (
   question: ViewQuestion,
@@ -119,9 +122,115 @@ export const readOnlyItemsOf = (
   if (shown.rev === revisionFor(question, work)) return new Set();
   return new Set(
     valueItemsOf(shown.props.items)
-      .filter((item) => factsOf(item.type)?.shape !== undefined)
+      .filter((item) => {
+        const facts = factsOf(item.type);
+        return facts?.shape !== undefined || facts?.revisionBound === true;
+      })
       .map((item) => item.id),
   );
+};
+
+/** The read-only items of a question, by ID: `readOnlyItemsOf` for the card that shows it. */
+export type ReadOnlyOf = (question: ViewQuestion) => ReadonlySet<string>;
+
+/**
+ * `readOnlyItemsOf` for each question of a board, by the work the board holds for it and the
+ * revisions the view has seen: what the readers that run beyond one card (Submit, "Select
+ * recommended") ask, and the card computes for itself (document-review, design decision 15).
+ */
+export const readOnlyOfBoard =
+  (
+    board: { work(questionId: string): QuestionWork | undefined },
+    revisions: Revisions,
+    factsOf: FactsOf = componentFacts,
+  ): ReadOnlyOf =>
+  (question) => {
+    const work = board.work(question.id);
+    return readOnlyItemsOf(question, workingQuestion(question, work, revisions), work, factsOf);
+  };
+
+/**
+ * The question as the card of it shows it, by the question the board holds: `workingQuestion` for
+ * the work and the revisions of the board. Every gate of an act reads it, so that a press agrees
+ * with the card (document-review, design decision 15; review S-1 of 6.5, Issue #92); with none
+ * given, a gate reads the question itself.
+ */
+export type ShownOf = (question: ViewQuestion) => ViewQuestion;
+
+/**
+ * `ShownOf` for each question of a board, by the work the board holds for it and the revisions the
+ * view has seen: what the readers that run beyond one card (Submit, "Select recommended") ask, and
+ * the card computes for itself.
+ */
+export const shownOfBoard =
+  (board: { work(questionId: string): QuestionWork | undefined }, revisions: Revisions): ShownOf =>
+  (question) =>
+    workingQuestion(question, board.work(question.id), revisions);
+
+// The shown document made for a board document and the shown questions it was made for, so that
+// the same shown questions give the same object. Keyed by the document, never by agent text.
+const SHOWN_DOCUMENTS = new WeakMap<
+  ViewDocument,
+  { readonly shown: readonly ViewQuestion[]; readonly document: ViewDocument }
+>();
+
+const sameQuestions = (a: readonly ViewQuestion[], b: readonly ViewQuestion[]): boolean =>
+  a.length === b.length && a.every((question, at) => question === b[at]);
+
+/**
+ * The board document with each question at the revision its card shows (`shownOf`): what every
+ * reader of the board's items reads, so that the items a card renders after "Keep mine", the
+ * Trees and Gantts among them, are the items the board holds for them, their compute graph, their
+ * linked plans and the Approval's summary included (document-review, design decision 15). The
+ * document itself while no question differs from its shown one, and the same object while the
+ * shown questions are the same objects; only the questions (and the areas holding one) are
+ * replaced, nothing else is changed.
+ */
+export const shownDocumentOf = (document: ViewDocument, shownOf: ShownOf): ViewDocument => {
+  const questions = questionsOf(document);
+  const shown = questions.map((question) => shownOf(question));
+  if (sameQuestions(shown, questions)) return document;
+  const known = SHOWN_DOCUMENTS.get(document);
+  if (known !== undefined && sameQuestions(known.shown, shown)) return known.document;
+  let at = 0;
+  const next = (): ViewQuestion => shown[at++] as ViewQuestion;
+  const items = document.items.map((each) => {
+    if (each.type !== "area") return next();
+    const area: ViewArea = each;
+    const inner = area.props.items.map(next);
+    return sameQuestions(inner, area.props.items)
+      ? area
+      : { ...area, props: { ...area.props, items: inner } };
+  });
+  const made = { ...document, items } as unknown as ViewDocument;
+  SHOWN_DOCUMENTS.set(document, { shown, document: made });
+  return made;
+};
+
+/**
+ * `shownDocumentOf` for the document the view holds now, walked again only when that document or
+ * the state of the board's work (`workOf`, compared by identity) is another, so that the many
+ * reads of one render, and a keystroke that changes neither, walk no question. A board edit (a
+ * keystroke that starts or ends work, the note, "Other…", an option's note, the composer) is another
+ * state of the work: it walks the questions once, never the items, and gives the same document while
+ * no card changed revision.
+ */
+export const shownDocumentFor = (
+  documentOf: () => ViewDocument,
+  workOf: () => unknown,
+  shownOf: ShownOf,
+): (() => ViewDocument) => {
+  let last:
+    | { readonly document: ViewDocument; readonly work: unknown; readonly shown: ViewDocument }
+    | undefined;
+  return () => {
+    const document = documentOf();
+    const work = workOf();
+    if (last?.document === document && last.work === work) return last.shown;
+    const shown = shownDocumentOf(document, shownOf);
+    last = { document, work, shown };
+    return shown;
+  };
 };
 
 /** A text field of the new revision, with the earlier text when it changed. */

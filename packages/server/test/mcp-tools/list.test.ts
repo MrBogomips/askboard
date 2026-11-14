@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import { SERVER_INSTRUCTIONS, TOOL_DEFINITIONS, type ToolDefinition } from "@askboard/contract";
+import { amendedApprovedText } from "@askboard/contract/fixtures";
 import { toolInputProblems } from "@askboard/contract/validate";
 import { listingProblems } from "../../src/mcp-tools/index.ts";
 import { connect, depsWith, fakeCore, textOf } from "./helpers.ts";
@@ -62,7 +63,16 @@ describe("the tool list", () => {
   });
 
   test("lists the approved definitions of the model contract unchanged, snapshot's included (E7)", async () => {
-    const approved = (await approvedFile("tools.json").json()) as { tools: { name: string }[] };
+    const approvedTools = (await approvedFile("tools.json").json()) as {
+      tools: { name: string; description: string }[];
+    };
+    // The approved definitions with the recorded amendments applied (agent-facing-gaps).
+    const approved = {
+      tools: approvedTools.tools.map((tool) => ({
+        ...tool,
+        description: amendedApprovedText(`tools.json#${tool.name}.description`, tool.description),
+      })),
+    };
     expect(approved.tools.map(({ name }) => name)).toEqual([
       "ask",
       "update",
@@ -81,7 +91,10 @@ describe("the server instructions", () => {
     const { client, close } = await connect(depsWith(fakeCore()).deps);
     expect(client.getInstructions()).toBe(SERVER_INSTRUCTIONS);
     expect(client.getInstructions()).toBe(
-      (await approvedFile("server-instructions.md").text()).trimEnd(),
+      amendedApprovedText(
+        "server-instructions.md",
+        (await approvedFile("server-instructions.md").text()).trimEnd(),
+      ),
     );
     expect(client.getInstructions()).not.toMatch(/`snapshot`/);
     expect(client.getServerVersion()).toMatchObject({ name: "askboard" });

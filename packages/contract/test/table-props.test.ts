@@ -72,9 +72,10 @@ describe("Table items", () => {
     expect(problems(TABLE_WIDGET.example.item)).toEqual([]);
   });
 
-  test("it is in the shipped registry once, as its last entry (task 6.3)", () => {
+  test("it is in the shipped registry once, right after the PickField (task 6.3), and a later change registers after it", () => {
     expect(WIDGET_TYPES.filter(({ type }) => type === "table")).toEqual([TABLE_WIDGET]);
-    expect(WIDGET_TYPES.at(-1)).toBe(TABLE_WIDGET);
+    const types = WIDGET_TYPES.map(({ type }) => type);
+    expect(types.indexOf("table")).toBe(types.indexOf("pick-field") + 1);
   });
 
   test("11 columns or 201 rows fail, naming the item and the field; 10 and 200 pass", () => {

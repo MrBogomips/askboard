@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:askboard:output:annotation",
   "title": "Annotation",
-  "description": "A note a user attached to a place in the content of a widget item (widget-registry, design decision 7): an ID, a target, the selector that finds the place, and a body of text. A widget's result schema references it for the annotations the widget gives, as the answer's results hold them. The selector is picked by its type: element (an element's ID), label (a label and which occurrence), region (xywh=percent:x,y,w,h), line (a side of a diff, a path and a line), quote (the exact text with optional context) or position (a start and an end). annotationProblems adds what a schema cannot say: a start after the end, a region outside 100 by 100. A later selector is a minor.",
+  "description": "A note a user attached to a place in the content of a widget item (widget-registry, design decision 7): an ID, a target, the selector that finds the place, and a body: a comment, a suggested edit or both. A widget's result schema references it for the annotations the widget gives, as the answer's results hold them. The selector is picked by its type: element (an element's ID), label (a label and which occurrence), region (xywh=percent:x,y,w,h), line (a side of a diff, a path and a line), quote (the exact text with optional context) or position (a start and an end). annotationProblems adds what a schema cannot say: a start after the end, a region outside 100 by 100. A later selector is a minor.",
   "type": "object",
   "properties": {
     "id": {
@@ -19,15 +19,20 @@
       "additionalProperties": false
     },
     "body": {
+      "description": "A comment (text), a suggested edit that replaces the target's text (replacement; an empty one deletes it), or both; since document-review. A widget's result schema may take fewer of them.",
       "type": "object",
       "properties": {
         "text": {
           "type": "string",
           "minLength": 1,
           "maxLength": 2000
+        },
+        "replacement": {
+          "type": "string",
+          "maxLength": 4000
         }
       },
-      "required": ["text"],
+      "minProperties": 1,
       "additionalProperties": false
     }
   },

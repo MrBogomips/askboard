@@ -111,7 +111,8 @@ export const staleSubmitTranscript: LifecycleTranscript = {
 /**
  * A takeover with the old tab's last draft: the second tab connects, the first is told it moved
  * and sends its last draft within the takeover flush wait, then is closed with 4409; the second
- * gets the board, the state and that draft (AD-21).
+ * gets the board, that draft and the state: the held record goes before the state on connect
+ * (reopen-start-from-answer, design decision 9; AD-21).
  */
 export const takeoverDraftTranscript: LifecycleTranscript = {
   ...lifecycle,
@@ -123,20 +124,25 @@ export const takeoverDraftTranscript: LifecycleTranscript = {
     { socket: 1, from: "page", message: lifecycleLastDraft },
     { socket: 1, from: "host", close: BOARD_CLOSE_CODES.moved },
     { socket: 2, from: "host", message: lifecycleBoard },
-    { socket: 2, from: "host", message: lifecycleWaiting },
     { socket: 2, from: "host", message: lifecycleLastDraft },
+    { socket: 2, from: "host", message: lifecycleWaiting },
   ],
 };
 
-/** A draft restored on connect: after a drop, the new socket gets the record last mirrored. */
+/**
+ * A draft restored on connect: after a drop, the new socket gets the record last mirrored, after
+ * the board and before the state (reopen-start-from-answer, design decision 9).
+ */
 export const restoredDraftTranscript: LifecycleTranscript = {
   ...lifecycle,
   steps: [
     ...lifecycleOpening(1),
     { socket: 1, from: "page", message: lifecycleLastDraft },
     { socket: 1, from: "network", drop: true },
-    ...lifecycleOpening(2),
+    { socket: 2, from: "page", message: { version, type: "connect", token: LIFECYCLE.token } },
+    { socket: 2, from: "host", message: lifecycleBoard },
     { socket: 2, from: "host", message: lifecycleLastDraft },
+    { socket: 2, from: "host", message: lifecycleWaiting },
   ],
 };
 

@@ -18,7 +18,7 @@ import { launchEngine } from "./browser.ts";
 import type { Engine } from "./engines.ts";
 import { isCspConsoleLine } from "./policy.ts";
 
-const MARKDOWN = join(import.meta.dir, "../../../src/catalog/text/markdown.ts");
+const MARKDOWN = join(import.meta.dir, "../../../src/markdown/markdown.ts");
 const SETTLE_MS = 150;
 
 /** What one render left in the frame. */

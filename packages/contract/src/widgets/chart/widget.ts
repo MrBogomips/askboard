@@ -7,6 +7,7 @@ import type { WidgetType } from "../registry.ts";
 import chartProps from "./chart-props.json" with { type: "json" };
 import chartResult from "./chart-result.json" with { type: "json" };
 import { chartPropsProblems, chartResultProblems, chartResultShape } from "./checks.ts";
+import { CHART_KEYS } from "./keys.ts";
 import { CHART_EXPECTED, CHART_FIELDS, chartElementOf } from "./wording.ts";
 
 export const CHART_WIDGET: WidgetType = {
@@ -34,6 +35,13 @@ export const CHART_WIDGET: WidgetType = {
         unit: "runs",
       },
     },
+  },
+  keys: CHART_KEYS,
+  help: {
+    mouse:
+      "Click a bar, point or slice to highlight it and click it again to clear it; hover to read its value.",
+    answer:
+      "The agent receives the points you highlighted. A chart you did not touch gives no answer.",
   },
   skill: {
     use: "a bar, line or pie chart the user reads and may highlight points on",

@@ -15,6 +15,9 @@ import {
   type ViewQuestion,
   type WidgetItem,
 } from "../view-document.ts";
+import "../catalog/number-field/index.tsx";
+import "../catalog/text-field/index.tsx";
+import { type ShownOf, shownDocumentOf } from "./agent-change.ts";
 import {
   answeredResultsOf,
   boardItemsOf,
@@ -206,6 +209,22 @@ describe("the board as the user sees it (molecules, design decision 11, option A
     expect(board.shown.get("schedule")).toBe(moved);
   });
 
+  test("an item the current answer leaves out of its unchanged list shows as the agent sent it (reopen-start-from-answer)", () => {
+    const [first] = bothAnswered;
+    const listed = (unchanged: readonly string[]) =>
+      [
+        {
+          ...first,
+          answer: { ...(first as { answer: object }).answer, unchanged },
+        },
+      ] as unknown as readonly LifecycleQuestionStatus[];
+    const board = boardOver(ganttPlanBoardDocument, listed(["schedule"]))(new Map());
+    expect(board.shown.get("wbs")).toBeUndefined();
+    expect(board.shown.get("schedule")).toBe(ganttPlanEditedValue);
+    const empty = boardOver(ganttPlanBoardDocument, listed([]))(new Map());
+    expect(empty.shown.size).toBe(0);
+  });
+
   test("the draft record gains nothing the user did not change", () => {
     const draft = createDraftStore();
     const record = draft.record();
@@ -279,20 +298,29 @@ describe("the results the board's answers hold (widget-registry, design decision
       state: "answered",
       answer: { results, when: "2026-11-06T10:00:00Z", receipt: "delivered" },
     }) as unknown as LifecycleQuestionStatus;
+  // The probe type takes any result; a NumberField takes a number within its bounds.
+  const facts = (type: string) =>
+    type === "number-field"
+      ? {
+          fits: (value: unknown, props: unknown) =>
+            typeof value === "number" &&
+            value <= ((props as { max?: number }).max ?? Number.POSITIVE_INFINITY),
+        }
+      : { fits: () => true };
   const sourceOf = (statuses: readonly LifecycleQuestionStatus[]) => ({
     document,
     state: stateOf(document, statuses),
   });
 
   test("an item gets the result its question's latest answer holds for it, read as an own property", () => {
-    const results = answeredResultsOf(sourceOf([loggedWith({ sketch: result })]));
+    const results = answeredResultsOf(sourceOf([loggedWith({ sketch: result })]), facts);
     expect(results.get("sketch")).toBe(result);
     expect(results.size).toBe(1);
   });
 
   test("a result for an item the question does not hold, or under a prototype key, is not shown", () => {
     const proto = JSON.parse('{"__proto__": 1, "constructor": 2, "elsewhere": 3}');
-    expect(answeredResultsOf(sourceOf([loggedWith(proto)])).size).toBe(0);
+    expect(answeredResultsOf(sourceOf([loggedWith(proto)]), facts).size).toBe(0);
   });
 
   test("an open question and an answer with no results show none", () => {
@@ -307,12 +335,77 @@ describe("the results the board's answers hold (widget-registry, design decision
 
   test("the lookup follows the board's latest state and document", () => {
     let source = sourceOf([]);
-    const resultOf = createAnsweredResults(() => source);
+    const resultOf = createAnsweredResults(() => source, facts);
     expect(resultOf("sketch")).toBeUndefined();
     source = sourceOf([loggedWith({ sketch: result })]);
     expect(resultOf("sketch")).toBe(result);
     expect(resultOf("elsewhere")).toBeUndefined();
     expect(resultOf("constructor")).toBeUndefined();
+  });
+
+  test("a result its item no longer takes on the item's current props is not shown (decision 2)", () => {
+    const days: WidgetItem = { type: "number-field", id: "days", props: { label: "Days", max: 5 } };
+    const doc = {
+      ...plainChoiceBoardDocument,
+      items: [holding([sketch, days])],
+    } as unknown as ViewDocument;
+    const status = {
+      itemId: question.id,
+      rev: 2,
+      state: "answered",
+      answer: {
+        results: { days: 7, sketch: result },
+        when: "2026-11-06T10:00:00Z",
+        receipt: "delivered",
+      },
+    } as unknown as LifecycleQuestionStatus;
+    const results = answeredResultsOf({ document: doc, state: stateOf(doc, [status]) }, facts);
+    expect(results.has("days")).toBe(false);
+    expect(results.get("sketch")).toBe(result);
+  });
+
+  test("the lookup an item reads shows no result for it once the revision no longer takes it", () => {
+    const days: WidgetItem = { type: "number-field", id: "days", props: { label: "Days", max: 5 } };
+    const doc = {
+      ...plainChoiceBoardDocument,
+      items: [holding([days])],
+    } as unknown as ViewDocument;
+    const status = {
+      itemId: question.id,
+      rev: 2,
+      state: "answered",
+      answer: { results: { days: 7 }, when: "2026-11-06T10:00:00Z", receipt: "delivered" },
+    } as unknown as LifecycleQuestionStatus;
+    const resultOf = createAnsweredResults(
+      () => ({ document: doc, state: stateOf(doc, [status]) }),
+      facts,
+    );
+    expect(resultOf("days")).toBeUndefined();
+  });
+
+  // The shell calls `createAnsweredResults` with no facts, so the gate rests on the default
+  // `componentFacts`, which the NumberField's own chunk fills (re-review 2.11 X-2): no stub here.
+  test("with the default facts, the real NumberField's chunk hides 7 under max 5 and shows 3", () => {
+    const days: WidgetItem = { type: "number-field", id: "days", props: { label: "Days", max: 5 } };
+    const doc = {
+      ...plainChoiceBoardDocument,
+      items: [holding([days])],
+    } as unknown as ViewDocument;
+    const statusWith = (value: number) =>
+      ({
+        itemId: question.id,
+        rev: 2,
+        state: "answered",
+        answer: { results: { days: value }, when: "2026-11-06T10:00:00Z", receipt: "delivered" },
+      }) as unknown as LifecycleQuestionStatus;
+    const source = (value: number) => ({
+      document: doc,
+      state: stateOf(doc, [statusWith(value)]),
+    });
+    expect(answeredResultsOf(source(7)).has("days")).toBe(false);
+    expect(answeredResultsOf(source(3)).get("days")).toBe(3);
+    expect(createAnsweredResults(() => source(7))("days")).toBeUndefined();
+    expect(createAnsweredResults(() => source(3))("days")).toBe(3);
   });
 });
 
@@ -362,5 +455,151 @@ describe("a component's question items (approval-scale-ranking, design decision 
     expect(after).not.toBe(before);
     expect(before.questionItems).toBe(widgetItemsByQuestion(twoQuestions));
     expect(after.questionItems).toBe(before.questionItems);
+  });
+});
+
+// The board over the shown document (document-review, task 6.19; design decision 15): while a card
+// shows the revision its work was made on, every item it reads of the board is that revision's.
+describe("the board over the shown document: each question at the revision its card shows", () => {
+  const field: WidgetItem = { type: "text-field", id: "who", props: { label: "Who" } };
+  const added: WidgetItem = { type: "text-field", id: "added", props: { label: "Added" } };
+  // Revision 1 holds the Tree, the plan over it and a field; revision 2 only the field and a new one.
+  const first = {
+    ...planQuestion,
+    rev: 1,
+    props: { ...planQuestion.props, items: [wbs, plan, field] },
+  };
+  const second = {
+    ...planQuestion,
+    rev: 2,
+    props: { ...planQuestion.props, items: [field, added] },
+  };
+  const current: ViewDocument = {
+    ...ganttPlanBoardDocument,
+    items: [second],
+  } as unknown as ViewDocument;
+  const keeping: ShownOf = (question) =>
+    question.id === second.id ? (first as ViewQuestion) : question;
+  const shownState = stateOf(current, [
+    {
+      itemId: second.id,
+      rev: 2,
+      state: "answered",
+      answer: {
+        values: { [wbs.id]: treeEditedValue },
+        results: { who: "Ada" },
+        when: "2026-11-03T10:00:00Z",
+        receipt: "delivered",
+      },
+    } as unknown as LifecycleQuestionStatus,
+  ]);
+  const sourceOver = (document: ViewDocument) => () => ({ document, state: shownState });
+
+  test("gives revision 1's items, its question's items and the answered value of an item only revision 1 holds", () => {
+    const shown = shownDocumentOf(current, keeping);
+    const draft = createDraftStore();
+    const board = createBoardContent(sourceOver(shown))(draft.record());
+    expect(board.items.map((item) => item.id)).toEqual([wbs.id, plan.id, "who"]);
+    expect(board.questionItems?.get(second.id)).toEqual([wbs.id, plan.id, "who"]);
+    expect(board.shown.get(wbs.id)).toBe(treeEditedValue);
+    // The board over the current document holds none of them: the readers would fail the question.
+    const over = createBoardContent(sourceOver(current))(draft.record());
+    expect(over.items.map((item) => item.id)).toEqual(["who", "added"]);
+    expect(over.shown.get(wbs.id)).toBeUndefined();
+  });
+
+  test("gives the answered result of an item only revision 1 holds", () => {
+    const onlyFirst = {
+      ...first,
+      props: { ...first.props, items: [{ ...field, id: "only-first" }, wbs] },
+    } as ViewQuestion;
+    const withResult = stateOf(current, [
+      {
+        itemId: second.id,
+        rev: 2,
+        state: "answered",
+        answer: {
+          results: { "only-first": "Grace" },
+          when: "2026-11-03T10:00:00Z",
+          receipt: "delivered",
+        },
+      } as unknown as LifecycleQuestionStatus,
+    ]);
+    const shown = shownDocumentOf(current, () => onlyFirst);
+    expect(
+      createAnsweredResults(() => ({ document: shown, state: withResult }))("only-first"),
+    ).toBe("Grace");
+    // Over the current document the item is no item of the question: no result is shown for it.
+    expect(
+      createAnsweredResults(() => ({ document: current, state: withResult }))("only-first"),
+    ).toBeUndefined();
+  });
+
+  test("makes one board object per shown document, answers and record, as for any document", () => {
+    const draft = createDraftStore();
+    const boardOf = createBoardContent(sourceOver(shownDocumentOf(current, keeping)));
+    const before = boardOf(draft.record());
+    expect(boardOf(draft.record())).toBe(before);
+    // The shown document made again for the same shown questions is the same object, so the same board.
+    const again = createBoardContent(() => ({
+      document: shownDocumentOf(current, keeping),
+      state: shownState,
+    }));
+    expect(again(draft.record())).toBe(again(draft.record()));
+    expect(again(draft.record()).items).toBe(before.items);
+  });
+
+  // The matrix's P row (design decision 15, Appendix): an item both revisions hold, with other props.
+  // Revision 2 links the plan `schedule` to another Tree and asks other durations; the board over
+  // the shown document holds revision 1's item, the whole question's, never a mix (re-review 6.20, S-3).
+  test("an item both revisions hold with other props reads revision 1's: the plan's link and schedule, and the Tree it links", () => {
+    const relinked = {
+      ...plan,
+      props: { ...plan.props, workPackages: "other-tree", start: "2027-01-04" },
+    } as WidgetItem;
+    const otherTree = { ...wbs, id: "other-tree" } as WidgetItem;
+    const revised = {
+      ...first,
+      rev: 2,
+      props: { ...first.props, items: [otherTree, relinked, field] },
+    } as unknown as ViewQuestion;
+    const document: ViewDocument = {
+      ...ganttPlanBoardDocument,
+      items: [revised],
+    } as unknown as ViewDocument;
+    const draft = createDraftStore();
+    const shown = createBoardContent(() => ({
+      document: shownDocumentOf(document, () => first as ViewQuestion),
+      state: stateOf(document),
+    }))(draft.record());
+    const held = shown.items.find((item) => item.id === plan.id);
+    expect(held).toBe(plan);
+    expect(held?.props).toBe(plan.props);
+    expect((held?.props as { workPackages?: string } | undefined)?.workPackages).toBe("wbs");
+    expect(shown.items.map((item) => item.id)).toEqual([wbs.id, plan.id, "who"]);
+    // The board over the current document holds revision 2's link and Tree.
+    const over = createBoardContent(() => ({ document, state: stateOf(document) }))(draft.record());
+    expect(over.items.find((item) => item.id === plan.id)).toBe(relinked);
+    expect(over.items.map((item) => item.id)).toEqual(["other-tree", plan.id, "who"]);
+    expect(shown.questionItems?.get(first.id)).toEqual([wbs.id, plan.id, "who"]);
+  });
+
+  test("every other question reads its own revision, and the answers and the record are as before", () => {
+    const other = { ...schedule, id: "other-question", rev: 1 } as unknown as ViewQuestion;
+    const two: ViewDocument = {
+      ...ganttPlanBoardDocument,
+      items: [second, other],
+    } as unknown as ViewDocument;
+    const shown = shownDocumentOf(two, (question) =>
+      question.id === second.id ? (first as ViewQuestion) : question,
+    );
+    const draft = createDraftStore();
+    draft.set("who", "typed");
+    const board = createBoardContent(() => ({ document: shown, state: stateOf(two) }))(
+      draft.record(),
+    );
+    expect(board.draft.get("who")).toBe("typed");
+    expect(board.items.map((item) => item.id)).toEqual([wbs.id, plan.id, "who", release.id]);
+    expect(board.questionItems?.get("other-question")).toEqual([release.id]);
   });
 });

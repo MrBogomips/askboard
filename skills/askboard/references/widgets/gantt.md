@@ -27,6 +27,42 @@ Item type `gantt`: props are a Gantt's props {start, tasks, workPackages?}.
 - Edits: `changes` lists what the user changed, one operation for each, naming an element by its ID in `target` (`<item>.<element>` or `<item>.<element>.<field>`). Only what changed is sent; `fetch` returns the whole item.
 - Derived: `derived` carries the plan's finish and criticalPath, by address, none in an answer naming an earlier revision (see answers); never compute them.
 
+## Keys
+
+The board shows no keys panel for the Gantt yet, and the user's key changes do not reach it: these are its default keys.
+
+| Action | Where | Keys (macOS) |
+|---|---|---|
+| Go up | grid | ↑ (↑) |
+| Go down | grid | ↓ (↓) |
+| Go left | grid | ← (←) |
+| Go right | grid | → (→) |
+| Go to the first | grid | Home (Home) |
+| Go to the last | grid | End (End) |
+| Edit | grid | Enter and F2 (↩ and F2) |
+| Clear the cell | grid | Delete and Backspace (⌦ and ⌫) |
+| Confirm the edit | editor | Enter (↩) |
+| Cancel the edit | editor | Esc (Esc) |
+| Previous tool | zoom | ← (←) |
+| Next tool | zoom | → (→) |
+| First tool | zoom | Home (Home) |
+| Last tool | zoom | End (End) |
+| Narrower column | edge | ← (←) |
+| Wider column | edge | → (→) |
+| Much narrower column | edge | Shift+← (⇧←) |
+| Much wider column | edge | Shift+→ (⇧→) |
+| Narrowest column | edge | Home (Home) |
+| Widest column | edge | End (End) |
+| Fit the column to its content | edge | Enter (↩) |
+| Go up | panel | ↑ (↑) |
+| Go down | panel | ↓ (↓) |
+| Done | panel | Enter (↩) |
+| Cancel the edit | panel | Esc (Esc) |
+| Toggle a predecessor (a control's own keys, not changeable) | panel | Space (Space) |
+| Previous tool | switch | ← (←) |
+| First tool | switch | Home (Home) |
+| Critical path (a control's own keys, not changeable) | switch | Space (Space) |
+
 ## Example
 
 ```json item

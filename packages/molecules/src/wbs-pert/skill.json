@@ -1,13 +1,26 @@
 {
   "use": "a work breakdown with three-point estimates that the user reviews and edits, with expected effort and spread computed per package and rolled up",
+  "help": "A work breakdown with three-point estimates: the user edits names, estimates and the hierarchy, and the expected effort and spread are worked out per package and rolled up. The agent receives what the user changed.",
   "example": {
     "nodes": [
       {
         "id": "design",
         "label": "Design",
         "children": [
-          { "id": "ux", "label": "UX design", "optimistic": 3, "mostLikely": 5, "pessimistic": 10 },
-          { "id": "api", "label": "API design", "optimistic": 2, "mostLikely": 4, "pessimistic": 6 }
+          {
+            "id": "ux",
+            "label": "UX design",
+            "optimistic": 3,
+            "mostLikely": 5,
+            "pessimistic": 10
+          },
+          {
+            "id": "api",
+            "label": "API design",
+            "optimistic": 2,
+            "mostLikely": 4,
+            "pessimistic": 6
+          }
         ]
       },
       {

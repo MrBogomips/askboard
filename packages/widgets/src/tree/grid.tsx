@@ -15,6 +15,7 @@ import type {
   MouseEventHandler,
   Ref,
 } from "react";
+import { type CheckState, SelectBox } from "../shared/select-box.tsx";
 import { PERT_HEADERS } from "./cells.ts";
 import { FIELD_HEADER, GRID, HEADER_ROW, NAME_HEADER, SELECT_COLUMN } from "./classes.ts";
 import type { TreeDrag } from "./drag.ts";
@@ -24,9 +25,9 @@ import type { TreeFocus } from "./model/focus.ts";
 import type { NodeMark } from "./model/marks.ts";
 import type { PertGrid } from "./model/pert.ts";
 import type { TreeRow } from "./model/rows.ts";
-import { type CheckState, type Selection, stateOf } from "./model/selection.ts";
+import { type Selection, stateOf } from "./model/selection.ts";
 import { NodeRow, ROW_STOP, type RowEditing, type RowStop } from "./row.tsx";
-import { SelectBox } from "./select-box.tsx";
+
 import { TotalRow } from "./total-row.tsx";
 
 const stopIn = (focus: TreeFocus | undefined, nodeId: string): RowStop =>

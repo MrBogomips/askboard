@@ -1,0 +1,48 @@
+# Actions and their default keys
+
+Each action an override may name, with its default keys on Linux and, in brackets, on macOS. Where it acts depends on the widget: a widget lists the actions it binds in its own reference.
+
+- `cursor.up`: Go up, ↑ (↑)
+- `cursor.down`: Go down, ↓ (↓)
+- `cursor.left`: Go left, ← (←)
+- `cursor.right`: Go right, → (→)
+- `cursor.first`: Go to the first, Home (Home)
+- `cursor.last`: Go to the last, End (End)
+- `select.toggle`: Select, Space (Space)
+- `select.extendUp`: Extend selection up, Shift+↑ (⇧↑)
+- `select.extendDown`: Extend selection down, Shift+↓ (⇧↓)
+- `select.all`: Select all, Ctrl+A (⌘A)
+- `select.none`: Select none, Esc (Esc); with a selection
+- `move.up`: Move up, Alt+Shift+↑ (⌥⇧↑)
+- `move.down`: Move down, Alt+Shift+↓ (⌥⇧↓)
+- `move.left`: Outdent, Alt+Shift+← (⌥⇧←)
+- `move.right`: Indent, Alt+Shift+→ (⌥⇧→)
+- `move.top`: To top, Alt+Shift+Home and Ctrl+Shift+↑ (⌥⇧Home and ⇧⌘↑)
+- `move.bottom`: To bottom, Alt+Shift+End and Ctrl+Shift+↓ (⌥⇧End and ⇧⌘↓)
+- `add.after`: Add after, Alt+Shift+Enter (⌥⇧↩)
+- `add.child`: Add a child, Ctrl+Shift+Enter (⇧⌘↩)
+- `edit.start`: Edit, Enter and F2 (↩ and F2)
+- `edit.commit`: Confirm the edit, Enter (↩)
+- `edit.cancel`: Cancel the edit, Esc (Esc)
+- `delete`: Delete, Delete and Backspace and Alt+Shift+Delete and Alt+Shift+Backspace (⌦ and ⌫ and ⌥⇧⌦ and ⌥⇧⌫)
+- `adjust.percent`: Adjust by a percentage, % (%); with a selection
+- `undo`: Undo adjust, Ctrl+Z (⌘Z)
+- `keys.open`: Show the keys, ? (?)
+- `toolbar.previous`: Previous tool, ← (←)
+- `toolbar.next`: Next tool, → (→)
+- `toolbar.first`: First tool, Home (Home)
+- `toolbar.last`: Last tool, End (End)
+- `tree.cancelDelete`: Cancel, Esc (Esc)
+- `tree.cancelGroup`: Cancel, Esc (Esc)
+- `gantt.clear`: Clear the cell, Delete and Backspace (⌦ and ⌫)
+- `gantt.narrower`: Narrower column, ← (←)
+- `gantt.wider`: Wider column, → (→)
+- `gantt.narrowerMore`: Much narrower column, Shift+← (⇧←)
+- `gantt.widerMore`: Much wider column, Shift+→ (⇧→)
+- `gantt.narrowest`: Narrowest column, Home (Home)
+- `gantt.widest`: Widest column, End (End)
+- `gantt.fit`: Fit the column to its content, Enter (↩)
+- `gantt.togglePredecessor`: Toggle a predecessor, Space (Space); a control's own keys, not changeable
+- `gantt.criticalPath`: Critical path, Space (Space); a control's own keys, not changeable
+- `ranking.keep`: Keep this order, Enter (↩)
+- `chart.highlight`: Highlight the point, Space and Enter (Space and ↩)

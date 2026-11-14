@@ -139,6 +139,38 @@ export const statusOf = (
 ): LifecycleQuestionStatus | undefined =>
   state.questions.find((question) => question.itemId === itemId);
 
+// Each board state's statuses by item ID, and the IDs of its answered and declined questions: a
+// state is replaced, never changed in place, so each is made once per state.
+const BY_ITEM = new WeakMap<LifecycleBoardState, ReadonlyMap<string, LifecycleQuestionStatus>>();
+const ANSWERED = new WeakMap<LifecycleBoardState, readonly string[]>();
+
+/**
+ * The state's statuses by item ID, the first of an ID winning as `statusOf`'s lookup does; the
+ * same map for the same state, for readers that look up every question of a board.
+ */
+export const statusIndexOf = (
+  state: LifecycleBoardState,
+): ReadonlyMap<string, LifecycleQuestionStatus> => {
+  const known = BY_ITEM.get(state);
+  if (known !== undefined) return known;
+  const index = new Map<string, LifecycleQuestionStatus>();
+  for (const status of state.questions)
+    if (!index.has(status.itemId)) index.set(status.itemId, status);
+  BY_ITEM.set(state, index);
+  return index;
+};
+
+/** The IDs of the questions the state holds answered or declined, in order; once per state. */
+export const answeredIdsOf = (state: LifecycleBoardState): readonly string[] => {
+  const known = ANSWERED.get(state);
+  if (known !== undefined) return known;
+  const ids = [...statusIndexOf(state).values()]
+    .filter(({ state: each }) => each === "answered" || each === "declined")
+    .map(({ itemId }) => itemId);
+  ANSWERED.set(state, ids);
+  return ids;
+};
+
 const closed = { canAnswer: false, noteOnly: false, readOnly: true } as const;
 
 // The flight's answer for this question, as its items show it while it is sent.
@@ -250,8 +282,32 @@ export const cardActions = (inputs: ActionInputs): CardActions => {
 };
 
 /**
- * An answer's content alone, with the choice copied: the fields it has, never one set to
- * undefined, since the view protocol refuses a field that is present and not valid.
+ * An answer as the board state gives it, the board's own content beside the list of items it holds
+ * unchanged (reopen-start-from-answer, design decision 1): `unchanged` is the board state's, never
+ * the draft's, and no act carries it.
+ */
+export type CarriedAnswer = AnswerContent & { readonly unchanged?: readonly string[] };
+
+/** Which answer an `unchanged` list belongs to: the question's current one, or its previous one. */
+export type AnswerRole = "current" | "previous";
+
+/**
+ * What an answer holds unchanged since the revision it names, as a test of an item ID (design
+ * decision 2): the IDs the list names when the answer holds one, an empty list included; otherwise
+ * every ID for the `current` answer, which names the question's current revision, and none for the
+ * `previous` one, so a list lost on the way carries no value (NFR-10, AD-10). The one reader of
+ * `unchanged`: every carrying of an answer into the draft goes through it.
+ */
+export const unchangedOf = (answer: CarriedAnswer, role: AnswerRole): ((id: string) => boolean) => {
+  const { unchanged } = answer;
+  if (unchanged === undefined) return () => role === "current";
+  const listed = new Set(unchanged);
+  return (id) => listed.has(id);
+};
+
+/**
+ * An answer's content alone, with the choice and the unchanged list copied: the fields it has,
+ * never one set to undefined, since the view protocol refuses a field that is present and not valid.
  */
 export const contentOf = ({
   choice,
@@ -261,7 +317,8 @@ export const contentOf = ({
   other,
   optionNotes,
   note,
-}: AnswerContent): AnswerContent => ({
+  unchanged,
+}: CarriedAnswer): CarriedAnswer => ({
   ...(choice === undefined ? {} : { choice: [...choice] }),
   ...(values === undefined ? {} : { values }),
   ...(results === undefined ? {} : { results }),
@@ -269,6 +326,7 @@ export const contentOf = ({
   ...(other === undefined ? {} : { other }),
   ...(optionNotes === undefined ? {} : { optionNotes: { ...optionNotes } }),
   ...(note === undefined ? {} : { note }),
+  ...(unchanged === undefined ? {} : { unchanged: [...unchanged] }),
 });
 
 /** The answer view message for the draft's answer, stamped with the time of the act. */

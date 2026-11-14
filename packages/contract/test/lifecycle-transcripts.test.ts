@@ -92,11 +92,16 @@ describe.each(Object.entries(lifecycleTranscripts))("the %s transcript", (_, tra
     }
   });
 
-  test("each socket opens with connect and its token, then gets the board and the state", () => {
+  // The held draft record goes between the board and the state (reopen-start-from-answer, decision 9).
+  test("each socket opens with connect and its token, then gets the board, a held draft if any, and the state", () => {
     for (const socketSteps of sockets.values()) {
       const [first, ...rest] = socketSteps;
       expect(messageOf(first)).toMatchObject({ type: "connect", token: transcript.token });
-      expect(rest.slice(0, 2).map(kindOf)).toEqual(["board", "state"]);
+      const opening = rest.slice(0, 3).map(kindOf);
+      expect([
+        ["board", "state", ...opening.slice(2)],
+        ["board", "draft", "state"],
+      ]).toContainEqual(opening);
       const end = socketSteps.findIndex((step) => "close" in step || "drop" in step);
       if (end !== -1) expect(socketSteps.slice(end + 1)).toEqual([]);
     }
@@ -205,8 +210,8 @@ describe("each lifecycle exchange", () => {
       [1, "draft"],
       [1, `close ${BOARD_CLOSE_CODES.moved}`],
       [2, "board"],
-      [2, "state"],
       [2, "draft"],
+      [2, "state"],
     ]);
     const last = messageOf(steps[takeover + 2]);
     const earlier = steps
@@ -215,7 +220,7 @@ describe("each lifecycle exchange", () => {
       .filter((message) => message?.type === "draft");
     expect(earlier).toHaveLength(1);
     expect(earlier[0]).not.toEqual(last);
-    expect(messageOf(steps.at(-1))).toEqual(last);
+    expect(messageOf(steps.at(-2))).toEqual(last);
   });
 
   test("restored draft: after a drop, the new socket gets the draft record last mirrored", () => {
@@ -228,10 +233,10 @@ describe("each lifecycle exchange", () => {
       [1, "drop"],
       [2, "connect"],
       [2, "board"],
-      [2, "state"],
       [2, "draft"],
+      [2, "state"],
     ]);
-    expect(messageOf(steps[8])).toEqual(messageOf(steps[3]));
+    expect(messageOf(steps[7])).toEqual(messageOf(steps[3]));
   });
 
   test("closed ask: board-host says closed, then refuses an act with reason closed", () => {

@@ -2,7 +2,7 @@
 // content the user chose to open, as a web reference's is, so the page opens it only when it is an
 // `http:` or `https:` URL with no user name or password, of at most `LINK_URL_MAX_CHARS`
 // characters with no space or control character, and the item the message names holds Markdown in the board document the page holds: a
-// Text whose `format` is `markdown`, or a question with an option whose preview is Markdown. The
+// Text whose `format` is `markdown`, a Document review, or a question with an option whose preview is Markdown. The
 // message's own claim about the item counts for nothing.
 
 import { isLinkUrl, LINK_URL_MAX_CHARS } from "@askboard/contract";
@@ -23,6 +23,19 @@ const isMarkdownText = (document: ViewDocument, itemId: string): boolean => {
   );
 };
 
+// A Document review whose props hold a document, as the board document holds it (document-review,
+// design decision 10): its Markdown is the item's own, found at any depth of the layouts.
+const isReviewedDocument = (document: ViewDocument, itemId: string): boolean => {
+  const item = boardItemOf(document, itemId);
+  return (
+    item?.type === "document-review" &&
+    isRecord(item.props) &&
+    Object.hasOwn(item.props, "markdown") &&
+    typeof item.props.markdown === "string" &&
+    item.props.markdown !== ""
+  );
+};
+
 // A question whose option shows a Markdown preview: a `preview` with `previewFormat: "markdown"`.
 const hasMarkdownPreview = (document: ViewDocument, itemId: string): boolean =>
   questionsOf(document)
@@ -36,10 +49,15 @@ const hasMarkdownPreview = (document: ViewDocument, itemId: string): boolean =>
       ),
     );
 
-/** Whether the item holds Markdown in the board document: a Text, or a question's option preview. */
+/**
+ * Whether the item holds Markdown in the board document: a Text, a Document review, or a
+ * question's option preview.
+ */
 export const holdsMarkdown = (document: ViewDocument | undefined, itemId: string): boolean =>
   document !== undefined &&
-  (isMarkdownText(document, itemId) || hasMarkdownPreview(document, itemId));
+  (isMarkdownText(document, itemId) ||
+    isReviewedDocument(document, itemId) ||
+    hasMarkdownPreview(document, itemId));
 
 /** Whether the page opens the URL: the contract's one link check, which the view applies too. */
 export const isOpenableUrl = isLinkUrl;

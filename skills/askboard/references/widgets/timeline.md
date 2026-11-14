@@ -24,6 +24,21 @@ Item type `timeline`: props are a Timeline's props {lanes, entries}.
 
 - Edits: `changes` lists what the user changed, one operation for each, naming an element by its ID in `target` (`<item>.<element>` or `<item>.<element>.<field>`). Only what changed is sent; `fetch` returns the whole item.
 
+## Keys
+
+The board shows no keys panel for the Timeline yet, and the user's key changes do not reach it: these are its default keys.
+
+| Action | Where | Keys (macOS) |
+|---|---|---|
+| Go up | entries | ↑ (↑) |
+| Go down | entries | ↓ (↓) |
+| Go to the first | entries | Home (Home) |
+| Go to the last | entries | End (End) |
+| Previous tool | toolbar | ← (←) |
+| Next tool | toolbar | → (→) |
+| First tool | toolbar | Home (Home) |
+| Last tool | toolbar | End (End) |
+
 ## Example
 
 ```json item

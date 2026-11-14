@@ -83,7 +83,12 @@ const setup = (log = new EventLog()) => {
     now: "2026-11-07T10:00:00Z",
     model,
     log,
-    widgets: { source: undefined, expansion: new Map(), references: new Map() },
+    widgets: {
+      source: undefined,
+      expansion: new Map(),
+      references: new Map(),
+      expanded: new Map(),
+    },
     types: TYPES,
   };
   return { model, log, context };

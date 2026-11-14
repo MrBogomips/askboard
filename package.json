@@ -27,12 +27,13 @@
   "devDependencies": {
     "@askboard/contract": "workspace:*",
     "@askboard/molecules": "workspace:*",
-    "@biomejs/biome": "2.6.4",
+    "@askboard/view": "workspace:*",
+    "@biomejs/biome": "2.6.6",
     "@modelcontextprotocol/client": "2.4.0",
     "@types/bun": "1.4.4",
     "ajv": "8.20.0",
-    "lightningcss": "1.32.0",
-    "playwright": "1.64.1",
+    "lightningcss": "1.33.0",
+    "playwright": "1.65.0",
     "typescript": "7.0.2"
   },
   "volta": {

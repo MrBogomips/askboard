@@ -117,17 +117,19 @@ export type HeldEntry = {
  * replace a latest answer or decline the agent has received (its receipt reads `delivered`) on a
  * question holding an item whose chunk asks for it, whether or not the press that held the act
  * asked, the receipt having possibly turned `delivered` since. A held postpone, note or reopen
- * replaces nothing.
+ * replaces nothing. `shownOf` gives the question as its card shows it, whose items decide.
  */
 export const questionsToConfirm = (
   document: ViewDocument,
   held: readonly HeldEntry[],
   state: LifecycleBoardState,
   factsOf?: (type: string) => ComponentFacts | undefined,
+  shownOf?: (question: ViewQuestion) => ViewQuestion,
 ): readonly ViewQuestion[] =>
   questionsOf(document).filter((question) => {
     const act = held.find((entry) => entry.question.id === question.id)?.work.held.act;
     if (act !== "answer" && act !== "decline") return false;
     const status = state.questions.find((each) => each.itemId === question.id);
-    return confirmsRevisionOf(question, status, factsOf);
+    // The items that ask are those of the revision the card shows and the act names (Issue #92).
+    return confirmsRevisionOf(shownOf?.(question) ?? question, status, factsOf);
   });

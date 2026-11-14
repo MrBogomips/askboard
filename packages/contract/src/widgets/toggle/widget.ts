@@ -24,6 +24,11 @@ export const TOGGLE_WIDGET: WidgetType = {
       props: { label: "Notify me when it ships" },
     },
   },
+  help: {
+    mouse: "Click it to switch it on or off; Clear takes your choice back.",
+    answer:
+      "The agent receives on or off. Off is an answer; a switch you did not touch gives none.",
+  },
   skill: {
     use: "an on or off choice the user sets, such as a switch or a yes or no",
     notes: [

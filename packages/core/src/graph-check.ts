@@ -20,6 +20,7 @@ import {
 import type { RequestProblem } from "@askboard/contract/validate";
 import { referenceAddressing } from "./molecules/addressing.ts";
 import type { ExpansionMap } from "./molecules/map.ts";
+import { boundedWarnings } from "./warning-bound.ts";
 
 type Json = Readonly<Record<string, unknown>>;
 
@@ -57,7 +58,15 @@ export const FORMULA_WARNINGS_MAX_CHARS = 10_000;
  */
 export const FORMULA_WARNING_CLOSING_MAX_CHARS = 1_000;
 
-const jsonLength = (warning: FormulaWarning): number => JSON.stringify(warning).length;
+// Nothing after the closing warning: no count, only that its own detail is left out.
+const closingFormulaWarning = (first: FormulaWarning, left: number): FormulaWarning => {
+  const { itemId, address, error } = first as FormulaWarning & { error: string };
+  const message =
+    left === 0
+      ? `The formula at ${address} is in error (${error}); its detail is left out.`
+      : `The formula at ${address} is in error (${error}), and ${left} more formula ${left === 1 ? "warning is" : "warnings are"} left out.`;
+  return { code: "formula", itemId, address, error, message };
+};
 
 /**
  * The warnings within `max` characters of JSON text, measured as `JSON.stringify` writes them,
@@ -69,30 +78,12 @@ const jsonLength = (warning: FormulaWarning): number => JSON.stringify(warning).
 export const boundedFormulaWarnings = (
   warnings: readonly FormulaWarning[],
   max: number,
-): readonly FormulaWarning[] => {
-  const lengths = warnings.map(jsonLength);
-  // "[" and "]", and a comma between two warnings.
-  const total = lengths.reduce((sum, length) => sum + length, 2) + Math.max(0, lengths.length - 1);
-  if (total <= max) return warnings;
-  const budget = max - FORMULA_WARNING_CLOSING_MAX_CHARS;
-  let used = 2;
-  let kept = 0;
-  while (kept < warnings.length) {
-    const next = used + (lengths[kept] as number) + (kept === 0 ? 0 : 1);
-    if (next > budget) break;
-    used = next;
-    kept += 1;
-  }
-  const first = warnings[kept] as FormulaWarning;
-  const left = warnings.length - kept - 1;
-  const { itemId, address, error } = first as FormulaWarning & { error: string };
-  // Nothing after the closing warning: no count, only that its own detail is left out.
-  const message =
-    left === 0
-      ? `The formula at ${address} is in error (${error}); its detail is left out.`
-      : `The formula at ${address} is in error (${error}), and ${left} more formula ${left === 1 ? "warning is" : "warnings are"} left out.`;
-  return [...warnings.slice(0, kept), { code: "formula", itemId, address, error, message }];
-};
+): readonly FormulaWarning[] =>
+  boundedWarnings(warnings, {
+    max,
+    room: FORMULA_WARNING_CLOSING_MAX_CHARS,
+    closing: closingFormulaWarning,
+  });
 
 /** The part of an address before the first `.`: the item's ID. */
 const itemOf = (address: string): string => address.split(".", 1)[0] ?? address;

@@ -10,8 +10,9 @@
 import { CELL_ENTRIES_MAX } from "@askboard/contract";
 import { valueItemsOf } from "../nested-items.ts";
 import { questionsOf, type ViewDocument, type ViewQuestion } from "../view-document.ts";
+import type { ShownOf } from "./agent-change.ts";
 import type { DraftRecord, DraftStore } from "./draft-store.ts";
-import { cutEntry } from "./entries.ts";
+import { cutEntry, idsOver } from "./entries.ts";
 
 /** One Table's cell entries: `row.field` to the text typed, in the order they were first held. */
 export type CellEntries = ReadonlyMap<string, string>;
@@ -111,11 +112,22 @@ export const cellEntriesShown = (
     : NO_CELL_ENTRIES;
 
 /**
- * Drops each item's cell entries whose item the document no longer holds as a Table: an update that
- * removed the item, or changed its type under the same ID, leaves no entry that nothing can correct.
+ * Drops each item's cell entries whose item neither the document's question nor the question as the
+ * card shows it (`shownOf`) holds as a Table: an update that removed the item, or changed its type
+ * under the same ID, leaves no entry that nothing can correct. Cell entries on a Table only the
+ * shown revision holds stay, as `dropStaleEntries` keeps the field entries (document-review,
+ * design decision 15; review S-1 of 6.17).
  */
-export const dropStaleCellEntries = (document: ViewDocument, store: DraftStore): void => {
-  const held = new Set(questionsOf(document).flatMap((question) => cellEntryIdsOf(question)));
+export const dropStaleCellEntries = (
+  document: ViewDocument,
+  store: DraftStore,
+  shownOf?: ShownOf,
+): void => {
+  const held = new Set(
+    questionsOf(document).flatMap((question) =>
+      idsOver(cellEntryIdsOf, question, shownOf?.(question) ?? question),
+    ),
+  );
   const stale = [...store.record().keys()].filter((itemId) => !held.has(itemId));
   if (stale.length === 0) return;
   store.update(Object.fromEntries(stale.map((itemId) => [itemId, undefined])));

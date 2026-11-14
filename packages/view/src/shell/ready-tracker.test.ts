@@ -1,11 +1,17 @@
-import { describe, expect, mock, test } from "bun:test";
+import { describe, expect, mock, spyOn, test } from "bun:test";
 import {
   ganttBoardDocument,
   lifecycleBoardDocument,
   plainChoiceBoardDocument,
 } from "@askboard/contract/fixtures";
-import type { ViewDocument, WidgetItem } from "../view-document.ts";
+import type { ViewDocument, ViewQuestion, WidgetItem } from "../view-document.ts";
+import { createRevisions, shownOfBoard } from "./agent-change.ts";
+import { createAttention } from "./attention.ts";
+import { createBoardDraft } from "./board-draft.ts";
+import { applyDocumentUpdate, connectTracker } from "./document-update.ts";
+import { createDraftStore } from "./draft-store.ts";
 import { createReadyTracker, type QuestionItems, questionItemsOf } from "./ready-tracker.ts";
+import { createStore } from "./store.ts";
 
 const setUp = (questions: readonly QuestionItems[]) => {
   const onVisible = mock((_questionId: string) => {});
@@ -222,5 +228,131 @@ describe("a Gantt item, counted by its type like any widget item (gantt-widget d
     tracker.readyFor("release")();
     expect(tracker.questionStatus("schedule-review")).toBe("visible");
     expect(onVisible.mock.calls).toEqual([["schedule-review"]]);
+  });
+});
+
+// The tracker over the shown document (document-review, task 6.19; design decision 15): through
+// `document-update.ts`' functions, in production's order. A question whose card shows the revision
+// its work was made on waits for that revision's items, never for the current one's.
+describe("the ready tracker follows the revision the card shows, through the update step", () => {
+  const [plain] = plainChoiceBoardDocument.items;
+  const item = (id: string): WidgetItem => ({ type: "text-field", id, props: { label: id } });
+  const questionOf = (rev: number, ...ids: readonly string[]): ViewQuestion =>
+    ({
+      ...plain,
+      id: "plan",
+      rev,
+      props: { ...plain?.props, options: undefined, items: ids.map(item) },
+    }) as unknown as ViewQuestion;
+  const documentOf = (question: ViewQuestion): ViewDocument =>
+    ({ ...plainChoiceBoardDocument, items: [question] }) as unknown as ViewDocument;
+
+  // Revision 1 loaded and its work started, then the update step for revision 2 and the board
+  // connection `index.tsx` makes.
+  const setUp = (withWork = true) => {
+    const first = documentOf(questionOf(1, "t", "a"));
+    const revisions = createRevisions();
+    revisions.record(first);
+    const board = createBoardDraft("immediate");
+    const shownOf = shownOfBoard(board, revisions);
+    const visible = mock((_questionId: string) => {});
+    const failed = mock((_questionId: string, _itemId: string, _error: string) => {});
+    const tracker = createReadyTracker(questionItemsOf(first), {
+      onVisible: visible,
+      onFailed: failed,
+    });
+    tracker.readyFor("t")();
+    tracker.readyFor("a")();
+    if (withWork) board.edit("plan", 1, (work) => work);
+    let document = first;
+    connectTracker(() => document, board, shownOf, tracker);
+    const update = (next: ViewDocument) => {
+      applyDocumentUpdate(document, next, {
+        revisions,
+        draft: createDraftStore(),
+        results: createDraftStore(),
+        entries: createDraftStore(),
+        cellEntries: createDraftStore(),
+        board,
+        shownOf,
+        tracker,
+        attention: createAttention(first, {
+          ask: "waiting",
+          questions: [{ itemId: "plan", rev: 1, state: "open" }],
+        } as never),
+        focus: createStore(undefined),
+        removed: createStore(false),
+        focused: () => undefined,
+      });
+      document = next;
+    };
+    return { tracker, board, update, visible, failed };
+  };
+
+  test("revision 2 adds an item to a question whose work is on revision 1: it stays visible and awaits nothing", () => {
+    const { tracker, update, visible } = setUp();
+    expect(visible.mock.calls).toEqual([["plan"]]);
+    update(documentOf(questionOf(2, "t", "a", "d")));
+    expect(tracker.questionStatus("plan")).toBe("visible");
+    expect(tracker.itemStatus("d")).toBe("pending");
+    expect(visible).toHaveBeenCalledTimes(1);
+  });
+
+  test("after Reload drops the work, the added item is awaited until it reports ready, then the question is visible", () => {
+    const { tracker, board, update, visible } = setUp();
+    update(documentOf(questionOf(2, "t", "a", "d")));
+    board.forget("plan");
+    expect(tracker.questionStatus("plan")).toBe("loading");
+    tracker.readyFor("d")();
+    expect(tracker.questionStatus("plan")).toBe("visible");
+    expect(visible).toHaveBeenCalledTimes(2);
+  });
+
+  test("revision 2 removes an item the card still shows: its failure fails the question and is reported", () => {
+    const { tracker, update, failed } = setUp();
+    update(documentOf(questionOf(2, "a")));
+    expect(tracker.questionStatus("plan")).toBe("visible");
+    tracker.fail("t", "the item threw");
+    expect(tracker.questionStatus("plan")).toBe("failed");
+    expect(failed.mock.calls).toEqual([["plan", "t", "the item threw"]]);
+  });
+
+  test("an item the card shows reports ready after the update and the question stays visible", () => {
+    const { tracker, board, update, visible } = setUp();
+    update(documentOf(questionOf(2, "a")));
+    // The shown revision's item that remounts reports ready again: nothing moves.
+    tracker.readyFor("t")();
+    expect(tracker.questionStatus("plan")).toBe("visible");
+    // Once the work goes, the card shows revision 2: `t` leaves the question, and a failure of it
+    // fails nothing.
+    board.forget("plan");
+    expect(tracker.questionStatus("plan")).toBe("visible");
+    tracker.fail("t", "late");
+    expect(tracker.questionStatus("plan")).toBe("visible");
+    expect(visible).toHaveBeenCalledTimes(1);
+  });
+
+  test("work put back on revision 1 after the update, as a restore does, gives the card revision 1 again: the question awaits that revision's items", () => {
+    const { tracker, board, update } = setUp(false);
+    update(documentOf(questionOf(2, "a", "d")));
+    expect(tracker.questionStatus("plan")).toBe("loading");
+    board.edit("plan", 1, (work) => work);
+    // `t` is the item of revision 1 the card shows again: awaited until it reports ready; `d`, of
+    // revision 2, is not awaited.
+    expect(tracker.itemStatus("t")).toBe("pending");
+    expect(tracker.questionStatus("plan")).toBe("loading");
+    tracker.readyFor("t")();
+    expect(tracker.questionStatus("plan")).toBe("visible");
+  });
+
+  test("a board change that gives no card another revision includes nothing: the same shown document is not included again", () => {
+    const { tracker, board, update } = setUp();
+    update(documentOf(questionOf(2, "t", "a", "d")));
+    // The first board change after the update meets the shown document the update made.
+    board.setInView("other");
+    const include = spyOn(tracker, "include");
+    for (let change = 0; change < 5; change += 1) board.setInView(change % 2 === 0 ? "plan" : "x");
+    board.edit("plan", 1, (work) => ({ ...work, note: "n" }));
+    expect(include).toHaveBeenCalledTimes(0);
   });
 });

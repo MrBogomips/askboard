@@ -15,7 +15,10 @@ export const validateConfiguration = (value: unknown): Checked<Configuration> =>
 /**
  * Why a parsed configuration file is not applied, for ask-core's diagnostic and the settings panel:
  * a major other than 1, else the first schema failure's JSON pointer and Ajv's keyword. Undefined
- * when the file applies. Neither names a value, so an `editor` never reaches a diagnostic.
+ * when the file applies. Neither names a value, so an `editor` never reaches a diagnostic. The
+ * pointer may hold a name from the file (the property that failed, under `keys` or any other
+ * object), so every sink shows it through `quoteFileText` or `escapeFileText`, never raw
+ * (keyboard-shortcuts-help, review 8.6, X-1).
  */
 export const configurationProblem = (value: unknown): FileProblem | undefined => {
   const checked = validateConfiguration(value);

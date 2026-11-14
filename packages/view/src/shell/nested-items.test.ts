@@ -161,7 +161,10 @@ describe("what a question holds at every depth", () => {
         },
       ],
     } as never;
-    const answered = createAnsweredResults(() => ({ document, state }));
+    const answered = createAnsweredResults(
+      () => ({ document, state }),
+      () => ({ fits: () => true }),
+    );
     expect(answered("plan-hours")).toBe(3);
     expect(answered("plan-notify")).toBe(true);
     const board = createBoardContent(() => ({ document, state }))(new Map());

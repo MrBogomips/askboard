@@ -10,7 +10,7 @@
 
 import { afterAll, describe, expect, test } from "bun:test";
 import { TEXT_MAX_CHARS } from "@askboard/contract";
-import { MARKDOWN_HTML_MAX_CHARS } from "../../src/catalog/text/markdown.ts";
+import { MARKDOWN_HTML_MAX_CHARS } from "../../src/markdown/markdown.ts";
 import { DENSE_TABLE, EMPTY_ITEMS, paddedTable } from "./fixtures/dense-markdown.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import { MarkdownFrame } from "./harness/markdown-frame.ts";

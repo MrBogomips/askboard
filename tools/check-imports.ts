@@ -27,7 +27,8 @@ const SERVER_UNITS = new Set([
 ]);
 
 // What each unit may import, from the spine's Invariants & Rules diagram and AD-1. `view/assemble`
-// (AD-9) and `view/catalog` (the CatalogRenderer port) are the two view entries other units use.
+// (AD-9), `view/catalog` (the CatalogRenderer port) and `view/markdown` (the shared Markdown renderer,
+// document-review design decision 6) are the view entries other units use.
 // A change to the diagram updates this table in the same OpenSpec change.
 const ALLOWED: Readonly<Record<string, readonly string[]>> = {
   contract: [],
@@ -56,7 +57,7 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
   ],
   molecules: ["contract"],
   view: ["contract", "compute"],
-  widgets: ["contract", "compute", "view/catalog"],
+  widgets: ["contract", "compute", "view/catalog", "view/markdown"],
   mod: ["contract"],
   hooks: ["contract"],
   bench: ["contract"],
@@ -79,7 +80,7 @@ const PACKAGES = new Set([
 const RUNTIME_NEUTRAL = new Set(["core", "compute", "mod"]);
 // core, compute and mod compile contract's sources too, so its type references would reach them.
 const TYPE_ISOLATED = new Set(["contract", "core", "compute", "mod"]);
-const VIEW_ENTRIES = new Set(["assemble", "catalog"]);
+const VIEW_ENTRIES = new Set(["assemble", "catalog", "markdown"]);
 const SOURCE_FILE = /\.[cm]?[jt]sx?$/;
 const SKIPPED_DIRECTORIES = new Set(["node_modules", "dist", "coverage"]);
 const SCOPE = "@askboard/";

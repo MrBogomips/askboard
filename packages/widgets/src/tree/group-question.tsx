@@ -9,7 +9,7 @@
 // it ends with it (DESIGN, Agent-written labels).
 
 import { useStrings } from "@askboard/view/catalog";
-import { type KeyboardEvent, useId } from "react";
+import { useId } from "react";
 import {
   GROUP_QUESTION,
   GROUP_QUESTION_BUTTONS,
@@ -18,20 +18,7 @@ import {
   TOOL,
 } from "./classes.ts";
 import { groupedWith, type GroupQuestion as Question } from "./grouping.ts";
-import { treeKeyOf } from "./key-event.ts";
-import { keyAction } from "./model/keys.ts";
-
-/**
- * The question's key handler: Escape means "Cancel", as it cancels an edit (`keys.ts`); the buttons
- * take Enter and Space, and a key an input method is composing is not the question's.
- */
-export const questionKeyDown =
-  (onCancel: () => void) =>
-  (event: KeyboardEvent<HTMLFieldSetElement>): void => {
-    if (keyAction(treeKeyOf(event), "edit")?.kind !== "cancel") return;
-    event.preventDefault();
-    onCancel();
-  };
+import { questionKeyDown } from "./question-keys.ts";
 
 /** Puts the focus on "Cancel" as it mounts: the safe answer, as the delete question does. */
 export const focusOnMount = (button: HTMLButtonElement | null): void => button?.focus();

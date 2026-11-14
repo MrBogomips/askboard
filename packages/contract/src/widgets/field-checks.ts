@@ -14,7 +14,13 @@ export type FieldCheckFailure =
   | { readonly code: "min-length"; readonly min: number }
   | { readonly code: "pattern" }
   | { readonly code: "min-items"; readonly min: number }
-  | { readonly code: "max-items"; readonly max: number };
+  | { readonly code: "max-items"; readonly max: number }
+  /**
+   * Since the Document review: `count` of its annotations have no place in the document the user
+   * is shown. Only the view raises it (placing a quote needs the rendered text), never
+   * `ask-core`, since the type declares no `fieldCheck`.
+   */
+  | { readonly code: "detached"; readonly count: number };
 
 /**
  * `required` for a field with no result: only a boolean `true` in the props asks for one, and any
@@ -43,6 +49,8 @@ export const fieldCheckMessage = (failure: FieldCheckFailure): string => {
       return `needs at least ${failure.min} picks`;
     case "max-items":
       return `allows at most ${failure.max} picks`;
+    case "detached":
+      return `holds ${failure.count} ${failure.count === 1 ? "annotation" : "annotations"} the document no longer places`;
   }
 };
 
@@ -64,6 +72,8 @@ export const fieldCheckProp = (failure: FieldCheckFailure): string => {
       return "minItems";
     case "max-items":
       return "maxItems";
+    case "detached":
+      return "annotations";
   }
 };
 

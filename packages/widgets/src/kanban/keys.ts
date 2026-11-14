@@ -4,6 +4,7 @@
 // move it within its column, and no other press acts. Each tool acts only where the current card
 // of a Kanban that can change can make its move; "Move to…" offers the other columns. Pure.
 
+import type { KeyPress } from "@askboard/contract";
 import type { KanbanColumnView, KanbanKey, KanbanMove } from "./model.ts";
 
 const CURSOR: Readonly<Record<string, KanbanKey>> = {
@@ -30,39 +31,31 @@ export type KanbanPress =
   | { readonly kind: "cursor"; readonly key: KanbanKey }
   | { readonly kind: "move"; readonly move: KanbanMove };
 
-/** A key press as the cards' Tab stop reads it. */
-export type PressInput = {
-  readonly key: string;
-  readonly altKey: boolean;
-  readonly shiftKey: boolean;
-  readonly ctrlKey: boolean;
-  readonly metaKey: boolean;
-  /** An input method is composing: the press is its own. */
-  readonly composing: boolean;
-};
-
 const named = <T>(table: Readonly<Record<string, T>>, key: string): T | undefined =>
   Object.hasOwn(table, key) ? table[key] : undefined;
 
 /**
- * The press as the Kanban takes it, or none: a press the table does not name, under any other hold
- * and while an input method composes, does nothing and keeps its default.
+ * The press as the Kanban takes it, or none: the arrow keys with no modifier make a card current,
+ * and the moves of `KANBAN_KEYS` (`move.up`, `move.down`, `move.top` and `move.bottom`, held as
+ * Alt+Shift or as exactly one of Ctrl and Cmd with Shift) move it within its column. A press the
+ * table does not bind, under any other hold and while an input method composes, does nothing and
+ * keeps its default (keyboard-shortcuts-help, design decisions 7 and 9; kanban-order, decision 5).
  */
-export const kanbanPressOf = (input: PressInput): KanbanPress | undefined => {
-  const { key, altKey, shiftKey, ctrlKey, metaKey, composing } = input;
-  if (composing) return undefined;
-  if (!(altKey || shiftKey || ctrlKey || metaKey)) {
-    const cursor = named(CURSOR, key);
-    return cursor === undefined ? undefined : { kind: "cursor", key: cursor };
+export const kanbanPressOf = (press: KeyPress): KanbanPress | undefined => {
+  if (press.composing) return undefined;
+  switch (press.hold) {
+    case "none": {
+      const key = named(CURSOR, press.key);
+      return key === undefined ? undefined : { kind: "cursor", key };
+    }
+    case "alt+shift":
+    case "mod+shift": {
+      const move = named(press.hold === "alt+shift" ? ALT_SHIFT : COMMAND_SHIFT, press.key);
+      return move === undefined ? undefined : { kind: "move", move };
+    }
+    default:
+      return undefined;
   }
-  if (!shiftKey) return undefined;
-  const move =
-    altKey && !ctrlKey && !metaKey
-      ? named(ALT_SHIFT, key)
-      : !altKey && ctrlKey !== metaKey
-        ? named(COMMAND_SHIFT, key)
-        : undefined;
-  return move === undefined ? undefined : { kind: "move", move };
 };
 
 /** The tools of the toolbar, each enabled or not. */

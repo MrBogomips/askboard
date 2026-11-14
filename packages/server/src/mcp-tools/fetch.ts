@@ -1,7 +1,9 @@
 // The `fetch` tool (AD-6, FR-20; ask-lifecycle, design decision 4): one item of an open or closed
 // ask as ask-core holds it now, in full, or page by page when it does not fit one result. It reads
 // nothing from the draft record and raises no `received` (AD-3). A discarded ask, and one this
-// epoch does not hold, is a typed result, never an error (AD-10).
+// epoch does not hold, is a typed result, never an error (AD-10); so is an item the agent deleted,
+// at any depth, the outcome `deleted` beside `discarded` (agent-facing-gaps). An ID the ask never
+// held, or one a change dropped, stays an error.
 
 import {
   FETCH_PAGE_MAX_CHARS,
@@ -23,7 +25,11 @@ const REFUSED = "The fetch request was refused. Fix these problems and send it a
 // The item ask-core holds, with the result's unchecked mark while the ask has no owner (AD-5).
 type Held = Extract<FullValue, { kind: "item" }> & { readonly unchecked?: true };
 
-const notHeld = (value: Exclude<FullValue, Held>, epoch: string): ToolResult => {
+const notHeld = (
+  value: Exclude<FullValue, Held>,
+  epoch: string,
+  unchecked: { readonly unchecked?: true },
+): ToolResult => {
   if (value.kind === "discarded") {
     const typed: FetchOutcomeResult = {
       versions: RESULT_VERSIONS,
@@ -34,11 +40,20 @@ const notHeld = (value: Exclude<FullValue, Held>, epoch: string): ToolResult => 
     return jsonResult(typed);
   }
   const { askId, itemId } = value;
-  const why =
-    value.kind === "deleted"
-      ? ": it was deleted by an update, and an item ID is never reused"
-      : "; name a question, an area, a widget item or a molecule reference the ask holds, by the ID you sent";
-  return errorResult(`The fetch was refused: the ask "${askId}" has no item "${itemId}"${why}.`);
+  if (value.kind === "deleted") {
+    const typed: FetchOutcomeResult = {
+      versions: RESULT_VERSIONS,
+      epoch,
+      askId,
+      itemId,
+      outcome: "deleted",
+      ...unchecked,
+    };
+    return jsonResult(typed);
+  }
+  return errorResult(
+    `The fetch was refused: the ask "${askId}" has no item "${itemId}"; name a question, an area, a widget item or a molecule reference the ask holds, by the ID you sent.`,
+  );
 };
 
 const unknownContinuation = (itemId: string) =>
@@ -111,8 +126,9 @@ export const handleFetch: ToolHandler = async ({ core }, args, context) => {
   if (refused !== undefined) return refused;
   const { askId, itemId, continuation } = checked.value;
   const full = core.fullValue(askId, itemId);
-  if (full.kind !== "item") return notHeld(full, core.epoch);
-  const value: Held = { ...full, ...uncheckedMark(core, askId) };
+  const unchecked = uncheckedMark(core, askId);
+  if (full.kind !== "item") return notHeld(full, core.epoch, unchecked);
+  const value: Held = { ...full, ...unchecked };
   const text = canonicalize(value.item);
   if (continuation !== undefined) return continued(value, core.epoch, text, continuation);
   if (fits(value, core.epoch, text)) return jsonResult(whole(value, core.epoch));

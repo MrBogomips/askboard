@@ -2,8 +2,9 @@ import { describe, expect, test } from "bun:test";
 import { createElement, type KeyboardEvent } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { GROUP_QUESTION_ROW } from "./classes.ts";
-import { focusOnMount, GroupQuestion, questionKeyDown } from "./group-question.tsx";
+import { focusOnMount, GroupQuestion } from "./group-question.tsx";
 import type { GroupQuestion as Question } from "./grouping.ts";
+import { questionKeyDown } from "./question-keys.ts";
 
 // The question before a leaf becomes a group (view spec, Making a work package a group asks first,
 // The group question's words, Answering the group question; design decision 2). The server renderer

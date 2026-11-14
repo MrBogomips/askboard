@@ -8,7 +8,7 @@ description: Runs an AskBoard OpenSpec change end to end with the project's agen
 The session that runs this skill is the coordinator. It holds the change's state (ids, SHAs,
 findings), delegates the file-heavy work to the agents, and keeps their conclusions, not their
 reading. OpenSpec owns the artifacts: everything written under `openspec/changes/<id>/` goes through
-the opsx skills. GitHub Issues own the backlog: a change starts from its Issue, and `AGENTS.md` (The
+the opsx skills. GitHub Issues own the backlog: a change starts from its Issue, and `CLAUDE.md` (The
 backlog) holds the procedure and the commands for every step below that touches one.
 
 ## 1. Team, model and effort
@@ -38,7 +38,7 @@ and the base of the next one.
 
 0. **Triage.** A question, a typo or a configuration fix is not delivery work: answer it, or commit
    it directly on `main` as CLAUDE.md allows. For a change, find its Issue, or open one after the
-   duplicate search (`AGENTS.md`, The backlog); a change with no Issue is the exception, and its report
+   duplicate search (`CLAUDE.md`, The backlog); a change with no Issue is the exception, and its report
    says why. Then read `openspec list` and `openspec status --change <id>`, and resume at the first
    step not done.
 1. **Worktree.** A change runs in an integrated worktree `feature-<slug>` (CLAUDE.md, Git / PR
@@ -60,7 +60,7 @@ and the base of the next one.
       network.
    4. Fold the findings (`askboard-review-protocol`, section 6). The implementer fixes them tests
       first, then the same reviewer re-reviews the fix range. A finding deferred, or a defect the
-      change will not fix, becomes an Issue with `source:review`.
+      change will not fix, becomes an Issue with `source:review` and its areas.
 4. **Before the pull request:**
    1. Rebase onto `origin/main`. Bind the version labels and re-check the borrowed seams with
       `askboard-contract-versioning`. Run the implementer at high effort for conflicts.
@@ -72,7 +72,8 @@ and the base of the next one.
    5. The kaizen retrospective of the development workflow, then the pull request. Its body says
       `Closes #n`, or `Refs #n` when the Issue spans several changes (the last one says `Closes`).
 5. **Before `/opsx:archive`:** the pull request is merged; every Verify task is ticked or its reason
-   recorded; the CLAUDE.md Status and "In code since" lines describe the change as built; the PRD,
+   recorded; the change's as-built note `docs/as-built/<change-id>.md` describes it as built (the
+   change never edits CLAUDE.md for its own record, and the archive does not touch it); the PRD,
    spine and UX documents carry the updates the change states. The archive pull request says
    `Refs #n` and never reopens the Issue.
 

@@ -14,4 +14,5 @@ export {
   type RankingProps,
   type RankingResult,
 } from "./constants.ts";
+export { RANKING_KEYS, type RankingKeyAction } from "./keys.ts";
 export { RANKING_WIDGET } from "./widget.ts";

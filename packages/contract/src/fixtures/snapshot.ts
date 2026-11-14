@@ -98,7 +98,9 @@ const questions: readonly LifecycleQuestionStatus[] = [
     itemId: "rollout",
     rev: 2,
     state: "answered",
-    answer: { choice: ["Behind a flag"], when: time(12), ...delivered },
+    // Given on rev 1 while the question is at rev 2, so the state names what it shares with it: the
+    // reworded text shares nothing, and the question holds no items (reopen-start-from-answer).
+    answer: { choice: ["Behind a flag"], when: time(12), ...delivered, unchanged: [] },
     thread: [
       {
         cursor: reply.followUp,

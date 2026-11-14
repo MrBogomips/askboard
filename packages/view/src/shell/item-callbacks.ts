@@ -12,8 +12,9 @@
 // cell entries store, the same way (table-widget, design decision 8). An item in `readOnlyItems`, which
 // the card cannot show the revision of its work for, writes no value through `onValueChange` and none
 // through `onValuesChange`, which refuses the whole update naming it: the console names the item,
-// nothing is failed and no step runs (keep-mine-shown-revision, design decision 3). Also the value and
-// the result an item shows.
+// nothing is failed and no step runs (keep-mine-shown-revision, design decision 3), and no result
+// through `onResultChange`, clearing included (document-review, design decision 15). Also the value
+// and the result an item shows.
 // Plain functions, tested without a DOM.
 
 import { JSON_MAX_DEPTH, resultHoldsNothing } from "@askboard/contract";
@@ -94,6 +95,13 @@ export const itemCallbacks = ({
     draft.set(itemId, value);
   },
   onResultChange: (result) => {
+    // An item the card makes read-only writes no result, a clearing included: the result points
+    // into the content of the revision the answer names, which the page cannot show (document-
+    // review, design decision 15). The console names the item and holds none of the result.
+    if (readOnlyItems?.has(itemId) === true) {
+      refuseWrite(itemId, [itemId]);
+      return;
+    }
     if (results === undefined) return;
     // `undefined` is the component's report of no result (the port's "`undefined` for none"): it
     // clears the item's result after the step before a change and is no error.
@@ -198,8 +206,14 @@ export const itemValueOf = (cardShown: unknown, board: BoardContent, itemId: str
 
 /**
  * The result an item shows: what the card shows in place of the draft, such as the answer being
- * sent or the logged one, else the result the user holds, else its question's latest answer's,
- * which stays while the question is revised; none when it has none.
+ * sent or the logged one, else the result the user holds, else its question's latest answer's
+ * while no revision has started; none when it has none. A revision's start copies every result
+ * that fits into the draft, so once `revising` the card shows the held results alone, and a
+ * result the user cleared stays cleared (reopen-start-from-answer, design decision 2).
  */
-export const itemResultOf = (cardShown: unknown, held: unknown, answered: unknown): unknown =>
-  cardShown ?? held ?? answered;
+export const itemResultOf = (
+  cardShown: unknown,
+  held: unknown,
+  answered: unknown,
+  revising = false,
+): unknown => cardShown ?? held ?? (revising ? undefined : answered);

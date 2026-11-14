@@ -23,6 +23,12 @@ export const SCALE_WIDGET: WidgetType = {
       props: { min: 1, max: 5, display: "rating", minLabel: "Low", maxLabel: "High" },
     },
   },
+  help: {
+    mouse:
+      "Drag the slider handle, or press a value of the rating, to set a number; nothing is set until you do.",
+    answer:
+      "The agent receives the value you set, or the low and high values of a range. A scale you did not touch gives no answer.",
+  },
   skill: {
     use: "a number on a slider (the Slider), a range between two numbers, or a rating of up to 11 values",
     notes: [

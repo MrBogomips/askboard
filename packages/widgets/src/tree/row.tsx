@@ -15,6 +15,7 @@ import type { TreeColumn } from "@askboard/contract";
 import { useLocale, useStrings } from "@askboard/view/catalog";
 import { memo, type ReactNode, type RefObject, useRef } from "react";
 import { errorSpan } from "../shared/field-error.ts";
+import { type CheckState, SelectBox } from "../shared/select-box.tsx";
 import { fieldText, PERT_HEADERS, pertFieldText } from "./cells.ts";
 import {
   ADDED_BAR,
@@ -52,8 +53,6 @@ import type { DropIndicator } from "./model/dragging.ts";
 import type { NodeMark } from "./model/marks.ts";
 import { type PertRow, type PertValues, rollupNote, rollupText } from "./model/pert.ts";
 import { SELECT_CELLS, type TreeRow } from "./model/rows.ts";
-import type { CheckState } from "./model/selection.ts";
-import { SelectBox } from "./select-box.tsx";
 
 // The chevron points right when closed and down when open. It has no role: the row's
 // aria-expanded says what it shows.

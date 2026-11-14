@@ -15,6 +15,8 @@ import type { AnswerView, LifecycleBoardView, LifecycleQuestionView } from "../l
 export type OpenBoardView = Exclude<LifecycleBoardView, { readonly state: "discarded" }>;
 
 // An answer as the board shows it: its content, when, its receipt and whether it was recorded.
+// `unchanged` (reopen-start-from-answer, design decision 10) goes exactly as ask-core gives it, an
+// empty list included, as `board-host`'s `currentOf` does.
 const currentOf = (answer: AnswerView): CurrentAnswer => ({
   ...(answer.choice === undefined ? {} : { choice: [...answer.choice] }),
   ...(answer.other === undefined ? {} : { other: answer.other }),
@@ -22,6 +24,7 @@ const currentOf = (answer: AnswerView): CurrentAnswer => ({
   ...(answer.note === undefined ? {} : { note: answer.note }),
   ...(answer.values === undefined ? {} : { values: { ...answer.values } }),
   ...(answer.results === undefined ? {} : { results: { ...answer.results } }),
+  ...(answer.unchanged === undefined ? {} : { unchanged: [...answer.unchanged] }),
   ...(answer.declined ? { declined: true as const } : {}),
   when: answer.when,
   receipt: answer.delivered ? "delivered" : "sent",

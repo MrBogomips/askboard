@@ -26,7 +26,7 @@ describe("the Tree toolbar's counter", () => {
     expect(toolbar).toContain('"widget.more"');
     expect(toolbar).toContain("DropdownMenu");
     expect(toolbar).toContain("useCrowded");
-    expect(await source("./use-crowded.ts")).toContain("isCrowded");
+    expect(await source("../shared/use-crowded.ts")).toContain("isCrowded");
     expect(toolbar).toContain("OVERFLOW_TOOLS");
   });
 });

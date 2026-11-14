@@ -5,7 +5,10 @@
 // atoms' entry block goes through it: the card's state, "Answer", "Accept recommended", "Select
 // recommended", Submit and the ready mark. The checks are the facts each field chunk registered
 // (`ComponentFacts.check`, the contract's functions): the shell imports no registry and restates no
-// check. Plain functions, tested without a DOM.
+// check. An item the card makes read-only on a revision it cannot show (`readOnlyItemsOf`) is
+// skipped by every reader: its result points into the content of the revision the answer names,
+// so a check against the shown content says nothing, and the user could not act on a hint
+// (document-review, design decision 15). Plain functions, tested without a DOM.
 
 import type { FieldCheckFailure, Locale } from "@askboard/contract";
 import { type ComponentFacts, componentFacts } from "../catalog/port.ts";
@@ -28,17 +31,24 @@ export type FieldBlock = {
   readonly itemId: string;
   readonly label: string;
   readonly kind: FieldBlockKind;
+  /** Why a `check` block fails, when the check said (the hint of a detached annotation reads it). */
+  readonly failure?: FieldCheckFailure;
+};
+
+// The text prop `name` of the item `itemId`, wherever it nests, or none when it holds no non-empty
+// text there.
+const textPropOf = (question: ViewQuestion, itemId: string, name: string): string | undefined => {
+  const props = nestedItemById(question.props.items, itemId)?.props;
+  const value =
+    typeof props === "object" && props !== null && Object.hasOwn(props, name)
+      ? (props as Readonly<Record<string, unknown>>)[name]
+      : undefined;
+  return typeof value === "string" && value !== "" ? value : undefined;
 };
 
 /** The label an item shows: its `label` prop as text, else its ID. */
-export const labelOf = (question: ViewQuestion, itemId: string): string => {
-  const props = nestedItemById(question.props.items, itemId)?.props;
-  const label =
-    typeof props === "object" && props !== null && Object.hasOwn(props, "label")
-      ? (props as { readonly label?: unknown }).label
-      : undefined;
-  return typeof label === "string" && label !== "" ? label : itemId;
-};
+export const labelOf = (question: ViewQuestion, itemId: string): string =>
+  textPropOf(question, itemId, "label") ?? itemId;
 
 /**
  * The failure of one item's check against the result held for it, if its type registered one and
@@ -55,26 +65,30 @@ export const itemCheckFailure = (
  * An entry comes first for its own item, then the item's check against the result the user holds
  * (`results`, the draft's results); a check that fails for want of a value is `required`, one that
  * fails on a value is `check`. Layouts are not fields; an item whose type registered no check never
- * blocks. The entries and results are the ones the card follows, never the answer's.
+ * blocks. The entries and results are the ones the card follows, never the answer's. An item in
+ * `readOnly`, the card's read-only set, is no field here, whatever it holds.
  */
 export const fieldBlock = (
   question: ViewQuestion,
   entries: ReadonlyMap<string, unknown>,
   results: ReadonlyMap<string, unknown>,
   factsOf: CheckFactsOf = componentFacts,
+  readOnly?: ReadonlySet<string>,
 ): FieldBlock | undefined => {
   for (const item of valueItemsOf(question.props.items)) {
-    const block = (kind: FieldBlockKind): FieldBlock => ({
+    if (readOnly?.has(item.id) === true) continue;
+    const block = (kind: FieldBlockKind, failure?: FieldCheckFailure): FieldBlock => ({
       itemId: item.id,
       label: labelOf(question, item.id),
       kind,
+      ...(failure === undefined ? {} : { failure }),
     });
     if (ENTRY_ITEM_TYPES.includes(item.type) && entries.get(item.id) !== undefined)
       return block("entry");
     const result = results.get(item.id);
     const failure = itemCheckFailure(item, result, factsOf);
     if (failure === undefined) continue;
-    return block(result === undefined ? "required" : "check");
+    return result === undefined ? block("required") : block("check", failure);
   }
   return undefined;
 };
@@ -85,7 +99,17 @@ export const holdsBlock = (
   entries: ReadonlyMap<string, unknown>,
   results: ReadonlyMap<string, unknown>,
   factsOf: CheckFactsOf = componentFacts,
-): boolean => fieldBlock(question, entries, results, factsOf) !== undefined;
+  readOnly?: ReadonlySet<string>,
+): boolean => fieldBlock(question, entries, results, factsOf, readOnly) !== undefined;
+
+// The hint of a detached annotation (document-review, design decision 8): "Delete the detached
+// comments in {title} first.", the title being the item's `title` as text, else "the document".
+const detachedHint = (question: ViewQuestion, itemId: string, language: Locale): string => {
+  const title = textPropOf(question, itemId, "title");
+  return title === undefined
+    ? t(language, "documentReview.hintUntitled")
+    : t(language, "documentReview.hint", { label: title });
+};
 
 /**
  * What the disabled "Answer" is described by while a field blocks: "Correct {label} first." for an
@@ -98,9 +122,11 @@ export const answerHint = (
   results: ReadonlyMap<string, unknown>,
   language: Locale,
   factsOf: CheckFactsOf = componentFacts,
+  readOnly?: ReadonlySet<string>,
 ): string | undefined => {
-  const block = fieldBlock(question, entries, results, factsOf);
+  const block = fieldBlock(question, entries, results, factsOf, readOnly);
   if (block === undefined) return undefined;
+  if (block.failure?.code === "detached") return detachedHint(question, block.itemId, language);
   return t(language, block.kind === "required" ? "question.requiredHint" : "question.entryHint", {
     label: block.label,
   });

@@ -35,7 +35,7 @@ const FILES = [
 ] as const;
 
 /** Folders copied whole, file by file. */
-const FOLDERS = ["dist/view", "skills/askboard"] as const;
+const FOLDERS = ["dist/view", "skills/askboard", "skills/askboard-help"] as const;
 
 export const MARKETPLACE_PATH = ".claude-plugin/marketplace.json";
 export const NOTICES_PATH = "THIRD-PARTY-NOTICES.md";

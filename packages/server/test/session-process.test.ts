@@ -260,6 +260,43 @@ describe("the ask lifecycle in the composed session process", () => {
     expect(await run.session.ended).toBe(0);
   });
 
+  test("fetch of a question the agent deleted from an ask later discarded answers discarded, not deleted", async () => {
+    const { script } = recorder("deleted-then-discarded");
+    const time = manualClock();
+    const run = await start({ BROWSER: script }, writeView(), CLAUDE_CODE, time.clock);
+    const asked = await run.call("ask", threeQuestions("gone-discard-k4p2"));
+    const link = new URL(asked.board);
+    const board = await openSocket(Number(link.port), asked.askId);
+    board.send({ version, type: "connect", token: link.searchParams.get("t") });
+    expect(await board.next()).toMatchObject({ type: "board" });
+    expect(await board.next()).toMatchObject({ type: "state" });
+
+    await run.call("update", {
+      askId: asked.askId,
+      actions: [{ action: "delete", itemId: "queue" }],
+    });
+    const before = await run.call("fetch", { askId: asked.askId, itemId: "queue" });
+    expect(before).toMatchObject({ askId: asked.askId, itemId: "queue", outcome: "deleted" });
+
+    board.socket.close();
+    await board.closed();
+    await until(() => time.delays.includes(GRACE_PERIOD_MS));
+    time.advance(GRACE_PERIOD_MS);
+    // The discard is the ask's, whatever it held: the typed result names no item.
+    await Bun.sleep(30);
+    for (const itemId of ["queue", "database"]) {
+      const after = await run.call("fetch", { askId: asked.askId, itemId });
+      expect(after).toEqual({
+        versions: expect.anything(),
+        epoch: asked.epoch,
+        askId: asked.askId,
+        outcome: "discarded",
+      });
+    }
+    run.emit("SIGTERM");
+    expect(await run.session.ended).toBe(0);
+  });
+
   test("no environment variable changes the grace period, and the entry point gives no clock", async () => {
     const { script } = recorder("no-override");
     const time = manualClock();

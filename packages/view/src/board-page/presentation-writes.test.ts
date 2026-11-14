@@ -199,7 +199,7 @@ describe("the settings panel", () => {
     };
     run.receive(failed);
     expect(run.opened.at(-1)?.controls[1]?.error).toBe(
-      "Could not save density to /home/u/config.json: EACCES",
+      "Could not save density to \u2068/home/u/config.json\u2069: EACCES",
     );
   });
 
