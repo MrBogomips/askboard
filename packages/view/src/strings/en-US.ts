@@ -549,7 +549,7 @@ export const EN_US = {
   "keys.action.gantt.fit": "Fit the column to its content",
   "keys.action.gantt.togglePredecessor": "Toggle a predecessor",
   "keys.action.chart.highlight": "Highlight the point",
-  "keys.action.board.previousOpen": "Previous open",
+  "keys.action.board.previousOpen": "Previous to do",
   "keys.action.board.answer": "Answer the question in focus",
   "keys.action.board.sendFollowUp": "Send the follow-up",
   "key.enter": "Enter",

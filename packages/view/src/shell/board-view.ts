@@ -249,9 +249,10 @@ export const nextOpenOrder = (
 };
 
 /**
- * Where the next-open jump goes from the question in view: an unseen question the agent added
- * first, else the next open question after it in board order, wrapping to the start (EXPERIENCE.md,
- * Next-open jump and Question navigator); nowhere when no other question is open.
+ * Where the next-open jump goes from the question in view (EXPERIENCE.md, Next-open jump; decision
+ * 2): an unseen question the agent added first; else the to-do and first-draft questions after the
+ * one in view in board order, wrapping to the start; and only when none is to do, the postponed
+ * ones, likewise. Nowhere when no other question is open.
  */
 export const nextOpenFrom = (
   document: ViewDocument,
@@ -266,14 +267,18 @@ export const nextOpenFrom = (
   const fresh = open.find((id) => unseen.has(id));
   if (fresh !== undefined) return fresh;
   const at = current === undefined ? -1 : ids.indexOf(current);
-  return open.find((id) => ids.indexOf(id) > at) ?? open[0];
+  const after = (list: readonly string[]) => list.find((id) => ids.indexOf(id) > at) ?? list[0];
+  const postponed = (id: string) => markOf(id, state, work, ladder) === "postponed";
+  const todo = open.filter((id) => !postponed(id));
+  return todo.length > 0 ? after(todo) : after(open);
 };
 
 /**
- * Where the previous-open key goes from the question in view: the open question before it in board
- * order, else the last open one (wrapping); never the question in view, nowhere when no other is
- * open, the last open one when none is in view. Unseen questions get no priority: going back
- * returns to a question the user skipped (board-keys, design decision 3).
+ * Where the previous-to-do key goes from the question in view: the mirror of `nextOpenFrom`. The
+ * to-do and first-draft questions before it in board order, wrapping to the last, then the
+ * postponed ones likewise; never the question in view, nowhere when no other is open, the last
+ * when none is in view. Unseen questions get no priority: going back returns to a question the user
+ * skipped (board-keys, design decision 3).
  */
 export const previousOpenFrom = (
   document: ViewDocument,
@@ -286,8 +291,29 @@ export const previousOpenFrom = (
   const open = ids.filter((id) => id !== current && isOpen(id, state, work, ladder));
   const found = current === undefined ? -1 : ids.indexOf(current);
   const at = found < 0 ? ids.length : found;
-  return open.filter((id) => ids.indexOf(id) < at).at(-1) ?? open.at(-1);
+  const before = (list: readonly string[]) =>
+    list.filter((id) => ids.indexOf(id) < at).at(-1) ?? list.at(-1);
+  const postponed = (id: string) => markOf(id, state, work, ladder) === "postponed";
+  const todo = open.filter((id) => !postponed(id));
+  return todo.length > 0 ? before(todo) : before(open);
 };
+
+/** The questions that are postponed on the board, held postpones included. */
+export const postponedCountOf = (
+  document: ViewDocument,
+  state: LifecycleBoardState,
+  work: Work,
+  ladder: Ladder,
+): number =>
+  questionsOf(document).filter(
+    (question) => markOf(question.id, state, work, ladder) === "postponed",
+  ).length;
+
+/** The header's count: "{open} to do", and "({count} postponed)" when one is postponed. */
+export const openLabelOf = (open: number, postponed: number, language: Locale = "en-US"): string =>
+  postponed === 0
+    ? t(language, "header.open", { count: open })
+    : t(language, "header.openPostponed", { open, count: postponed });
 
 /**
  * Where one question per view goes when the agent deletes the question in view: the next question

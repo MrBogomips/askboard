@@ -11,7 +11,7 @@ import { HeaderActions, type HeaderCounts } from "./header-actions.tsx";
 // board's keys panel, The user's keys on the board's own keys).
 
 const counts = (over: Partial<HeaderCounts> = {}): HeaderCounts => ({
-  open: 2,
+  openLabel: "2 to do",
   onNextOpen: () => {},
   unreadReplies: 0,
   onUnread: () => {},

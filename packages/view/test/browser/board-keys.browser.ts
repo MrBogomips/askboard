@@ -15,6 +15,7 @@ import {
   type Presentation,
   threeChoicesAsk,
 } from "./fixtures/board-keys-asks.ts";
+import { guidanceAsk } from "./fixtures/guidance-asks.ts";
 import {
   eventually,
   expectNoCspProblem,
@@ -26,6 +27,7 @@ import {
 import type { Board } from "./harness/dom.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import {
+  actsSent,
   answerOf,
   card,
   headingOf,
@@ -33,6 +35,7 @@ import {
   noteOf,
   openBoard,
   optionOf,
+  postponeOf,
   tabTo,
 } from "./harness/lifecycle-test.ts";
 import { viewSettled } from "./harness/probes.ts";
@@ -279,7 +282,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await board.page.keyboard.press("?");
         await boardPanel(board).waitFor({ timeout: STEP_TIMEOUT_MS });
         const text = (await boardPanel(board).textContent()) ?? "";
-        expect(text).toContain("Previous open");
+        expect(text).toContain("Previous to do");
         expect(text).toContain("Sending all held answers has no key.");
         await board.page.keyboard.press("Escape");
         await boardPanel(board).waitFor({ state: "hidden", timeout: STEP_TIMEOUT_MS });
@@ -428,7 +431,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const rows = boardPanel(board).locator("li");
         const wanted = [
           ["Next to do", /^N$/],
-          ["Previous open", /^(Shift\+N|⇧N)$/],
+          ["Previous to do", /^(Shift\+N|⇧N)$/],
           ["Answer the question in focus", /^(Ctrl\+Enter|⌘↩)$/],
           ["Send the follow-up", /^(Ctrl\+Enter|⌘↩)$/],
         ] as const;
@@ -464,11 +467,66 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const row = boardPanel(board).locator("li").filter({ hasText: "Next to do" });
         expect(await row.textContent()).toContain("customised");
         expect(await row.locator("kbd").allTextContents()).toEqual(["J"]);
-        const other = boardPanel(board).locator("li").filter({ hasText: "Previous open" });
+        const other = boardPanel(board).locator("li").filter({ hasText: "Previous to do" });
         expect(await other.textContent()).not.toContain("customised");
       },
       TEST_TIMEOUT_MS,
     );
+
+    test(
+      "postponed questions last: Shift+N reaches question 2, which is to do, then question 3, which is postponed",
+      async () => {
+        const run = await start(lifecycleScenario(guidanceAsk(5, { suffix: "k1" }), dist));
+        const ids = ["p1", "p2", "p3", "p4", "p5"];
+        const board = await openBoard(run, ids);
+        await postponeOf(board, "p3").click({ timeout: STEP_TIMEOUT_MS });
+        await eventually(
+          async () =>
+            (await card(board, "p3")
+              .locator("[data-askboard-state]")
+              .getAttribute("data-askboard-state")) === "postponed",
+          "p3 postponed",
+        );
+        for (const [at, id] of ["p1", "p4", "p5"].entries()) {
+          await optionOf(board, id, "Yes").check({ timeout: STEP_TIMEOUT_MS });
+          await answerOf(board, id).click({ timeout: STEP_TIMEOUT_MS });
+          await actsSent(run, at + 2);
+        }
+        // Question 5 in view: the focus rests on its heading, which the key leaves alone.
+        await headingOf(board, "p5").focus();
+        await watchKeys(board);
+        await viewSettled(board);
+        await board.page.keyboard.press("Shift+N");
+        await expectClearOfBars(board, "p2");
+        await viewSettled(board);
+        await board.page.keyboard.press("Shift+N");
+        await expectClearOfBars(board, "p3");
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    for (const [language, title, name] of [
+      ["en-US", "Board keys", "Previous to do"],
+      ["it-IT", "Tasti della board", "Precedente da fare"],
+    ] as const) {
+      test(
+        `the keys panel names the action of Shift+N ${name} in ${language}`,
+        async () => {
+          const ask = { ...boardKeysAsk("sections", `n-${language}`), language };
+          const run = await start(lifecycleScenario(ask, dist));
+          const board = await openBoard(run, IDS);
+          await board.view.getByRole("banner").getByRole("button").last().waitFor();
+          await focusOption(board, "q1");
+          await board.page.keyboard.press("?");
+          const dialog = board.view.getByRole("dialog", { name: title });
+          await dialog.waitFor({ timeout: STEP_TIMEOUT_MS });
+          const row = dialog.locator("li").filter({ hasText: name });
+          expect(await row.count()).toBe(1);
+          expect((await row.locator("kbd").allTextContents()).join("")).toMatch(/^(Shift\+N|⇧N)$/);
+        },
+        TEST_TIMEOUT_MS,
+      );
+    }
 
     test(
       "an ended board has no Keys button",

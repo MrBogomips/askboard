@@ -42,7 +42,7 @@ describe("the board's panel body", () => {
     expect(other).toBeGreaterThan(questions);
     for (const name of [
       "Next to do",
-      "Previous open",
+      "Previous to do",
       "Answer the question in focus",
       "Send the follow-up",
     ]) {
@@ -62,7 +62,7 @@ describe("the board's panel body", () => {
   test("with no edits, only the navigation keys", () => {
     const html = draw(false);
     expect(html).toContain("Next to do");
-    expect(html).toContain("Previous open");
+    expect(html).toContain("Previous to do");
     expect(html).toContain("Show the keys");
     expect(html).not.toContain("Answer the question in focus");
     expect(html).not.toContain("Send the follow-up");

@@ -15,6 +15,8 @@ import {
   nextOpenFrom,
   nextOpenOrder,
   openCountOf,
+  openLabelOf,
+  postponedCountOf,
   postponedWarningOf,
   presentationOf,
   previousOpenFrom,
@@ -568,5 +570,112 @@ describe("previousOpenFrom (board-keys, design decision 3; mirrors nextOpenFrom)
       "payment",
     );
     expect(previousOpenFrom(lifecycleBoardDocument, state, noWork, none, "payment")).toBe("region");
+  });
+});
+
+describe("postponed questions last (answering-flow-guidance, decision 2)", () => {
+  // region: to do, payment: postponed, analytics: first draft, rollout: answered, erp-export: to do.
+  const state = stateOf("partly-answered", [
+    { itemId: "region", rev: 1, state: "open" },
+    { itemId: "payment", rev: 1, state: "postponed" },
+    { itemId: "analytics", rev: 1, state: "open" },
+    answeredAs("rollout"),
+    { itemId: "erp-export", rev: 1, state: "open" },
+  ]);
+  const draftOf = new Map<string, QuestionWork>([["analytics", { rev: 1 }]]);
+  const next = (current: string | undefined, unseen: string[] = [], work = noWork) =>
+    nextOpenFrom(lifecycleBoardDocument, state, work, none, new Set(unseen), current);
+  const previous = (current: string | undefined) =>
+    previousOpenFrom(lifecycleBoardDocument, state, noWork, none, current);
+
+  test("forward: the to-do questions after the one in view, wrapping, then the postponed ones", () => {
+    expect(next("region")).toBe("analytics");
+    expect(next("analytics")).toBe("erp-export");
+    // erp-export is the last to do: the pass wraps to the first to do before any postponed one.
+    expect(next("erp-export")).toBe("region");
+    expect(next("rollout")).toBe("erp-export");
+  });
+
+  test("forward: with nothing to do but the postponed, the postponed one is reached", () => {
+    const only = stateOf("partly-answered", [
+      answeredAs("region"),
+      { itemId: "payment", rev: 1, state: "postponed" },
+      answeredAs("analytics"),
+      answeredAs("rollout"),
+      answeredAs("erp-export"),
+    ]);
+    expect(nextOpenFrom(lifecycleBoardDocument, only, noWork, none, new Set(), "rollout")).toBe(
+      "payment",
+    );
+    expect(
+      nextOpenFrom(lifecycleBoardDocument, only, noWork, none, new Set(), "payment"),
+    ).toBeUndefined();
+  });
+
+  test("forward: from the last to-do question when the rest are answered, the postponed one", () => {
+    const rest = stateOf("partly-answered", [
+      answeredAs("region"),
+      { itemId: "payment", rev: 1, state: "postponed" },
+      answeredAs("analytics"),
+      answeredAs("rollout"),
+      { itemId: "erp-export", rev: 1, state: "open" },
+    ]);
+    expect(nextOpenFrom(lifecycleBoardDocument, rest, noWork, none, new Set(), "erp-export")).toBe(
+      "payment",
+    );
+  });
+
+  test("forward: an unseen question the agent added comes first, a draft counts as to do", () => {
+    expect(next("region", ["erp-export"])).toBe("erp-export");
+    expect(next("region", [], draftOf)).toBe("analytics");
+  });
+
+  test("backward: the to-do and first-draft questions before the one in view, wrapping, then the postponed ones", () => {
+    expect(previous("erp-export")).toBe("analytics");
+    expect(previous("rollout")).toBe("analytics");
+    expect(previous("payment")).toBe("region");
+    // From the first to-do question the pass wraps to the last to do, not to the postponed one.
+    expect(previous("region")).toBe("erp-export");
+  });
+
+  test("backward: with nothing to do but the postponed, the postponed one is reached", () => {
+    const only = stateOf("partly-answered", [
+      answeredAs("region"),
+      { itemId: "payment", rev: 1, state: "postponed" },
+      answeredAs("analytics"),
+      answeredAs("rollout"),
+      answeredAs("erp-export"),
+    ]);
+    expect(previousOpenFrom(lifecycleBoardDocument, only, noWork, none, "rollout")).toBe("payment");
+    expect(previousOpenFrom(lifecycleBoardDocument, only, noWork, none, undefined)).toBe("payment");
+  });
+
+  test("backward: unseen questions get no priority", () => {
+    expect(previous("analytics")).toBe("region");
+  });
+});
+
+describe("the header's count names the postponed (answering-flow-guidance, decision 5)", () => {
+  const state = stateOf("partly-answered", [
+    { itemId: "region", rev: 1, state: "open" },
+    { itemId: "payment", rev: 1, state: "postponed" },
+    { itemId: "analytics", rev: 1, state: "postponed" },
+    answeredAs("rollout"),
+    { itemId: "erp-export", rev: 1, state: "open" },
+  ]);
+
+  test("postponedCountOf counts the postponed questions, held postpones included", () => {
+    expect(postponedCountOf(lifecycleBoardDocument, state, noWork, none)).toBe(2);
+    const work = held([["region", { act: "postpone", order: 0 }]]);
+    expect(postponedCountOf(lifecycleBoardDocument, state, work, none)).toBe(3);
+    expect(postponedCountOf(lifecycleBoardDocument, allOpen, noWork, none)).toBe(0);
+  });
+
+  test("openPostponed when a postponed question is to do, open alone otherwise", () => {
+    expect(openLabelOf(4, 1, "en-US")).toBe("4 to do (1 postponed)");
+    expect(openLabelOf(4, 1, "it-IT")).toBe("4 da fare (di cui 1 rimandata)");
+    expect(openLabelOf(4, 2, "it-IT")).toBe("4 da fare (di cui 2 rimandate)");
+    expect(openLabelOf(3, 0, "en-US")).toBe("3 to do");
+    expect(openLabelOf(3, 0, "it-IT")).toBe("3 da fare");
   });
 });

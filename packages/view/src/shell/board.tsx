@@ -42,6 +42,8 @@ import {
   markOf,
   nextOpenFrom,
   openCountOf,
+  openLabelOf,
+  postponedCountOf,
   postponedWarningOf,
   presentationOf,
   previousOpenFrom,
@@ -372,7 +374,11 @@ export const Board = ({
   const firstOf = (ids: ReadonlySet<string> | ReadonlyMap<string, number>) =>
     questions.find((question) => ids.has(question.id))?.id;
   const counts: HeaderCounts = {
-    open: openCountOf(document, state, draft.questions, ladder),
+    openLabel: openLabelOf(
+      openCountOf(document, state, draft.questions, ladder),
+      postponedCountOf(document, state, draft.questions, ladder),
+      language,
+    ),
     onNextOpen: nextOpen,
     unreadReplies: [...attention.unread.values()].reduce((sum, count) => sum + count, 0),
     onUnread: () => {

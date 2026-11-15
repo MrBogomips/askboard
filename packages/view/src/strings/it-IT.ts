@@ -570,7 +570,7 @@ export const IT_IT = {
   "keys.action.gantt.togglePredecessor": "Attiva o disattiva un predecessore",
   "keys.action.chart.highlight": "Evidenzia il punto",
   // The board's keys: texts to review (board-keys, task 2.5).
-  "keys.action.board.previousOpen": "Precedente aperta",
+  "keys.action.board.previousOpen": "Precedente da fare",
   "keys.action.board.answer": "Rispondi alla domanda attiva",
   "keys.action.board.sendFollowUp": "Invia il chiarimento",
   "key.enter": "Invio",
