@@ -68,6 +68,8 @@ const COUNTED_SEND = /^(?:Send|Invia) \d/;
 
 /** Files that assert a label's text, and why. */
 export const ALLOWLIST: Readonly<Record<string, string>> = {
+  "board-keys.browser.ts":
+    "asserts the key table's label of the jump, Next to do, in its tooltip and the keys panel",
   "languages.browser.ts":
     "asserts the Italian labels Più tardi and Prossima da fare on an it-IT board",
 };

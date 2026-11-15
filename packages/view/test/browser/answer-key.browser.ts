@@ -136,7 +136,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       async () => {
         const { run, board } = await open(start);
         await choose(board, "db", "PostgreSQL");
-        await buttonOf(board, "db", "Postpone").focus();
+        await card(board, "db").locator("[data-askboard-postpone]").focus();
         await board.page.keyboard.press(MOD_ENTER);
         await actsSent(run, 1);
         const acts = sentActs(run).flatMap((command) => command.acts.map((act) => act.type));
@@ -200,7 +200,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await actsDone(run, 1);
         await run.session.collectJson();
         await card(board, "plan")
-          .getByText("delivered to the agent", { exact: true })
+          .locator('[data-askboard-receipt="delivered"]')
           .waitFor({ timeout: STEP_TIMEOUT_MS });
         await decisionOf(board, "plan", "Reject").click({ timeout: STEP_TIMEOUT_MS });
         // A widget's own controls keep the key; the card's heading is where it acts.
