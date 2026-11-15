@@ -38,6 +38,7 @@ import {
   noteOf,
   openBoard,
   optionOf,
+  receiptOf,
 } from "./harness/lifecycle-test.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 
@@ -63,7 +64,7 @@ const open = async (
 };
 
 const nextOpen = (board: Board): Locator =>
-  board.view.getByRole("banner").getByRole("button", { name: /^Next open/ });
+  board.view.getByRole("banner").locator("[data-askboard-next-to-do]");
 const outlineEntry = (board: Board, id: string): Locator =>
   board.view.locator(`[data-askboard-outline="${id}"]`);
 
@@ -210,7 +211,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const { run, board } = await open(start, "sections", "immediate", "it-IT");
         await optionOf(board, "q1", "Sì").focus();
         await board.page.keyboard.press(" ");
-        await card(board, "q1").getByRole("button", { name: "Rispondi", exact: true }).focus();
+        await card(board, "q1").locator("[data-askboard-primary]").focus();
         await board.page.keyboard.press("Enter");
         await actsSent(run, 1);
         await eventually(() => isFocused(headingOf(board, "q1")), "focus on the q1 heading");
@@ -251,9 +252,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await answerOf(board, PLAN).click({ timeout: STEP_TIMEOUT_MS });
         await actsDone(run, 1);
         await run.session.collectJson();
-        await card(board, PLAN)
-          .getByText("delivered to the agent", { exact: true })
-          .waitFor({ timeout: STEP_TIMEOUT_MS });
+        await receiptOf(board, PLAN, "delivered").waitFor({ timeout: STEP_TIMEOUT_MS });
         await decisionOf(board, PLAN, "Reject").click({ timeout: STEP_TIMEOUT_MS });
         await answerOf(board, PLAN).click({ timeout: STEP_TIMEOUT_MS });
         const dialog = board.view.getByRole("alertdialog");
@@ -300,7 +299,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           async () => (await outlineEntry(board, "q5").getAttribute("aria-current")) === "true",
           "q5 marked current",
         );
-        await barButton(board, "Submit").focus();
+        await board.submit.focus();
         await board.page.keyboard.press("Enter");
         await actsSent(run, 1);
         await eventually(() => isFocused(headingOf(board, "q5")), "focus on the q5 heading");
@@ -318,7 +317,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           async () => ((await outlineEntry(board, "q1").textContent()) ?? "").includes("Ready"),
           "q1 ready",
         );
-        await barButton(board, "Immediate").click({ timeout: STEP_TIMEOUT_MS });
+        await board.delivery("immediate").click({ timeout: STEP_TIMEOUT_MS });
         await board.view
           .getByRole("alertdialog")
           .getByRole("button", { name: "Send and switch", exact: true })
@@ -329,7 +328,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           timeout: STEP_TIMEOUT_MS,
         });
         await eventually(
-          () => isFocused(barButton(board, "Immediate")),
+          () => isFocused(board.delivery("immediate")),
           "focus on the Immediate button",
         );
       },
@@ -350,14 +349,12 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           );
         };
         await markReady("Approve");
-        await barButton(board, "Submit").click({ timeout: STEP_TIMEOUT_MS });
+        await board.submit.click({ timeout: STEP_TIMEOUT_MS });
         await actsDone(run, 1);
         await markReady("Reject");
         await run.session.collect();
-        await card(board, PLAN)
-          .getByText("delivered to the agent", { exact: true })
-          .waitFor({ timeout: STEP_TIMEOUT_MS });
-        await barButton(board, "Immediate").click({ timeout: STEP_TIMEOUT_MS });
+        await receiptOf(board, PLAN, "delivered").waitFor({ timeout: STEP_TIMEOUT_MS });
+        await board.delivery("immediate").click({ timeout: STEP_TIMEOUT_MS });
         const dialog = board.view.getByRole("alertdialog");
         await dialog
           .getByRole("button", { name: "Send and switch", exact: true })
@@ -371,7 +368,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await dialog.waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
         await actsDone(run, 2);
         await eventually(
-          () => isFocused(barButton(board, "Immediate")),
+          () => isFocused(board.delivery("immediate")),
           "focus on the Immediate button",
         );
       },
@@ -384,9 +381,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const { board } = await open(start, "sections");
         await answerWithKeys(board, "q1");
         await noteOf(board, "q2").focus();
-        await card(board, "q1")
-          .getByText("sent", { exact: true })
-          .waitFor({ timeout: STEP_TIMEOUT_MS });
+        await receiptOf(board, "q1", "sent").waitFor({ timeout: STEP_TIMEOUT_MS });
         expect(await isFocused(noteOf(board, "q2"))).toBe(true);
       },
       TEST_TIMEOUT_MS,

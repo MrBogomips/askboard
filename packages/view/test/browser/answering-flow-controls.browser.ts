@@ -30,6 +30,7 @@ import {
   lifecycleScenario,
   openBoard,
   optionOf,
+  postponeOf,
 } from "./harness/lifecycle-test.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 
@@ -64,8 +65,7 @@ const open = async (
 
 const bar = (board: Board): Locator => board.view.getByRole("contentinfo");
 const helper = (board: Board, text: string): Locator => bar(board).getByText(text, { exact: true });
-const jump = (board: Board): Locator =>
-  board.header.getByRole("button", { name: /^(Next open|Prossima aperta)/ });
+const jump = (board: Board): Locator => board.header.locator("[data-askboard-next-to-do]");
 
 type Box = { readonly top: number; readonly bottom: number };
 const boxOf = async (locator: Locator): Promise<Box> => {
@@ -116,10 +116,10 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         }
         const { run, board } = await open(start, "sections", { delivery: "submitted" });
         await helper(board, HELPER["en-US"].submitted).waitFor({ timeout: STEP_TIMEOUT_MS });
-        await barButton(board, "Immediate").click({ timeout: STEP_TIMEOUT_MS });
+        await board.delivery("immediate").click({ timeout: STEP_TIMEOUT_MS });
         await helper(board, HELPER["en-US"].immediate).waitFor({ timeout: STEP_TIMEOUT_MS });
         expect(await helper(board, HELPER["en-US"].submitted).count()).toBe(0);
-        await barButton(board, "Submitted").click({ timeout: STEP_TIMEOUT_MS });
+        await board.delivery("submitted").click({ timeout: STEP_TIMEOUT_MS });
         await helper(board, HELPER["en-US"].submitted).waitFor({ timeout: STEP_TIMEOUT_MS });
         expect(await helper(board, HELPER["en-US"].immediate).count()).toBe(0);
         expectNoCspProblem(run);
@@ -141,9 +141,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const { run, board } = await onePerViewBoard(start);
         const navigator = board.view.getByRole("navigation", { name: "Question navigator" });
         await navigator.getByText("Question 1 of 5", { exact: true }).waitFor();
-        expect(
-          await navigator.getByRole("button", { name: /^(Next open|Prossima aperta)/ }).count(),
-        ).toBe(0);
+        expect(await navigator.locator("[data-askboard-next-to-do]").count()).toBe(0);
         expect(await jump(board).count()).toBe(1);
         const next = navigator.getByRole("button", { name: "Next", exact: true });
         await yes(board, "q1");
@@ -219,9 +217,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       async () => {
         const { board } = await open(start, "sections", { language: "it-IT" });
         await board.question("q4").getByLabel("Ticket").fill("ab-1234");
-        const rispondi = board
-          .question("q4")
-          .getByRole("button", { name: "Rispondi", exact: true });
+        const rispondi = board.question("q4").locator("[data-askboard-primary]");
         await board
           .question("q4")
           .getByRole("button", { name: "Completa prima Nome del servizio." })
@@ -283,7 +279,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await eventually(async () => (await reasonOf(board, "q4").count()) === 0, "no reason");
         await eventually(() => answerOf(board, "q4").isEnabled(), "Answer enabled");
         expect((await descriptionOf(answerOf(board, "q4"))).text).toBe("");
-        expect(await buttonOf(board, "q4", "Postpone").isEnabled()).toBe(true);
+        expect(await postponeOf(board, "q4").isEnabled()).toBe(true);
       },
       TEST_TIMEOUT_MS,
     );

@@ -33,6 +33,7 @@ import {
   mirrored,
   openBoard,
   promptArmed,
+  receiptOf,
   sentActs,
   sentDrafts,
 } from "./harness/lifecycle-test.ts";
@@ -152,9 +153,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           state: "answered",
           result: { order },
         });
-        await card(board, "plan")
-          .getByText("delivered to the agent", { exact: true })
-          .waitFor({ timeout: STEP_TIMEOUT_MS });
+        await receiptOf(board, "plan", "delivered").waitFor({ timeout: STEP_TIMEOUT_MS });
         expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,
@@ -167,7 +166,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const board = await openBoard(run, ["plan"]);
         await setToMaximum(board);
         await answerOf(board, "plan").click({ timeout: STEP_TIMEOUT_MS });
-        await card(board, "plan").getByText("sent", { exact: true }).waitFor();
+        await receiptOf(board, "plan", "sent").waitFor();
         await actsDone(run, 1);
         // Reopened with the Scale's step changed in the same update: the question changed, so it
         // starts from the agent's version, and 100 still fits (reopen-start-from-answer, decision 3).
@@ -214,7 +213,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await setToMaximum(board);
         await decisionOf(board, "plan", "Approve").click();
         await answerOf(board, "plan").click({ timeout: STEP_TIMEOUT_MS });
-        await card(board, "plan").getByText("sent", { exact: true }).waitFor();
+        await receiptOf(board, "plan", "sent").waitFor();
         await actsDone(run, 1);
         await run.session.update([
           { action: "reopen", itemId: "plan" },
@@ -259,7 +258,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await setToMaximum(board);
         await decisionOf(board, "plan", "Approve").click();
         await answerOf(board, "plan").click({ timeout: STEP_TIMEOUT_MS });
-        await card(board, "plan").getByText("sent", { exact: true }).waitFor();
+        await receiptOf(board, "plan", "sent").waitFor();
         await actsDone(run, 1);
         // Each ID keeps its place and takes the next type: the Ranking's is now a Scale, the
         // Scale's an Approval, the Approval's a Ranking, so each holds another type's result.

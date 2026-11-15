@@ -298,7 +298,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const run = await host(dist, atomDocument([ticket({ required: true }), notify], "it-IT"));
         await readyIn(run);
         const { view } = run.board;
-        const rispondi = view.getByRole("button", { name: "Rispondi", exact: true });
+        const rispondi = view.locator("[data-askboard-primary]");
         expect(
           (await view.locator('[data-askboard-field="ticket"] label').textContent())?.replace(
             /\s+/g,

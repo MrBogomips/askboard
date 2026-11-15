@@ -96,7 +96,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         // The single-question board has no outline, delivery switch or Submit (EXPERIENCE).
         expect(await board.view.getByRole("navigation").count()).toBe(0);
         expect(await board.view.getByRole("switch").count()).toBe(0);
-        expect(await board.view.getByRole("button", { name: "Submit" }).count()).toBe(0);
+        expect(await board.submit.count()).toBe(0);
         expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,
@@ -191,7 +191,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await visible(board.receipt("sent"));
         await actsApplied(run, 1);
         await run.session.collected();
-        await visible(board.receipt("delivered to the agent"));
+        await visible(board.receipt("delivered"));
         expect(await board.receipt("sent").count()).toBe(0);
         expectPageHalf(run, clicked);
       },
@@ -261,10 +261,10 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await visible(board.receipt("sent"));
         await actsApplied(run, 1);
         await run.session.collected();
-        await visible(board.receipt("delivered to the agent"));
+        await visible(board.receipt("delivered"));
         await board.page.reload();
         await board.loaded(QUESTION).waitFor({ timeout: STEP_TIMEOUT_MS * 2 });
-        await visible(board.receipt("delivered to the agent"));
+        await visible(board.receipt("delivered"));
         await board.header
           .getByText("Answered", { exact: true })
           .waitFor({ timeout: STEP_TIMEOUT_MS });

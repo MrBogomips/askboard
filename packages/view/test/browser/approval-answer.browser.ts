@@ -40,6 +40,7 @@ import {
   lifecycleScenario,
   openBoard,
   optionOf,
+  receiptOf,
   sentActs,
 } from "./harness/lifecycle-test.ts";
 import { hostSettled, viewSettled } from "./harness/probes.ts";
@@ -56,8 +57,7 @@ const WHY = "Show the training as an extra";
 const error = (board: Board, id: string) =>
   card(board, id).getByText(REASON_MISSING, { exact: true });
 const dialog = (board: Board) => board.view.getByRole("alertdialog");
-const delivered = (board: Board, id: string) =>
-  card(board, id).getByText("delivered to the agent", { exact: true });
+const delivered = (board: Board, id: string) => receiptOf(board, id, "delivered");
 
 // The plan answered "Approve with changes" with one rename and a reason, collected and delivered.
 const answerWithChanges = async (run: Parameters<typeof actsDone>[0], board: Board) => {

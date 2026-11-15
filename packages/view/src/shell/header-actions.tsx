@@ -29,6 +29,7 @@ const Counts = ({ counts }: { readonly counts: HeaderCounts }) => {
     <button
       type="button"
       className={BUTTON_SECONDARY}
+      data-askboard-next-to-do=""
       disabled={counts.onNextOpen === undefined}
       onClick={counts.onNextOpen}
     >

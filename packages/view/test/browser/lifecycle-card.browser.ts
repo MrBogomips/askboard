@@ -24,6 +24,7 @@ import {
   noteOf,
   openBoard,
   optionOf,
+  receiptOf,
   sentActs,
   sentDrafts,
 } from "./harness/lifecycle-test.ts";
@@ -33,7 +34,7 @@ import { readViewBuild } from "./harness/view-build.ts";
 const dist = await readViewBuild();
 
 const sent = (board: Board, id: string) =>
-  card(board, id).getByText("sent", { exact: true }).waitFor({ timeout: STEP_TIMEOUT_MS });
+  receiptOf(board, id, "sent").waitFor({ timeout: STEP_TIMEOUT_MS });
 
 const checked = async (board: Board, id: string, labels: readonly string[]) => {
   const states: Record<string, boolean> = {};

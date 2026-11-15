@@ -293,7 +293,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await board.receipt("sent").waitFor({ timeout: STEP_TIMEOUT_MS });
         const { events } = await run.session.collect();
         expect(events[0]?.results).toEqual({ [CHART_ID]: { points: [point(0, 1)] } });
-        await board.receipt("delivered to the agent").waitFor({ timeout: STEP_TIMEOUT_MS });
+        await board.receipt("delivered").waitFor({ timeout: STEP_TIMEOUT_MS });
         expect(await counter(board).textContent()).toBe("1 point highlighted");
         expect(await ringOf(board, 0, 1)).toBe(true);
         // The agent closes the ask: the chart is read-only, the ring and the counter stay.

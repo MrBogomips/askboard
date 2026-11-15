@@ -201,7 +201,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           );
         }
         expect(sentActs(run)).toEqual([]);
-        await barButton(board, "Submit").click({ timeout: STEP_TIMEOUT_MS });
+        await board.submit.click({ timeout: STEP_TIMEOUT_MS });
         for (const id of [BIG, SECOND])
           await submitLine(board, id).waitFor({ timeout: STEP_TIMEOUT_MS });
         expect((await submitLine(board, BIG).textContent()) ?? "").toMatch(

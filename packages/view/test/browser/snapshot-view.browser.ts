@@ -174,7 +174,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await tabs.nth(1).click();
         expect(await tabs.nth(1).getAttribute("aria-selected")).toBe("true");
         await tabs.nth(0).click();
-        await page.getByRole("button", { name: /Next open/ }).click({ timeout: STEP_TIMEOUT_MS });
+        await page.locator("[data-askboard-next-to-do]").click({ timeout: STEP_TIMEOUT_MS });
         const analytics = page.locator('[data-askboard-question="analytics"]');
         await analytics.waitFor({ state: "visible", timeout: STEP_TIMEOUT_MS });
         // The postponed marker is two short bars.

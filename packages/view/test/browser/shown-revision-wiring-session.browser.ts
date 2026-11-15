@@ -154,7 +154,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           (record) => record.questions.database?.values?.database !== undefined,
           "the choice",
         );
-        expect(await barButton(board, "Select recommended").count()).toBe(1);
+        expect(await board.prefill.count()).toBe(1);
         const options = first.props.options.map(({ recommended: _, ...option }) => option);
         await run.session.update([
           {
@@ -166,7 +166,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await notice(board, "database").waitFor({ timeout: STEP_TIMEOUT_MS });
         await choose(board, "Keep mine", "database");
         await viewSettled(board);
-        expect(await barButton(board, "Select recommended").count()).toBe(1);
+        expect(await board.prefill.count()).toBe(1);
         expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,
@@ -189,7 +189,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           (record) => record.questions.cache?.values?.cache !== undefined,
           "the choice",
         );
-        expect(await barButton(board, "Select recommended").count()).toBe(0);
+        expect(await board.prefill.count()).toBe(0);
         const options = first.props.options.map((option) =>
           option.label === "Yes" ? { ...option, recommended: true } : option,
         );
@@ -203,7 +203,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await notice(board, "cache").waitFor({ timeout: STEP_TIMEOUT_MS });
         await choose(board, "Keep mine", "cache");
         await viewSettled(board);
-        expect(await barButton(board, "Select recommended").count()).toBe(0);
+        expect(await board.prefill.count()).toBe(0);
         expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,

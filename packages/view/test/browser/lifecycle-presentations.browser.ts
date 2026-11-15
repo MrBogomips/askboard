@@ -30,6 +30,7 @@ import {
   lifecycleScenario,
   openBoard,
   optionOf,
+  receiptOf,
   sentActs,
   viewText,
 } from "./harness/lifecycle-test.ts";
@@ -46,7 +47,7 @@ const heading = (board: Board, id: string) =>
 const answerYes = async (board: Board, id: string) => {
   await optionOf(board, id, "Yes").click({ timeout: STEP_TIMEOUT_MS });
   await answerOf(board, id).click({ timeout: STEP_TIMEOUT_MS });
-  await card(board, id).getByText("sent", { exact: true }).waitFor({ timeout: STEP_TIMEOUT_MS });
+  await receiptOf(board, id, "sent").waitFor({ timeout: STEP_TIMEOUT_MS });
 };
 
 for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
@@ -96,9 +97,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           const label = id === "rollout" ? "All at once" : "Yes";
           await optionOf(board, id, label).click({ timeout: STEP_TIMEOUT_MS });
           await answerOf(board, id).click({ timeout: STEP_TIMEOUT_MS });
-          await card(board, id)
-            .getByText("sent", { exact: true })
-            .waitFor({ timeout: STEP_TIMEOUT_MS });
+          await receiptOf(board, id, "sent").waitFor({ timeout: STEP_TIMEOUT_MS });
         }
         await eventually(
           async () => !((await delivery.textContent()) ?? "").includes("open"),
@@ -133,7 +132,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await viewText(board, "First area").filter({ visible: true }).count()).toBe(1);
         const previous = navigator.getByRole("button", { name: "Previous", exact: true });
         const next = navigator.getByRole("button", { name: "Next", exact: true });
-        const nextOpen = board.header.getByRole("button", { name: /^Next open/ });
+        const nextOpen = board.header.locator("[data-askboard-next-to-do]");
         expect(await previous.isDisabled()).toBe(true);
         await answerYes(board, "q1");
         // Answering does not advance.
@@ -156,7 +155,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await card(board, "q5").count()).toBe(1);
         expect(await board.view.getByRole("navigation", { name: "Outline" }).count()).toBe(0);
         // The navigator holds no jump of its own: the header's is the only one.
-        expect(await navigator.getByRole("button", { name: /^Next open/ }).count()).toBe(0);
+        expect(await navigator.locator("[data-askboard-next-to-do]").count()).toBe(0);
         expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,
@@ -217,14 +216,12 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const run = await start(lifecycleScenario(singleRequestingMoreAsk, dist));
         const board = await openBoard(run, ["database"]);
         expect(await board.view.getByRole("navigation").count()).toBe(0);
-        expect(await board.view.getByRole("button", { name: "Submit" }).count()).toBe(0);
-        expect(await board.view.getByText("Immediate").count()).toBe(0);
+        expect(await board.submit.count()).toBe(0);
+        expect(await board.delivery("immediate").count()).toBe(0);
         expect(await board.header.getByText("open", { exact: false }).count()).toBe(0);
         await optionOf(board, "database", "SQLite").click({ timeout: STEP_TIMEOUT_MS });
         await answerOf(board, "database").click({ timeout: STEP_TIMEOUT_MS });
-        await card(board, "database")
-          .getByText("sent", { exact: true })
-          .waitFor({ timeout: STEP_TIMEOUT_MS });
+        await receiptOf(board, "database", "sent").waitFor({ timeout: STEP_TIMEOUT_MS });
         expect(sentActs(run).map(({ acts }) => acts.map((act) => act.type))).toEqual([["answer"]]);
         await board.header.getByText("Answered", { exact: true }).waitFor();
       },

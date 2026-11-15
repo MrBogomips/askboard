@@ -81,7 +81,7 @@ const answerYes = async (board: Board, id: string): Promise<void> => {
 };
 
 const answerIt = (board: Board, id: string) =>
-  board.question(id).getByRole("button", { name: "Rispondi", exact: true });
+  board.question(id).locator("[data-askboard-primary]");
 
 const added = (id: string) => ({
   action: "add",
@@ -120,7 +120,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await said(board, "Answer sent: Yes.");
         await actsSent(run, 1);
         await run.session.collected();
-        await board.receipt("delivered to the agent").first().waitFor({ timeout: STEP_TIMEOUT_MS });
+        await board.receipt("delivered").first().waitFor({ timeout: STEP_TIMEOUT_MS });
         await said(board, "Answer sent: Yes.");
         expectNoCspProblem(run);
       },
@@ -137,7 +137,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           .first()
           .waitFor({ timeout: STEP_TIMEOUT_MS });
         await answerYes(board, "q1");
-        await board.receipt("not sent yet").waitFor({ timeout: STEP_TIMEOUT_MS });
+        await board.receipt("queued").waitFor({ timeout: STEP_TIMEOUT_MS });
         await settled(board);
         expect(await regionText(board)).toBe("");
         await run.session.restore();
@@ -204,7 +204,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await answerYes(board, "q1");
         await answerYes(board, "q2");
         await said(board, "Answer ready, not sent. 2 ready.");
-        await barButton(board, "Submit").click({ timeout: STEP_TIMEOUT_MS });
+        await board.submit.click({ timeout: STEP_TIMEOUT_MS });
         await actsSent(run, 1);
         await said(board, "2 answers sent.");
       },
@@ -215,9 +215,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       "Select recommended says how many it prefilled and that nothing was sent, every press, none included",
       async () => {
         const { run, board } = await open(start, { delivery: "submitted" });
-        await barButton(board, "Select recommended").click({ timeout: STEP_TIMEOUT_MS });
+        await board.prefill.click({ timeout: STEP_TIMEOUT_MS });
         await said(board, "4 questions prefilled. Nothing was sent.");
-        await barButton(board, "Select recommended").click({ timeout: STEP_TIMEOUT_MS });
+        await board.prefill.click({ timeout: STEP_TIMEOUT_MS });
         await said(board, "0 questions prefilled. Nothing was sent.");
         expect(await actsSent(run, 0)).toEqual([]);
       },

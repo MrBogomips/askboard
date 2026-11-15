@@ -260,7 +260,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await board.receipt("sent").waitFor({ timeout: STEP_TIMEOUT_MS });
         const { events } = await run.session.collect();
         expect(events[0]?.results).toEqual({ priorities: { order: MOVED } });
-        await board.receipt("delivered to the agent").waitFor({ timeout: STEP_TIMEOUT_MS });
+        await board.receipt("delivered").waitFor({ timeout: STEP_TIMEOUT_MS });
         // Delivered, the question is answered and still open to a revision: handles and tools work.
         expect(await orderShown(board)).toEqual(MOVED);
         expect(await board.view.locator('[data-change="moved"]').count()).toBe(2);

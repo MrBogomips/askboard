@@ -30,6 +30,7 @@ import {
   openBoard,
   optionOf,
   promptArmed,
+  receiptOf,
   sentActs,
 } from "./harness/lifecycle-test.ts";
 import { readViewBuild } from "./harness/view-build.ts";
@@ -129,11 +130,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           .first()
           .waitFor({ timeout: STEP_TIMEOUT_MS });
         await answerOf(board, "cache").click();
-        await card(board, "cache").getByText("not sent yet", { exact: true }).waitFor();
+        await receiptOf(board, "cache", "queued").waitFor();
         await run.session.restore();
-        await card(board, "cache")
-          .getByText("sent", { exact: true })
-          .waitFor({ timeout: RECONNECT_TIMEOUT_MS });
+        await receiptOf(board, "cache", "sent").waitFor({ timeout: RECONNECT_TIMEOUT_MS });
         await board.header
           .getByText("Answered", { exact: true })
           .waitFor({ timeout: STEP_TIMEOUT_MS });

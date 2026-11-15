@@ -64,7 +64,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const tree = treeGridOf(board);
         await renameUx(board, FIRST);
         const first = await run.session.collect();
-        await board.receipt("delivered to the agent").waitFor({ timeout: STEP_TIMEOUT_MS });
+        await board.receipt("delivered").waitFor({ timeout: STEP_TIMEOUT_MS });
         // The draft starts from the logged value: the first rename is still marked against the
         // agent's original, and the Answer button is ready for the revision.
         await eventually(
@@ -125,7 +125,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await eventually(async () => (await cardsIn(board, "doing")).join() === "a", "a in doing");
         await answer(board);
         const first = await run.session.collect();
-        await board.receipt("delivered to the agent").waitFor({ timeout: STEP_TIMEOUT_MS });
+        await board.receipt("delivered").waitFor({ timeout: STEP_TIMEOUT_MS });
         expect(first.events).toHaveLength(1);
         // One more move, of the Kanban alone: the Timeline's earlier move must still be sent.
         await beginDrag(board, cardOf(board, "c"));

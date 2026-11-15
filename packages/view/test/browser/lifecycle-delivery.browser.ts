@@ -41,6 +41,8 @@ import {
   noteOf,
   openBoard,
   optionOf,
+  postponeOf,
+  receiptOf,
   sentActs,
   sentDrafts,
   viewText,
@@ -51,7 +53,7 @@ import { readViewBuild } from "./harness/view-build.ts";
 const dist = await readViewBuild();
 const QUESTIONS = ["database", "cache", "audit"];
 
-const mode = (board: Board, name: "Immediate" | "Submitted") => barButton(board, name);
+const mode = (board: Board, name: "immediate" | "submitted") => board.delivery(name);
 
 const ready = async (board: Board, id: string, label: string) => {
   await optionOf(board, id, label).click({ timeout: STEP_TIMEOUT_MS });
@@ -71,17 +73,17 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       async () => {
         const immediate = await start(lifecycleScenario(twoAsk, dist));
         const two = await openBoard(immediate, ["database", "cache"]);
-        expect(await mode(two, "Immediate").getAttribute("aria-pressed")).toBe("true");
+        expect(await mode(two, "immediate").getAttribute("aria-pressed")).toBe("true");
         await viewText(two, "Answers go to the agent as you give them.").waitFor();
-        expect(await barButton(two, "Submit").isDisabled()).toBe(true);
+        expect(await two.submit.isDisabled()).toBe(true);
         const submitted = await start(lifecycleScenario(submittedAsk, dist));
         const three = await openBoard(submitted, QUESTIONS);
-        expect(await mode(three, "Submitted").getAttribute("aria-pressed")).toBe("true");
+        expect(await mode(three, "submitted").getAttribute("aria-pressed")).toBe("true");
         const single = await start(lifecycleScenario(singleRequestingMoreAsk, dist));
         const one = await openBoard(single, ["database"]);
         expect(await viewText(one, "Delivery").count()).toBe(0);
-        expect(await one.view.getByRole("button", { name: "Submit" }).count()).toBe(0);
-        expect(await one.view.getByRole("button", { name: "Select recommended" }).count()).toBe(0);
+        expect(await one.submit.count()).toBe(0);
+        expect(await one.prefill.count()).toBe(0);
       },
       TEST_TIMEOUT_MS,
     );
@@ -92,13 +94,13 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const run = await start(lifecycleScenario(submittedAsk, dist));
         const board = await openBoard(run, QUESTIONS);
         await ready(board, "database", "SQLite");
-        expect(await barButton(board, "Submit").isDisabled()).toBe(false);
+        expect(await board.submit.isDisabled()).toBe(false);
         await optionOf(board, "database", "PostgreSQL").click();
         await eventually(
           async () => (await answerOf(board, "database").getAttribute("aria-pressed")) === "false",
           "database not ready",
         );
-        expect(await barButton(board, "Submit").isDisabled()).toBe(true);
+        expect(await board.submit.isDisabled()).toBe(true);
         expect(sentActs(run)).toEqual([]);
       },
       TEST_TIMEOUT_MS,
@@ -111,16 +113,15 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const board = await openBoard(run, QUESTIONS);
         await ready(board, "cache", "Yes");
         await ready(board, "database", "SQLite");
-        await buttonOf(board, "audit", "Postpone").click();
+        await postponeOf(board, "audit").click();
         // Submit reads the held acts once the postpone is held: wait for Postpone to show pressed.
         await eventually(
-          async () =>
-            (await buttonOf(board, "audit", "Postpone").getAttribute("aria-pressed")) === "true",
+          async () => (await postponeOf(board, "audit").getAttribute("aria-pressed")) === "true",
           "audit's postpone held",
         );
         expect(sentActs(run)).toEqual([]);
         await board.header.getByText("Waiting", { exact: true }).waitFor();
-        await barButton(board, "Submit").click();
+        await board.submit.click();
         const [command] = await actsDone(run, 1);
         expect(command?.acts).toEqual([
           { type: "answer", itemId: "cache", rev: 1, choice: ["Yes"], when: expect.any(String) },
@@ -134,14 +135,12 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           { type: "postpone", itemId: "audit", rev: 1 },
         ]);
         for (const id of ["cache", "database"]) {
-          await card(board, id)
-            .getByText("sent", { exact: true })
-            .waitFor({ timeout: STEP_TIMEOUT_MS });
+          await receiptOf(board, id, "sent").waitFor({ timeout: STEP_TIMEOUT_MS });
         }
         await board.header
           .getByText("answered, 1 postponed", { exact: true })
           .waitFor({ timeout: STEP_TIMEOUT_MS });
-        expect(await barButton(board, "Submit").isDisabled()).toBe(true);
+        expect(await board.submit.isDisabled()).toBe(true);
         const { events } = await run.session.collect();
         expect(events.map((event) => `${event.type}:${event.itemId}`)).toEqual([
           "answer:cache",
@@ -165,7 +164,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         );
         await board.header.getByText("3 open", { exact: true }).waitFor();
         expect(sentActs(run)).toEqual([]);
-        await barButton(board, "Submit").click();
+        await board.submit.click();
         const [command] = await actsDone(run, 1);
         expect(command?.acts).toEqual([
           {
@@ -192,13 +191,13 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const run = await start(lifecycleScenario(recommendedAsk, dist));
         const board = await openBoard(run, ["database", "flag", "cache"]);
         await optionOf(board, "database", "SQLite").click();
-        await barButton(board, "Select recommended").click();
+        await board.prefill.click();
         await eventually(() => optionOf(board, "flag", "Yes").isChecked(), "flag selected");
         expect(await optionOf(board, "database", "SQLite").isChecked()).toBe(true);
         expect(await optionOf(board, "database", "PostgreSQL").isChecked()).toBe(false);
         expect(await optionOf(board, "cache", "Yes").isChecked()).toBe(false);
         expect(sentActs(run)).toEqual([]);
-        await barButton(board, "Submit").click();
+        await board.submit.click();
         const [command] = await actsSent(run, 1);
         expect(command?.acts).toEqual([
           { type: "answer", itemId: "flag", rev: 1, choice: ["Yes"], when: expect.any(String) },
@@ -223,10 +222,10 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await viewText(board, "The agent updated this")
           .first()
           .waitFor({ timeout: STEP_TIMEOUT_MS });
-        expect(await barButton(board, "Submit").isDisabled()).toBe(true);
+        expect(await board.submit.isDisabled()).toBe(true);
         // The switch to immediate delivery waits as Submit does (Mode-switch confirmation).
-        expect(await mode(board, "Immediate").isDisabled()).toBe(true);
-        expect(await mode(board, "Submitted").isDisabled()).toBe(false);
+        expect(await mode(board, "immediate").isDisabled()).toBe(true);
+        expect(await mode(board, "submitted").isDisabled()).toBe(false);
         const updates = barButton(board, "1 update needs a choice");
         await updates.click();
         await eventually(() => focused(headingOf(board, "cache")), "focus on the changed question");
@@ -241,7 +240,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const run = await start(lifecycleScenario(submittedAsk, dist));
         const board = await openBoard(run, QUESTIONS);
         await ready(board, "database", "SQLite");
-        await mode(board, "Immediate").click();
+        await mode(board, "immediate").click();
         const dialog = board.view.getByRole("alertdialog");
         await dialog.waitFor({ timeout: STEP_TIMEOUT_MS });
         const frame = await board.viewFrame();
@@ -251,9 +250,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         );
         await dialog.getByRole("button", { name: "Cancel" }).click();
         await dialog.waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
-        expect(await mode(board, "Submitted").getAttribute("aria-pressed")).toBe("true");
+        expect(await mode(board, "submitted").getAttribute("aria-pressed")).toBe("true");
         expect(sentActs(run)).toEqual([]);
-        await mode(board, "Immediate").click();
+        await mode(board, "immediate").click();
         await dialog.getByRole("button", { name: "Send and switch" }).click();
         const [command] = await actsSent(run, 1);
         expect(command?.acts).toEqual([
@@ -266,10 +265,10 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           },
         ]);
         await eventually(
-          async () => (await mode(board, "Immediate").getAttribute("aria-pressed")) === "true",
+          async () => (await mode(board, "immediate").getAttribute("aria-pressed")) === "true",
           "immediate delivery",
         );
-        await card(board, "database").getByText("sent", { exact: true }).waitFor();
+        await receiptOf(board, "database", "sent").waitFor();
         expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,

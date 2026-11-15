@@ -51,7 +51,7 @@ const open = async (
 const outlineEntry = (board: Board, id: string): Locator =>
   board.view.locator(`[data-askboard-outline="${id}"]`);
 const nextOpen = (board: Board): Locator =>
-  board.view.getByRole("banner").getByRole("button", { name: /^Next open/ });
+  board.view.getByRole("banner").locator("[data-askboard-next-to-do]");
 
 /** The outline entries marked current, by question ID. */
 const currentMarks = (board: Board): Promise<string[]> =>
@@ -259,7 +259,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await blurCards(board);
         await scrollToLine(board, "q5");
         await expectCurrent(board, "q5");
-        await barButton(board, "Submit").focus();
+        await board.submit.focus();
         await board.page.keyboard.press("Enter");
         await actsSent(run, 1);
         await eventually(() => isFocused(headingOf(board, "q5")), "focus on the q5 heading");

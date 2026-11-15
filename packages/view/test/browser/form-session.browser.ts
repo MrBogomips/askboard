@@ -147,7 +147,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         });
         const channels = checkedFetchItem(await run.session.fetch("form-channels"));
         expect(channels).toMatchObject({ type: "pick-field", result: ["email", "chat"] });
-        await board.receipt("delivered to the agent").waitFor({ timeout: STEP_TIMEOUT_MS });
+        await board.receipt("delivered").waitFor({ timeout: STEP_TIMEOUT_MS });
         expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,

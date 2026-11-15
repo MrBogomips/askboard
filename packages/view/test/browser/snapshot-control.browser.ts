@@ -21,6 +21,7 @@ import {
 import type { Board } from "./harness/dom.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import {
+  answerOf,
   barButton,
   buttonOf,
   lifecycleScenario,
@@ -166,7 +167,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await feedbackOf(board).getByRole("button", { name: "Copy path" }).waitFor();
         const feedback = await feedbackOf(board).boundingBox();
         const bar = await snapshotButton(board).boundingBox();
-        const submit = await barButton(board, "Submit").boundingBox();
+        const submit = await board.submit.boundingBox();
         if (feedback === null || bar === null || submit === null) throw new Error("no box");
         expect(feedback.y).toBeGreaterThanOrEqual(bar.y + bar.height);
         expect(Math.abs(bar.y - submit.y)).toBeLessThan(2);
@@ -181,7 +182,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const run = await start({ ...lifecycleScenario(submittedAsk, dist), asker: ASKER });
         const board = await openBoard(run, ["database", "cache", "audit"]);
         await optionOf(board, "database", "PostgreSQL").click({ timeout: STEP_TIMEOUT_MS });
-        await buttonOf(board, "database", "Answer").click({ timeout: STEP_TIMEOUT_MS });
+        await answerOf(board, "database").click({ timeout: STEP_TIMEOUT_MS });
         await mirrored(run, (record) => record.questions.database?.held !== undefined, "held");
         await snapshotButton(board).click({ timeout: STEP_TIMEOUT_MS });
         await says(board, "Snapshot saved:", RECONNECT_TIMEOUT_MS);

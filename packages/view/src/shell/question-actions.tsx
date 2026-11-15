@@ -81,7 +81,9 @@ export const ActionsRow = ({
   const answerKey = useBoardKeyTable().find((entry) => entry.action === "board.answer");
   if (opened) {
     return card.receipt === undefined ? null : (
-      <span className="text-badge text-muted-foreground">{card.receipt}</span>
+      <span data-askboard-receipt={card.receiptKind} className="text-badge text-muted-foreground">
+        {card.receipt}
+      </span>
     );
   }
   return (
@@ -91,6 +93,7 @@ export const ActionsRow = ({
           type="button"
           className={`${BUTTON_SECONDARY} aria-pressed:border-foreground-secondary aria-pressed:font-semibold`}
           aria-pressed={actions.postponed}
+          data-askboard-postpone=""
           disabled={!actions.canPostpone}
           onClick={() => {
             onPostpone();
@@ -143,7 +146,12 @@ export const ActionsRow = ({
         </DropdownMenu.Root>
         <span className="ml-auto flex items-center gap-md">
           {card.receipt === undefined ? null : (
-            <span className="text-badge text-muted-foreground">{card.receipt}</span>
+            <span
+              data-askboard-receipt={card.receiptKind}
+              className="text-badge text-muted-foreground"
+            >
+              {card.receipt}
+            </span>
           )}
           {fieldToFix === undefined || locked ? null : (
             <button

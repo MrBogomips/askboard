@@ -9,10 +9,15 @@
 //   or out of it;
 // - the view's header is its `banner` landmark (a top-level `<header>`), holding the title and the
 //   ask state ("Waiting", "Answered", "Discarded"; EXPERIENCE, Voice and Tone);
-// - options are `radio` (or `checkbox`) controls named by their label; "Answer" is a button; an
-//   answered or locked question's options and "Answer" are disabled (`disabled` or
-//   `aria-disabled`);
-// - the delivery receipt reads "not sent yet", "sent" or "delivered to the agent";
+// - options are `radio` (or `checkbox`) controls named by their label; an answered or locked
+//   question's options and its primary button are disabled (`disabled` or `aria-disabled`);
+// - the controls and the receipt the answering flow moves, found by hooks that no label change
+//   touches (answering-flow-guidance, D5): `data-askboard-primary` on the card's "Answer",
+//   `data-askboard-submit` on Submit, `data-askboard-postpone` on Postpone,
+//   `data-askboard-prefill` on "Select recommended", `data-askboard-next-to-do` on the header's
+//   jump, `data-askboard-delivery="immediate|submitted"` on each delivery segment and
+//   `data-askboard-receipt="queued|sent|delivered"` on the receipt. A test that asserts a label's
+//   text names the label itself and is on the guard's allowlist (`locators.test.ts`);
 // - an item that fails shows an `alert` inside its question card;
 // - the board banners render on the board page, outside the view: "Connection lost, retrying",
 //   one saying the ask was discarded, and one saying the board moved, with "Continue here";
@@ -23,6 +28,8 @@
 import type { Frame, FrameLocator, Locator, Page } from "playwright";
 
 export const VIEW_FRAME = 'iframe[sandbox="allow-scripts"]';
+
+export type ReceiptKind = "queued" | "sent" | "delivered";
 
 export type Board = {
   readonly page: Page;
@@ -39,8 +46,20 @@ export type Board = {
   loaded(itemId: string): Locator;
   option(label: string): Locator;
   readonly options: Locator;
+  /** The card's primary button, "Answer" in any language (`data-askboard-primary`). */
   readonly answer: Locator;
-  receipt(text: "not sent yet" | "sent" | "delivered to the agent"): Locator;
+  /** The bottom bar's Submit. */
+  readonly submit: Locator;
+  /** The cards' Postpone buttons. */
+  readonly postpone: Locator;
+  /** The bottom bar's "Select recommended". */
+  readonly prefill: Locator;
+  /** The header's jump to the next question to do. */
+  readonly nextToDo: Locator;
+  /** One segment of the delivery mode switch. */
+  delivery(mode: "immediate" | "submitted"): Locator;
+  /** The delivery receipt: queued ("not sent yet"), sent, or delivered to the agent. */
+  receipt(kind: ReceiptKind): Locator;
   /** Text on the board page itself, where the banners are. */
   banner(text: string | RegExp): Locator;
   readonly continueHere: Locator;
@@ -74,8 +93,13 @@ export const boardOf = (page: Page): Board => {
     option: (label) => view.getByRole("radio", { name: label }),
     // Inside a question: the header's quick toggles are radio groups too (settings-languages).
     options: view.locator("[data-askboard-question]").getByRole("radio"),
-    answer: view.getByRole("button", { name: "Answer", exact: true }),
-    receipt: (text) => view.getByText(text, { exact: true }),
+    answer: view.locator("[data-askboard-primary]"),
+    submit: view.locator("[data-askboard-submit]"),
+    postpone: view.locator("[data-askboard-postpone]"),
+    prefill: view.locator("[data-askboard-prefill]"),
+    nextToDo: view.locator("[data-askboard-next-to-do]"),
+    delivery: (mode) => view.locator(`[data-askboard-delivery="${mode}"]`),
+    receipt: (kind) => view.locator(`[data-askboard-receipt="${kind}"]`),
     banner: (text) => page.getByText(text),
     continueHere: page.getByRole("button", { name: "Continue here" }),
     whoAndWhere,

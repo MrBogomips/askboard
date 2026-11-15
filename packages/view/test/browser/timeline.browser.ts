@@ -465,7 +465,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           { op: "set", target: "roadmap.checkout.lane", value: "mobile" },
           { op: "set", target: "roadmap.checkout.start", value: "2026-01-12" },
         ]);
-        await board.receipt("delivered to the agent").waitFor({ timeout: STEP_TIMEOUT_MS });
+        await board.receipt("delivered").waitFor({ timeout: STEP_TIMEOUT_MS });
         expect(await days(board, "checkout")).toEqual(LATER);
         expect(await entryOf(board, "checkout").getAttribute("data-change")).toBe("moved");
         await run.session.update([{ action: "close" }]);

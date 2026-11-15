@@ -116,7 +116,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(inside).toContain(NEW_NAME);
         expect(inside).toContain('"days"');
         expect(inside).toContain("Load");
-        await board.receipt("delivered to the agent").waitFor({ timeout: STEP_TIMEOUT_MS });
+        await board.receipt("delivered").waitFor({ timeout: STEP_TIMEOUT_MS });
         expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,

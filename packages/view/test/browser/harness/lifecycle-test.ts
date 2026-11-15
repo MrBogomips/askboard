@@ -7,7 +7,7 @@
 import type { ActCommand, DraftRecord } from "@askboard/contract";
 import type { Locator } from "playwright";
 import { actsApplied, type BoardRun, LOAD_TIMEOUT_MS, STEP_TIMEOUT_MS } from "./board-test.ts";
-import type { Board } from "./dom.ts";
+import type { Board, ReceiptKind } from "./dom.ts";
 import type { Scenario } from "./session.ts";
 import type { ViewBuild } from "./view-build.ts";
 
@@ -40,8 +40,17 @@ export const optionOf = (board: Board, id: string, label: string): Locator =>
     .getByRole("radio", { name: label, exact: true })
     .or(card(board, id).getByRole("checkbox", { name: label, exact: true }));
 
+/** A card's primary button, "Answer" in any language. */
 export const answerOf = (board: Board, id: string): Locator =>
-  card(board, id).getByRole("button", { name: "Answer", exact: true });
+  card(board, id).locator("[data-askboard-primary]");
+
+/** A card's Postpone button. */
+export const postponeOf = (board: Board, id: string): Locator =>
+  card(board, id).locator("[data-askboard-postpone]");
+
+/** A card's delivery receipt of a kind. */
+export const receiptOf = (board: Board, id: string, kind: ReceiptKind): Locator =>
+  card(board, id).locator(`[data-askboard-receipt="${kind}"]`);
 
 export const noteOf = (board: Board, id: string): Locator =>
   card(board, id).getByRole("textbox", { name: "Note for the agent (optional)" });

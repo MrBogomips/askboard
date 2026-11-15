@@ -32,6 +32,7 @@ import {
   mirrored,
   openBoard,
   optionOf,
+  receiptOf,
   sentActs,
 } from "./harness/lifecycle-test.ts";
 import { hostSettled } from "./harness/probes.ts";
@@ -45,7 +46,7 @@ const WHY = "Show the training as an extra";
 const dialog = (board: Board) => board.view.getByRole("alertdialog");
 const dialogButton = (board: Board, name: string) =>
   dialog(board).getByRole("button", { name, exact: true });
-const submit = (board: Board) => barButton(board, "Submit");
+const submit = (board: Board) => board.submit;
 const held = async (board: Board, id: string): Promise<boolean> =>
   (await answerOf(board, id).getAttribute("aria-pressed")) === "true";
 
@@ -64,13 +65,11 @@ const heldOverDelivered = async (run: BoardRun, board: Board, id: string): Promi
   await markReady(board, id, "Approve");
   await submit(board).click();
   await actsDone(run, 1);
-  await card(board, id).getByText("sent", { exact: true }).waitFor({ timeout: STEP_TIMEOUT_MS });
+  await receiptOf(board, id, "sent").waitFor({ timeout: STEP_TIMEOUT_MS });
   await markReady(board, id, "Reject");
   expect(await dialog(board).count()).toBe(0);
   await run.session.collect();
-  await card(board, id)
-    .getByText("delivered to the agent", { exact: true })
-    .waitFor({ timeout: STEP_TIMEOUT_MS });
+  await receiptOf(board, id, "delivered").waitFor({ timeout: STEP_TIMEOUT_MS });
 };
 
 // Seeds the state the board can no longer reach: the review's held "Approve with changes" whose
@@ -176,7 +175,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const board = await openBoard(run, [PLAN, REVIEW]);
         await decisionOf(board, REVIEW, "Approve with changes").click();
         await promptOf(board, REVIEW, REASON).waitFor({ timeout: STEP_TIMEOUT_MS });
-        await barButton(board, "Select recommended").click();
+        await board.prefill.click();
         await eventually(() => optionOf(board, REVIEW, "PostgreSQL").isChecked(), "PostgreSQL");
         await hostSettled(board);
         expect(await held(board, REVIEW)).toBe(false);
@@ -225,22 +224,22 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const run = await start(lifecycleScenario(reviewedAsk("submitted"), dist));
         const board = await openBoard(run, [PLAN, REVIEW]);
         await heldOverDelivered(run, board, PLAN);
-        await barButton(board, "Immediate").click();
+        await board.delivery("immediate").click();
         await dialogButton(board, "Send and switch").click();
         await dialog(board).getByText("Send new answers?", { exact: true }).waitFor();
         await dialogButton(board, "Cancel").click();
         await dialog(board).waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
         await eventually(() => isFocused(submit(board)), "focus back on Submit");
-        expect(await barButton(board, "Submitted").getAttribute("aria-pressed")).toBe("true");
+        expect(await board.delivery("submitted").getAttribute("aria-pressed")).toBe("true");
         expect(await held(board, PLAN)).toBe(true);
         await hostSettled(board);
         expect(sentActs(run)).toHaveLength(1);
-        await barButton(board, "Immediate").click();
+        await board.delivery("immediate").click();
         await dialogButton(board, "Send and switch").click();
         await dialogButton(board, "Submit").click();
         await actsDone(run, 2);
         await eventually(
-          async () => (await barButton(board, "Immediate").getAttribute("aria-pressed")) === "true",
+          async () => (await board.delivery("immediate").getAttribute("aria-pressed")) === "true",
           "immediate delivery",
         );
         expectNoCspProblem(run);
@@ -275,11 +274,11 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const board = await openBoard(run, [PLAN, REVIEW]);
         await markReady(board, PLAN, "Approve");
         await seedLostReason(run, board);
-        await barButton(board, "Immediate").click();
+        await board.delivery("immediate").click();
         await dialogButton(board, "Send and switch").click();
         await dialog(board).waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
         await expectAskedForReason(board);
-        expect(await barButton(board, "Submitted").getAttribute("aria-pressed")).toBe("true");
+        expect(await board.delivery("submitted").getAttribute("aria-pressed")).toBe("true");
         expect(await held(board, PLAN)).toBe(true);
         expect(await held(board, REVIEW)).toBe(true);
         await hostSettled(board);
@@ -314,11 +313,11 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const run = await start(lifecycleScenario(reviewedOnePerViewAsk(), dist));
         const board = await openBoard(run, [PLAN, REVIEW]);
         await seedLostReasonOffScreen(run, board);
-        await barButton(board, "Immediate").click();
+        await board.delivery("immediate").click();
         await dialogButton(board, "Send and switch").click();
         await dialog(board).waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
         await expectReviewShownAndAsked(board);
-        expect(await barButton(board, "Submitted").getAttribute("aria-pressed")).toBe("true");
+        expect(await board.delivery("submitted").getAttribute("aria-pressed")).toBe("true");
         await expectBothStillHeld(run);
         await hostSettled(board);
         expect(sentActs(run)).toEqual([]);

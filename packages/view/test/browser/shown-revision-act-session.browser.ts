@@ -139,9 +139,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           },
         ]);
         await keepMine(board);
-        await barButton(board, "Select recommended").click();
-        await eventually(() => barButton(board, "Submit").isEnabled(), "Submit to be enabled");
-        await barButton(board, "Submit").click();
+        await board.prefill.click();
+        await eventually(() => board.submit.isEnabled(), "Submit to be enabled");
+        await board.submit.click();
         const answered = () =>
           sentActs(run)
             .flatMap((command) => command.acts)

@@ -224,7 +224,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await board.receipt("sent").waitFor({ timeout: STEP_TIMEOUT_MS });
         const { events } = await run.session.collect();
         expect(events[0]?.results).toEqual({ name: "Ada", notes: "one\ntwo", notify: true });
-        await board.receipt("delivered to the agent").waitFor({ timeout: STEP_TIMEOUT_MS });
+        await board.receipt("delivered").waitFor({ timeout: STEP_TIMEOUT_MS });
         // Delivered, the question stays open to a revision: the fields show the logged values.
         expect(await board.view.getByLabel("Name", { exact: true }).inputValue()).toBe("Ada");
         expect(await board.view.locator('[id="notify:state"]').textContent()).toBe("On");

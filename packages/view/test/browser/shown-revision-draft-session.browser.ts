@@ -37,6 +37,7 @@ import {
   mirrored,
   openBoard,
   promptArmed,
+  receiptOf,
   sentActs,
   sentDrafts,
 } from "./harness/lifecycle-test.ts";
@@ -111,7 +112,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         );
         expect(await promptArmed(board)).toBe(true);
         // A change on the board: the question in view moves on.
-        await board.header.getByRole("button", { name: "Next open", exact: true }).click();
+        await board.header.locator("[data-askboard-next-to-do]").click();
         await draftSettled(board);
         expect(await view.getByLabel("Second", { exact: true }).inputValue()).toBe("Grace Hopper");
         expect(draftHolds(sentDrafts(run), "plan", "b", "Grace Hopper")).toBe(true);
@@ -195,9 +196,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await run.session.update([
           { action: "answer", itemId: "plan", answer: { choice: ["SQLite"] } },
         ]);
-        await card(board, "plan")
-          .getByText("delivered to the agent", { exact: true })
-          .waitFor({ timeout: STEP_TIMEOUT_MS });
+        await receiptOf(board, "plan", "delivered").waitFor({ timeout: STEP_TIMEOUT_MS });
         // Decline is not reached on this path: the card disables it on an answered question.
         await buttonOf(board, "plan", "More").click({ timeout: STEP_TIMEOUT_MS });
         expect(await menuItem(board, "Decline").isDisabled()).toBe(true);

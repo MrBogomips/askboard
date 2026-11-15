@@ -84,7 +84,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
             record.questions.cache?.held?.act === "answer",
           "both answers held",
         );
-        expect(await barButton(board, "Submit").isDisabled()).toBe(false);
+        expect(await board.submit.isDisabled()).toBe(false);
         await card(board, "database")
           .getByRole("button", { name: "Break breaker", exact: true })
           .click({ timeout: STEP_TIMEOUT_MS });
@@ -98,9 +98,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const draft = sentDrafts(run).at(-1)?.questions;
         expect(JSON.stringify(draft?.database)).toContain("SQLite");
         expect(draft?.cache?.held?.act).toBe("answer");
-        expect(await barButton(board, "Immediate").isDisabled()).toBe(false);
-        await eventually(async () => !(await barButton(board, "Submit").isDisabled()), "Submit");
-        await barButton(board, "Submit").click({ timeout: STEP_TIMEOUT_MS });
+        expect(await board.delivery("immediate").isDisabled()).toBe(false);
+        await eventually(async () => !(await board.submit.isDisabled()), "Submit");
+        await board.submit.click({ timeout: STEP_TIMEOUT_MS });
         const [command, ...rest] = await actsDone(run, 1);
         expect(rest).toEqual([]);
         expect(command?.acts.map((act) => `${act.type}:${act.itemId}`)).toEqual(["answer:cache"]);

@@ -63,6 +63,8 @@ export type CardState = {
   /** What the card's items and fields show in place of the draft: an answer's content. */
   readonly shown?: AnswerContent;
   readonly receipt?: ReceiptText;
+  /** Which receipt `receipt` says: the test hook `data-askboard-receipt` (D5). */
+  readonly receiptKind?: keyof typeof RECEIPTS;
   readonly readOnly: boolean;
   readonly canAnswer: boolean;
   /** "Answer" would send the open prompt's note alone, leaving the question open (FR-7). */
@@ -197,14 +199,21 @@ export const cardState = ({
     return {
       phase: "sending",
       ...(shown === undefined ? {} : { shown }),
-      ...(flight.outcome === undefined ? {} : { receipt: t(language, RECEIPTS[flight.outcome]) }),
+      ...(flight.outcome === undefined
+        ? {}
+        : { receipt: t(language, RECEIPTS[flight.outcome]), receiptKind: flight.outcome }),
       ...closed,
       ready: false,
     };
   }
   const answerable = status !== undefined && load === "visible" && lock === undefined;
   const receipt =
-    logged === undefined ? {} : { receipt: t(language, RECEIPTS[logged.answer.receipt]) };
+    logged === undefined
+      ? {}
+      : {
+          receipt: t(language, RECEIPTS[logged.answer.receipt]),
+          receiptKind: logged.answer.receipt,
+        };
   if (logged !== undefined && !editing) {
     return {
       phase: logged.state,

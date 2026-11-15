@@ -30,6 +30,8 @@ import {
   noteOf,
   openBoard,
   optionOf,
+  postponeOf,
+  receiptOf,
   sentActs,
   viewText,
 } from "./harness/lifecycle-test.ts";
@@ -57,19 +59,15 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const board = await openBoard(run, ["database"]);
         await optionOf(board, "database", "PostgreSQL").click();
         await answerOf(board, "database").click();
-        await card(board, "database").getByText("sent", { exact: true }).waitFor();
+        await receiptOf(board, "database", "sent").waitFor();
         await actsDone(run, 1);
         await run.session.collect();
-        await card(board, "database")
-          .getByText("delivered to the agent", { exact: true })
-          .waitFor({ timeout: STEP_TIMEOUT_MS });
+        await receiptOf(board, "database", "delivered").waitFor({ timeout: STEP_TIMEOUT_MS });
         expect(await answerOf(board, "database").isDisabled()).toBe(true);
         await optionOf(board, "database", "SQLite").click();
         expect(await optionOf(board, "database", "SQLite").isChecked()).toBe(true);
         await answerOf(board, "database").click();
-        await card(board, "database")
-          .getByText("sent", { exact: true })
-          .waitFor({ timeout: STEP_TIMEOUT_MS });
+        await receiptOf(board, "database", "sent").waitFor({ timeout: STEP_TIMEOUT_MS });
         const [, revision] = await actsDone(run, 2);
         expect(revision?.acts).toEqual([
           {
@@ -88,9 +86,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
             replaces: expect.any(String),
           }),
         ]);
-        await card(board, "database")
-          .getByText("delivered to the agent", { exact: true })
-          .waitFor({ timeout: STEP_TIMEOUT_MS });
+        await receiptOf(board, "database", "delivered").waitFor({ timeout: STEP_TIMEOUT_MS });
         expect(await optionOf(board, "database", "SQLite").isChecked()).toBe(true);
       },
       TEST_TIMEOUT_MS,
@@ -190,7 +186,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await notice(board, "database").getByRole("button", { name: "Keep mine" }).click();
         await notice(board, "database").waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
         await answerOf(board, "database").click();
-        await card(board, "database").getByText("sent", { exact: true }).waitFor();
+        await receiptOf(board, "database", "sent").waitFor();
         await actsDone(run, 2);
         expect(sentActs(run).map((command) => command.acts)).toEqual([
           [{ type: "edit-choice", itemId: "database", rev: 2, edit: "ignore", keptRev: 1 }],
@@ -220,7 +216,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const board = await openBoard(run, ["database", "cache"]);
         await optionOf(board, "database", "PostgreSQL").click();
         await answerOf(board, "database").click();
-        await card(board, "database").getByText("sent", { exact: true }).waitFor();
+        await receiptOf(board, "database", "sent").waitFor();
         await actsDone(run, 1);
         // Reopened and reworded in one update: the question changed, so it starts from the agent's
         // version, not from the previous answer (reopen-start-from-answer, design decision 3).
@@ -257,7 +253,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       async () => {
         const run = await start(lifecycleScenario(twoAsk, dist));
         const board = await openBoard(run, ["database", "cache"]);
-        await buttonOf(board, "database", "Postpone").click();
+        await postponeOf(board, "database").click();
         await board.view
           .getByText("You have 1 postponed question: closing loses this ask", { exact: true })
           .waitFor({ timeout: STEP_TIMEOUT_MS });

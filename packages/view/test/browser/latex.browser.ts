@@ -505,7 +505,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(events[0]?.changes).toEqual([
           { op: "set", target: "formula.expression", value: "a^2+b^2=c^2" },
         ]);
-        await board.receipt("delivered to the agent").waitFor({ timeout: STEP_TIMEOUT_MS });
+        await board.receipt("delivered").waitFor({ timeout: STEP_TIMEOUT_MS });
         expect(await fieldValue(board)).toBe("a^2+b^2=c^2");
         await run.session.update([{ action: "close" }]);
         await board

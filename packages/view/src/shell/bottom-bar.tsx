@@ -213,6 +213,7 @@ export const BottomBar = (props: BottomBarProps) => {
           ref={immediateButton}
           type="button"
           className={SEGMENT}
+          data-askboard-delivery="immediate"
           aria-pressed={delivery === "immediate"}
           disabled={locked || blockedSwitch}
           onClick={toImmediate}
@@ -222,6 +223,7 @@ export const BottomBar = (props: BottomBarProps) => {
         <button
           type="button"
           className={SEGMENT}
+          data-askboard-delivery="submitted"
           aria-pressed={delivery === "submitted"}
           disabled={locked}
           onClick={() => context.board.setDelivery("submitted")}
@@ -240,6 +242,7 @@ export const BottomBar = (props: BottomBarProps) => {
           <button
             type="button"
             className={BUTTON_SECONDARY}
+            data-askboard-prefill=""
             disabled={locked}
             onClick={props.onSelectRecommended}
           >
@@ -255,6 +258,7 @@ export const BottomBar = (props: BottomBarProps) => {
         <button
           ref={submitButton}
           type="button"
+          data-askboard-submit=""
           className={BUTTON_PRIMARY}
           disabled={submit.disabled}
           onClick={() => send()}

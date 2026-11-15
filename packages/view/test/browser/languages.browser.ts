@@ -18,6 +18,7 @@ import type { Board } from "./harness/dom.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import {
   actsDone,
+  answerOf,
   buttonOf,
   card,
   lifecycleScenario,
@@ -128,7 +129,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         async () => {
           const run = await start(lifecycleScenario(mixedAsk, dist), options);
           const board = await openBoard(run, ["database", "cache"]);
-          await buttonOf(board, "database", "Answer").waitFor({ timeout: STEP_TIMEOUT_MS });
+          await answerOf(board, "database").waitFor({ timeout: STEP_TIMEOUT_MS });
           await buttonOf(board, "database", "Ask a follow-up").click();
           await card(board, "database")
             .getByRole("textbox", { name: "Ask the agent a follow-up…" })
@@ -269,7 +270,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         );
         // Answer, reopen with the commented word rewritten, and start from the answer: the comment
         // is detached.
-        await buttonOf(board, "plan", "Rispondi").click({ timeout: STEP_TIMEOUT_MS });
+        await answerOf(board, "plan").click({ timeout: STEP_TIMEOUT_MS });
         await actsDone(run, 1);
         await run.session.update([
           { action: "reopen", itemId: "plan" },
@@ -293,7 +294,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await list.textContent()).toContain("risposte non inviate");
         // Only the attached comment on "Second item" is still marked.
         expect(await marks(view).count()).toBe(1);
-        const answer = buttonOf(board, "plan", "Rispondi");
+        const answer = answerOf(board, "plan");
         expect(await answer.isDisabled()).toBe(true);
         const hintId = await answer.getAttribute("aria-describedby");
         expect(await view.locator(`[id="${hintId}"]`).textContent()).toBe(

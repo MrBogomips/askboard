@@ -100,6 +100,9 @@ describe("what a question card shows (EXPERIENCE.md, Question card and Delivery 
     });
     expect(card({ flight: flightOf(acts, "sent") }).receipt).toBe("sent");
     expect(card({ flight: flightOf(acts, "queued") }).receipt).toBe("not sent yet");
+    expect(card({ flight: flightOf(acts, "queued") }).receiptKind).toBe("queued");
+    expect(card({ flight: flightOf(acts, "sent") }).receiptKind).toBe("sent");
+    expect(card({}).receiptKind).toBeUndefined();
     const note = [
       { type: "note", itemId: "database", rev: 1, note: "n", when: "2026-10-30T10:00:00Z" },
     ] as const;
@@ -128,12 +131,14 @@ describe("what a question card shows (EXPERIENCE.md, Question card and Delivery 
       phase: "answered",
       shown: { choice: ["SQLite"] },
       receipt: "sent",
+      receiptKind: "sent",
       readOnly: false,
       canAnswer: false,
       noteOnly: false,
       ready: false,
     });
     expect(card({ status: answered("delivered") }).receipt).toBe("delivered to the agent");
+    expect(card({ status: answered("delivered") }).receiptKind).toBe("delivered");
     const whole = {
       itemId: "database",
       rev: 1,
@@ -184,6 +189,7 @@ describe("what a question card shows (EXPERIENCE.md, Question card and Delivery 
     ).toEqual({
       phase: "open",
       receipt: "delivered to the agent",
+      receiptKind: "delivered",
       readOnly: false,
       canAnswer: true,
       noteOnly: false,

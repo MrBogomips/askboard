@@ -116,7 +116,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await board.view
           .getByRole("textbox", { name: "Motivo delle modifiche (obbligatorio)", exact: true })
           .waitFor({ timeout: STEP_TIMEOUT_MS });
-        await board.view.getByRole("button", { name: "Rispondi", exact: true }).click();
+        await board.view.locator("[data-askboard-primary]").click();
         await text("Aggiungi il motivo delle modifiche.").waitFor({ timeout: STEP_TIMEOUT_MS });
         await board.view.getByRole("radio", { name: "4", exact: true }).click();
         await board.view.locator('[data-ranking-row="comfort"]').focus();

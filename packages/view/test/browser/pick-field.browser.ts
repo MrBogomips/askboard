@@ -497,7 +497,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await actsDone(run, 1);
         const { events } = await run.session.collect();
         expect(events[0]?.results).toEqual({ country: ITALY, tags: ["a", "c"], region: "us" });
-        await board.receipt("delivered to the agent").waitFor({ timeout: STEP_TIMEOUT_MS });
+        await board.receipt("delivered").waitFor({ timeout: STEP_TIMEOUT_MS });
         expect(await radio(view, "Italy").getAttribute("aria-checked")).toBe("true");
         await run.session.update([{ action: "close" }]);
         await board
