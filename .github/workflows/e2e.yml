@@ -7,6 +7,7 @@ name: E2E
 #                                 pass, conformance on Node 24 and Node 26
 #   weekly   Saturday 04:23 UTC   macOS: the nightly's set with conformance on Bun, Node 24 and Node 26;
 #   and before every release      release.yml calls it with `cadence: weekly` before it publishes
+#                                 (Chromium and WebKit, C6) and with `cadence: smoke` in Firefox
 # No ruleset requires these jobs (the PO's answer to Q2, 2026-11-14): a red e2e job blocks no merge.
 # The repository is public, so a pull request from a fork runs this file: it reads the repository and
 # nothing else (no secrets, no write token, `pull_request` and never `pull_request_target`), its
