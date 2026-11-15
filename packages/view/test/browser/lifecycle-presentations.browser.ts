@@ -169,7 +169,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const navigator = board.view.getByRole("navigation", { name: "Question navigator" });
         await navigator.getByText("Question 1 of 5", { exact: true }).waitFor();
         await board.header
-          .getByRole("button", { name: /^Next open/ })
+          .locator("[data-askboard-next-to-do]")
           .click({ timeout: STEP_TIMEOUT_MS });
         await navigator.getByText("Question 2 of 5", { exact: true }).waitFor();
         await eventually(() => isFocused(heading(board, "q2")), "focus on question 2's heading");
