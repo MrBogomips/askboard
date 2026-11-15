@@ -622,8 +622,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         );
         // The premise: board-host holds no work for the question. The page mirrors a record 300 ms
         // after its last change, so a move made more than that before the answer was mirrored, and
-        // the record that replaces it, empty, goes out only 300 ms after the answer; a reload before
-        // then restores the move from the stale record (Issue #198). Waits for the empty record.
+        // the record that replaces it, empty, goes out 300 ms after the answer. A closed ask's board
+        // page mirrors nothing more, so if the close comes first the stale record stays and a later
+        // reload restores the move from it (Issue #198). Waits for the empty record, before the close.
         await eventually(() => {
           const last = sentDrafts(run).at(-1);
           return last !== undefined && last.questions.plan === undefined;
