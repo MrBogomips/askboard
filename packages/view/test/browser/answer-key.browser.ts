@@ -89,7 +89,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await optionOf(board, "db", "SQLite").focus();
         await board.page.keyboard.press(MOD_ENTER);
         await actsSent(run, 1);
-        await eventually(() => isFocused(headingOf(board, "db")), "focus on the heading");
+        // With "Go to the next" focus is on the next question to do's heading (After an answer).
+        await eventually(() => isFocused(headingOf(board, "regions")), "focus on the next heading");
         expect(sentText(run)).toContain("PostgreSQL");
         expect(sentText(run)).not.toContain("SQLite");
         expect(await optionOf(board, "db", "SQLite").isChecked()).toBe(false);
@@ -105,7 +106,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const { run, board } = await open(start, "submitted");
         await choose(board, "db", "PostgreSQL");
         await board.page.keyboard.press(MOD_ENTER);
-        await said(board, "Answer ready, not sent. 1 ready.");
+        await said(board, "Answer ready, not sent. 1 ready. Next: REGIONS, 2 of 5.");
         expect(await primaryOf(board, "db").getAttribute("aria-pressed")).toBe("true");
         // The ask pill still reads Waiting: nothing reached the agent.
         await board.header
@@ -227,7 +228,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await board.page.keyboard.down("Control");
         await board.page.keyboard.down("Enter");
         await actsSent(run, 1);
-        await eventually(() => isFocused(headingOf(board, "db")), "focus on the heading");
+        // "Go to the next": focus is on the next question to do's heading, which the repeats reach.
+        await eventually(() => isFocused(headingOf(board, "regions")), "focus on the heading");
         // Playwright sends the second down of a key already down with `repeat: true`.
         await board.page.keyboard.down("Enter");
         await optionOf(board, "cache", "Yes").focus();
@@ -235,6 +237,32 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await board.page.keyboard.up("Enter");
         await board.page.keyboard.up("Control");
         await expectSent(board, run, 1);
+        expect(sentText(run)).not.toContain("cache");
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a held key with Stay here answers once: focus is on Continue, and a repeat does not activate it",
+      async () => {
+        const { run, board } = await open(start, "immediate", {
+          user: { version: "1.0", afterAnswer: "stay" },
+        });
+        await choose(board, "db", "PostgreSQL");
+        await choose(board, "cache", "Yes");
+        await optionOf(board, "db", "SQLite").focus();
+        await board.page.keyboard.down("Control");
+        await board.page.keyboard.down("Enter");
+        await actsSent(run, 1);
+        const keepOn = card(board, "db").locator("[data-askboard-continue]");
+        await eventually(() => isFocused(keepOn), "focus on Continue");
+        await board.page.keyboard.down("Enter");
+        await board.page.keyboard.down("Enter");
+        await board.page.keyboard.up("Enter");
+        await board.page.keyboard.up("Control");
+        await expectSent(board, run, 1);
+        expect(await isFocused(keepOn)).toBe(true);
+        expect(await isFocused(headingOf(board, "regions"))).toBe(false);
         expect(sentText(run)).not.toContain("cache");
       },
       TEST_TIMEOUT_MS,
@@ -262,7 +290,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await viewSettled(board);
         expect(await primaryOf(board, "db").getAttribute("aria-pressed")).toBe("true");
         expect(await primaryOf(board, "cache").getAttribute("aria-pressed")).toBe("false");
-        await said(board, "Answer ready, not sent. 1 ready.");
+        await said(board, "Answer ready, not sent. 1 ready. Next: REGIONS, 2 of 5.");
         await expectSent(board, run, 0);
       },
       TEST_TIMEOUT_MS,
