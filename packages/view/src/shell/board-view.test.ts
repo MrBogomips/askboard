@@ -561,7 +561,9 @@ describe("previousOpenFrom (board-keys, design decision 3; mirrors nextOpenFrom)
   test("the order is the board's: unseen questions get no priority, unlike the jump forward", () => {
     // Forward, an unseen question the agent added comes first; backward, only board order counts.
     const unseen = new Set(["rollout"]);
-    expect(nextOpenFrom(lifecycleBoardDocument, state, noWork, unseen, "payment")).toBe("rollout");
+    expect(nextOpenFrom(lifecycleBoardDocument, state, noWork, none, unseen, "payment")).toBe(
+      "rollout",
+    );
     expect(previousOpenFrom(lifecycleBoardDocument, state, noWork, none, "rollout")).toBe(
       "payment",
     );
