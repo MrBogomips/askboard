@@ -24,6 +24,8 @@ The dense-table Markdown case is a known limit that is timed, not bounded (task 
 - The PO's Mac reads `AppleKeyboardUIMode` = 2, and the local Playwright WebKit's bundle id is `org.webkit.Playwright` (observed 2026-11-15). This explains why the PO's local runs pass.
 - Apple documents the setting but not the key or its values.
 
+**#198, observed** (same runs, `browser / Browser tests, chromium, shard 3/4` on Linux and macOS). Case (g) of `reopen-session.browser.ts` (:613, added by `reopen-start-from-answer`, #70) sends one `update` holding a reopen of `plan` and a close, reloads, and expects the Timeline as the agent sent it (`AS_SENT`: lane `web`, start 2026-01-05, no mark). The board showed the reopened answer's move (lane `mobile`, start 2026-01-12, mark `moved`): something filled the draft, and the fill survived the reload. It failed in Chromium on both OSes and in Firefox on Linux, passed in WebKit, failed once locally under load during e2e-cadence's runs, and passes alone. The binding behaviour is the view spec's scenario "A closed ask after a reload" (requirement "A reopened question starts from the previous answer"); the prefill gate `reopenPrefills` fills nothing once `state.ask` is `closed`. Decision 8.
+
 ## Goals / Non-Goals
 
 **Goals:**
@@ -31,20 +33,20 @@ The dense-table Markdown case is a known limit that is timed, not bounded (task 
 - WebKit's keyboard cases run on macOS as they do on Linux, through the platform's own setting.
 
 **Non-Goals:**
-- The other failures of the first runs: Firefox (#174, #145), and the open failures #198 (Chromium on macOS, which the release gate also runs), #191, #199, #200 and #201. The release gate stays blocked until #198 is fixed or out of the gate.
+- The other failures of the first runs: Firefox (#174, #145; case (g) in Firefox is in scope only if it shares #198's cause), #191, #199, #200 and #201.
 - Faster Table edits or Markdown renders, and new or changed bounds.
 - A runner-side check of a developer's Mac: a Mac with keyboard navigation off fails as the runner did, and `CLAUDE.md` names the setting.
 
-## Defaults taken (2026-11-15)
+## Defaults taken and PO decisions (2026-11-15)
 
-Taken by the architect on the coordinator's recommended defaults. Only D4 is a question for the PO (Q1).
+D1 to D3 are the architect's defaults on the coordinator's recommendation. D4 is the PO's answer to Q1 on #197 (option (a), 2026-11-15; `needs-po` removed). #198 joined the change at the PO's request on the same day.
 
 | ID | Default | Reason |
 |---|---|---|
 | D1 | Scale the bounds on hosted runners (#196's option 1), not "perf informational in CI" (option 3) or a calibration loop (option 2) | Decision 1 |
 | D2 | Factor 2 on Linux and 3 on macOS, per runner OS, in one table beside the perf helpers | Decision 2 |
 | D3 | The dense Markdown case's wait and test timeout take the same factor | Decision 4 |
-| D4 | The macOS runner turns on keyboard navigation with `defaults write -g AppleKeyboardUIMode -int 2` before any browser starts | Decision 5; Q1 |
+| D4 | The macOS runner turns on keyboard navigation with `defaults write -g AppleKeyboardUIMode -int 2` before any browser starts | Decision 5; decided by the PO (Q1 (a)) |
 
 ## Decisions
 
@@ -72,9 +74,9 @@ The gates in `table-bounds.browser.ts` (`GATES`, `FAN_OUT_WEBKIT_EDIT_GATE`), `m
 
 ### 4. The dense Markdown case
 
-`DENSE_WAIT_MS` and `DENSE_TEST_TIMEOUT_MS` go through `perfScaled`: 120 s and 240 s locally, 360 s and 720 s on macOS. The macOS Chromium figure (67.8 s) and the Linux WebKit figure (51.9 s) suggest WebKit on macOS needs about 130 s. Its "hung" report at 120 s may still be a real hang, so the runner run in task 3.1 settles it (Risks).
+`DENSE_WAIT_MS` and `DENSE_TEST_TIMEOUT_MS` go through `perfScaled`: 120 s and 240 s locally, 360 s and 720 s on macOS. The macOS Chromium figure (67.8 s) and the Linux WebKit figure (51.9 s) suggest WebKit on macOS needs about 130 s. Its "hung" report at 120 s may still be a real hang, so the runner run in task 4.1 settles it (Risks).
 
-### 5. Keyboard navigation on the macOS runner (needs probe; Q1)
+### 5. Keyboard navigation on the macOS runner (needs probe; Q1 answered (a))
 
 `browser.yml` gets a step "Keyboard navigation on (macOS)" with `if: inputs.code && runner.os == 'macOS'`. It runs after the engine's install and before the browser tests, for every engine, as on a developer's Mac. It runs `defaults write -g AppleKeyboardUIMode -int 2`, then reads the value back and fails unless it is 2. The write comes before any browser starts, since WebKit reads the key once per process. Value 2 sets bit 1 alone, the PO's own value. `-g` is used rather than `org.webkit.Playwright`, because Playwright does not document that bundle id, and the runner is discarded after the job. No `${{ }}` reaches the script.
 
@@ -84,18 +86,34 @@ Alternatives:
 - **Skip WebKit's keyboard cases on macOS.** This hides NFR-12 coverage on a platform NFR-7 names.
 - **`tabindex` on every button.** A product change that overrides a Safari user's own setting.
 
-The key is an OS preference that WebKit's open source reads, not an API that AskBoard's code calls. Apple's documentation names the setting but not the key. Because the PO forbids undocumented APIs, the choice is put to the PO (Q1).
+The key is an OS preference that WebKit's open source reads, not an API that AskBoard's code calls. Apple's documentation names the setting but not the key. Because the PO forbids undocumented APIs, the choice was put to the PO, who chose it (Q1, (a), 2026-11-15).
 
 ### 6. Records
 
 - `CLAUDE.md`, CI section: the sentence "Known: `browser.yml` WebKit fails on …" is removed. One sentence states the factor and the variable. One sentence names the macOS step and says a developer's Mac needs System Settings > Keyboard > Keyboard navigation on for WebKit's keyboard cases.
 - The spine's Tests row gets one clause: on hosted runners each bound is judged at its value times the runner's factor. The binding text stays in this change's spec.
 - `test-harness-patterns.md`'s timed-checks rule names `PERF_FACTOR`, `perfScaled` and the variable.
-- `docs/as-built/ci-e2e-gates.md`.
+- `docs/as-built/ci-e2e-gates.md`, with #198's root cause, its evidence and its fix.
 
 ### 7. Versions
 
 No contract set is widened, so no version is bound.
+
+### 8. Reopen-session case (g) (#198)
+
+The cause is found by evidence before any fix. Hypotheses, to be confirmed or ruled out in task 2.1:
+
+- **H1, product, ordering.** The page applies the reopen and the close as two states. On the first, the ask is still open, so `prefillReopened` fills the question, and the draft mirror (`DRAFT_DEBOUNCE_MS`) sends the filled work. `board-host` keeps the record, and after the reload it is restored ("A restored draft comes first"). If the record reached `board-host` after the close, keeping it is the fault. Case (g)'s last assertion (nothing mirrored for the question) would fail too, but it runs after the one that failed.
+- **H2, product, reload.** After the reload the page runs the prefill before it applies the closed state, so the gate sees an open ask.
+- **H3, test.** The case does not establish its premise ("closes the ask before a draft is mirrored"). Under load the mirror goes out before the close lands. The record then predates the close, and the spec's "A restored draft comes first" applies, which is not a fault.
+
+How the fix follows the cause:
+
+- The evidence goes in task 2.1's note: the states the page received, each draft record `board-host` received and its order against the close, and the record restored after the reload.
+- **Product cause (H1, H2).** The spec stands. A unit test fails first, in the package where the cause lies (`packages/view` or `packages/server`), reproducing the ordering without a browser or a timer. Then the fix. It fails closed (NFR-10, AD-10): a closed ask is never filled, and its late records are refused. No fill is ever widened.
+- **Test cause (H3).** Case (g) establishes its premise deterministically and keeps every assertion. `#198` gets a comment saying so, and its severity drops to L, as the Issue says.
+- **A cause that needs the spec changed** stops the group for `/opsx:update`, with a `needs-po` question on #198. An example: the scenario cannot hold for a reopen and a close in one `update`.
+- The fix holds under load, not only alone (task 2.2).
 
 ## Merge points
 
@@ -108,23 +126,26 @@ Borrowed names, all on `origin/main` e2cc5fd3:
 - `browser.yml`: steps "Install the engine with its system dependencies" :86 and "Browser tests against the built session process" :104.
 - `release.yml`: `e2e-macos` :111.
 - `tools/ci/e2e-workflows.test.ts`: `describe("browser.yml …")` :510.
+- #198: `reopen-session.browser.ts` case (g) :613; `shell/reopen-prefill.ts` `reopenPrefills` :62, `prefillReopened` :111; `board-page/draft-mirror.ts` `DRAFT_DEBOUNCE_MS` :10; `harness/board-test.ts` `reloadBoard` :110; `harness/lifecycle-test.ts` `sentDrafts` :74; `harness/probes.ts` `quiet` :113; `openspec/specs/view-and-widgets/spec.md` scenario "A closed ask after a reload" :3604.
 
-Task 0.2 re-checks them, and task 3.2 checks them again after the rebase.
+Task 0.2 re-checks them, and task 4.2 checks them again after the rebase.
 
 ## Needs probe
 
 - **P1**: `defaults write -g AppleKeyboardUIMode -int 2` makes headless Playwright WebKit tab to buttons on `macos-latest`.
   - Task 0.3 reproduces it locally: the per-app domain set to 0 overrides the PO's global 2.
-  - Task 3.1 confirms it on the runner.
+  - Task 4.1 confirms it on the runner.
   - Evidence that it works on hosted runners: third-party workflows only (kosolabs/kosui `ci.yml`, ITenthusiasm/custom-elements `playwright.yml`).
-- **P2**: the factors pass today's code on both runners. Task 3.1 dispatches the nightly and weekly cadences on the branch.
+- **P2**: the factors pass today's code on both runners. Task 4.1 dispatches the nightly and weekly cadences on the branch.
 
 ## Risks / Trade-offs
 
 - **[A gate within 10% of its scaled bound turns flaky]** → The headroom is 35% to 40%. A repeated near miss becomes an Issue with its figures, and the factor table changes only with them.
 - **[Regressions under the factor go unseen on CI]** → The bounds are judged unscaled on a developer's machine, and the Linux nightly bound is the tighter one.
-- **[WebKit's dense case on macOS is a real hang]** → If task 3.1 sees "not ready" at 360 s, it files an Issue (`source:e2e`, `area:widgets`) with the figures. The case keeps failing, and the PO decides on that Issue. Nothing else in this change waits for it.
+- **[WebKit's dense case on macOS is a real hang]** → If task 4.1 sees "not ready" at 360 s, it files an Issue (`source:e2e`, `area:widgets`) with the figures. The case keeps failing, and the PO decides on that Issue. Nothing else in this change waits for it.
 - **[The key is renamed or dropped in a later macOS or WebKit]** → The step's read-back still passes, but the keyboard cases fail again on the runner. They are the alarm, and #197 then reopens as a regression Issue.
+- **[#198 does not reproduce locally]** → Task 2.1 adds load: the whole parallel set, and Chromium's CPU throttling. If it still passes, task 2.1 runs the case on the runner through a dispatch on the branch, with the evidence logged. Group 2 does not guess a fix.
+- **[#198's fix hides a real fault behind a wait]** → No assertion is weakened, and no fixed wait is added (`quiet-guard.ts`). Task 2.3's review checks both.
 - **[A developer's Mac has keyboard navigation off]** → The local WebKit keyboard cases fail with "never reached Answer". `CLAUDE.md` names the setting.
 
 ## Migration Plan
@@ -139,4 +160,5 @@ Merging is enough. Rollback: revert the commit. Locally nothing changes unless `
     - (b) No, use Option-Tab in WebKit on macOS through a harness helper.
     - (c) No, leave WebKit's keyboard cases out of the macOS gate, tracked by #197.
   - Proposed default: (a). It is runner configuration, not a dependency API AskBoard's code calls. Apple documents the setting it stands for, and WebKit's own test runner pins the key. (b) changes what about thirteen files test, and (c) hides NFR-12 coverage.
-  - Task 2.1 waits for the answer. An unattended run takes (a), records it as a default and leaves the label on.
+  - **Answer (2026-11-15): (a)**, from the PO on #197: the macOS runner sets `AppleKeyboardUIMode` to 2 with `defaults write` and reads it back before WebKit runs. `needs-po` is removed. Task 0.1 records it.
+- **Source conflict on #198, resolved by precedence.** The Issue's Expected says the reload shows "the question as the user sent it (the first answer)". The spec ("the draft is not filled") and the test (`AS_SENT`, the agent's version) say otherwise. The spec wins, and the Issue's wording is corrected in task 2.1's comment on #198.
