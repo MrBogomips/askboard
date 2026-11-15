@@ -35,10 +35,11 @@ const bindingText = (binding: KeyBinding): string =>
 const shown = (value: unknown): string => JSON.stringify(value) ?? String(value);
 
 // The keys `mod` takes: Cmd or Ctrl with Z (undo), A (select all) and Enter (the board's answer and
-// send; no engine binds it in page content except on a focused link, which it opens in a new tab,
-// so a handler of `Mod+Enter` leaves links alone); every other letter, W and S among them, is the
-// browser's. With Shift, the keys the vocabulary moves to the top or bottom and
-// adds a child with.
+// send); every other letter, W and S among them, is the browser's. Engines differ on whether
+// Ctrl+Enter or Cmd+Enter activates a focused button or selects a radio, and none binds it in page
+// content except on a focused link, which it opens in a new tab: a handler of `Mod+Enter` therefore
+// prevents the default, and leaves links alone (board-keys, design decision 4). With Shift, the
+// keys the vocabulary moves to the top or bottom and adds a child with.
 const MOD_KEYS: ReadonlySet<string> = new Set(["z", "a", "Enter"]);
 const MOD_SHIFT_KEYS: ReadonlySet<string> = new Set(["ArrowUp", "ArrowDown", "Enter"]);
 const CHARS: ReadonlySet<string> = new Set(["?", "%"]);
