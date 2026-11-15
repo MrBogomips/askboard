@@ -157,7 +157,7 @@ describe("bun run build:view (design decision 7)", () => {
     // The Approval's decisions are Radix's Toggle Group; it needs no drag and no board graph
     // (approval-scale-ranking, design decision 8).
     expect(manifest.chunks.approval?.components).toEqual(["approval"]);
-    expect(manifest.chunks.approval?.needs).toEqual(["radix", "react", "shell"]);
+    expect(manifest.chunks.approval?.needs).toEqual(["icons", "radix", "react", "shell"]);
     // The Chart's canvas renderer is in its own chunk, which needs React and the shell's port alone
     // (chart-widget, design decision 8).
     expect(manifest.chunks.chart?.components).toEqual(["chart"]);
@@ -170,7 +170,7 @@ describe("bun run build:view (design decision 7)", () => {
     // (keyboard-shortcuts-help, design decision 8); it needs no board graph and no compute
     // (approval-scale-ranking, design decision 9).
     expect(manifest.chunks.ranking?.components).toEqual(["ranking"]);
-    expect(manifest.chunks.ranking?.needs).toEqual(["dnd", "radix", "react", "shell"]);
+    expect(manifest.chunks.ranking?.needs).toEqual(["dnd", "icons", "radix", "react", "shell"]);
     // The LaTeX draws with KaTeX, which its chunk bundles with its stylesheet: it needs no Radix
     // control, no drag, no board graph and no compute (latex-kanban-timeline, design decision 8).
     expect(manifest.chunks.latex?.components).toEqual(["latex"]);
@@ -195,6 +195,7 @@ describe("bun run build:view (design decision 7)", () => {
       "board-graph",
       "compute",
       "dnd",
+      "icons",
       "radix",
       "react",
       "shell",
@@ -1177,7 +1178,7 @@ describe("the Document review's chunk (document-review, task 6.3; view spec, The
     const chunk = chunkNamed("document-review");
     expect(chunk.kind).toBe("component");
     expect(chunk.components).toEqual(["document-review"]);
-    expect(chunk.needs).toEqual(["markdown", "radix", "react", "shell"]);
+    expect(chunk.needs).toEqual(["icons", "markdown", "radix", "react", "shell"]);
   });
 
   test("it bundles no react-dom code of its own: its notices name none, and it reads React DOM from the react library chunk", async () => {

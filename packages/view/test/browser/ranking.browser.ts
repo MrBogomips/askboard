@@ -85,6 +85,14 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         ]);
         expect(await board.view.locator('[data-change="moved"]').count()).toBe(0);
         expect(await counterText(board)).toBe("No changes");
+        // Each drag handle keeps its role and name and draws the icon module's grip.
+        const grips = board.view.locator("[data-drag-handle]");
+        expect(await grips.count()).toBe(3);
+        for (const grip of await grips.all()) {
+          expect(await grip.getAttribute("role")).toBe("img");
+          expect(await grip.getAttribute("aria-label")).toStartWith("Drag ");
+          expect(await grip.locator("svg.lucide").count()).toBe(1);
+        }
         expect(await board.answer.isDisabled()).toBe(true);
         await draftSettled(board);
         expect(run.messages.map((message) => message.type)).toEqual(["ready"]);

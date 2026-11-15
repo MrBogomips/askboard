@@ -8,6 +8,7 @@
 
 import type { RankingElement } from "@askboard/contract";
 import { useStrings } from "@askboard/view/catalog";
+import { IconDragHandle } from "@askboard/view/icons";
 import { type RefObject, useRef } from "react";
 import { SelectBox } from "../shared/select-box.tsx";
 import {
@@ -25,9 +26,7 @@ import {
 import { type RowDragEvents, useRowDrag } from "./drag.ts";
 import type { Indicator } from "./drop.ts";
 
-const GRIP_DOTS = "M4 2.5h.01M8 2.5h.01M4 6h.01M8 6h.01M4 9.5h.01M8 9.5h.01";
-
-// The drag handle: a grip of six dots, named "Drag <name>". It is no tab stop and no button: the
+// The drag handle: the icon module's grip, named "Drag <name>". It is no tab stop and no button: the
 // row stays the one focusable thing.
 const Handle = ({
   handle,
@@ -46,15 +45,7 @@ const Handle = ({
       data-grab=""
       className={HANDLE}
     >
-      <svg viewBox="0 0 12 12" className="size-3" aria-hidden="true">
-        <path
-          d={GRIP_DOTS}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-        />
-      </svg>
+      <IconDragHandle aria-hidden="true" className="size-3" />
     </span>
   );
 };

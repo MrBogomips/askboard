@@ -109,7 +109,7 @@ Terms used below:
     - Open point 2 says settled;
     - the check passes (tests read DESIGN.md's front matter and the spine).
   - Note (2026-11-15): DESIGN.md `## Icons` (table of nine plus the board page's close icon, marked as landing with group 4), Open point 2 settled, one Do's row, `updated` 2026-11-15; spine `sources` line; `docs/as-built/icon-set.md` first version. Full `bun run check` passes (14,739 pass, 0 fail, 8 skip) and `bun run build` passes.
-- [x] 1b.1 Review finding S-1 (M) of group 1 (fix task 1b.1): `tools/build/shared-modules.test.ts` listed each icon name ahead of its source, which would have made groups 2 and 3 edit the file in parallel. The nine per-name entries give way to one exemption of the icon module (`EXEMPT_MODULES`) from the "none ships unused" test, owned by task 5.2, and the "listed ahead" test goes. Also S-2: DESIGN.md Icons, Placement now says "the next-open jump, the external hint". Tests: `shared-modules.test.ts` stays green. Note (2026-11-15): done; groups 2 and 3 no longer edit that file.
+- [x] 1b.1 Review finding S-1 (M) of group 1 (fix task 1b.1): `tools/build/shared-modules.test.ts` listed each icon name ahead of its source, which would have made groups 2 and 3 edit the file in parallel. The nine per-name entries give way to one exemption of the icon module (`EXEMPT_MODULES`) from the "none ships unused" test, owned by task 5.2, and the "listed ahead" test goes. Also S-2: DESIGN.md Icons, Placement now says "the next-open jump, the external hint". Tests: `shared-modules.test.ts` stays green. Note (2026-11-15): done; group 3 need not edit it; group 2's d17cee80 emptied the map before this fix.
 - [x] 1b.2 Review finding X-1 (L) of group 1 (security review): `tools/check-imports.ts` matched `lucide-react` case-sensitively, so `Lucide-React/icons/x` (which resolves on a case-insensitive disk) bundled Lucide into the shell unchecked. The rule now finds Lucide in lower case and passes only the exact lower-case single-icon-by-path form. Tests first: refusal cases `"Lucide-React/icons/x"` (shell and icon module), `"LUCIDE-REACT"`, an upper-case icon name, a trailing slash, `.js` and a nested path, in `tools/check-imports.test.ts`. Note (2026-11-15): 4 cases failed before and pass after; `check-imports.test.ts` 211 pass.
 - [ ] 1.6 Review checkpoint: spec review of group 1's range (askboard-spec-reviewer), plus a security review (askboard-security-reviewer). The group adds a dependency (AD-19, licences and notices), a library chunk that every board's srcdoc will inline under the view's CSP from group 2 on (AD-8, AD-9), and an import check (AD-1). Verify: every finding is fixed as a task, tests first, or recorded with its reason, and both reviews' ranges and verdicts are in the note.
 
@@ -164,7 +164,7 @@ Terms used below:
 
 ## 3. The widgets' icons (Approval, comment card, Tree, Ranking)
 
-- [ ] 3.1 Tests first (requirements "Icons beside their labels" and "Accessible names of icons").
+- [x] 3.1 Tests first (requirements "Icons beside their labels" and "Accessible names of icons").
   - `approval.browser.ts` :82 and :91: the selected "Reject" holds an `svg` with `aria-hidden="true"` and is named "Reject"; after the second press it holds no `svg`. This replaces the `✓` text checks.
   - `document-review.browser.ts`: scenario "The comment card's close control".
   - `tree-layout.browser.ts`: the chevron's span holds an icon `svg`, turned when open.
@@ -172,19 +172,23 @@ Terms used below:
   - `ranking-keys.browser.ts`: scenario "Key names stay text" (no key cap of the keys panel holds an `svg`). It passes before and after, and guards decision 7.
   - Remove `.replace("✓", "")` from `harness/tab-stops.ts:16` in the same task.
   - Verify: the new and edited cases fail on group 1's code, in a browser run with `--engines chromium`.
-- [ ] 3.2 The Approval and the comment card (decisions 6 and 8).
+  - Note (2026-11-15): tests written first. Approval (mark `svg.lucide`, hidden, name kept; none after the second press), comment-card close (hidden icon, no ×), Tree chevron (both parents), Tree and Ranking handles (`role="img"`, icon `svg`), Ranking-keys "no `kbd svg`" (guard, passes before and after); `.replace("✓", "")` removed from `tab-stops.ts`. Against group 1's code in chromium the Approval cases failed on the missing icon (and the `✓` in the Tab-stop name); the others failed or passed as expected.
+- [x] 3.2 The Approval and the comment card (decisions 6 and 8).
   - `approval/widget.tsx`: `IconSelected` (`size-4`, hidden) replaces the `✓` span, keeping `CHECK`'s spacing; update `classes.ts`'s comment.
   - `shared/annotations/card.tsx`: `IconClose` (`size-4`, hidden) replaces `×`.
   - Both import `@askboard/view/icons`.
   - Verify: 3.1's Approval and comment-card cases, and the `approval*` and `document-review*` browser files, pass in the three engines.
-- [ ] 3.3 The Tree and the Ranking (decisions 2 and 8).
+  - Note (2026-11-15): `IconSelected` (`size-4 shrink-0`, hidden) in `approval/widget.tsx`, `IconClose` (`size-4`, hidden) in `shared/annotations/card.tsx`; `classes.ts` comment updated. `approval*` and `document-review*` pass in chromium, webkit and firefox apart from the #145 case.
+- [x] 3.3 The Tree and the Ranking (decisions 2 and 8).
   - `tree/row.tsx`: `IconDisclosure` (`size-3`) inside the existing `Chevron` span, which keeps its rotation classes; `IconDragHandle` (`size-3`) inside `DragHandle`.
   - `ranking/row.tsx`: `IconDragHandle` in place of the `GRIP_DOTS` SVG; drop `GRIP_DOTS` if nothing else uses it.
   - Verify:
     - 3.1's cases pass;
     - `tree/drag-view.test.ts` passes unchanged;
     - in a browser run with `--engines chromium,webkit`, every `tree-*` and `ranking*` file passes unchanged.
-- [ ] 3.4 Group run. Run the check, and a browser run of the widget files of 3.1 to 3.3 in Firefox. Verify: both pass, failures mapped to open Issues excepted (#145, #174, #199, #200, #201) with the Issue named. The note records the counts.
+  - Note (2026-11-15): `IconDisclosure` inside `Chevron`, `IconDragHandle` in `DragHandle` and in the Ranking handle (`size-3`, hidden); `GRIP_DOTS` dropped. `tree-*` and `ranking*` pass in chromium and webkit; `tree/drag-view.test.ts` unchanged and passing. Their four `LISTED_AHEAD` entries removed; the `needs` of approval, ranking, tree and document-review in `tools/build/view.test.ts` gain `icons` (a file this group had to edit: the build now lists the chunk).
+- [x] 3.4 Group run. Run the check, and a browser run of the widget files of 3.1 to 3.3 in Firefox. Verify: both pass, failures mapped to open Issues excepted (#145, #174, #199, #200, #201) with the Issue named. The note records the counts.
+  - Note (2026-11-15): 27 browser files (approval, document-review, tree, ranking): chromium 182 pass, 0 fail; webkit 180 pass, 0 fail; firefox 178 pass, 2 fail, both outside this group: the Document review "agent reopens the question with the commented word rewritten" (#145) and the Tree "Delete on design asks, inline" (#174). `typecheck`, `lint`, `check:imports` pass; `bun run test`: the remaining failures are group 2's shell `needs` line (`view.test.ts:188`) and group 4's `lucide` import-rule cases, neither in this group.
 - [ ] 3.5 Review checkpoint: spec review of group 3's range (askboard-spec-reviewer). No security review: same reason as 2.6, which the note restates. Verify: as 2.6.
 
 ## 4. The board page's close icon (Q1; waits for 0.1)
@@ -198,7 +202,7 @@ Terms used below:
     - `GITHUB_TOKEN=$(gh auth token) bun run check:licences` passes.
   - Note (2026-11-15): `lucide` 1.73.0 added to `packages/view/package.json` (`bun install` adds one package), Dependabot ignore, spine Stack row. Two tests in `tools/workspace.test.ts` (fixture with two versions names both; the tree); the tree test failed before. `check:licences` passes (170 installed, 29 direct).
 - [x] 4.2 The rule for `lucide` (decision 5). Tests first, in `tools/check-imports.test.ts`: `lucide` from `packages/view/src/board-page/icons.ts` passes; from any other file, and any `lucide/…` path, fails. Then the rule. Verify: the cases fail before and pass after, and `bun run check:imports` passes.
-  - Note (2026-11-15): `lucide` has no exports map, so the rule is on its files: `lucide/dist/esm/createElement.mjs` and `lucide/dist/esm/icons/<name>.mjs` pass only in `board-page/icons.ts` or a test; main entry, other `dist` files, `lucide-*`, `@lucide/*` and any other case fail everywhere (also X-1's lower-case comparison). 21 cases failed before; `check-imports.test.ts` 235 pass; `check:imports` passes. Deviation: design says `createElement` from the main entry; the main entry is refused (it holds `createIcons`).
+  - Note (2026-11-15): `lucide` is imported only from its documented main entry, as one static named import of `createElement` and PascalCase icons, in `board-page/icons.ts` or a test (as design decision 10 says); `createIcons`, `icons`, namespace and default imports, re-exports, dynamic imports, any `lucide/…` subpath, `lucide-*`, `@lucide/*` and any other casing fail everywhere (with X-1's lower-case comparison). The rule strips the allowed statements from the source before reading its specifiers. The cases failed before and `check-imports.test.ts` has 244 pass; `check:imports` passes.
 - [x] 4.3 `board-page/icons.ts` and the two panels (decision 10).
   - Tests first:
     - `context-panel.browser.ts`: scenario "The reading panel's close control";
@@ -208,7 +212,7 @@ Terms used below:
   - Verify:
     - the cases fail before and pass after, in a browser run of both files with the three engines;
     - the board-page chunk passes its size check without a new record.
-  - Note (2026-11-15): two browser cases (one per panel) failed before (0 hidden icons) and pass in chromium, firefox and webkit (context-panel 18, settings-panel 12 each). `closeIcon` uses `lucide/dist/esm/createElement.mjs` and the `x` file, attributes are constants; `board-page/lucide.d.ts` types the two paths (referenced by a path directive in `icons.ts`, since other packages typecheck the file without the view's include). The settings close button gets the reading panel's `w-7` form. DESIGN.md Icons row says the icon lands drawn by the board page's icon file, no Q1 mark. Build passes with no size record; the board page's notices list `lucide` (ISC). The built-chunk check of `x`'s path data only (design decision 10 guard) is not written: it belongs in `tools/build/view.test.ts`, which group 3 owns; left to group 5 (task 5.1).
+  - Note (2026-11-15): two browser cases (one per panel) failed before (0 hidden icons) and pass in chromium, firefox and webkit (context-panel 18, settings-panel 12 each). `closeIcon` is `createElement(X, …)` from `lucide`'s main entry with constant attributes; the package's own types resolve. Tree-shaking keeps `x`'s path data and no other icon, no `createIcons` and no `replaceElement` (checked by hand on the built `board-page.js`, 1,017,449 bytes). The settings close button gets the reading panel's `w-7` form. DESIGN.md Icons row says the icon lands drawn by the board page's icon file, no Q1 mark. Build passes with no size record; the board page's notices list `lucide` (ISC). The built-chunk check of `x`'s path data only (design decision 10 guard) is not written: it belongs in `tools/build/view.test.ts`, which group 3 owns; left to group 5 (task 5.1).
 - [ ] 4.4 Review checkpoint: spec review of group 4's range, plus a security review (askboard-security-reviewer), because the group changes the board page, which holds the token outside the sandbox, and adds a dependency. Verify: as 1.6.
 
 ## 5. Integration and records

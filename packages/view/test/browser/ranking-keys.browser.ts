@@ -333,6 +333,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           "Alt+Shift+Home",
           "Ctrl+Shift+↑",
         ]);
+        // Key names stay text (design decision 7): no key cap holds an icon.
+        expect(await board.view.locator("kbd svg").count()).toBe(0);
         await board.page.keyboard.press("Escape");
         const names = await toolbar(board).getByRole("button").allTextContents();
         expect(names.at(-1)).toBe("Keys");

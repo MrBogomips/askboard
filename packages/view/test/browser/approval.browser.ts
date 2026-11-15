@@ -79,7 +79,13 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(draftHolds(run.drafts, "plan", "verdict", undefined)).toBe(true);
         await decision(board, "Reject").click();
         await eventually(() => pressed(board, "Reject"), "Reject to show pressed");
-        expect(await decision(board, "Reject").textContent()).toContain("✓");
+        // The check is the icon module's mark, hidden from assistive technology, and the name stays.
+        const mark = decision(board, "Reject").locator("svg.lucide");
+        expect(await mark.count()).toBe(1);
+        expect(await mark.getAttribute("aria-hidden")).toBe("true");
+        expect(await board.view.getByRole("radio", { name: "Reject", exact: true }).count()).toBe(
+          1,
+        );
         expect(await board.answer.isEnabled()).toBe(true);
         await draftHolding(run, { decision: "reject" }, "the draft to hold reject");
         // Selecting sends nothing: the question's `ready` is the one view message.
@@ -88,7 +94,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await decision(board, "Reject").click();
         await eventually(async () => !(await pressed(board, "Reject")), "Reject to clear");
         await draftHolding(run, undefined, "the draft to hold no result after the clear");
-        expect(await decision(board, "Reject").textContent()).not.toContain("✓");
+        expect(await decision(board, "Reject").locator("svg").count()).toBe(0);
         expect(await board.answer.isDisabled()).toBe(true);
         expect(await board.view.getByRole("alert").count()).toBe(0);
       },

@@ -122,6 +122,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await chevronAngle(tree.chevron("design"))).toBe(90);
         expect(await chevronAngle(tree.chevron("build"))).toBe(90);
         expect(await tree.grid.locator("[data-chevron]").count()).toBe(2);
+        // Each chevron draws the module's icon, which turns when the node is open.
+        expect(await tree.chevron("design").locator("svg.lucide").count()).toBe(1);
+        expect(await tree.chevron("build").locator("svg.lucide").count()).toBe(1);
         // Children one level in: `spacing.lg`, 16px, per level (DESIGN.md, Tree).
         const lefts = await nameLefts(run.board);
         for (const [parent, children] of [
