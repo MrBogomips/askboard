@@ -12,7 +12,7 @@
 // it needs before it untimed). Node cannot run `contract`'s sources (its type stripping refuses
 // parameter properties), so `--node` bundles this script with `bun build --target=node` into a
 // scratch folder and runs the bundle on the `node` in the path. The exit status is 1 when a step is
-// over its gate: a gate missed lowers a bound through `/opsx:update`, never a new mechanism.
+// over its gate: a gate missed lowers a bound through `/openspec-update-change`, never a new mechanism.
 
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";

@@ -16,5 +16,11 @@ coverage/
 
 # Codex interop: generated from CLAUDE.md and .claude/ by setup.sh (codex-port, rulesync); never edited
 /AGENTS.md
-/.agents/
 /.codex/
+# .agents/ too, except OpenSpec's shared skills and their tool list, which `openspec update` writes
+# and .claude/skills/openspec-* link to: they are committed
+/.agents/*
+!/.agents/skills/
+/.agents/skills/*
+!/.agents/skills/openspec-*/
+!/.agents/skills/.openspec-target

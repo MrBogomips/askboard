@@ -125,7 +125,7 @@ End the report with:
 Reviewers write nothing in the repository and open no Issues. The session that asked for the
 review:
 
-- folds H and M findings into the change through `/opsx:update`, as fix tasks with tests first, in a
+- folds H and M findings into the change through `/openspec-update-change`, as fix tasks with tests first, in a
   "Fixes from review" group, with the finding IDs in the task text (E4 did this with M1 to M7);
 - folds each L finding, or defers it: records it in `tasks.md` with a reason and opens an Issue for
   it (`type:defect`, the finding's severity, `source:review`, its areas; the finding ID, the change and the

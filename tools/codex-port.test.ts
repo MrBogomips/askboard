@@ -6,6 +6,7 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -16,13 +17,19 @@ import { dirname, join } from "node:path";
 const SETUP = join(import.meta.dir, "..", "setup.sh");
 
 // The stub mirrors rulesync's layout: CLAUDE.md -> AGENTS.md, skills -> .agents/skills,
-// agents -> .codex/agents/*.toml. STUB_MODE changes what it does.
+// agents -> .codex/agents/*.toml. STUB_MODE changes what it does. A skill linked into
+// .agents/skills must never reach it: it fails on one.
 const STUB_NPX = `#!/bin/sh
 case "$*" in
   *--version*)
     [ "\${STUB_MODE:-}" = offline ] && { echo "npm error network" >&2; exit 1; }
     echo 9.9.9; exit 0 ;;
 esac
+for s in .claude/skills/*; do
+  case $(readlink "$s" 2>/dev/null) in
+    ../../.agents/skills/*) echo "stub rulesync: linked skill $s reached the conversion" >&2; exit 1 ;;
+  esac
+done
 [ "\${STUB_MODE:-}" = empty ] && exit 0
 [ -f CLAUDE.md ] && cp CLAUDE.md AGENTS.md
 for s in .claude/skills/*/; do
@@ -175,6 +182,56 @@ describe("codex-port block", () => {
     );
     expect(run(["--codex-only"]).code).toBe(0);
     expect(existsSync(join(repo, "keep.txt"))).toBe(true);
+  });
+});
+
+// OpenSpec 2.0 writes its skills once to .agents/skills/, which Codex reads, and links each
+// into .claude/skills/ (CLAUDE.md, Codex interop): the block ports none of them and never
+// removes or overwrites their files.
+describe("a skill linked into .agents/skills", () => {
+  const SHARED = ".agents/skills/openspec-propose/SKILL.md";
+  const TEXT = "---\nname: openspec-propose\ndescription: Use when proposing.\n---\nPropose.\n";
+
+  beforeEach(() => {
+    write(SHARED, TEXT);
+    symlinkSync(
+      "../../.agents/skills/openspec-propose",
+      join(repo, ".claude/skills/openspec-propose"),
+    );
+  });
+
+  test("is left to its owner: not ported, not listed, its file unchanged", () => {
+    const { code, out } = run(["--codex-only"]);
+    expect(out).toContain("rulesync 9.9.9 wrote AGENTS.md, 2 skills and 1 agents");
+    expect(code).toBe(0);
+    expect(read(SHARED)).toBe(TEXT);
+    expect(read(".codex/codex-port.manifest")).not.toContain("openspec-propose");
+  });
+
+  test("passes --check", () => {
+    expect(run(["--codex-only"]).code).toBe(0);
+    const { code, out } = run(["--check"]);
+    expect(out).toContain("up to date (2 skills, 1 agents)");
+    expect(code).toBe(0);
+  });
+
+  test("keeps its files when an earlier run's manifest lists them", () => {
+    expect(run(["--codex-only"]).code).toBe(0);
+    write(".codex/codex-port.manifest", `${read(".codex/codex-port.manifest")}${SHARED}\n`);
+    expect(run(["--codex-only"]).code).toBe(0);
+    expect(read(SHARED)).toBe(TEXT);
+  });
+
+  test("only a link to .agents/skills/<same name> counts: a link elsewhere is ported", () => {
+    write(
+      "elsewhere/gamma/SKILL.md",
+      "---\nname: gamma\ndescription: Use when gamma.\n---\nGamma.\n",
+    );
+    symlinkSync(join(repo, "elsewhere/gamma"), join(repo, ".claude/skills/gamma"));
+    const { code, out } = run(["--codex-only"]);
+    expect(out).toContain("rulesync 9.9.9 wrote AGENTS.md, 3 skills and 1 agents");
+    expect(code).toBe(0);
+    expect(read(".agents/skills/gamma/SKILL.md")).toContain("Gamma.");
   });
 });
 

@@ -1,6 +1,6 @@
 ---
 name: askboard-architect
-description: Designs and revises AskBoard OpenSpec changes (proposal, design, delta specs, tasks) against the PRD, the architecture spine and the UX documents, and places them among the changes in flight so they merge without collisions. Use it for /opsx:propose of an epic, a widget or a spike, for /opsx:update when a PO decision, a review finding or a rebase changes the plan, and to check a change's design against the other changes in flight. Not for implementing tasks or reviewing code.
+description: Designs and revises AskBoard OpenSpec changes (proposal, design, delta specs, tasks) against the PRD, the architecture spine and the UX documents, and places them among the changes in flight so they merge without collisions. Use it for /openspec-propose of an epic, a widget or a spike, for /openspec-update-change when a PO decision, a review finding or a rebase changes the plan, and to check a change's design against the other changes in flight. Not for implementing tasks or reviewing code.
 model: claude-opus-5-5
 effort: xhigh
 tools: Read, Grep, Glob, Bash, Edit, Write, Skill, Agent
@@ -81,6 +81,6 @@ You do not write product code.
 - `askboard-implementer` runs the tasks you write, at medium effort: write them so it can follow them
   without guessing.
 - `askboard-spec-reviewer` checks the code against your specs and design; findings that change the
-  plan come back to you through `/opsx:update`.
+  plan come back to you through `/openspec-update-change`.
 - For wide reading (many files, long histories, pull request bodies), spawn `Explore` and keep only
   its conclusions.
