@@ -13,6 +13,7 @@ import {
   type ViewQuestion,
 } from "../view-document.ts";
 import type { ViewLock } from "../view-protocol.ts";
+import { type AnswerState, answerStateOf, type FlightOf } from "./answer-state.ts";
 import type { QuestionWork } from "./board-draft.ts";
 
 /**
@@ -59,13 +60,19 @@ export const groupsOf = (document: ViewDocument): readonly Group[] => {
     .map((area) => ({ id: area.id, title: area.props.title, questions: area.props.items }));
 };
 
-/** A question's own state, as its marker shows it (EXPERIENCE.md, Counting). */
-export type Mark = "unanswered" | "ready" | "answered" | "postponed" | "declined";
+/**
+ * A question's own state, as every surface shows it: the answer state ladder (answering-flow-guidance,
+ * decision 1; EXPERIENCE.md, Counting).
+ */
+export type Mark = AnswerState;
 
 const MARK_KEYS = {
-  unanswered: "mark.unanswered",
+  todo: "mark.unanswered",
+  draft: "mark.draft",
   ready: "mark.ready",
-  answered: "mark.answered",
+  "not-sent-yet": "receipt.notSentYet",
+  sent: "receipt.sent",
+  delivered: "receipt.delivered",
   postponed: "mark.postponed",
   declined: "mark.declined",
 } as const satisfies Record<Mark, StringKey>;
@@ -77,36 +84,73 @@ export const markLabel = (mark: Mark, language: Locale = "en-US"): string =>
 type Work = ReadonlyMap<string, QuestionWork>;
 
 /**
- * The question's mark, as Submit will leave it: an answer held for Submit is ready, a revision's
- * included; a held decline is declined and a held postpone postponed; a held undo of a sent
- * postpone or decline is unanswered; a note held alone leaves the question as it is, or
- * unanswered when it sits over such an undo. Otherwise what the state says, open being
- * unanswered.
+ * What the ladder reads beyond the board state and the held acts, the board's own and the same on
+ * every surface: the card's command that has not settled, and whether the question holds answer
+ * work (`questionRevising`, from the board's `RevisingSnapshot` set), never derived again here.
  */
-export const markOf = (questionId: string, state: LifecycleBoardState, work: Work): Mark => {
-  const held = work.get(questionId)?.held?.act;
-  const status = state.questions.find((question) => question.itemId === questionId)?.state;
-  if (held === "answer") return "ready";
-  if (held === "decline") return "declined";
-  if (held === "postpone") return "postponed";
-  if (held === "reopen" || work.get(questionId)?.undo !== undefined) return "unanswered";
-  if (status === "answered" || status === "declined" || status === "postponed") return status;
-  return "unanswered";
+export type Ladder = {
+  readonly flightOf: (questionId: string) => FlightOf | undefined;
+  readonly revisingOf: (questionId: string) => boolean;
 };
 
-/** Whether a question is open on the board: unanswered or postponed (EXPERIENCE.md, Counting). */
-export const isOpen = (questionId: string, state: LifecycleBoardState, work: Work): boolean => {
-  const mark = markOf(questionId, state, work);
-  return mark === "unanswered" || mark === "postponed";
+const statusOf = (state: LifecycleBoardState, questionId: string) =>
+  state.questions.find((question) => question.itemId === questionId);
+
+/**
+ * The question's mark, as Submit will leave it: `answerStateOf`, over the held act, a held undo, the
+ * card's flight, the logged status and the work the board holds. A held answer is ready, a
+ * revision's included; a held decline is declined and a held postpone postponed; a held undo
+ * starts again from open; a note held alone leaves the question as it is. A logged answer reads
+ * Sent or Delivered from its receipt only while it holds no answer work.
+ */
+export const markOf = (
+  questionId: string,
+  state: LifecycleBoardState,
+  work: Work,
+  ladder: Ladder,
+): Mark =>
+  answerStateOf({
+    status: statusOf(state, questionId),
+    held: work.get(questionId)?.held?.act,
+    undone: work.get(questionId)?.undo !== undefined,
+    flight: ladder.flightOf(questionId),
+    revising: ladder.revisingOf(questionId),
+  });
+
+/**
+ * Whether a question counts as to do on the board: to do, a first draft, or postponed (EXPERIENCE.md,
+ * Counting). A revision (a draft over a logged answer or decline) reads Draft but is not counted:
+ * the agent holds an answer, as `ladderCountsOf` counts it.
+ */
+export const isOpen = (
+  questionId: string,
+  state: LifecycleBoardState,
+  work: Work,
+  ladder: Ladder,
+): boolean => {
+  const mark = markOf(questionId, state, work, ladder);
+  if (mark === "draft") {
+    const logged = statusOf(state, questionId)?.state;
+    return logged !== "answered" && logged !== "declined";
+  }
+  return mark === "todo" || mark === "postponed";
 };
 
 /** The header's open count: the board's open questions, those the agent added included. */
-export const openCountOf = (document: ViewDocument, state: LifecycleBoardState, work: Work) =>
-  questionsOf(document).filter((question) => isOpen(question.id, state, work)).length;
+export const openCountOf = (
+  document: ViewDocument,
+  state: LifecycleBoardState,
+  work: Work,
+  ladder: Ladder,
+) => questionsOf(document).filter((question) => isOpen(question.id, state, work, ladder)).length;
 
 /** A tab's open count: its area's. */
-export const tabOpenCount = (area: ViewArea, state: LifecycleBoardState, work: Work): number =>
-  area.props.items.filter((question) => isOpen(question.id, state, work)).length;
+export const tabOpenCount = (
+  area: ViewArea,
+  state: LifecycleBoardState,
+  work: Work,
+  ladder: Ladder,
+): number => area.props.items.filter((question) => isOpen(question.id, state, work, ladder)).length;
 
 export type AskPill = {
   readonly kind: "waiting" | "partial" | "answered" | "closed" | "discarded";
@@ -168,10 +212,11 @@ export const postponedWarningOf = (
   document: ViewDocument,
   state: LifecycleBoardState,
   work: Work,
+  ladder: Ladder,
   language: Locale = "en-US",
 ): string | undefined => {
   const count = questionsOf(document).filter(
-    (question) => markOf(question.id, state, work) === "postponed",
+    (question) => markOf(question.id, state, work, ladder) === "postponed",
   ).length;
   return count === 0 ? undefined : t(language, "bar.postponedWarning", { count });
 };
@@ -184,11 +229,12 @@ export const nextOpenOrder = (
   document: ViewDocument,
   state: LifecycleBoardState,
   work: Work,
+  ladder: Ladder,
   unseen: ReadonlySet<string>,
 ): readonly string[] => {
   const open = questionsOf(document)
     .map((question) => question.id)
-    .filter((id) => isOpen(id, state, work));
+    .filter((id) => isOpen(id, state, work, ladder));
   return [...open.filter((id) => unseen.has(id)), ...open.filter((id) => !unseen.has(id))];
 };
 
@@ -201,11 +247,12 @@ export const nextOpenFrom = (
   document: ViewDocument,
   state: LifecycleBoardState,
   work: Work,
+  ladder: Ladder,
   unseen: ReadonlySet<string>,
   current: string | undefined,
 ): string | undefined => {
   const ids = questionsOf(document).map((question) => question.id);
-  const open = ids.filter((id) => id !== current && isOpen(id, state, work));
+  const open = ids.filter((id) => id !== current && isOpen(id, state, work, ladder));
   const fresh = open.find((id) => unseen.has(id));
   if (fresh !== undefined) return fresh;
   const at = current === undefined ? -1 : ids.indexOf(current);
@@ -222,10 +269,11 @@ export const previousOpenFrom = (
   document: ViewDocument,
   state: LifecycleBoardState,
   work: Work,
+  ladder: Ladder,
   current: string | undefined,
 ): string | undefined => {
   const ids = questionsOf(document).map((question) => question.id);
-  const open = ids.filter((id) => id !== current && isOpen(id, state, work));
+  const open = ids.filter((id) => id !== current && isOpen(id, state, work, ladder));
   const found = current === undefined ? -1 : ids.indexOf(current);
   const at = found < 0 ? ids.length : found;
   return open.filter((id) => ids.indexOf(id) < at).at(-1) ?? open.at(-1);

@@ -161,6 +161,9 @@ const boot = (): void => {
   const reasons = createStore<ReasonRequest | undefined>(undefined);
   const focus = createStore<HeadingRequest | undefined>(undefined);
   const removed = createStore(false);
+  // When each question's note alone was sent: kept here for the life of the page, never in browser
+  // storage (AD-8), so "Note sent {time}" shows under the prompt while the page stays open.
+  const noteSent = createStore<ReadonlyMap<string, string>>(new Map());
   // What the board says to a screen reader about the answering flow (#182).
   const status = createStatusMessages();
   // The lines for a message too large: a command refused or closed, a draft left out; an act
@@ -318,6 +321,7 @@ const boot = (): void => {
     reasons,
     focus,
     removed,
+    noteSent,
     // The board components read follows the latest document, which an agent update replaces, with
     // each question at the revision its card shows, and the answers of the latest board state
     // (molecules, design decision 11; document-review, design decision 15).

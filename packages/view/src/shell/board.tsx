@@ -38,6 +38,7 @@ import {
   endedOf,
   type Group,
   groupsOf,
+  type Ladder,
   markOf,
   nextOpenFrom,
   openCountOf,
@@ -50,12 +51,14 @@ import {
 import { BottomBar } from "./bottom-bar.tsx";
 import { CARD_ACTS } from "./card-acts.ts";
 import { entriesWithCells } from "./cell-entries.ts";
+import type { DraftStore } from "./draft-store.ts";
 import type { HeaderData } from "./header-data.ts";
 import { type HeadingRequest, requestHeading } from "./heading-request.ts";
 import { type EntryMarks, Outline, QuestionNavigator } from "./navigators.tsx";
 import type { PresentationControls } from "./presentation-controls.ts";
 import { type CardContext, QuestionCard } from "./question-card.tsx";
 import { revealAndFocus } from "./reveal.ts";
+import { revisingOfBoard } from "./revising.ts";
 import { type SnapshotControl, snapshotOfferOf } from "./snapshot-control.ts";
 import { SnapshotTopLine } from "./snapshot-top-line.tsx";
 import type { StatusMessages } from "./status-messages.ts";
@@ -75,6 +78,8 @@ export type BoardView = {
 };
 
 type Shared = {
+  /** The ladder's inputs, one for every surface of the board (answering-flow-guidance, decision 1). */
+  readonly ladder: Ladder;
   readonly document: ViewDocument;
   readonly state: LifecycleBoardState;
   readonly lock: ViewLock | undefined;
@@ -135,6 +140,7 @@ const Card = ({
     single={presentationOf(shared.document) === "single"}
     level={level ?? 2}
     context={shared.context}
+    ladder={shared.ladder}
   />
 );
 
@@ -188,7 +194,7 @@ const TabsBody = ({
       >
         {groups.map((group) => {
           const area = shared.document.items.find((item) => item.id === group.id) as ViewArea;
-          const open = tabOpenCount(area, shared.state, shared.draft.questions);
+          const open = tabOpenCount(area, shared.state, shared.draft.questions, shared.ladder);
           const fresh = group.questions.some((question) => unseen.has(question.id));
           return (
             <Tabs.Trigger
@@ -272,6 +278,20 @@ const takesSelection = (
   context.acts.of(question.id, CARD_ACTS) === undefined &&
   !changePending(question, draft.questions.get(question.id), kept);
 
+const NO_SUBSCRIBE = () => () => {};
+const NO_REVISING_SET: () => ReadonlySet<string> = (() => {
+  const none: ReadonlySet<string> = new Set();
+  return () => none;
+})();
+const NO_RECORD = (() => {
+  const none = new Map();
+  return () => none;
+})();
+
+// The board redraws when a store of values changes: a first draft shows as Draft at once.
+const useRecord = (store: DraftStore | undefined) =>
+  useSyncExternalStore(store?.subscribe ?? NO_SUBSCRIBE, store?.record ?? NO_RECORD);
+
 export const Board = ({
   view,
   context,
@@ -293,7 +313,28 @@ export const Board = ({
     context.attention.get,
   );
   const focusHeading = useHeadingFocus(context.focus);
-  const shared: Shared = { document, state, lock, draft, context };
+  // The ladder's inputs, once for every surface: the card's command in flight, and whether a
+  // question holds answer work, from the board's revising set and the stores a first draft sits in.
+  const revisingSet = useSyncExternalStore(
+    context.revisingSnapshot?.subscribe ?? NO_SUBSCRIBE,
+    context.revisingSnapshot?.get ?? NO_REVISING_SET,
+  );
+  useRecord(context.draft);
+  useRecord(context.results);
+  useRecord(context.entries);
+  useRecord(context.cellEntries);
+  const ladder: Ladder = {
+    flightOf: (questionId) => {
+      const flight = context.acts.of(questionId, CARD_ACTS);
+      if (flight === undefined) return undefined;
+      const act = flight.acts.find(
+        (each) => each.itemId === questionId && CARD_ACTS.includes(each.type),
+      );
+      return { outcome: flight.outcome, act: act?.type };
+    },
+    revisingOf: revisingOfBoard(context, revisingSet, { document, state }),
+  };
+  const shared: Shared = { ladder, document, state, lock, draft, context };
   const presentation = presentationOf(document);
   const questions = questionsOf(document);
   // Submit waits for a held act's question that is loading or failed (Issue #103): the board
@@ -322,16 +363,16 @@ export const Board = ({
   };
   // The jumps start at the question the board shows (shownQuestionOf).
   const viewing = shownQuestionOf(document, current);
-  const target = nextOpenFrom(document, state, draft.questions, attention.unseen, viewing);
+  const target = nextOpenFrom(document, state, draft.questions, ladder, attention.unseen, viewing);
   const nextOpen = target === undefined ? undefined : () => go(target);
-  const before = previousOpenFrom(document, state, draft.questions, viewing);
+  const before = previousOpenFrom(document, state, draft.questions, ladder, viewing);
   const previousOpen = before === undefined ? undefined : () => go(before);
   const panel = useBoardPanel();
   const boardTable = useBoardKeyTable();
   const firstOf = (ids: ReadonlySet<string> | ReadonlyMap<string, number>) =>
     questions.find((question) => ids.has(question.id))?.id;
   const counts: HeaderCounts = {
-    open: openCountOf(document, state, draft.questions),
+    open: openCountOf(document, state, draft.questions, ladder),
     onNextOpen: nextOpen,
     unreadReplies: [...attention.unread.values()].reduce((sum, count) => sum + count, 0),
     onUnread: () => {
@@ -358,7 +399,7 @@ export const Board = ({
     boardTable,
   );
   const marksOf = (question: ViewQuestion): EntryMarks => ({
-    mark: markOf(question.id, state, draft.questions),
+    mark: markOf(question.id, state, draft.questions, ladder),
     isNew: attention.unseen.has(question.id),
     unread: attention.unread.get(question.id) ?? 0,
     changed: changed.has(question.id),
@@ -474,7 +515,7 @@ export const Board = ({
           document={document}
           state={state}
           delivery={delivery}
-          warning={postponedWarningOf(document, state, draft.questions, language)}
+          warning={postponedWarningOf(document, state, draft.questions, ladder, language)}
           submit={submit}
           recommendations={hasRecommendation(document, shownOf)}
           readOnlyOf={readOnlyOf}

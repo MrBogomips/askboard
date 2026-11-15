@@ -37,7 +37,6 @@ import {
   mirrored,
   openBoard,
   promptArmed,
-  receiptOf,
   sentActs,
   sentDrafts,
 } from "./harness/lifecycle-test.ts";
@@ -196,11 +195,15 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await run.session.update([
           { action: "answer", itemId: "plan", answer: { choice: ["SQLite"] } },
         ]);
-        await receiptOf(board, "plan", "delivered").waitFor({ timeout: STEP_TIMEOUT_MS });
-        // Decline is not reached on this path: the card disables it on an answered question.
-        await buttonOf(board, "plan", "More").click({ timeout: STEP_TIMEOUT_MS });
-        expect(await menuItem(board, "Decline").isDisabled()).toBe(true);
-        await board.page.keyboard.press("Escape");
+        // The card reads Draft over the recorded answer (the kept work is a revision), so the
+        // answer is seen through Decline, which the card disables on an answered question; it is
+        // not reached on this path.
+        await eventually(async () => {
+          await buttonOf(board, "plan", "More").click({ timeout: STEP_TIMEOUT_MS });
+          const disabled = await menuItem(board, "Decline").isDisabled();
+          await board.page.keyboard.press("Escape");
+          return disabled;
+        }, "Decline disabled on the answered question");
         await decisionOf(board, "plan", "Reject").click();
         await eventually(() => answerOf(board, "plan").isEnabled(), "Answer to be enabled");
         const before = sentActs(run).length;

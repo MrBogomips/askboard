@@ -45,7 +45,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           .waitFor({ timeout: STEP_TIMEOUT_MS });
         expect(await board.header.getByText("Waiting", { exact: true }).count()).toBe(1);
         const outline = board.view.getByRole("navigation", { name: "Outline" });
-        expect(await outline.getByText("Ready", { exact: true }).count()).toBe(2);
+        expect(await outline.getByText("Ready, not sent", { exact: true }).count()).toBe(2);
         expect(sentActs(run)).toEqual([]);
         // Row 1 holds the title; row 2 the pill and the counts.
         await board.header.getByRole("heading", { name: "Release checklist" }).waitFor();

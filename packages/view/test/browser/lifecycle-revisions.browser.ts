@@ -262,8 +262,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           { action: "answer", itemId: "database", answer: { choice: ["SQLite"] } },
         ]);
         await board.view
-          .locator('[data-askboard-outline="database"]')
-          .getByText("Answered", { exact: true })
+          .locator('[data-askboard-outline="database"] [data-askboard-state="delivered"]')
           .waitFor({ timeout: STEP_TIMEOUT_MS });
         expect(await optionOf(board, "database", "SQLite").isChecked()).toBe(true);
         expect(

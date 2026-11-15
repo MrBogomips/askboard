@@ -111,7 +111,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           .waitFor({ timeout: STEP_TIMEOUT_MS });
         await postponeOf(board, "database").click();
         await actsDone(run, 2);
-        await outlineSays(board, "database", "Unanswered");
+        await outlineSays(board, "database", "To do");
         expect(sentActs(run).map((command) => command.acts)).toEqual([
           [{ type: "postpone", itemId: "database", rev: 1 }],
           [{ type: "reopen", itemId: "database" }],
@@ -137,11 +137,11 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           .getByText("You have 2 postponed questions: closing loses this ask", { exact: true })
           .waitFor({ timeout: STEP_TIMEOUT_MS });
         await postponeOf(board, "cache").click();
-        await outlineSays(board, "cache", "Unanswered");
+        await outlineSays(board, "cache", "To do");
         expect(await pressed(board, "cache")).toBe("false");
         await optionOf(board, "database", "SQLite").click();
         await answerOf(board, "database").click();
-        await outlineSays(board, "database", "Ready");
+        await outlineSays(board, "database", "Ready, not sent");
         expect(await postponeOf(board, "database").isDisabled()).toBe(true);
         expect(sentActs(run)).toEqual([]);
       },
@@ -169,7 +169,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
             when: expect.stringMatching(/Z$/),
           },
         ]);
-        await receiptOf(board, "audit", "sent").waitFor();
+        await card(board, "audit")
+          .locator('[data-askboard-state="declined"]')
+          .waitFor({ timeout: STEP_TIMEOUT_MS });
         const { events } = await run.session.collect();
         expect(events).toEqual([
           expect.objectContaining({
@@ -194,7 +196,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await outlineSays(board, "cache", "Declined");
         await chooseFromMore(board, "cache", "Decline");
         await actsSent(run, 2);
-        await outlineSays(board, "cache", "Unanswered");
+        await outlineSays(board, "cache", "To do");
         expect(actTypes(run)).toEqual([["decline"], ["reopen"]]);
         await optionOf(board, "database", "SQLite").click();
         await answerOf(board, "database").click();
@@ -272,11 +274,11 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           "the postpone sent",
         );
         await postponeOf(board, "audit").click();
-        await outlineSays(board, "audit", "Unanswered");
+        await outlineSays(board, "audit", "To do");
         await chooseFromMore(board, "audit", "Decline");
         await outlineSays(board, "audit", "Declined");
         await chooseFromMore(board, "audit", "Decline");
-        await outlineSays(board, "audit", "Unanswered");
+        await outlineSays(board, "audit", "To do");
         expect(await pressed(board, "audit")).toBe("false");
         await chooseFromMore(board, "audit", "Decline");
         await outlineSays(board, "audit", "Declined");
@@ -286,7 +288,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(commands[1]?.acts).toEqual([
           { type: "decline", itemId: "audit", rev: 1, when: expect.stringMatching(/Z$/) },
         ]);
-        await receiptOf(board, "audit", "sent").waitFor();
+        await card(board, "audit")
+          .locator('[data-askboard-state="declined"]')
+          .waitFor({ timeout: STEP_TIMEOUT_MS });
         const { events } = await run.session.collect();
         expect(events).toEqual([
           expect.objectContaining({ type: "postponed", itemId: "audit" }),

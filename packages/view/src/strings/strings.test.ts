@@ -98,9 +98,9 @@ describe("the English table is the view's text on main, word for word", () => {
       "question.answer": "Send answer",
       "question.options": "Options",
       "question.optionsPickOne": "Options · pick one",
-      "receipt.notSentYet": "not sent yet",
-      "receipt.sent": "sent",
-      "receipt.delivered": "delivered to the agent",
+      "receipt.notSentYet": "Not sent yet",
+      "receipt.sent": "Sent",
+      "receipt.delivered": "Delivered to the agent",
       "item.error": "This item could not be shown.",
       "item.loading": "Loading",
       "change.readOnlyAfterReload":
@@ -125,9 +125,9 @@ describe("the Italian table", () => {
       "question.answer": "Invia risposta",
       "question.options": "Opzioni",
       "question.optionsPickOne": "Opzioni · scegline una",
-      "receipt.notSentYet": "non ancora inviata",
-      "receipt.sent": "inviata",
-      "receipt.delivered": "consegnata all'agente",
+      "receipt.notSentYet": "Non ancora inviata",
+      "receipt.sent": "Inviata",
+      "receipt.delivered": "Consegnata all'agente",
       "change.readOnlyAfterReload":
         "In sola lettura: il tuo lavoro su questa domanda mantiene una versione precedente, che questa scheda non può più mostrare.",
     });

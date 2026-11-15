@@ -79,7 +79,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await tabTo(board, answerOf(board, "database"));
         expect(await ringShown(answerOf(board, "database"))).toBe(true);
         await keyboard.press("Enter");
-        await outlineSays(board, "database", "Ready");
+        await outlineSays(board, "database", "Ready, not sent");
 
         // Postpone, then focus on the question's heading.
         await tabTo(board, postponeOf(board, "cache"));
@@ -157,7 +157,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await keyboard.press("Enter");
         await tabTo(board, answerOf(board, "cache"));
         await keyboard.press("Enter");
-        await outlineSays(board, "cache", "Ready");
+        await outlineSays(board, "cache", "Ready, not sent");
         await run.session.update([
           {
             action: "change",

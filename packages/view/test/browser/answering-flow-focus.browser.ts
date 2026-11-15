@@ -40,6 +40,7 @@ import {
   optionOf,
   receiptOf,
 } from "./harness/lifecycle-test.ts";
+import { hostSettled } from "./harness/probes.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 
 const dist = await readViewBuild();
@@ -353,7 +354,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await actsDone(run, 1);
         await markReady("Reject");
         await run.session.collect();
-        await receiptOf(board, PLAN, "delivered").waitFor({ timeout: STEP_TIMEOUT_MS });
+        // The card reads "Ready, not sent" over the delivered answer, so delivery is not visible.
+        await hostSettled(board);
         await board.delivery("immediate").click({ timeout: STEP_TIMEOUT_MS });
         const dialog = board.view.getByRole("alertdialog");
         await dialog

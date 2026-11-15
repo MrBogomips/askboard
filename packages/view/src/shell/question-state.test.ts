@@ -98,8 +98,8 @@ describe("what a question card shows (EXPERIENCE.md, Question card and Delivery 
       noteOnly: false,
       ready: false,
     });
-    expect(card({ flight: flightOf(acts, "sent") }).receipt).toBe("sent");
-    expect(card({ flight: flightOf(acts, "queued") }).receipt).toBe("not sent yet");
+    expect(card({ flight: flightOf(acts, "sent") }).receipt).toBe("Sent");
+    expect(card({ flight: flightOf(acts, "queued") }).receipt).toBe("Not sent yet");
     expect(card({ flight: flightOf(acts, "queued") }).receiptKind).toBe("queued");
     expect(card({ flight: flightOf(acts, "sent") }).receiptKind).toBe("sent");
     expect(card({}).receiptKind).toBeUndefined();
@@ -130,14 +130,14 @@ describe("what a question card shows (EXPERIENCE.md, Question card and Delivery 
     expect(card({ status: answered("sent") })).toEqual({
       phase: "answered",
       shown: { choice: ["SQLite"] },
-      receipt: "sent",
+      receipt: "Sent",
       receiptKind: "sent",
       readOnly: false,
       canAnswer: false,
       noteOnly: false,
       ready: false,
     });
-    expect(card({ status: answered("delivered") }).receipt).toBe("delivered to the agent");
+    expect(card({ status: answered("delivered") }).receipt).toBe("Delivered to the agent");
     expect(card({ status: answered("delivered") }).receiptKind).toBe("delivered");
     const whole = {
       itemId: "database",
@@ -163,7 +163,7 @@ describe("what a question card shows (EXPERIENCE.md, Question card and Delivery 
     expect(card({ status: answered("sent"), flight: flightOf(acts, "sent") })).toMatchObject({
       phase: "sending",
       shown: { choice: ["PostgreSQL"] },
-      receipt: "sent",
+      receipt: "Sent",
       readOnly: true,
     });
   });
@@ -188,7 +188,7 @@ describe("what a question card shows (EXPERIENCE.md, Question card and Delivery 
       card({ status: answered("delivered"), editing: true, draft: chosen("PostgreSQL") }),
     ).toEqual({
       phase: "open",
-      receipt: "delivered to the agent",
+      receipt: "Delivered to the agent",
       receiptKind: "delivered",
       readOnly: false,
       canAnswer: true,

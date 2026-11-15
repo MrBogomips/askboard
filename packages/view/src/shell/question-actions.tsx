@@ -7,7 +7,8 @@
 
 import { DropdownMenu } from "radix-ui";
 import { useId, useRef } from "react";
-import { useStrings } from "../catalog/port.ts";
+import { useLanguage, useStrings } from "../catalog/port.ts";
+import { type Mark, markLabel } from "./board-view.ts";
 import type { FieldToFix } from "./field-block.ts";
 import { QuestionMarker } from "./markers.tsx";
 import { PrimaryButton } from "./primary-button.tsx";
@@ -23,10 +24,19 @@ const MENU =
 
 const MENU_ITEM = `flex cursor-pointer items-center gap-sm rounded-md px-sm py-1 outline-none select-none data-[highlighted]:bg-accent data-[disabled]:cursor-not-allowed data-[disabled]:text-muted-foreground data-[disabled]:opacity-50 ${FOCUS_RING}`;
 
+// The receipt hook (`data-askboard-receipt`) a state keeps: only the three states of a sent answer.
+const RECEIPT_OF: Readonly<Partial<Record<Mark, "queued" | "sent" | "delivered">>> = {
+  "not-sent-yet": "queued",
+  sent: "sent",
+  delivered: "delivered",
+};
+
 export type ActionsRowProps = {
   /** An opened Snapshot: only the delivery receipt shows. */
   readonly opened?: boolean;
   readonly card: CardState;
+  /** The question's state on the ladder: the state line's label and shape (decision 1). */
+  readonly mark: Mark;
   readonly actions: CardActions;
   /**
    * While a field blocks, what describes the disabled "Answer" and the field it names: "Correct
@@ -60,6 +70,7 @@ export type ActionsRowProps = {
 export const ActionsRow = ({
   opened = false,
   card,
+  mark,
   actions,
   fieldToFix,
   onFixField,
@@ -80,6 +91,7 @@ export const ActionsRow = ({
   const more = useRef<HTMLButtonElement>(null);
   const text = useStrings();
   const answerKey = useBoardKeyTable().find((entry) => entry.action === "board.answer");
+  const language = useLanguage();
   if (opened) {
     return card.receipt === undefined ? null : (
       <span data-askboard-receipt={card.receiptKind} className="text-badge text-muted-foreground">
@@ -146,14 +158,14 @@ export const ActionsRow = ({
           </DropdownMenu.Portal>
         </DropdownMenu.Root>
         <span className="ml-auto flex items-center gap-md">
-          {card.receipt === undefined ? null : (
-            <span
-              data-askboard-receipt={card.receiptKind}
-              className="text-badge text-muted-foreground"
-            >
-              {card.receipt}
-            </span>
-          )}
+          <span
+            data-askboard-state={mark}
+            data-askboard-receipt={RECEIPT_OF[mark]}
+            className="flex items-center gap-1.5 text-badge text-muted-foreground"
+          >
+            <QuestionMarker mark={mark} />
+            {markLabel(mark, language)}
+          </span>
           {fieldToFix === undefined || locked ? null : (
             <button
               type="button"

@@ -37,6 +37,7 @@ export const BROWSER_FILES: Readonly<Record<string, BrowserFileEntry>> = {
   "answering-flow-controls.browser.ts": {},
   "answering-flow-focus.browser.ts": {},
   "answering-flow-in-view.browser.ts": {},
+  "answering-flow-ladder.browser.ts": {},
   "answering-flow-status.browser.ts": {},
   "answering-flow-wording.browser.ts": {},
   "approval-submit.browser.ts": {},

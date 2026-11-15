@@ -49,7 +49,7 @@ import {
   itemIdsOf,
   type QuestionWork,
 } from "./board-draft.ts";
-import { markOf } from "./board-view.ts";
+import { type Ladder, markOf } from "./board-view.ts";
 import {
   type AnswerContext,
   type AnswerOutcome,
@@ -111,7 +111,7 @@ import {
   TEXT_FIELD_INVALID,
 } from "./styles.ts";
 import { Thread, type ThreadRequests } from "./thread.tsx";
-import { explainPending } from "./thread-text.ts";
+import { explainPending, timeOf } from "./thread-text.ts";
 import { useBoardKeyTable } from "./use-board-keys.ts";
 
 export type CardContext = RenderContext & {
@@ -127,6 +127,8 @@ export type CardContext = RenderContext & {
   readonly threads: ThreadRequests;
   /** Requests for a card to ask for its reason, which Submit makes (design decision 6). */
   readonly reasons: ReasonRequests;
+  /** When each question's note alone was sent (ISO instant), kept in the page's memory only. */
+  readonly noteSent: Store<ReadonlyMap<string, string>>;
   /** The lines for a message too large: an answer or a Submit not sent, a draft left out. */
   readonly notices?: SizeNotices;
   /** Set when the page is an opened Snapshot: every card is read-only and offers no act. */
@@ -143,6 +145,8 @@ type CardProps = {
   readonly delivery: Delivery;
   /** The single-question board, whose "Answer" is its only primary. */
   readonly single: boolean;
+  /** The board's ladder inputs: the one source of every surface's state (decision 1). */
+  readonly ladder: Ladder;
   /** The question's heading level: 3 under an area's heading. */
   readonly level?: 2 | 3;
   readonly context: CardContext;
@@ -338,9 +342,12 @@ const OpenPrompt = ({
   readOnly,
   reason,
   error,
+  sentAt,
   onChange,
 }: {
   readonly questionId: string;
+  /** When the note alone was sent, if it was: "Note sent {time}" shows under the field. */
+  readonly sentAt: string | undefined;
   readonly note: string;
   readonly readOnly: boolean;
   /** The strings of the reason the answer requires, if it requires one. */
@@ -350,6 +357,7 @@ const OpenPrompt = ({
   readonly onChange: (text: string) => void;
 }) => {
   const text = useStrings();
+  const language = useLanguage();
   const errorId = `${noteFieldId(questionId)}:error`;
   return (
     <div className="flex flex-col gap-1">
@@ -373,12 +381,17 @@ const OpenPrompt = ({
           {text(reason.missing)}
         </p>
       ) : null}
+      {sentAt === undefined ? null : (
+        <p data-askboard-note-sent="" className="text-badge text-muted-foreground">
+          {text("question.noteSentAt", { time: timeOf(sentAt, language) })}
+        </p>
+      )}
     </div>
   );
 };
 
 export const QuestionCard = (props: CardProps) => {
-  const { question, state, lock, delivery, single, context, level = 2 } = props;
+  const { question, state, lock, delivery, single, context, ladder, level = 2 } = props;
   const Heading = level === 3 ? "h3" : "h2";
   const language = useLanguage();
   const text = useStrings();
@@ -432,7 +445,10 @@ export const QuestionCard = (props: CardProps) => {
     asking("needs-reason");
   }, [requested, question.id, context.reasons, asking]);
   const { header, text: questionText } = shown.props;
-  const mark = markOf(question.id, state, context.board.get().questions);
+  const mark = markOf(question.id, state, context.board.get().questions, ladder);
+  const noteSentAt = useSyncExternalStore(context.noteSent.subscribe, () =>
+    context.noteSent.get().get(question.id),
+  );
   // An answer or decline names the revision the work was made on; the other acts the current one.
   // Its gates read the revision the card shows (document-review, design decision 15; Issue #92).
   const acting: AnswerContext = {
@@ -464,6 +480,10 @@ export const QuestionCard = (props: CardProps) => {
     // An answer sent at once moves focus to the heading when the act is taken, never when its
     // command settles (answering-flow-fixes, design decision 1); marking ready keeps it on "Answer".
     if (pressed.kind === "done" && sentResult(outcomeOfPress.current)) focusHeading();
+    if (pressed.kind === "done" && outcomeOfPress.current === "note-sent") {
+      const when = new Date().toISOString();
+      context.noteSent.set(new Map(context.noteSent.get()).set(question.id, when));
+    }
     chosen.current = false;
     setWaiting(
       confirmationOf("answer", pressed.kind === "waiting" ? pressed.waiting : undefined, control),
@@ -637,9 +657,9 @@ export const QuestionCard = (props: CardProps) => {
           }}
         />
       )}
-      {header === undefined && mark === "unanswered" ? null : (
+      {header === undefined && mark === "todo" ? null : (
         <div className="flex items-center gap-sm">
-          {mark === "unanswered" ? null : <QuestionMarker mark={mark} />}
+          {mark === "todo" ? null : <QuestionMarker mark={mark} />}
           {header === undefined ? null : <span className={CHIP}>{header}</span>}
         </div>
       )}
@@ -667,6 +687,7 @@ export const QuestionCard = (props: CardProps) => {
             readOnly={readOnly}
             reason={reason}
             error={reasonError}
+            sentAt={noteSentAt}
             onChange={(note) => {
               revise();
               context.board.edit(question.id, question.rev, ({ note: _, ...rest }) =>
@@ -676,6 +697,7 @@ export const QuestionCard = (props: CardProps) => {
           />
           <ActionsRow
             opened={opened}
+            mark={mark}
             card={card}
             actions={actions}
             fieldToFix={fieldToFix}

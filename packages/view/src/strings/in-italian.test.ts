@@ -73,7 +73,8 @@ describe("the view's texts in Italian", () => {
   });
 
   test("the markers and the postponed warning", () => {
-    expect(markLabel("unanswered", "it-IT")).toBe("Senza risposta");
+    expect(markLabel("todo", "it-IT")).toBe("Da fare");
+    expect(markLabel("postponed", "it-IT")).toBe("Rimandata");
     expect(markLabel("postponed")).toBe("Postponed");
     const open = stateOf(
       "waiting",
@@ -82,7 +83,13 @@ describe("the view's texts in Italian", () => {
       ),
     );
     expect(
-      postponedWarningOf(lifecycleBoardDocument, open, new Map<string, QuestionWork>(), "it-IT"),
+      postponedWarningOf(
+        lifecycleBoardDocument,
+        open,
+        new Map<string, QuestionWork>(),
+        { flightOf: () => undefined, revisingOf: () => false },
+        "it-IT",
+      ),
     ).toBe("Hai 1 domanda rinviata: chiudendo perdi questa richiesta");
   });
 
@@ -125,6 +132,6 @@ describe("the view's texts in Italian", () => {
       ready: false,
       language: "it-IT",
     });
-    expect(card.receipt).toBe("consegnata all'agente");
+    expect(card.receipt).toBe("Consegnata all'agente");
   });
 });

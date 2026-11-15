@@ -5,6 +5,7 @@
 
 import type { HeldAct, LifecycleBoardState, LifecycleQuestionStatus } from "@askboard/contract";
 import { questionsOf, type ViewDocument, type ViewQuestion } from "../view-document.ts";
+import type { ViewAct } from "../view-protocol.ts";
 import type { Flight } from "./answer-acts.ts";
 import type { QuestionWork } from "./board-draft.ts";
 
@@ -21,6 +22,12 @@ export const ANSWER_STATES = [
 
 export type AnswerState = (typeof ANSWER_STATES)[number];
 
+/**
+ * A command on its way, as the ladder reads it: the board page's outcome and the card act it
+ * carries for this question (`answer`, `decline`, `postpone` or `reopen`).
+ */
+export type FlightOf = Pick<Flight, "outcome"> & { readonly act?: ViewAct["type"] | undefined };
+
 export type AnswerStateInputs = {
   /** The question's status in the board state, if the state holds it. */
   readonly status: LifecycleQuestionStatus | undefined;
@@ -29,7 +36,7 @@ export type AnswerStateInputs = {
   /** A held undo sits on the question (`QuestionWork.undo`): it starts again from open. */
   readonly undone?: boolean;
   /** The latest command of the card's acts that has not settled. */
-  readonly flight?: Pick<Flight, "outcome"> | undefined;
+  readonly flight?: FlightOf | undefined;
   /**
    * The question holds answer work: the caller's `questionRevising`, the base's one rule (an
    * item's value, result or typed entry, "Other…", an option note or the note). The ladder
@@ -52,6 +59,14 @@ export const answerStateOf = ({
   const reopened = held === "reopen" || undone;
   if (!reopened) {
     if (flight?.outcome === "queued") return "not-sent-yet";
+    // Once the board page has sent the command it is the state, until the command settles: a
+    // sent answer is Sent whatever the board state still holds (the work it carries is not a
+    // revision while it is on its way, and a revision never claims the old answer's receipt).
+    if (flight?.outcome === "sent") {
+      if (flight.act === "answer") return "sent";
+      if (flight.act === "decline") return "declined";
+      if (flight.act === "postpone") return "postponed";
+    }
     if (status?.state === "answered") {
       return revising ? "draft" : status.answer.receipt;
     }
@@ -75,7 +90,7 @@ export const ladderCountsOf = (
   document: ViewDocument,
   state: LifecycleBoardState,
   work: ReadonlyMap<string, QuestionWork>,
-  flightOf: (questionId: string) => Pick<Flight, "outcome"> | undefined,
+  flightOf: (questionId: string) => FlightOf | undefined,
   revisingOf: (question: ViewQuestion) => boolean,
 ): LadderCounts => {
   const counts = Object.fromEntries(ANSWER_STATES.map((each) => [each, 0])) as Record<

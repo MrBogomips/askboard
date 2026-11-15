@@ -60,7 +60,9 @@ const markReady = async (board: Board, id: string, decision: string): Promise<vo
 
 // A revision held for Submit over an answer the agent has received: the first answer is submitted
 // and its receipt reads "sent"; the revision is marked ready with no question asked; then the
-// agent collects, which turns the receipt to delivered. Submit has not been pressed since.
+// agent collects, which delivers the first answer. The card reads "Ready, not sent" over it (a held
+// act decides first), so delivery is not visible: the board page is settled after the collect
+// instead. Submit has not been pressed since.
 const heldOverDelivered = async (run: BoardRun, board: Board, id: string): Promise<void> => {
   await markReady(board, id, "Approve");
   await submit(board).click();
@@ -69,7 +71,7 @@ const heldOverDelivered = async (run: BoardRun, board: Board, id: string): Promi
   await markReady(board, id, "Reject");
   expect(await dialog(board).count()).toBe(0);
   await run.session.collect();
-  await receiptOf(board, id, "delivered").waitFor({ timeout: STEP_TIMEOUT_MS });
+  await hostSettled(board);
 };
 
 // Seeds the state the board can no longer reach: the review's held "Approve with changes" whose

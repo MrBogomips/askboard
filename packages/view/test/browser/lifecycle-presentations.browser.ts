@@ -66,7 +66,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         }
         const outline = board.view.getByRole("navigation", { name: "Outline" });
         await outline.waitFor({ timeout: STEP_TIMEOUT_MS });
-        expect(await outline.getByText("Unanswered", { exact: true }).count()).toBe(4);
+        expect(await outline.getByText("To do", { exact: true }).count()).toBe(4);
         expect(await board.view.getByRole("tablist").count()).toBe(0);
         expectNoCspProblem(run);
       },

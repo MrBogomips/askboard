@@ -48,17 +48,45 @@ export const AskPill = ({ pill }: { readonly pill: Pill }) => {
   );
 };
 
-/** A question's marker: the ask markers for unanswered and answered, then held, postponed, declined. */
+/**
+ * A question's marker: a shape for each state of the ladder, so that none relies on colour alone
+ * (DESIGN.md, Markers). To do is a hollow ring, Draft a ring with a bar, Ready a dot in a ring, Not
+ * sent yet a dashed ring, Sent a half-filled dot, Delivered a filled dot.
+ */
 export const QuestionMarker = ({ mark }: { readonly mark: Mark }) => {
   switch (mark) {
-    case "unanswered":
+    case "todo":
       return (
         <span
           aria-hidden="true"
           className="size-2 shrink-0 rounded-full border border-ask-waiting"
         />
       );
-    case "answered":
+    case "draft":
+      // A ring with a bar across its middle.
+      return (
+        <span
+          aria-hidden="true"
+          className="relative flex size-2.5 shrink-0 items-center justify-center rounded-full border border-ask-partial"
+        >
+          <span className="h-0.5 w-1 bg-ask-partial" />
+        </span>
+      );
+    case "not-sent-yet":
+      return (
+        <span
+          aria-hidden="true"
+          className="size-2 shrink-0 rounded-full border border-dashed border-foreground-secondary"
+        />
+      );
+    case "sent":
+      return (
+        <span
+          aria-hidden="true"
+          className="size-2 shrink-0 rounded-full border border-ask-partial bg-linear-to-r from-ask-partial from-50% to-transparent to-50%"
+        />
+      );
+    case "delivered":
       return <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-ask-answered" />;
     case "ready":
       // A dot in a ring (`question-marker-held`).

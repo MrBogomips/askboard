@@ -280,8 +280,12 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         // disabled on an answered question, so a delivered decline is where it asks.
         await chooseFromMore(board, PLAN, "Decline");
         await actsDone(run, 1);
+        await card(board, PLAN)
+          .locator('[data-askboard-state="declined"]')
+          .waitFor({ timeout: STEP_TIMEOUT_MS });
         await run.session.collect();
-        await delivered(board, PLAN).waitFor({ timeout: STEP_TIMEOUT_MS });
+        // A decline reads Declined whatever its receipt: delivery is not visible on the card.
+        await hostSettled(board);
         await chooseFromMore(board, PLAN, "Decline");
         await dialog(board).waitFor({ timeout: STEP_TIMEOUT_MS });
         await dialog(board).getByRole("button", { name: "Cancel", exact: true }).click();

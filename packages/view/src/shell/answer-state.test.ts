@@ -65,6 +65,30 @@ describe("a flight", () => {
     expect(stateOf({ flight: {} })).toBe("todo");
     expect(stateOf({ flight: {}, status: logged("answered", "sent") })).toBe("sent");
   });
+
+  test("a sent answer reads Sent until it settles, whatever the board state still holds", () => {
+    const answer = { outcome: "sent", act: "answer" } as const;
+    expect(stateOf({ flight: answer })).toBe("sent");
+    // The work it carries is not a revision while it is on its way.
+    expect(stateOf({ flight: answer, revising: true })).toBe("sent");
+    // A revision on its way never claims the old answer's receipt.
+    expect(
+      stateOf({ flight: answer, revising: true, status: logged("answered", "delivered") }),
+    ).toBe("sent");
+  });
+
+  test("a sent decline or postpone reads as the act it is; a sent reopen falls through", () => {
+    expect(stateOf({ flight: { outcome: "sent", act: "decline" } })).toBe("declined");
+    expect(stateOf({ flight: { outcome: "sent", act: "postpone" } })).toBe("postponed");
+    expect(stateOf({ flight: { outcome: "sent", act: "reopen" } })).toBe("todo");
+  });
+
+  test("a command without a reply is no state, and a held act still decides first", () => {
+    expect(stateOf({ flight: { act: "answer" } })).toBe("todo");
+    expect(stateOf({ held: "decline", flight: { outcome: "sent", act: "answer" } })).toBe(
+      "declined",
+    );
+  });
 });
 
 describe("the logged status", () => {

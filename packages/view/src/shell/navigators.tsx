@@ -103,7 +103,10 @@ export const Outline = ({
                       </span>
                       <Badges marks={marks} />
                     </span>
-                    <span className="flex items-center gap-1.5 text-badge text-foreground-secondary">
+                    <span
+                      data-askboard-state={marks.mark}
+                      className="flex items-center gap-1.5 text-badge text-foreground-secondary"
+                    >
                       <QuestionMarker mark={marks.mark} />
                       {markLabel(marks.mark, language)}
                     </span>
@@ -158,6 +161,7 @@ export const QuestionNavigator = ({
                 label,
                 mark: markLabel(marks.mark, language),
               })}
+              data-askboard-state={marks.mark}
               aria-current={index === current ? "true" : undefined}
               onClick={() => onGo(question.id)}
               className={`flex h-6 items-center gap-1 rounded-md px-1.5 ${index === current ? "border-b-2 border-primary bg-card" : ""} ${FOCUS_RING}`}

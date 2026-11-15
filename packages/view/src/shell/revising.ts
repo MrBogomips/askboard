@@ -156,3 +156,38 @@ export const createRevisingSnapshot = (
     },
   };
 };
+
+/**
+ * Whether each question holds answer work, as the ladder reads it on every surface: for an answered
+ * or declined question the board's `RevisingSnapshot` set, never derived again; for any other
+ * question `questionRevising` itself, over the stores, since a first draft is answer work too and
+ * the set holds only the answered ones (answering-flow-guidance, design decision 1).
+ */
+export const revisingOfBoard = (
+  stores: Pick<
+    RevisingStores,
+    "draft" | "board" | "revisions" | "results" | "entries" | "cellEntries"
+  >,
+  snapshot: ReadonlySet<string>,
+  source: BoardSource,
+): ((questionId: string) => boolean) => {
+  const answered = new Set(answeredIdsOf(source.state));
+  const byId = questionIndexOf(source.document);
+  const values = stores.draft.record();
+  const results = stores.results?.record();
+  const typed = entriesWithCells(stores.entries?.record(), stores.cellEntries?.record());
+  return (questionId) => {
+    if (answered.has(questionId)) return snapshot.has(questionId);
+    const question = byId.get(questionId);
+    return (
+      question !== undefined &&
+      questionRevising(question, {
+        work: stores.board.work(questionId),
+        revisions: stores.revisions,
+        values,
+        results,
+        entries: typed,
+      })
+    );
+  };
+};
