@@ -23,3 +23,20 @@ export const insetFrom = ({
   top: headerBottom === undefined ? 0 : bounded(headerBottom),
   bottom: footerTop === undefined ? 0 : bounded(viewportHeight - footerTop),
 });
+
+type BoardMeasures = Measures & {
+  /** The sticky strip of tabs' bottom edge, from the viewport's top; absent without tabs. */
+  readonly stripBottom?: number;
+};
+
+/**
+ * What a move on the board clears (answering-flow-guidance, decision 4): `insetFrom` with its top
+ * raised to the strip of tabs' bottom edge, which sits under the header, when the board has one.
+ */
+export const boardInsetFrom = (measures: BoardMeasures): ReferenceInset => {
+  const base = insetFrom(measures);
+  const { stripBottom } = measures;
+  return stripBottom === undefined
+    ? base
+    : { ...base, top: Math.max(base.top, bounded(stripBottom)) };
+};

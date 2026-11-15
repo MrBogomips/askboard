@@ -5,7 +5,7 @@
 
 import { useEffect } from "react";
 import { questionInView } from "./in-view.ts";
-import { measureInset } from "./measure-inset.ts";
+import { measureBoardInset } from "./measure-inset.ts";
 
 const CARD = "[data-askboard-question]";
 
@@ -18,7 +18,7 @@ const readInView = (doc: Document): string | undefined => {
   const main = doc.querySelector("main");
   if (main === null) return undefined;
   const view = doc.defaultView;
-  const inset = measureInset(doc);
+  const inset = measureBoardInset(doc);
   const cards = [...main.querySelectorAll(CARD)].flatMap((element) => {
     const id = element.getAttribute("data-askboard-question");
     if (id === null) return [];

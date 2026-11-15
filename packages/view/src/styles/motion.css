@@ -1,0 +1,24 @@
+/* The arrival mark (answering-flow-guidance, decision 4; DESIGN.md, Arrival mark): the card the
+   board has moved to shows a 2px `primary` edge on its left for a moment (`data-askboard-arrived`,
+   set for 1.2 s by `revealAndFocus`). The edge is static; it fades only where the user has no
+   preference for less motion. */
+@layer components {
+  [data-askboard-arrived] {
+    box-shadow: inset 2px 0 0 var(--primary);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    [data-askboard-arrived] {
+      animation: askboard-arrival 1.2s ease-out forwards;
+    }
+
+    @keyframes askboard-arrival {
+      from {
+        box-shadow: inset 2px 0 0 var(--primary);
+      }
+      to {
+        box-shadow: inset 2px 0 0 transparent;
+      }
+    }
+  }
+}

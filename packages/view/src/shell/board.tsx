@@ -69,6 +69,7 @@ import type { Store } from "./store.ts";
 import { FOCUS_RING, INFO_BADGE } from "./styles.ts";
 import { hasRecommendation, releaseFailed, selectRecommended, submitStateOf } from "./submit.ts";
 import { useBoardKeyTable } from "./use-board-keys.ts";
+import { useHeaderHeight } from "./use-header-height.ts";
 import { useQuestionInView } from "./use-question-in-view.ts";
 
 /** What the board page last told the view, with the latest board document. */
@@ -188,11 +189,14 @@ const TabsBody = ({
   readonly unseen: ReadonlySet<string>;
 }) => {
   const text = useStrings();
+  const headerHeight = useHeaderHeight();
   return (
     <Tabs.Root value={active} onValueChange={onActivate} className="flex flex-col gap-lg">
       <Tabs.List
         aria-label={text("areas.label")}
-        className="flex gap-1 overflow-x-auto border-b border-border"
+        data-askboard-tab-strip=""
+        style={{ top: headerHeight }}
+        className="sticky z-[5] flex gap-1 overflow-x-auto border-b border-border bg-background"
       >
         {groups.map((group) => {
           const area = shared.document.items.find((item) => item.id === group.id) as ViewArea;
@@ -207,7 +211,16 @@ const TabsBody = ({
               <span className="max-w-48 truncate" title={group.title}>
                 {group.title}
               </span>
-              {open === 0 ? null : (
+              {open === 0 ? (
+                <>
+                  <span
+                    aria-hidden="true"
+                    data-askboard-tab-done=""
+                    className="mb-0.5 inline-block h-2.5 w-1.5 rotate-45 border-b-2 border-r-2 border-current"
+                  />
+                  <span className="sr-only">{text("areas.done")}</span>
+                </>
+              ) : (
                 <span className="text-badge">{text("areas.open", { count: open })}</span>
               )}
               {fresh ? <span className={INFO_BADGE}>{text("mark.new")}</span> : null}
