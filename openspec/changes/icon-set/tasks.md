@@ -109,6 +109,7 @@ Terms used below:
     - Open point 2 says settled;
     - the check passes (tests read DESIGN.md's front matter and the spine).
   - Note (2026-11-15): DESIGN.md `## Icons` (table of nine plus the board page's close icon, marked as landing with group 4), Open point 2 settled, one Do's row, `updated` 2026-11-15; spine `sources` line; `docs/as-built/icon-set.md` first version. Full `bun run check` passes (14,739 pass, 0 fail, 8 skip) and `bun run build` passes.
+- [x] 1b.1 Review finding S-1 (M) of group 1 (fix task 1b.1): `tools/build/shared-modules.test.ts` listed each icon name ahead of its source, which would have made groups 2 and 3 edit the file in parallel. The nine per-name entries give way to one exemption of the icon module (`EXEMPT_MODULES`) from the "none ships unused" test, owned by task 5.2, and the "listed ahead" test goes. Also S-2: DESIGN.md Icons, Placement now says "the next-open jump, the external hint". Tests: `shared-modules.test.ts` stays green. Note (2026-11-15): done; groups 2 and 3 no longer edit that file.
 - [ ] 1.6 Review checkpoint: spec review of group 1's range (askboard-spec-reviewer), plus a security review (askboard-security-reviewer). The group adds a dependency (AD-19, licences and notices), a library chunk that every board's srcdoc will inline under the view's CSP from group 2 on (AD-8, AD-9), and an import check (AD-1). Verify: every finding is fixed as a task, tests first, or recorded with its reason, and both reviews' ranges and verdicts are in the note.
 
 ## 2. The view's icons (shell, context, date field, strings)
@@ -215,7 +216,7 @@ Terms used below:
     - assembling a board with a Tree, a Ranking and a Text inlines `icons` once;
     - with Q1 (a), the built board page holds `x`'s path `M18 6 6 18` and not `check`'s `M20 6 9 17l-5-5`.
   - Verify: each assertion fails when its condition is broken on purpose (the shell's import of the module removed; a widget importing `lucide-react/icons/check` directly with `check:imports` bypassed; the board page importing `Check`), then passes. Revert each planted change.
-- [ ] 5.2 Every icon used. Tests first, in `packages/view/src/icons/index.test.ts`: each export of the module is imported by at least one non-test file under `packages/view/src` or `packages/widgets/src`. Verify: the test passes after groups 2 to 4, and fails when a planted unused export is added (then removed).
+- [ ] 5.2 Every icon used. Tests first, in `packages/view/src/icons/index.test.ts`: each export of the module is imported by at least one non-test file under `packages/view/src` or `packages/widgets/src`. Verify: the test passes after groups 2 to 4, and fails when a planted unused export is added (then removed). It also removes the icon module's exemption (`EXEMPT_MODULES`) from `tools/build/shared-modules.test.ts` (fix 1b.1).
 - [ ] 5.3 Sizes, recorded once. Run `bun run build:view --record-sizes`. Verify:
   - the diff of `packages/view/chunk-sizes.json` changes only chunks this change touched (`icons`, `shell`, `context`, `date-field`, `approval`, `document-review`, `tree`, `ranking`, `board-page`);
   - the note records each one's before and after;

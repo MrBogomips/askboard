@@ -924,7 +924,7 @@ Every icon on the board comes from one set: Lucide (ISC, with Feather's MIT text
 
 - **Colour.** `currentColor` only: an icon takes the text colour of its element, so it follows the theme. No icon gets a fill or a colour of its own.
 - **Size.** The caller's size utility, never the `size` prop: 16 px (`size-4`) beside control text, 12 px (`size-3`) in badges, hints and widget rows, 14 px (`size-3.5`) for the calendar. Stroke is Lucide's 2 on its 24 grid, never set per icon.
-- **Placement.** Before the text for a state (the selected decision), after it for a direction (the jumps, the external hint).
+- **Placement.** Before the text for a state (the selected decision), after it for a direction (the next-open jump, the external hint).
 - **Names.** An icon beside text that says what it means is decorative and hidden from assistive technology (the library's default). A mark that is only an icon, or an icon and a count, is an image (`role="img"`) named by the string that says what it means. An icon-only control keeps its `aria-label` and hides the icon.
 - **Quoted glyphs.** Where the specs, EXPERIENCE.md and the Components below quote a label with its glyph ("Next open ↓", "opens in browser ↗", "the ✕"), the label is the text and the glyph is the icon of this table: the string holds no glyph.
 - **What stays text.** Key names (⌃ ⌥ ⇧ ⌘ ↩ ⌫ ⌦ ↑ ↓ ← →) in key caps, tooltips and the keys panel; the arrow of a sentence, as in "{from} → {to}"; the ellipsis. The state markers' CSS shapes, the Gantt's duration pin and every chart, timeline or diagram SVG are not icons.

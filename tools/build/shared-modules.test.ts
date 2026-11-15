@@ -216,29 +216,21 @@ describe("the shared modules and the chunks that provide them", () => {
     expect(around.filter(({ target }) => target !== GRAPH_FILE)).toEqual([]);
   });
 
-  // Names a chunk lists before the source that imports them lands, each with the task that lands
-  // it. An entry the sources already import fails the test, so none outlives its task.
-  const LISTED_AHEAD: Readonly<Record<string, string>> = {};
+  // The icon module is exempt from the "none ships unused" test: its names are listed before the
+  // sources of groups 2 to 4 import them, and `icons/index.test.ts` (icon-set task 5.2) asserts that
+  // each export is imported once they have landed. Task 5.2 removes this exemption.
+  const EXEMPT_MODULES: readonly string[] = [ICONS_MODULE];
 
   test("every name a library chunk lists is imported by a view or widget source, so none ships unused", async () => {
     const imported = await namedImports();
     const unused = Object.values(LIBRARY_CHUNKS).flatMap(({ modules }) =>
       Object.entries(modules).flatMap(([module, names]) =>
-        names === "*"
+        names === "*" || EXEMPT_MODULES.includes(module)
           ? []
-          : names.filter(
-              (name) =>
-                !imported.has(`${module}:${name}`) &&
-                !Object.hasOwn(LISTED_AHEAD, `${module}:${name}`),
-            ),
+          : names.filter((name) => !imported.has(`${module}:${name}`)),
       ),
     );
     expect(unused).toEqual([]);
-  });
-
-  test("a name listed ahead of its source is still unlisted by every source, so the allowance ends with its task", async () => {
-    const imported = await namedImports();
-    expect(Object.keys(LISTED_AHEAD).filter((entry) => imported.has(entry))).toEqual([]);
   });
 
   test("the drag library provides exactly the names the widgets' sources import from its two modules", async () => {
