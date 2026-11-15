@@ -18,7 +18,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: The help skill teaches the key configuration
-`askboard-help` SHALL explain where the user's key overrides go, how they are written, the rules they meet, what a refused file does, that a project file's overrides are ignored, and where and when they apply, naming the board's own keys and the widget types whose chunk registers its key table with the board as the only ones they reach. It SHALL list every action an override may name with its default keys, generated from the key tables, the board's included, and each of its examples SHALL pass the key-override check (NFR-12, FR-29, AD-14).
+`askboard-help` SHALL explain where the user's key overrides go, how they are written, the rules they meet, what a refused file does, that a project file's overrides are ignored, and where and when they apply, naming the board's own keys and the widget types whose chunk registers a key table as the only ones they reach. It SHALL list every action an override may name with its default keys, generated from the key tables, and pass each example through the key-override check (NFR-12, FR-29, AD-14).
 
 #### Scenario: Where the user's keys apply
 - **WHEN** `askboard-help`'s key configuration reference is read
