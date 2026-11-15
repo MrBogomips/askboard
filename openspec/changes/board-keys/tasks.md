@@ -96,7 +96,9 @@ Terms used below:
   - The modifier rule in `catalog/fields/roving.ts`.
 
   Verify: 2.1 to 2.4 pass, and the check passes.
-- [ ] 2.6 Review checkpoint: spec review of group 2's range against D2, D4, D5, D8 and the scenarios they serve. Verify: the report is recorded in the task note; findings are fixed tests first or filed.
+- [x] 2.6 Review checkpoint: spec review of group 2's range against D2, D4, D5, D8 and the scenarios they serve. Verify: the report is recorded in the task note; findings are fixed tests first or filed. Done 2026-11-15. Spec review 051fe7bc..06148d11: the `checkboxKeyOf` fix confirmed; two L findings, S-4 (fixed in 2b.1) and S-5 (task bullets added to 4.1 and 4.3, built in group 4).
+- [x] 2b.1 S-4 (L): the "unseen questions get no priority" case of `previousOpenFrom` could not fail, since the function takes no unseen set. It now contrasts `nextOpenFrom` on the same input: with `rollout` unseen, forward from `payment` gives `rollout`, while backward from `rollout` gives `payment` and from `payment` gives `region`. Done 2026-11-15.
+- [ ] 2b.2 S-5 (L): the `answerable` flag that makes `answerKeyOf` give `none` is not tested from card state. Done in group 4: the helper and its tests are bullets of 4.1 and 4.3.
 
 ## 3. View: next and previous open, and the board's keys panel
 
@@ -149,6 +151,7 @@ Terms used below:
   - Server-render tests of `ActionsRow`: the primary button carries `data-askboard-primary`; an enabled primary carries `aria-keyshortcuts="Control+Enter Meta+Enter"`; a blocked one keeps `aria-describedby` pointing at the reason's element; under `{"board.answer": []}` it carries no `aria-keyshortcuts`.
   - A thread test: the composer's "Send" carries the same `aria-keyshortcuts`, and the thread's section carries `data-askboard-thread`.
   - `thread-text.test.ts`'s `isSendKey` cases are replaced by cases of the composer's table match. Ctrl+Enter and Cmd+Enter send. Enter, Shift+Enter, Ctrl+Shift+Enter, Ctrl+Cmd+Enter and an Enter while an input method composes do not. Under `{"board.sendFollowUp": ["Mod+Alt+Enter"]}` only that combination sends.
+  - 2b.2 (S-5): a small pure helper over `cardState` or the card's inputs derives `answerable` for `answerKeyOf`. Unit tests: loading, a command in flight and an answered card not being revised each give not answerable; a pending agent change on an answered card gives not answerable, so the key does nothing there and does not announce `status.answerChangePending` (intended, recorded in the note).
 
   Verify: the tests fail first, then pass after 4.3.
 - [ ] 4.2 Browser tests in a new `packages/view/test/browser/answer-key.browser.ts`, listed in `suites.ts`, one case per scenario of "Answer by key", "A blocked answer by key" and "Follow-up thread", finding each primary by `[data-askboard-primary]` inside its card:
@@ -170,6 +173,7 @@ Terms used below:
   - `question-actions.tsx`: `KeyHint` on the primary button, and `data-askboard-primary` on it (D4).
   - `thread.tsx`: the table match in the composer, `KeyHint` on "Send", and `data-askboard-thread`.
   - `thread-text.ts`: `isSendKey` removed.
+  - The `answerable` helper of 4.1 (2b.2), which the card's `onKeyDown` passes to `answerKeyOf`.
 
   Keep `question-card.tsx` under 800 lines. Verify: 4.1 and 4.2 pass; the check passes; `bun run test:e2e:smoke` passes.
 - [ ] 4.4 Review checkpoint: spec review of group 4's range against D4 to D6 and the delta spec. Add a security review (askboard-security-reviewer) for NFR-10 and AD-10. A key must never send or mark ready a choice the user did not make. Check every path to `onAnswer` from a key, the options' Enter rule, repeats, and the composer's send. The status messages render agent-written reasons as text only (AD-8). Verify: both reports are recorded in the task note; findings are fixed tests first or filed.

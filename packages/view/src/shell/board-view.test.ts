@@ -401,7 +401,11 @@ describe("previousOpenFrom (board-keys, design decision 3; mirrors nextOpenFrom)
     expect(from(undefined, done)).toBeUndefined();
   });
 
-  test("the order is the board's: unseen questions get no priority", () => {
+  test("the order is the board's: unseen questions get no priority, unlike the jump forward", () => {
+    // Forward, an unseen question the agent added comes first; backward, only board order counts.
+    const unseen = new Set(["rollout"]);
+    expect(nextOpenFrom(lifecycleBoardDocument, state, noWork, unseen, "payment")).toBe("rollout");
     expect(previousOpenFrom(lifecycleBoardDocument, state, noWork, "rollout")).toBe("payment");
+    expect(previousOpenFrom(lifecycleBoardDocument, state, noWork, "payment")).toBe("region");
   });
 });
