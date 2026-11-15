@@ -838,10 +838,23 @@ describe("the cadences' jobs (decisions 1 to 3)", () => {
     expect(call.permissions).toEqual({ contents: "read" });
     expect(needsOf(job(release.workflow, "publish")).sort()).toEqual([
       "build",
+      "e2e-firefox-smoke",
       "e2e-macos",
       "smoke-linux",
     ]);
     expect(found(release.text, /secrets:\s*inherit/)).toBe("");
+  });
+
+  // Security review X-1: while Firefox is out of `e2e-macos`, its smoke set (the token and sandbox
+  // checks, view.browser.ts among them) still gates a release, on Linux, where it is green today.
+  test("the release also calls e2e.yml with the smoke cadence in Firefox alone, no cache, no secrets, and publish needs it", () => {
+    const call = job(release.workflow, "e2e-firefox-smoke");
+    expect(call.uses).toBe("./.github/workflows/e2e.yml");
+    expect(call.with).toEqual({ cadence: "smoke", engines: '["firefox"]', "no-cache": true });
+    expect(call.secrets).toBeUndefined();
+    expect(call.permissions).toEqual({ contents: "read" });
+    expect(needsOf(job(release.workflow, "publish"))).toContain("e2e-firefox-smoke");
+    expect(release.text).toMatch(/#174[\s\S]*#145[\s\S]*smoke|smoke[\s\S]*#174[\s\S]*#145/);
   });
 });
 

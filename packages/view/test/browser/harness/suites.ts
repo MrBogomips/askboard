@@ -10,7 +10,7 @@ import { ENGINES, type Engine, enginesFrom } from "./engines.ts";
 export type BrowserFileEntry = {
   /** A subset of `ENGINES`; every engine when absent. Needs `why`, and the file loops over `enginesFor`. */
   readonly engines?: readonly Engine[];
-  /** The requirement, or the archived change's task, that names fewer engines. */
+  /** The requirement (and scenario) that names fewer engines, as the spine's CI cadence clause says; a task of an archived change may be added as the origin of its figures. */
   readonly why?: string;
   /** In the smoke set: the files that cover `SPINE_CHECKS`. */
   readonly smoke?: true;
@@ -57,7 +57,7 @@ export const BROWSER_FILES: Readonly<Record<string, BrowserFileEntry>> = {
   "document-review.browser.ts": {},
   "document-review-cost.browser.ts": {
     engines: ["chromium"],
-    why: "the cost of placing is measured in Chromium only, for the figures of document-review's task 6.4 (the logic is engine-independent and tested in Bun)",
+    why: "the requirement Timed bounds judged in the perf pass (e2e-cadence, view-and-widgets), scenario The Document review's cost of placing, names Chromium only; the figures are document-review's task 6.4 (the logic is engine-independent and tested in Bun)",
     perf: true,
   },
   "document-review-session.browser.ts": {},

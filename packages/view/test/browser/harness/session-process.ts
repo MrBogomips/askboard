@@ -45,7 +45,7 @@ import {
 } from "./child.ts";
 import { LINK_RECORDER, LINKS_VARIABLE, waitForOpened } from "./link-recorder.ts";
 import { type BoardProxy, startProxy } from "./proxy.ts";
-import { workerRuntimeDir } from "./runtime-dir.ts";
+import { createRuntimeDir, removeRuntimeDir } from "./runtime-dir.ts";
 import { type AskInput, askInputFor, questionTexts } from "./scenario-ask.ts";
 import type { BoardSession, ProjectFile, Scenario } from "./session.ts";
 import { type Stage, stageSession } from "./session-stage.ts";
@@ -413,13 +413,23 @@ const launch = async (context: LaunchContext, n: number): Promise<Life> => {
   }
 };
 
+// The session's runtime folder is removed last, after the process has exited (`close()` ends it
+// before it runs; a failed launch has killed it): the folder holds the socket and the session file
+// the process still uses until then (security review X-2).
 const cleanupOf =
-  (stage: Stage, dir: string, place?: AskerPlace, plain?: { cleanup(): Promise<void> }) =>
+  (
+    stage: Stage,
+    dir: string,
+    owned: { runtime?: string },
+    place?: AskerPlace,
+    plain?: { cleanup(): Promise<void> },
+  ) =>
   async () => {
     await stage.cleanup();
     await rm(dir, { recursive: true, force: true });
     await place?.cleanup();
     await plain?.cleanup();
+    if (owned.runtime !== undefined) removeRuntimeDir(owned.runtime);
   };
 
 // A project with no git and no asker, only to hold a scenario's files.
@@ -455,6 +465,7 @@ const writeConfig = async (file: string, value: unknown): Promise<void> => {
 const isolated = async (
   dir: string,
   options: SessionProcessOptions,
+  owned: { runtime?: string },
   projectDir?: string,
   withoutProject = false,
 ) => {
@@ -466,11 +477,15 @@ const isolated = async (
   );
   await writeConfig(join(configHome, "askboard", "config.json"), options.userConfig);
   await writeConfig(join(project, ".askboard", "config.json"), options.projectConfig);
+  // Made last: it throws, creating nothing, when no socket fits under the temporary folder. The
+  // session's cleanup removes it, not a test scope (e2e-cadence, decision 5a).
+  const runtime = createRuntimeDir(tmpdir());
+  owned.runtime = runtime;
   return {
     HOME: home,
     XDG_CONFIG_HOME: configHome,
-    // The session file and socket go in this worker's folder, not in the machine-wide one (e2e-cadence, decision 5a).
-    XDG_RUNTIME_DIR: workerRuntimeDir(),
+    // The session file and socket go in this session's own folder, not in the machine-wide one.
+    XDG_RUNTIME_DIR: runtime,
     ...(withoutProject ? {} : { CLAUDE_PROJECT_DIR: project }),
   };
 };
@@ -521,9 +536,10 @@ export const startSessionProcess = async (
       : undefined;
   const projectDir = place?.projectDir ?? given ?? plain?.projectDir;
   if (projectDir !== undefined && files !== undefined) await writeFiles(projectDir, files);
-  const cleanup = cleanupOf(stage, dir, place, plain);
+  const owned: { runtime?: string } = {};
+  const cleanup = cleanupOf(stage, dir, owned, place, plain);
   const linksFile = join(dir, "links");
-  const folders = await isolated(dir, options, projectDir, withoutProject);
+  const folders = await isolated(dir, options, owned, projectDir, withoutProject);
   const problems: string[] = [];
   const context: LaunchContext = {
     ...(asker === undefined || place === undefined ? {} : { asker: { asker, place } }),

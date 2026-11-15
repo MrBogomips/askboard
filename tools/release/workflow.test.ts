@@ -27,7 +27,7 @@ type Job = {
   if?: string;
   permissions?: Record<string, string>;
   "timeout-minutes"?: number;
-  // A job that calls a reusable workflow (`e2e-macos`) has no steps and no timeout of its own.
+  // A job that calls a reusable workflow (`e2e-macos`, `e2e-firefox-smoke`) has no steps and no timeout of its own.
   steps?: Step[];
   outputs?: Record<string, string>;
 };
@@ -59,8 +59,14 @@ const indexOfRun = (name: string, fragment: string): number =>
   steps(name).findIndex((step) => step.run?.includes(fragment));
 
 describe("the release workflow", () => {
-  test("has the four jobs, on the runners the design names", () => {
-    expect(Object.keys(jobs)).toEqual(["build", "smoke-linux", "e2e-macos", "publish"]);
+  test("has the five jobs, on the runners the design names", () => {
+    expect(Object.keys(jobs)).toEqual([
+      "build",
+      "smoke-linux",
+      "e2e-macos",
+      "e2e-firefox-smoke",
+      "publish",
+    ]);
     expect(job("build")["runs-on"]).toBe("macos-latest");
     expect(job("smoke-linux")["runs-on"]).toBe("ubuntu-24.04");
     expect(job("publish")["runs-on"]).toBe("ubuntu-24.04");
@@ -109,10 +115,14 @@ describe("the release workflow", () => {
     expect(names).toContain("actions/upload-artifact");
     expect(names).toContain("actions/download-artifact");
     // Local actions and workflows are the repository's own: the shared setup, and e2e.yml, which
-    // e2e-macos calls (e2e-cadence, decision 1).
+    // e2e-macos and e2e-firefox-smoke call (e2e-cadence, decision 1).
     expect(
       uses.filter(({ action }) => action.startsWith("./")).map(({ action }) => action),
-    ).toEqual(["./.github/actions/setup-bun", "./.github/workflows/e2e.yml"]);
+    ).toEqual([
+      "./.github/actions/setup-bun",
+      "./.github/workflows/e2e.yml",
+      "./.github/workflows/e2e.yml",
+    ]);
   });
 
   // X-1 (review 5.5): the release run shares its artifact namespace with the e2e jobs of `e2e-macos`,
@@ -135,8 +145,13 @@ describe("the release workflow", () => {
     }
   });
 
-  test("publish needs build, smoke-linux and e2e-macos, and smoke-linux needs build", () => {
-    expect(needs("publish").sort()).toEqual(["build", "e2e-macos", "smoke-linux"]);
+  test("publish needs build, smoke-linux, e2e-macos and e2e-firefox-smoke, and smoke-linux needs build", () => {
+    expect(needs("publish").sort()).toEqual([
+      "build",
+      "e2e-firefox-smoke",
+      "e2e-macos",
+      "smoke-linux",
+    ]);
     expect(needs("smoke-linux")).toEqual(["build"]);
     expect(needs("build")).toEqual([]);
   });
@@ -314,6 +329,7 @@ describe("the release workflow", () => {
       else expect(job(name)["timeout-minutes"]).toBeGreaterThan(0);
     }
     expect(job("e2e-macos").uses).toBe("./.github/workflows/e2e.yml");
+    expect(job("e2e-firefox-smoke").uses).toBe("./.github/workflows/e2e.yml");
   });
 
   const actionlint = Bun.which("actionlint");

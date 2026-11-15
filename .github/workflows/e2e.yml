@@ -31,11 +31,12 @@ on:
         description: Which cadence to run (smoke, nightly or weekly)
         type: string
         required: true
-      # Narrows the cadence's engines to this JSON list (chromium, firefox, webkit). Empty keeps
+      # Replaces the cadence's engines with this JSON list (chromium, firefox, webkit). Empty keeps
       # every engine the cadence names. release.yml's call passes ["chromium","webkit"] (coordinator
       # decision C6): Firefox's full set fails on macOS until #174 and #145 close, and a release must
-      # not wait for them. Restore Firefox in release.yml's `e2e-macos` call once both are closed; it
-      # stays in the nightly and weekly cadences, where its failures are informational.
+      # not wait for them. Restore Firefox in release.yml's `e2e-macos` call once both are closed (and
+      # drop its `e2e-firefox-smoke` call); it stays in the nightly and weekly cadences, where its
+      # failures are informational.
       engines:
         description: Engines to run, as a JSON list; empty is the cadence's own
         type: string

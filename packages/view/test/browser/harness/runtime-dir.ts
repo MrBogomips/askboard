@@ -1,10 +1,12 @@
-// A runtime folder per `bun test` worker (e2e-cadence, design decision 5a). The session process
-// writes its session file and its socket in the session folder, which is `$XDG_RUNTIME_DIR/askboard`
-// when that variable is set and the machine-wide `/tmp/askboard-<uid>` otherwise. Files that run in
-// parallel would share the machine-wide one, and so would a developer's own sessions. Each worker
-// instead gives the session processes it starts a short folder of its own, as `XDG_RUNTIME_DIR`.
+// A runtime folder for each session process the harness starts (e2e-cadence, design decision 5a).
+// The session process writes its session file and its socket in the session folder, which is
+// `$XDG_RUNTIME_DIR/askboard` when that variable is set and the machine-wide `/tmp/askboard-<uid>`
+// otherwise. Files that run in parallel would share the machine-wide one, and so would a developer's
+// own sessions. `isolated()` (session-process.ts) therefore makes a short folder of its own for each
+// process, beside its HOME and configuration folder, and the session's cleanup removes it once the
+// process has exited. No test scope owns it: a hook that removed it at the end of a test or a
+// `beforeAll` would take it from a process that is still running (security review X-2).
 
-import { afterAll } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -28,8 +30,8 @@ const problemUnder = (base: string, { platform, uid }: Required<Place>): string 
 };
 
 /**
- * A new folder `ab-<random>` under `base`, mode 0700 (what `mkdtemp` makes), removed when this
- * process exits. Throws the socket path problem, creating nothing, when the folder's longest socket
+ * A new folder `ab-<random>` under `base`, mode 0700 (what `mkdtemp` makes), removed by its owner
+ * with `removeRuntimeDir`, or when this process exits. Throws the socket path problem, creating nothing, when the folder's longest socket
  * path would not fit: it never falls back to a shared folder.
  */
 export const createRuntimeDir = (base: string, place: Place = {}): string => {
@@ -45,39 +47,19 @@ export const createRuntimeDir = (base: string, place: Place = {}): string => {
   return folder;
 };
 
-// The folders this module instance made, removed when the process, or under `bun test` the file,
-// ends. `bun test` runs no `exit` handler (neither in its workers nor serially), so the hooks of the
-// test runner do the removal there; a plain process gets the `exit` handler.
+// The folders made and not yet removed: a backstop for a process that ends without removing them
+// (the `exit` handler). `bun test` runs no `exit` handler, so under it the owner's `removeRuntimeDir`
+// is what removes a folder.
 const made = new Set<string>();
-// The cached folder of `workerRuntimeDir`: cleared with its removal, so that a later call, or a
-// later file of a run that loads this module once (a serial run or `--no-isolate`), makes a new one.
-let folder: string | undefined;
-const removeAll = (): void => {
+/** Removes every folder made and not yet removed: what the `exit` handler runs. */
+export const removeAllRuntimeDirs = (): void => {
   for (const dir of made) rmSync(dir, { recursive: true, force: true });
   made.clear();
-  folder = undefined;
 };
-process.once("exit", removeAll);
-const removeAfterScope = (): void => {
-  try {
-    afterAll(removeAll);
-  } catch {
-    // Not under the test runner: the exit handler covers it.
-  }
-};
-removeAfterScope();
+process.once("exit", removeAllRuntimeDirs);
 
-/**
- * This worker's runtime folder: made on the first call after the last removal, the same until
- * then, and removed at the end of the scope that made it (the file, or the `describe` block the
- * call ran in; the next call makes another). Each file gets a folder that exists while it runs,
- * whether Bun loads this module once per file (`--parallel`, `--isolate`) or once for all of them
- * (a serial run, `--no-isolate`); two workers never share one.
- */
-export const workerRuntimeDir = (): string => {
-  if (folder === undefined) {
-    folder = createRuntimeDir(tmpdir());
-    removeAfterScope();
-  }
-  return folder;
+/** Removes a folder `createRuntimeDir` made, with what is in it; one already gone is no error. */
+export const removeRuntimeDir = (folder: string): void => {
+  rmSync(folder, { recursive: true, force: true });
+  made.delete(folder);
 };

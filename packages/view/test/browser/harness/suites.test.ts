@@ -53,6 +53,9 @@ describe("the manifest of browser files, against the files on disk", () => {
     const entry = BROWSER_FILES["document-review-cost.browser.ts"];
     expect(entry?.perf).toBe(true);
     expect(entry?.engines).toEqual(["chromium"]);
+    // The spine's rule: the entry cites the requirement that names fewer engines (review S-3).
+    expect(entry?.why).toMatch(/Timed bounds judged in the perf pass/);
+    expect(entry?.why).toMatch(/The Document review's cost of placing/);
     expect(entry?.why).toMatch(/task 6\.4/);
   });
 

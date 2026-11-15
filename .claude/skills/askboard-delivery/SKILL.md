@@ -65,8 +65,9 @@ and the base of the next one.
    1. Rebase onto `origin/main`. Bind the version labels and re-check the borrowed seams with
       `askboard-contract-versioning`. Run the implementer at high effort for conflicts.
    2. `GITHUB_TOKEN=$(gh auth token) bun run check`, then `bun run build`.
-   3. `bun run test:e2e` when the change touches the view, the server or the conformance suite, with
-      the conformance runs on both runtimes (CLAUDE.md, CI section).
+   3. `bun run test:e2e:smoke` when the change touches the view, the server or the conformance suite,
+      and `bun run test:e2e` when it changes the harness, the runner or a widget's rendering
+      (CLAUDE.md, CI section, Triggers).
    4. Pre-PR review: both reviewers in parallel, merge base to head, at raised effort. Fold, fix and
       re-review.
    5. The kaizen retrospective of the development workflow, then the pull request. Its body says

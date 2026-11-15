@@ -118,9 +118,24 @@ jobs:
     permissions:
       contents: read
 
+  # Firefox's smoke set on Linux, while Firefox is out of `e2e-macos` (security review X-1): the
+  # smoke set holds the token and sandbox checks of the board page (view.browser.ts), and its Firefox
+  # run is green today; only the full set's failures (#174, #145) keep Firefox out above. Drop this
+  # job together with `engines` above once both are closed. It writes its build artifact
+  # `e2e-build-linux`, not the macOS one, and calls e2e.yml with no secrets and no cache.
+  e2e-firefox-smoke:
+    name: Firefox smoke on Linux
+    uses: ./.github/workflows/e2e.yml
+    with:
+      cadence: smoke
+      engines: '["firefox"]'
+      no-cache: true
+    permissions:
+      contents: read
+
   publish:
     name: Publish the release branch, the tag and the GitHub release
-    needs: [build, smoke-linux, e2e-macos]
+    needs: [build, smoke-linux, e2e-macos, e2e-firefox-smoke]
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
