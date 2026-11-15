@@ -40,7 +40,7 @@ Task 3.2 follows groups 1 and 2, since it records their names and #198's cause. 
 
 ## 1. The runner factor on the perf bounds (#196)
 
-- [ ] 1.1 The factor in `harness/perf.ts` (decision 2; requirement Timed bounds on a hosted runner).
+- [x] 1.1 The factor in `harness/perf.ts` (decision 2; requirement Timed bounds on a hosted runner).
   - Tests first, in `harness/perf.test.ts`:
     - `perfFactor(undefined)` is 1, `perfFactor("Linux")` is 2 and `perfFactor("macOS")` is 3.
     - `perfFactor("Windows")` and `perfFactor("")` throw, naming the value and both keys.
@@ -52,17 +52,20 @@ Task 3.2 follows groups 1 and 2, since it records their names and #198's cause. 
     - A child `bun` process that imports `perf.ts` with `ASKBOARD_PERF_RUNNER=Windows` exits non-zero, naming the value, before any output of a judgement.
   - Then implement `PERF_RUNNER_FACTORS`, `perfFactor`, `PERF_FACTOR` (evaluated at load), `perfScaled(ms)`, the `factor` parameter of `expectMedianWithin` and its pass-through in `judgeMedians` and `perfRuns`.
   - Verify: the new cases fail before the change and pass after, the existing `perf.test.ts` and `perf-files.test.ts` cases still pass, and coverage of `perf.ts` is at least 80%.
-- [ ] 1.2 The dense Markdown case (decision 4; D3).
+  - Note: `PERF_RUNNER_FACTORS`, `perfFactor`, `PERF_FACTOR`, `perfScaled` and the `factor` parameter of `perfLine`, `expectMedianWithin`, `judgeMedians` and `perfRuns` in `harness/perf.ts`. 13 new cases in `perf.test.ts` (including three child `bun` processes for the environment), failing before (import error), 42 pass with `perf-files.test.ts` after. Refs #196.
+- [x] 1.2 The dense Markdown case (decision 4; D3).
   - Tests first, in `harness/perf.test.ts`: `perfScaled(120_000)` is 120,000 at factor 1 and 360,000 at factor 3.
   - Then pass `DENSE_WAIT_MS` and `DENSE_TEST_TIMEOUT_MS` in `markdown-total.browser.ts` through `perfScaled`. Its "not ready in … s" line must name the scaled wait.
   - Verify:
     - the unit cases pass;
     - a browser run of `markdown-total.browser.ts` with `--set perf --engines chromium` passes locally, with no variable set;
     - `git diff` shows no change to `BOUND_MS` or any other gate.
-- [ ] 1.3 The local perf pass (requirement Timed bounds judged in the perf pass, scenario "A developer's machine"). Tests: none new. Verify:
+  - Note: `DENSE_WAIT_MS` and `DENSE_TEST_TIMEOUT_MS` go through `perfScaled`; the unit cases are in 1.1's child-process test (120,000 at factor 1, 360,000 at macOS). `markdown-total` perf run in Chromium: 2 pass, dense case ready in 16.7 s; no gate changed. Refs #196.
+- [x] 1.3 The local perf pass (requirement Timed bounds judged in the perf pass, scenario "A developer's machine"). Tests: none new. Verify:
   - a browser run with `--set perf --engines chromium,webkit` passes with no variable set, and its `perf …` lines carry no `factor`;
   - the same run with `ASKBOARD_PERF_RUNNER=Linux` prints `factor 2 bound …` on every line.
   - Record the pass counts and the worst ratio in the note.
+  - Note: perf pass with no variable: chromium 91 pass, webkit 89 pass, 0 fail, 1,122 `perf` lines and none with `factor`; worst ratio 0.86 (table-bounds worst, WebKit, edit, 86 against 100). With `ASKBOARD_PERF_RUNNER=Linux`: same counts and all 1,122 lines end `factor 2 bound …`. Refs #196.
 - [ ] 1.4 Review checkpoint: spec review of group 1's range (askboard-spec-reviewer). No security review: the group touches only the test harness. Verify: every finding is fixed as a task, tests first, or recorded with its reason, and the review's range and verdict are in the note.
 
 ## 2. Reopen-session case (g) (#198)

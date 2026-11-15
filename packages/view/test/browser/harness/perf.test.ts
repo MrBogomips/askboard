@@ -1,5 +1,17 @@
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
-import { expectMedianWithin, judgeMedians, median, PERF_RUNS, perfLine, perfRuns } from "./perf.ts";
+import { join } from "node:path";
+import {
+  expectMedianWithin,
+  judgeMedians,
+  median,
+  PERF_FACTOR,
+  PERF_RUNNER_FACTORS,
+  PERF_RUNS,
+  perfFactor,
+  perfLine,
+  perfRuns,
+  perfScaled,
+} from "./perf.ts";
 
 // What the helpers print goes to stdout, where the runner shows it; the tests keep it.
 const written: string[] = [];
@@ -167,5 +179,109 @@ describe("perfRuns", () => {
         if (run !== 2) gate("a", 1, 10);
       }),
     ).rejects.toThrow(/2 of 3 runs/);
+  });
+});
+
+describe("perfFactor (ci-e2e-gates, decision 2)", () => {
+  test("is 1 with no runner named, 2 on Linux and 3 on macOS", () => {
+    expect(perfFactor(undefined)).toBe(1);
+    expect(perfFactor("Linux")).toBe(2);
+    expect(perfFactor("macOS")).toBe(3);
+    expect(PERF_RUNNER_FACTORS).toEqual({ Linux: 2, macOS: 3 });
+  });
+
+  test("refuses any other value, the empty string included, naming it and both keys", () => {
+    for (const value of ["Windows", "", "linux"]) {
+      expect(() => perfFactor(value)).toThrow(new RegExp(`"${value}".*Linux.*macOS`));
+    }
+  });
+
+  test("is 1 here, where the variable is not set", () => {
+    expect(process.env.ASKBOARD_PERF_RUNNER).toBeUndefined();
+    expect(PERF_FACTOR).toBe(1);
+  });
+});
+
+describe("the factor on a judgement", () => {
+  test("factor 3 passes [398, 214, 177] against gate 100, and the line says so", () => {
+    expect(() => expectMedianWithin("t worst edit", [398, 214, 177], 100, false, 3)).not.toThrow();
+    expect(written).toEqual([
+      "perf t worst edit [398, 214, 177] median 214 gate 100 factor 3 bound 300\n",
+    ]);
+  });
+
+  test("factor 2 fails [240, 260, 250] against gate 100, naming the bound 200", () => {
+    expect(() => expectMedianWithin("t", [240, 260, 250], 100, false, 2)).toThrow(/bound 200/);
+  });
+
+  test("factor 1 prints today's line", () => {
+    expect(perfLine("k", [1, 2, 3], 10)).toBe("perf k [1, 2, 3] median 2 gate 10");
+    expect(perfLine("k", [1, 2, 3], 10, 1)).toBe("perf k [1, 2, 3] median 2 gate 10");
+  });
+
+  test("below stays strict at the scaled bound", () => {
+    expect(() => expectMedianWithin("x", [250, 300, 350], 100, true, 3)).toThrow(/300/);
+    expect(() => expectMedianWithin("x", [250, 299, 350], 100, true, 3)).not.toThrow();
+  });
+
+  test("a median at the scaled bound passes when below is not set", () => {
+    expect(() => expectMedianWithin("x", [250, 300, 350], 100, false, 3)).not.toThrow();
+    expect(() => expectMedianWithin("x", [250, 301, 350], 100, false, 3)).toThrow(/bound 300/);
+  });
+
+  test("judgeMedians applies the factor it is given", () => {
+    judgeMedians([{ label: "a", samples: [150, 160, 170], gate: 100 }], 2);
+    expect(written).toEqual(["perf a [150, 160, 170] median 160 gate 100 factor 2 bound 200\n"]);
+    expect(() => judgeMedians([{ label: "a", samples: [250, 260, 270], gate: 100 }], 2)).toThrow(
+      /bound 200/,
+    );
+  });
+
+  test("perfRuns applies the factor it is given", async () => {
+    const figures = [150, 160, 170];
+    await perfRuns("t", async (run, gate) => gate("edit", figures[run] as number, 100), 2);
+    expect(written).toEqual([
+      "perf t edit [150, 160, 170] median 160 gate 100 factor 2 bound 200\n",
+    ]);
+    await expect(
+      perfRuns("t", async (run, gate) => gate("edit", (figures[run] as number) + 100, 100), 2),
+    ).rejects.toThrow(/bound 200/);
+  });
+});
+
+describe("the factor from the environment, in a process of its own", () => {
+  const PERF = join(import.meta.dir, "perf.ts");
+  const child = (runner: string | undefined, body: string) => {
+    const env: Record<string, string> = { PATH: process.env.PATH ?? "" };
+    if (runner !== undefined) env.ASKBOARD_PERF_RUNNER = runner;
+    const result = Bun.spawnSync(
+      [process.execPath, "-e", `import * as perf from ${JSON.stringify(PERF)};\n${body}`],
+      { env },
+    );
+    return { code: result.exitCode, out: result.stdout.toString(), err: result.stderr.toString() };
+  };
+
+  test("perfScaled multiplies a wait by the runner's factor", () => {
+    expect(perfScaled(120_000)).toBe(120_000);
+    const body = "process.stdout.write(String(perf.perfScaled(120000)));";
+    expect(child(undefined, body).out).toBe("120000");
+    expect(child("Linux", body).out).toBe("240000");
+    expect(child("macOS", body).out).toBe("360000");
+  });
+
+  test("an unknown runner fails the import, naming it, before any judgement prints", () => {
+    const result = child(
+      "Windows",
+      "perf.expectMedianWithin('x', [1, 2, 3], 100); process.stdout.write('judged');",
+    );
+    expect(result.code).not.toBe(0);
+    expect(result.out).toBe("");
+    expect(result.err).toContain("Windows");
+  });
+
+  test("a child at factor 3 passes a median the gate alone would fail, and prints the factor", () => {
+    const result = child("macOS", "perf.expectMedianWithin('x', [398, 214, 177], 100);");
+    expect(result.code).toBe(0);
+    expect(result.out).toBe("perf x [398, 214, 177] median 214 gate 100 factor 3 bound 300\n");
   });
 });
