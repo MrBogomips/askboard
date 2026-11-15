@@ -125,7 +125,8 @@ Task 3.2 follows groups 1 and 2, since it records their names and #198's cause. 
     - `./setup.sh --check` reports whether the Codex files are stale, and `./setup.sh --codex-only` refreshes them if so;
     - the check passes.
   - Note: `CLAUDE.md` (CI, Triggers: the "Known: ... never reached Answer" sentence replaced by the factor, the variable and the macOS step with the local setting), the spine Tests row (factor clause), `test-harness-patterns.md` (timed-checks rule names `PERF_FACTOR`, `perfScaled`, the variable; the keyboard bullet no longer calls the WebKit failure a known CI one), and `docs/as-built/ci-e2e-gates.md` (names, 1.5 waits, D1 to D3, D4 as Q1, #198 cause and fix, no status, no versions). `grep "never reached Answer" CLAUDE.md` finds nothing; `./setup.sh --check`: Codex files up to date. The check passes at the end of group 4 (task 4.8 records it). Refs #196, #197, #198.
-- [ ] 3.3 Review checkpoint: spec review of group 3's range, plus a security review (askboard-security-reviewer), because the group changes a workflow of a public repository that the release gate calls. Verify: every finding is fixed as a task, tests first, or recorded with its reason, and both reviews' ranges and verdicts are in the note.
+- [x] 3.3 Review checkpoint: spec review of group 3's range, plus a security review (askboard-security-reviewer), because the group changes a workflow of a public repository that the release gate calls. Verify: every finding is fixed as a task, tests first, or recorded with its reason, and both reviews' ranges and verdicts are in the note.
+  - Done: covered by the pre-PR reviews of the whole range 16c6d23f..45c76f80, which both state they include checkpoint 3.3: spec review L 4, security review L 1 (no high or medium), folded in 4.4 to 4.8. Refs #196, #197.
 
 ## 4. On the runners, then the pull request
 
