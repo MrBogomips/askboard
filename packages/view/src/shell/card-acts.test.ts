@@ -41,7 +41,8 @@ import {
 import type { ViewChannel } from "./channel.ts";
 import { createDerivedStore } from "./derived-store.ts";
 import { createDraftStore } from "./draft-store.ts";
-import { settle } from "./revision-confirm.ts";
+import { confirmationOf, settle, settleConfirmation } from "./revision-confirm.ts";
+import { createStatusMessages } from "./status-messages.ts";
 
 const [database] = plainChoiceBoardDocument.items;
 const [scope] = lifecycleBoardDocument.items as unknown as readonly [ViewArea];
@@ -157,6 +158,106 @@ describe("what a card's Answer sends (ask-lifecycle, task 6.4; FR-7, FR-22)", ()
     answer(payment, context);
     expect(board.work("payment")?.held).toBeUndefined();
     expect(sent).toEqual([]);
+  });
+});
+
+describe("what Answer reports (answering-flow-fixes, design decision 1)", () => {
+  test("sent for an answer in immediate delivery, note-sent for a note alone", () => {
+    const { draft, board, context } = setUp();
+    draft.set("payment", ["Stripe"]);
+    expect(answer(payment, context)).toBe("sent");
+    board.edit("database", 1, () => ({ rev: 1, note: "Ask ops." }));
+    expect(answer(database, context)).toBe("note-sent");
+  });
+
+  test("held and then released for two presses in submitted delivery; note-held and note-released for a note alone (S-2)", () => {
+    const { draft, board, context } = setUp("submitted");
+    draft.set("payment", ["Stripe"]);
+    expect(answer(payment, context)).toBe("held");
+    expect(answer(payment, context)).toBe("released");
+    board.edit("database", 1, () => ({ rev: 1, note: "Ask ops." }));
+    expect(answer(database, context)).toBe("note-held");
+    expect(answer(database, context)).toBe("note-released");
+  });
+
+  test("undefined when there is nothing to send", () => {
+    const { context } = setUp();
+    expect(answer(database, context)).toBeUndefined();
+  });
+});
+
+describe("the status messages of Answer (answering-flow-fixes, design decision 4; #182)", () => {
+  const heard = (delivery: Delivery) => {
+    const { sent, draft, board, acts, context } = setUp(delivery);
+    const status = createStatusMessages();
+    const log: unknown[] = [];
+    status.subscribe(() => log.push(status.get().messages.at(-1)));
+    return { sent, draft, board, acts, log, context: { ...context, status } };
+  };
+
+  test("an answer sent says which option, only once the board page says it started", async () => {
+    const { draft, log, context } = heard("immediate");
+    draft.set("payment", ["Stripe"]);
+    answer(payment, context);
+    expect(log).toEqual([]);
+    await Bun.sleep(0);
+    expect(log).toEqual([{ key: "status.answerSent", params: { option: "Stripe" } }]);
+  });
+
+  test("a command the board page queued or refused announces nothing", async () => {
+    const replies = [
+      { outcome: "queued", actionId: ACTION_ID },
+      { outcome: "refused", detail: "x", size: 1 },
+    ];
+    for (const reply of replies) {
+      const { draft, log, context } = heard("immediate");
+      draft.set("payment", ["Stripe"]);
+      const channel: ViewChannel = {
+        ...context.channel,
+        send: async () => reply,
+      };
+      answer(payment, { ...context, channel });
+      await Bun.sleep(0);
+      expect(log).toEqual([]);
+    }
+  });
+
+  test("a note alone sent says so", async () => {
+    const { board, log, context } = heard("immediate");
+    board.edit("database", 1, () => ({ rev: 1, note: "Ask ops." }));
+    answer(database, context);
+    await Bun.sleep(0);
+    expect(log).toEqual([{ key: "status.noteSent" }]);
+  });
+
+  test("an answer marked ready says ready, not sent, and counts the answers held", () => {
+    const { draft, log, context } = heard("submitted");
+    draft.set("payment", ["Stripe"]);
+    draft.set("database", ["Postgres"]);
+    answer(payment, context);
+    answer(database, context);
+    expect(log).toEqual([
+      { key: "status.ready", params: { count: 1 } },
+      { key: "status.ready", params: { count: 2 } },
+    ]);
+  });
+
+  test("un-marking says nothing", () => {
+    const { draft, log, context } = heard("submitted");
+    draft.set("payment", ["Stripe"]);
+    answer(payment, context);
+    answer(payment, context);
+    expect(log).toHaveLength(1);
+  });
+
+  test("a note alone held says nothing and is left out of the count", () => {
+    const { draft, board, log, context } = heard("submitted");
+    board.edit("database", 1, () => ({ rev: 1, note: "Ask ops." }));
+    expect(answer(database, context)).toBe("note-held");
+    expect(log).toEqual([]);
+    draft.set("payment", ["Stripe"]);
+    answer(payment, context);
+    expect(log).toEqual([{ key: "status.ready", params: { count: 1 } }]);
   });
 });
 
@@ -1067,7 +1168,7 @@ describe("a reason the answer requires (approval-scale-ranking, design decision 
 
   test("a note with text sends the answer carrying it, in immediate delivery", () => {
     const { sent, context } = held("immediate", revise, "Cheaper.");
-    expect(answer(asked, context)).toBeUndefined();
+    expect(answer(asked, context)).toBe("sent");
     expect(sent).toEqual([
       expect.objectContaining({
         type: "answer",
@@ -1079,14 +1180,14 @@ describe("a reason the answer requires (approval-scale-ranking, design decision 
 
   test("a note with text marks the answer ready, in submitted delivery", () => {
     const { sent, board, context } = held("submitted", revise, "Cheaper.");
-    expect(answer(asked, context)).toBeUndefined();
+    expect(answer(asked, context)).toBe("held");
     expect(board.work("database")?.held).toEqual({ act: "answer", order: 0 });
     expect(sent).toEqual([]);
   });
 
   test("a result that requires no reason sends with no note", () => {
     const { sent, context } = held("immediate", accept);
-    expect(answer(asked, context)).toBeUndefined();
+    expect(answer(asked, context)).toBe("sent");
     expect(sent).toEqual([
       expect.objectContaining({ type: "answer", results: { verdict: accept } }),
     ]);
@@ -1094,7 +1195,7 @@ describe("a reason the answer requires (approval-scale-ranking, design decision 
 
   test("with no facts for the type, nothing is required", () => {
     const { sent, context } = held("immediate", revise);
-    expect(answer(asked, { ...context, facts: () => undefined })).toBeUndefined();
+    expect(answer(asked, { ...context, facts: () => undefined })).toBe("sent");
     expect(sent).toHaveLength(1);
   });
 
@@ -1111,7 +1212,7 @@ describe("a reason the answer requires (approval-scale-ranking, design decision 
     // State built directly: the answer was marked ready, then the note lost its text.
     board.edit("database", 1, (work) => ({ ...work, rev: 1, held: { act: "answer", order: 0 } }));
     expect(answerNeedsReason(asked, context)).toBe(false);
-    expect(answer(asked, context)).toBeUndefined();
+    expect(answer(asked, context)).toBe("released");
     expect(board.work("database")?.held).toBeUndefined();
     expect(sent).toEqual([]);
   });
@@ -1222,7 +1323,7 @@ describe("Accept recommended takes the path of Answer (approval-scale-ranking, d
     expect(sent).toEqual([
       expect.objectContaining({ type: "answer", choice: ["A"], results: { verdict: reject } }),
     ]);
-    expect(outcomes).toEqual([undefined]);
+    expect(outcomes).toEqual(["sent"]);
   });
 
   test("confirming marks the answer ready in submitted delivery, and sends nothing", () => {
@@ -1321,6 +1422,14 @@ describe("a held answer pressed again where the press sends (approval-scale-rank
     expect(sent).toEqual([
       expect.objectContaining({ type: "answer", results: { verdict: reject } }),
     ]);
+  });
+
+  test("confirming reports the result through the settle, and settleConfirmation turns it into the heading (S-1)", () => {
+    const { pressed, outcomes } = marked("immediate", reject);
+    if (pressed.kind !== "waiting") throw new Error(pressed.kind);
+    const confirmation = confirmationOf("answer", pressed.waiting, {});
+    expect(settleConfirmation(confirmation, true)).toEqual({ to: "heading" });
+    expect(outcomes).toEqual(["sent"]);
   });
 
   test("in immediate delivery a marked answer lacking its reason is refused, and nothing is sent", () => {

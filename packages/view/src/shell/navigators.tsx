@@ -3,7 +3,8 @@
 // its marker and state label, the "New" and unread-reply marks and the agent-change flag, and a
 // click or a key jumps to the question, activating its tab; in one question per view, the question
 // navigator says "Question n of m", holds one marker per question, Previous and Next, which stop
-// at the ends, and "Next open →", which wraps. Every jump moves focus to the question's heading.
+// at the ends; the next-open jump is the header's, on every presentation (answering-flow-fixes,
+// #184). Every jump moves focus to the question's heading.
 // Agent strings (area titles, chips, question texts) render as text (AD-8).
 
 import { useLanguage, useStrings } from "../catalog/port.ts";
@@ -11,7 +12,7 @@ import { IconAgentChanged, IconReplies } from "../icons/index.ts";
 import type { ViewQuestion } from "../view-document.ts";
 import { type Group, type Mark, markLabel } from "./board-view.ts";
 import { QuestionMarker } from "./markers.tsx";
-import { BUTTON_SECONDARY, FOCUS_RING, INFO_BADGE, SECTION_LABEL, SEPARATOR } from "./styles.ts";
+import { BUTTON_SECONDARY, FOCUS_RING, INFO_BADGE, SECTION_LABEL } from "./styles.ts";
 
 /** What a question's navigator entry shows beside its text. */
 export type EntryMarks = {
@@ -123,14 +124,12 @@ export const QuestionNavigator = ({
   current,
   marksOf,
   onGo,
-  onNextOpen,
   removed,
 }: {
   readonly questions: readonly ViewQuestion[];
   readonly current: number;
   readonly marksOf: (question: ViewQuestion) => EntryMarks;
   readonly onGo: (questionId: string) => void;
-  readonly onNextOpen: (() => void) | undefined;
   /** The agent deleted the question in view (F-55). */
   readonly removed: boolean;
 }) => {
@@ -196,15 +195,6 @@ export const QuestionNavigator = ({
           onClick={() => next !== undefined && onGo(next.id)}
         >
           {text("navigator.next")}
-        </button>
-        <span aria-hidden="true" className={SEPARATOR} />
-        <button
-          type="button"
-          className={BUTTON_SECONDARY}
-          disabled={onNextOpen === undefined}
-          onClick={onNextOpen}
-        >
-          {text("navigator.nextOpen")}
         </button>
       </span>
     </nav>

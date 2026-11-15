@@ -133,7 +133,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await viewText(board, "First area").filter({ visible: true }).count()).toBe(1);
         const previous = navigator.getByRole("button", { name: "Previous", exact: true });
         const next = navigator.getByRole("button", { name: "Next", exact: true });
-        const nextOpen = navigator.getByRole("button", { name: "Next open →" });
+        const nextOpen = board.header.getByRole("button", { name: /^Next open/ });
         expect(await previous.isDisabled()).toBe(true);
         await answerYes(board, "q1");
         // Answering does not advance.
@@ -155,6 +155,25 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         // Hidden questions stay mounted.
         expect(await card(board, "q5").count()).toBe(1);
         expect(await board.view.getByRole("navigation", { name: "Outline" }).count()).toBe(0);
+        // The navigator holds no jump of its own: the header's is the only one.
+        expect(await navigator.getByRole("button", { name: /^Next open/ }).count()).toBe(0);
+        expectNoCspProblem(run);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "one question per view: the first press of Next open, before any navigation, shows the second open question",
+      async () => {
+        const run = await start(lifecycleScenario(onePerViewAsk, dist));
+        const board = await openBoard(run, ["q1", "q2", "q3", "q4", "q5"]);
+        const navigator = board.view.getByRole("navigation", { name: "Question navigator" });
+        await navigator.getByText("Question 1 of 5", { exact: true }).waitFor();
+        await board.header
+          .getByRole("button", { name: /^Next open/ })
+          .click({ timeout: STEP_TIMEOUT_MS });
+        await navigator.getByText("Question 2 of 5", { exact: true }).waitFor();
+        await eventually(() => isFocused(heading(board, "q2")), "focus on question 2's heading");
         expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,

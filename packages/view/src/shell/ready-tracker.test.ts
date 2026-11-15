@@ -283,6 +283,7 @@ describe("the ready tracker follows the revision the card shows, through the upd
         focus: createStore(undefined),
         removed: createStore(false),
         focused: () => undefined,
+        shownQuestion: () => undefined,
       });
       document = next;
     };

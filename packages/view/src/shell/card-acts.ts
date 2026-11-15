@@ -57,6 +57,7 @@ import type { DerivedStore } from "./derived-store.ts";
 import type { DraftStore } from "./draft-store.ts";
 import { entryIdsOf } from "./entries.ts";
 import { holdsBlock } from "./field-block.ts";
+import { sentMessageOf } from "./flow-messages.ts";
 import {
   type AnswerRole,
   answerOf,
@@ -65,8 +66,9 @@ import {
   unchangedOf,
 } from "./question-state.ts";
 import { type FactsOf, reasonOf } from "./reason.ts";
-import { asksFirst, press, type Waiting } from "./revision-confirm.ts";
+import { type AnswerResult, asksFirst, press, type Waiting } from "./revision-confirm.ts";
 import type { SizeNotices } from "./size-notices.ts";
+import type { StatusMessages } from "./status-messages.ts";
 
 /** Explain's ready-made follow-up (EXPERIENCE.md, Voice and Tone: Question actions). */
 export const EXPLAIN = t("en-US", "question.explainText");
@@ -76,6 +78,8 @@ export type Senders = {
   readonly acts: AnswerActs;
   /** The lines for a command the board page refused as too large (oversized-acts). */
   readonly notices?: SizeNotices;
+  /** What the board says to a screen reader about an act that went out (answering-flow-fixes, #182). */
+  readonly status?: Pick<StatusMessages, "announce">;
 };
 
 /** What sent a command: a card's own act, or the bottom bar's Submit (oversized-acts). */
@@ -85,7 +89,7 @@ export type SentVia = "answer" | "submit";
 // command over the board's message limit comes back refused with its size: each question it named
 // shows that nothing was sent, and the work and the held acts stay (oversized-acts, decision 2).
 const dispatch = (
-  { channel, acts, notices }: Senders,
+  { channel, acts, notices, status }: Senders,
   held: readonly ViewAct[],
   message: ViewMessage,
   via: SentVia = "answer",
@@ -97,6 +101,12 @@ const dispatch = (
     (reply) => {
       const read = readActReply(reply);
       acts.replied(key, read);
+      // Only a command the board page started is announced as sent: a queued or refused one is
+      // spoken for by the connection banner, the "not sent yet" receipt and the size lines (NFR-10).
+      if (read?.outcome === "sent") {
+        const message = sentMessageOf(via, held);
+        if (message !== undefined) status?.announce(message);
+      }
       if (read?.outcome === "refused") {
         console.error(`askboard: the board page did not send the ${message.type}: ${read.detail}`);
         if (read.size !== undefined) notices?.refused(questionIds, read.size, via);
@@ -163,8 +173,10 @@ export type AnswerContext = Senders & {
 const shownIn = (question: ViewQuestion, context: Pick<AnswerContext, "shownOf">): ViewQuestion =>
   context.shownOf?.(question) ?? question;
 
-/** What "Answer" gave: nothing to report, or that the answer lacks the reason it requires. */
-export type AnswerOutcome = "needs-reason" | undefined;
+export type { AnswerResult };
+
+/** What "Answer" gave: its result, or none when a field blocks or there is nothing to send. */
+export type AnswerOutcome = AnswerResult | undefined;
 
 /**
  * The answer with the derived values every computing item of the question last reported (widget-
@@ -222,8 +234,13 @@ const OVER_UNDO: ReadonlySet<HeldAct["act"]> = new Set(["answer", "decline", "no
 // Holds the act for Submit, or, when that act is held already, takes it back. An answer, decline
 // or note held over the undo of a sent postpone or decline keeps that undo beneath it, held again
 // when the act is taken back.
-const toggleHeld = (question: ViewQuestion, context: AnswerContext, act: HeldAct["act"]): void => {
+const toggleHeld = (
+  question: ViewQuestion,
+  context: AnswerContext,
+  act: HeldAct["act"],
+): "held" | "released" | "note-held" | "note-released" => {
   const { board } = context;
+  const released = board.work(question.id)?.held?.act === act;
   const order = nextHeldOrder(board);
   board.edit(question.id, question.rev, (current) => {
     if (current.held?.act === act) return releaseHeld(current);
@@ -232,6 +249,17 @@ const toggleHeld = (question: ViewQuestion, context: AnswerContext, act: HeldAct
     const { undo: _, ...rest } = current;
     return { ...rest, ...(undo === undefined ? {} : { undo }), held: { act, order } };
   });
+  if (act === "note") return released ? "note-released" : "note-held";
+  return released ? "released" : "held";
+};
+
+// "Answer ready, not sent": the count is the questions holding an answer marked ready, a held note
+// left out (it is no answer), as counted after the act (NFR-10).
+const announceReady = ({ board, status }: AnswerContext): void => {
+  if (status === undefined) return;
+  let count = 0;
+  for (const work of board.get().questions.values()) if (work.held?.act === "answer") count += 1;
+  status.announce({ key: "status.ready", params: { count } });
 };
 
 // Takes back what is held, if anything is.
@@ -342,25 +370,23 @@ export const answer = (question: ViewQuestion, context: AnswerContext): AnswerOu
     content.other !== undefined;
   if (!answers) {
     if (content.note === undefined) return undefined;
-    if (delivery === "submitted") {
-      toggleHeld(question, context, "note");
-      return undefined;
-    }
+    if (delivery === "submitted") return toggleHeld(question, context, "note");
     sendActs(context, [
       { type: "note", itemId: question.id, rev: question.rev, note: content.note, when: now() },
     ]);
-    return undefined;
+    return "note-sent";
   }
   if (reasonGate(question, context, content) === "needs-reason") return "needs-reason";
   if (delivery === "submitted") {
-    toggleHeld(question, context, "answer");
-    return undefined;
+    const result = toggleHeld(question, context, "answer");
+    if (result === "held") announceReady(context);
+    return result;
   }
   const rev = revisionFor(question, work);
   const message = answerOf({ ...question, rev }, content, new Date());
   const { type: _, ...fields } = message;
   dispatch(context, [{ type: "answer", ...fields }], message);
-  return undefined;
+  return "sent";
 };
 
 /**
@@ -707,7 +733,7 @@ export type AnswerPress =
   /** Nothing was sent or marked for want of the reason: the field error and the prompt. */
   | { readonly kind: "needs-reason" }
   /** The act waits for the user's confirmation. */
-  | { readonly kind: "waiting"; readonly waiting: Waiting }
+  | { readonly kind: "waiting"; readonly waiting: Waiting<AnswerOutcome> }
   /** The act ran now. */
   | { readonly kind: "done" };
 
@@ -728,8 +754,10 @@ export const pressAnswer = (
     context.delivery === "submitted" ? context.board.work(question.id)?.held?.act : undefined;
   // The items that ask are those of the revision the card shows and the answer names (Issue #92).
   const shown = shownIn(question, context);
-  const waiting = press(asksFirst("answer", shown, status, held, context.facts), () =>
-    onOutcome(answer(question, context)),
-  );
+  const waiting = press(asksFirst("answer", shown, status, held, context.facts), () => {
+    const outcome = answer(question, context);
+    onOutcome(outcome);
+    return outcome;
+  });
   return waiting === undefined ? { kind: "done" } : { kind: "waiting", waiting };
 };

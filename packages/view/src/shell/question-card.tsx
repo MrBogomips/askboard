@@ -43,6 +43,7 @@ import {
 import { markOf } from "./board-view.ts";
 import {
   type AnswerContext,
+  type AnswerOutcome,
   CARD_ACTS,
   decline,
   explain,
@@ -61,7 +62,8 @@ import { ChangeNotice, ReopenedNotice } from "./change-notice.tsx";
 import type { ViewChannel } from "./channel.ts";
 import { ContextColumn } from "./context-column.tsx";
 import { couldSplit, layoutOf } from "./context-layout.ts";
-import { answerHint, holdsBlock } from "./field-block.ts";
+import { fieldToFixOf, holdsBlock } from "./field-block.ts";
+import { focusField } from "./focus-field.ts";
 import { QuestionMarker } from "./markers.tsx";
 import type { OpenedSnapshot } from "./opened-snapshot.ts";
 import { ActionsRow } from "./question-actions.tsx";
@@ -76,6 +78,7 @@ import {
 import { type ReasonRequests, reasonAskedAfter, reasonOf } from "./reason.ts";
 import { type RenderContext, RenderItem } from "./renderer.tsx";
 import { carriedOf } from "./reopen-prefill.ts";
+import { revealAndFocus } from "./reveal.ts";
 import { questionRevising } from "./revising.ts";
 import {
   type Confirmation,
@@ -138,8 +141,14 @@ const NO_RECORD: ReadonlyMap<string, unknown> = new Map();
 
 const noteFieldId = (questionId: string) => `${questionId}:note`;
 
-const focusHeadingOf = (questionId: string) => () =>
-  document.getElementById(questionTextId(questionId))?.focus();
+// An answer, or a note alone, that started a command: focus goes to the question's heading.
+const sentResult = (outcome: AnswerOutcome): boolean =>
+  outcome === "sent" || outcome === "note-sent";
+
+const focusHeadingOf = (questionId: string) => () => {
+  const heading = document.getElementById(questionTextId(questionId));
+  if (heading !== null) revealAndFocus(heading);
+};
 
 // What the card shows, from the stores it follows: its loading, its work, its commands and the
 // agent's changes under the work.
@@ -233,7 +242,7 @@ const useCard = ({ question, state, lock, context }: CardProps) => {
     card,
     blocked,
     actions,
-    answerHint: answerHint(shown, heldEntries, heldResults, language, undefined, readOnlyItems),
+    fieldToFix: fieldToFixOf(shown, heldEntries, heldResults, language, undefined, readOnlyItems),
     followUp,
     choosing,
     placement,
@@ -372,7 +381,7 @@ export const QuestionCard = (props: CardProps) => {
     card,
     blocked,
     actions,
-    answerHint: hint,
+    fieldToFix,
     followUp,
     choosing,
     placement,
@@ -391,9 +400,11 @@ export const QuestionCard = (props: CardProps) => {
   // does not bring the error back, only a press that asks does.
   if (reasonAsked && !reasonError) setReasonAsked(false);
   // "Answer" sent nothing for want of the reason: the error shows and focus goes to the prompt.
+  const outcomeOfPress = useRef<AnswerOutcome>(undefined);
   const asking = useCallback(
-    (outcome: "needs-reason" | undefined) => {
-      if (outcome === undefined) return;
+    (outcome: AnswerOutcome) => {
+      outcomeOfPress.current = outcome;
+      if (outcome !== "needs-reason") return;
       setReasonAsked(true);
       document.getElementById(noteFieldId(question.id))?.focus();
     },
@@ -434,8 +445,12 @@ export const QuestionCard = (props: CardProps) => {
   // "Answer", and "Accept recommended" once it has selected, take one path: the reason check, then
   // the confirmation, then the act.
   const onAnswer = (control: HTMLElement) => {
+    outcomeOfPress.current = undefined;
     const pressed = pressAnswer(question, acting, status, asking);
     if (pressed.kind === "needs-reason") asking("needs-reason");
+    // An answer sent at once moves focus to the heading when the act is taken, never when its
+    // command settles (answering-flow-fixes, design decision 1); marking ready keeps it on "Answer".
+    if (pressed.kind === "done" && sentResult(outcomeOfPress.current)) focusHeading();
     chosen.current = false;
     setWaiting(
       confirmationOf("answer", pressed.kind === "waiting" ? pressed.waiting : undefined, control),
@@ -612,7 +627,10 @@ export const QuestionCard = (props: CardProps) => {
             opened={opened}
             card={card}
             actions={actions}
-            answerHint={hint}
+            fieldToFix={fieldToFix}
+            onFixField={(itemId) => {
+              if (section.current !== null) focusField(section.current, itemId);
+            }}
             sizeNotice={sizeNotice}
             draftLeftOut={draftLeftOut}
             locked={lock !== undefined}

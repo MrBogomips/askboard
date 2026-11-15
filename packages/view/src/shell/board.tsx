@@ -41,6 +41,7 @@ import {
   openCountOf,
   postponedWarningOf,
   presentationOf,
+  shownQuestionOf,
   tabOpenCount,
 } from "./board-view.ts";
 import { BottomBar } from "./bottom-bar.tsx";
@@ -51,11 +52,15 @@ import { type HeadingRequest, requestHeading } from "./heading-request.ts";
 import { type EntryMarks, Outline, QuestionNavigator } from "./navigators.tsx";
 import type { PresentationControls } from "./presentation-controls.ts";
 import { type CardContext, QuestionCard } from "./question-card.tsx";
+import { revealAndFocus } from "./reveal.ts";
 import { type SnapshotControl, snapshotOfferOf } from "./snapshot-control.ts";
 import { SnapshotTopLine } from "./snapshot-top-line.tsx";
+import type { StatusMessages } from "./status-messages.ts";
+import { StatusRegion } from "./status-region.tsx";
 import type { Store } from "./store.ts";
 import { FOCUS_RING, INFO_BADGE } from "./styles.ts";
 import { hasRecommendation, releaseFailed, selectRecommended, submitStateOf } from "./submit.ts";
+import { useQuestionInView } from "./use-question-in-view.ts";
 
 /** What the board page last told the view, with the latest board document. */
 export type BoardView = {
@@ -79,6 +84,8 @@ export type BoardContext = CardContext & {
   readonly focus: Store<HeadingRequest | undefined>;
   /** The agent deleted the question in view, in one question per view (F-55). */
   readonly removed: Store<boolean>;
+  /** What the board says to a screen reader (answering-flow-fixes, #182). */
+  readonly status: StatusMessages;
 };
 
 /**
@@ -242,7 +249,8 @@ const useHeadingFocus = (focus: Store<HeadingRequest | undefined>) => {
   const target = useSyncExternalStore(focus.subscribe, focus.get);
   useEffect(() => {
     if (target === undefined) return;
-    document.getElementById(questionTextId(target.id))?.focus();
+    const heading = document.getElementById(questionTextId(target.id));
+    if (heading !== null) revealAndFocus(heading);
   }, [target]);
   return (id: string) => requestHeading(focus, id);
 };
@@ -308,7 +316,13 @@ export const Board = ({
     show(questionId);
     focusHeading(questionId);
   };
-  const target = nextOpenFrom(document, state, draft.questions, attention.unseen, current);
+  const target = nextOpenFrom(
+    document,
+    state,
+    draft.questions,
+    attention.unseen,
+    shownQuestionOf(document, current),
+  );
   const nextOpen = target === undefined ? undefined : () => go(target);
   const firstOf = (ids: ReadonlySet<string> | ReadonlyMap<string, number>) =>
     questions.find((question) => ids.has(question.id))?.id;
@@ -335,6 +349,12 @@ export const Board = ({
     changed: changed.has(question.id),
   });
   const single = presentation === "single";
+  // The outline, the jump and Submit's focus read the question in view: scrolling and focus move it.
+  useQuestionInView(
+    !single && presentation !== "one-per-view",
+    () => context.board.get().inView,
+    context.board.setInView,
+  );
   const [first] = questions;
   let body: ReactNode;
   if (single || first === undefined) {
@@ -358,7 +378,6 @@ export const Board = ({
               current={at}
               marksOf={marksOf}
               onGo={go}
-              onNextOpen={nextOpen}
               removed={removed}
             />
           }
@@ -417,6 +436,7 @@ export const Board = ({
       data-askboard-ended={endedOf(lock) ? "" : undefined}
       className="group/board flex min-h-screen flex-col"
     >
+      <StatusRegion status={context.status} />
       {context.opened === undefined ? null : <SnapshotTopLine opened={context.opened} />}
       <BoardHeader
         title={document.title}
@@ -424,6 +444,7 @@ export const Board = ({
         counts={single || endedOf(lock) ? undefined : counts}
         ended={endedOf(lock)}
         header={extras.header}
+        status={context.status}
         controls={extras.presentation}
       />
       {body}
@@ -441,14 +462,22 @@ export const Board = ({
           load={context.tracker.questionStatus}
           locked={lock !== undefined}
           context={context}
-          onSelectRecommended={() =>
-            selectRecommended(document, state, { ...context, readOnlyOf, shownOf }, (id) => {
-              const question = questions.find((each) => each.id === id);
-              return (
-                question === undefined || !takesSelection(context, question, draft, kept, lock)
-              );
-            })
-          }
+          onSelectRecommended={() => {
+            const count = selectRecommended(
+              document,
+              state,
+              { ...context, readOnlyOf, shownOf },
+              (id) => {
+                const question = questions.find((each) => each.id === id);
+                return (
+                  question === undefined || !takesSelection(context, question, draft, kept, lock)
+                );
+              },
+            );
+            // Every press says how many were prefilled, none included; nothing was sent.
+            context.status.announce({ key: "status.prefilled", params: { count } });
+            return count;
+          }}
           // The card focuses its prompt itself: the heading's focus would run after it (the board's
           // effect follows the card's) and take it away.
           onNeedsReason={(id) => {
@@ -456,6 +485,11 @@ export const Board = ({
             context.reasons.set({ questionId: id });
           }}
           onJump={go}
+          // The question in view, else the first, takes the focus once Submit has sent.
+          onSubmitted={() => {
+            const id = current ?? questions[0]?.id;
+            if (id !== undefined) focusHeading(id);
+          }}
           snapshot={extras.snapshot}
           snapshotOffer={snapshotOfferOf(lock, connection)}
         />

@@ -16,6 +16,9 @@ export const BUTTON_LINK =
   `inline-flex shrink-0 items-center rounded-md text-control text-primary-text enabled:hover:underline ${FOCUS_RING} ` +
   "disabled:text-muted-foreground disabled:opacity-50";
 
+/** `button-link` in `{colors.muted-foreground}`: the reason beside a blocked "Answer". */
+export const BUTTON_LINK_MUTED = `inline-flex shrink-0 items-center rounded-md text-control text-muted-foreground enabled:hover:underline ${FOCUS_RING}`;
+
 /** `button-answer` on a board with Submit: an outline button, never a second filled primary. */
 export const BUTTON_ANSWER =
   `inline-flex h-control-height items-center gap-1.5 rounded-md border border-primary bg-card px-md text-control text-primary-text enabled:hover:bg-primary-subtle ${FOCUS_RING} ` +

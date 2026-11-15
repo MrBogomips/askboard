@@ -110,7 +110,6 @@ export const STRING_KEYS = [
   "navigator.removed",
   "navigator.previous",
   "navigator.next",
-  "navigator.nextOpen",
   // The question card.
   "question.answer",
   "question.postpone",
@@ -188,6 +187,7 @@ export const STRING_KEYS = [
   "bar.immediate",
   "bar.submitted",
   "bar.immediateHelp",
+  "bar.submittedHelp",
   "bar.postponedWarning",
   "bar.selectRecommended",
   "bar.updates",
@@ -546,6 +546,14 @@ export const STRING_KEYS = [
   "ranking.selectNone",
   "ranking.selected",
   "ranking.select",
+  // The status messages of the answering flow, read out by the board's one status region.
+  "status.answerSent",
+  "status.answerSentPlain",
+  "status.noteSent",
+  "status.ready",
+  "status.submitted",
+  "status.prefilled",
+  "status.added",
 ] as const;
 
 export type StringKey = (typeof STRING_KEYS)[number];

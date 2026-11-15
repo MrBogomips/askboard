@@ -81,6 +81,13 @@ export type BottomBarProps = {
   /** Submit found a held answer lacking the reason it requires: go to its prompt with the error. */
   readonly onNeedsReason: (questionId: string) => void;
   readonly onJump: (questionId: string) => void;
+  /**
+   * Submit sent its acts, from the button or from the replace dialog (answering-flow-fixes, design
+   * decision 1): focus goes to the question in view's heading. Not called by "Send and switch",
+   * which switches to immediate delivery and gives focus to the switch (the dialogs have no
+   * trigger, so Radix restores none).
+   */
+  readonly onSubmitted?: () => void;
   /** The bar's Snapshot, and whether the board offers it now. */
   readonly snapshot: SnapshotControl;
   readonly snapshotOffer: SnapshotOffer;
@@ -108,6 +115,11 @@ export const BottomBar = (props: BottomBarProps) => {
     | undefined
   >();
   const submitButton = useRef<HTMLButtonElement>(null);
+  const immediateButton = useRef<HTMLButtonElement>(null);
+  // What the replace dialog's Submit did, for where focus goes once it has closed: "submitted" sent
+  // (the heading), "switched" sent and switched to immediate delivery (the switch, since Submit is
+  // disabled there), nothing: back to Submit.
+  const sent = useRef<"submitted" | "switched" | undefined>(undefined);
   const text = useStrings();
   const language = useLanguage();
   const snapshot = <SnapshotButton control={props.snapshot} offer={props.snapshotOffer} />;
@@ -145,9 +157,13 @@ export const BottomBar = (props: BottomBarProps) => {
   // the command would replace a verdict the agent has received, the dialog asks; Cancel or Escape
   // sends nothing and keeps every act held. `then` runs once the command has gone, as the switch to
   // immediate delivery does.
-  const sendActsOf = (acts: readonly ViewAct[], then?: () => void): void => {
+  const sendActsOf = (acts: readonly ViewAct[], then?: () => void, dialog = false): void => {
     sendSubmit(context, acts);
-    then?.();
+    if (then !== undefined) {
+      if (dialog) sent.current = "switched";
+      then();
+    } else if (dialog) sent.current = "submitted";
+    else props.onSubmitted?.();
   };
   const send = (then?: () => void): void => {
     const pressed = pressNow();
@@ -177,7 +193,7 @@ export const BottomBar = (props: BottomBarProps) => {
     if (outcome.kind === "needs-reason") props.onNeedsReason(outcome.questionId);
     else if (outcome.kind === "field-block" || outcome.kind === "unusable") {
       props.onJump(outcome.questionId);
-    } else if (outcome.kind === "send") sendActsOf(outcome.acts, then);
+    } else if (outcome.kind === "send") sendActsOf(outcome.acts, then, true);
   };
   // Leaving submitted delivery with held work asks first, and waits whenever Submit waits.
   const blockedSwitch = immediateBlocked(submit, delivery);
@@ -194,6 +210,7 @@ export const BottomBar = (props: BottomBarProps) => {
       </span>
       <fieldset aria-labelledby="askboard-delivery" className={SEGMENTS}>
         <button
+          ref={immediateButton}
           type="button"
           className={SEGMENT}
           aria-pressed={delivery === "immediate"}
@@ -212,9 +229,11 @@ export const BottomBar = (props: BottomBarProps) => {
           {text("bar.submitted")}
         </button>
       </fieldset>
-      {delivery === "immediate" ? (
-        <span className="text-body text-muted-foreground">{text("bar.immediateHelp")}</span>
-      ) : null}
+      <span className="text-body text-muted-foreground">
+        {delivery === "immediate"
+          ? text("bar.immediateHelp")
+          : text("bar.submittedHelp", { submit: text("bar.submit") })}
+      </span>
       {warning === undefined ? null : <Warning warning={warning} />}
       <span className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-sm">
         {recommendations ? (
@@ -247,7 +266,21 @@ export const BottomBar = (props: BottomBarProps) => {
       <AlertDialog.Root open={confirming} onOpenChange={setConfirming}>
         <AlertDialog.Portal>
           <AlertDialog.Overlay className="fixed inset-0 z-30 bg-foreground/30" />
-          <AlertDialog.Content className={DIALOG}>
+          <AlertDialog.Content
+            className={DIALOG}
+            onCloseAutoFocus={(event) => {
+              // The dialog has no trigger, so Radix restores no focus: it goes back to the switch
+              // that asked, which stays enabled once the held work has been sent. Focus a card moved
+              // meanwhile (the prompt Submit's check asks for) stays where it is.
+              event.preventDefault();
+              const page = globalThis.document;
+              const active = page.activeElement;
+              const inDialog = event.target instanceof Node && event.target.contains(active);
+              if (active === null || active === page.body || inDialog) {
+                immediateButton.current?.focus();
+              }
+            }}
+          >
             <AlertDialog.Title className="text-body-lg font-semibold">
               {text("bar.switchTitle")}
             </AlertDialog.Title>
@@ -280,9 +313,13 @@ export const BottomBar = (props: BottomBarProps) => {
           <AlertDialog.Content
             className={DIALOG}
             onCloseAutoFocus={(event) => {
-              // The dialog has no trigger, so Radix restores no focus: it goes back to Submit.
+              // The dialog has no trigger, so Radix restores no focus: the heading after a send, the switch after Send and switch, Submit when nothing was sent (D1).
               event.preventDefault();
-              submitButton.current?.focus();
+              const did = sent.current;
+              sent.current = undefined;
+              if (did === "submitted") props.onSubmitted?.();
+              else if (did === "switched") immediateButton.current?.focus();
+              else submitButton.current?.focus();
             }}
           >
             <AlertDialog.Title className="text-body-lg font-semibold">

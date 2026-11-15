@@ -198,7 +198,7 @@ describe("the card and the presses read one revision after Keep mine (review S-1
 
   test("Answer sends the answer naming revision 1, with the results the user held", () => {
     const stores = board(REV2, { seen: [REV1, REV2], facts });
-    expect(answer(REV2, { ...stores.context, shownOf: stores.shownOf })).toBeUndefined();
+    expect(answer(REV2, { ...stores.context, shownOf: stores.shownOf })).toBe("sent");
     expect(stores.sent).toHaveLength(1);
     expect(stores.sent[0]).toMatchObject({
       type: "answer",

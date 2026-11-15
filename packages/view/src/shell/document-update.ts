@@ -14,9 +14,11 @@ import { dropWork } from "./card-acts.ts";
 import { dropStaleCellEntries } from "./cell-entries.ts";
 import type { DraftStore } from "./draft-store.ts";
 import { dropStaleEntries } from "./entries.ts";
+import { addedMessageOf } from "./flow-messages.ts";
 import { type HeadingRequest, requestHeading } from "./heading-request.ts";
 import type { ReadyTracker } from "./ready-tracker.ts";
 import { questionItemsOf } from "./ready-tracker.ts";
+import type { StatusMessages } from "./status-messages.ts";
 import type { Store } from "./store.ts";
 
 /** What the update step reads and writes. */
@@ -34,8 +36,19 @@ export type DocumentUpdate = {
   readonly attention: Pick<Attention, "documentChanged">;
   readonly focus: Store<HeadingRequest | undefined>;
   readonly removed: Store<boolean>;
+  /**
+   * The question the board shows now: the question in view, and in one question per view the first
+   * question while none is in view yet, since the draft's question in view stays unset until the
+   * user navigates (answering-flow-fixes, decision 3).
+   */
+  readonly shownQuestion: () => string | undefined;
   /** The question whose card holds the focus, if any. */
   readonly focused: () => string | undefined;
+  /**
+   * What the board says to a screen reader: the questions the agent added and the removal of the
+   * question in view (#182). Not given for an update that carries a restore, which is no news.
+   */
+  readonly status?: Pick<StatusMessages, "announce">;
 };
 
 // The agent deleted questions (FR-6; task 6.7): each leaves with its draft; the question in view
@@ -49,16 +62,36 @@ const onRemoval = (before: ViewDocument, after: ViewDocument, stores: DocumentUp
   for (const question of gone) dropWork(question, stores);
   const ids = earlier.map((question) => question.id);
   const isGone = (id: string | undefined) => gone.some((question) => question.id === id);
-  const inView = stores.board.get().inView;
-  if (inView !== undefined && isGone(inView)) {
-    stores.board.setInView(nextAfterRemoval(ids, now, inView));
+  const shown = stores.shownQuestion();
+  if (shown !== undefined && isGone(shown)) {
+    stores.board.setInView(nextAfterRemoval(ids, now, shown));
     stores.removed.set(true);
+    stores.status?.announce({ key: "navigator.removed" });
   }
   if (focused !== undefined && isGone(focused)) {
     const next = nextAfterRemoval(ids, now, focused);
     if (next !== undefined) requestHeading(stores.focus, next);
   }
 };
+
+// The agent added questions: said once, without moving the focus (#182).
+const onAddition = (before: ViewDocument, after: ViewDocument, stores: DocumentUpdate): void => {
+  if (stores.status === undefined) return;
+  const known = new Set(questionsOf(before).map((question) => question.id));
+  const added = questionsOf(after).filter((question) => !known.has(question.id));
+  const message = addedMessageOf(added);
+  if (message !== undefined) stores.status.announce(message);
+};
+
+/**
+ * Whether an update carries a restore the view has not applied: a reload or a takeover brings the
+ * draft back with the document as it stands, which is no news from the agent, so the update step
+ * gets no status store for it (answering-flow-fixes, decision 4; review X-1).
+ */
+export const carriesNewRestore = (
+  restore: { readonly id: number } | undefined,
+  restored: number,
+): boolean => restore !== undefined && restore.id > restored;
 
 /**
  * A new board document replaces `before`: remembers each revision, drops what the deleted questions
@@ -73,6 +106,7 @@ export const applyDocumentUpdate = (
 ): void => {
   stores.revisions.record(document);
   onRemoval(before, document, stores);
+  onAddition(before, document, stores);
   dropStaleEntries(document, stores.entries, stores.shownOf);
   dropStaleCellEntries(document, stores.cellEntries, stores.shownOf);
   stores.tracker.include(questionItemsOf(shownDocumentOf(document, stores.shownOf)));

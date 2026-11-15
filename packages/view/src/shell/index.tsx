@@ -52,12 +52,12 @@ import {
 } from "./board-draft.ts";
 import { BoardKeys, createKeysStore, followKeys } from "./board-keys.tsx";
 import { BoardLanguage } from "./board-language.tsx";
-import { presentationOf } from "./board-view.ts";
+import { presentationOf, shownQuestionOf } from "./board-view.ts";
 import { clearCarried } from "./carried.ts";
 import { entriesWithCells } from "./cell-entries.ts";
 import { NO_CHANNEL, openChannel, type ViewChannel } from "./channel.ts";
 import { createDerivedStore } from "./derived-store.ts";
-import { applyDocumentUpdate, connectTracker } from "./document-update.ts";
+import { applyDocumentUpdate, carriesNewRestore, connectTracker } from "./document-update.ts";
 import { createDraftStore } from "./draft-store.ts";
 import { focusOpener } from "./focus-opener.ts";
 import type { HeadingRequest } from "./heading-request.ts";
@@ -71,9 +71,11 @@ import { prefillReopened } from "./reopen-prefill.ts";
 import { createRevisingSnapshot } from "./revising.ts";
 import { createSizeNotices, settle } from "./size-notices.ts";
 import { createSnapshotControl } from "./snapshot-control.ts";
+import { createStatusMessages } from "./status-messages.ts";
 import { createStore } from "./store.ts";
 import { shimStyleElements } from "./style-shim.ts";
 import type { ThreadRequest } from "./thread.tsx";
+import { focusedQuestion } from "./use-question-in-view.ts";
 import { createChunkInstaller } from "./view-chunks.ts";
 import { workRefsOf } from "./work-refs.ts";
 
@@ -99,12 +101,6 @@ const connectToBoardPage = (): ViewChannel => {
     (update) => install(update.chunks ?? []),
   );
 };
-
-// The question whose card holds the focus, if any.
-const focusedQuestion = (): string | undefined =>
-  document.activeElement
-    ?.closest("[data-askboard-question]")
-    ?.getAttribute("data-askboard-question") ?? undefined;
 
 const boot = (): void => {
   shimStyleElements();
@@ -165,6 +161,8 @@ const boot = (): void => {
   const reasons = createStore<ReasonRequest | undefined>(undefined);
   const focus = createStore<HeadingRequest | undefined>(undefined);
   const removed = createStore(false);
+  // What the board says to a screen reader about the answering flow (#182).
+  const status = createStatusMessages();
   // The lines for a message too large: a command refused or closed, a draft left out; an act
   // line goes when its question's work changes (oversized-acts, design decisions 2 to 4).
   const notices = createSizeNotices((questionId) => {
@@ -214,7 +212,10 @@ const boot = (): void => {
         attention,
         focus,
         removed,
-        focused: focusedQuestion,
+        focused: () => focusedQuestion(window.document),
+        shownQuestion: () => shownQuestionOf(before, board.get().inView),
+        // A restore is no news from the agent: the first update after a reload carries it.
+        ...(carriesNewRestore(update.restore, restored) ? {} : { status }),
       });
       // A prefill's mark alone is no unsent work: when the agent moves the question past it, the mark
       // follows, so the change shows at once with no notice (design decision 4).
@@ -234,7 +235,7 @@ const boot = (): void => {
       closedPanel = update.panelClosed.id;
       focusOpener(update.panelClosed.itemId);
     }
-    if (update.restore !== undefined && update.restore.id > restored) {
+    if (update.restore !== undefined && carriesNewRestore(update.restore, restored)) {
       restored = update.restore.id;
       restoreDraft(
         update.restore.record,
@@ -308,6 +309,7 @@ const boot = (): void => {
     channel,
     acts,
     notices,
+    status,
     board,
     attention,
     revisions,

@@ -29,6 +29,20 @@ export const presentationOf = (document: ViewDocument): Presentation => {
   return requested === "tabs" && !hasAreas ? "sections" : requested;
 };
 
+/**
+ * The question the board shows: the question in view, and in one question per view the first
+ * question while none (or one the board no longer holds) is in view, since the draft's question in
+ * view stays unset until the user navigates (answering-flow-fixes, decision 3).
+ */
+export const shownQuestionOf = (
+  document: ViewDocument,
+  inView: string | undefined,
+): string | undefined => {
+  if (presentationOf(document) !== "one-per-view") return inView;
+  const questions = questionsOf(document);
+  return questions.some((question) => question.id === inView) ? inView : questions[0]?.id;
+};
+
 /** A group of questions: an area, titled, or the board's questions when it has no areas. */
 export type Group = {
   readonly id?: string;
