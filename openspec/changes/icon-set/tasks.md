@@ -218,7 +218,7 @@ Terms used below:
 
 ## 5. Integration and records
 
-- [ ] 5.1 The built chunks (decision 4, decision 10; P1; requirement "One icon set in one chunk", scenarios "The manifest" and "A board inlines the icons once").
+- [x] 5.1 The built chunks (decision 4, decision 10; P1; requirement "One icon set in one chunk", scenarios "The manifest" and "A board inlines the icons once").
   - Tests, in `tools/build/view.test.ts`, after a build:
     - the shell needs `icons`;
     - the outputs of `tree`, `ranking`, `approval`, `document-review`, `context`, `date-field` and the shell hold no `"lucide"` string, while `icons`' output does;
@@ -226,17 +226,22 @@ Terms used below:
     - with Q1 (a), the built board page holds `x`'s path `M18 6 6 18` and not `check`'s `M20 6 9 17l-5-5`.
     - the board page's licence notices name `lucide` (ISC, with the text of its `LICENSE`), and no view chunk's notices name `lucide` (review finding S-19 of group 4).
   - Verify: each assertion fails when its condition is broken on purpose (the shell's import of the module removed; a widget importing `lucide-react/icons/check` directly with `check:imports` bypassed; the board page importing `Check`), then passes. Revert each planted change.
-- [ ] 5.2 Every icon used. Tests first, in `packages/view/src/icons/index.test.ts`: each export of the module is imported by at least one non-test file under `packages/view/src` or `packages/widgets/src`. Verify: the test passes after groups 2 to 4, and fails when a planted unused export is added (then removed). It also removes the icon module's exemption (`EXEMPT_MODULES`) from `tools/build/shared-modules.test.ts` (fix 1b.1).
-- [ ] 5.3 Sizes, recorded once. Run `bun run build:view --record-sizes`. Verify:
+  Note (2026-11-15): five tests in `tools/build/view.test.ts` (shell needs `icons`; only the icons output holds `lucide`; a Tree, Ranking and Text board inlines `icons` once; board page holds `M18 6 6 18` and no `check` path, `createIcons`, `replaceElement`, `data-lucide`; the notices name `lucide` ISC on the board page only). Built chunks green on cfdd7afa.
+- [x] 5.2 Every icon used. Tests first, in `packages/view/src/icons/index.test.ts`: each export of the module is imported by at least one non-test file under `packages/view/src` or `packages/widgets/src`. Verify: the test passes after groups 2 to 4, and fails when a planted unused export is added (then removed). It also removes the icon module's exemption (`EXEMPT_MODULES`) from `tools/build/shared-modules.test.ts` (fix 1b.1).
+  Note (2026-11-15): `icons/index.test.ts` gained the used-export test; a planted `IconPlanted` export failed it (and three others), then was removed. `EXEMPT_MODULES` is gone from `shared-modules.test.ts`; 84 pass in the two files.
+- [x] 5.3 Sizes, recorded once. Run `bun run build:view --record-sizes`. Verify:
   - the diff of `packages/view/chunk-sizes.json` changes only chunks this change touched (`icons`, `shell`, `context`, `date-field`, `approval`, `document-review`, `tree`, `ranking`, `board-page`);
   - the note records each one's before and after;
   - the check passes.
-- [ ] 5.4 The full browser suites, since the change alters widgets' rendering (CLAUDE.md, CI). Run `bun run test:e2e`. Verify: it passes, or each failure is mapped to an open Issue it already reports, with the Issue named in the note. A new failure becomes a task or an Issue (`source:e2e`).
-- [ ] 5.5 Records completed.
+  Note (2026-11-15): recorded once; only touched chunks changed. shell 223,354 to 223,806; context 15,053 to 15,479; date-field 95,578 to 95,624; approval 21,695 to 21,918; document-review 40,466 to 40,700; tree 82,606 to 82,399; ranking 29,949 to 29,921; board-page 1,035,650 to 1,036,297; icons 6,710 (new in group 1, unchanged). Added a Dependabot `lucide` group (major of `lucide` and `lucide-react` in one pull request), keeping the minor and patch ignores. `bun run check` green on cfdd7afa.
+- [x] 5.4 The full browser suites, since the change alters widgets' rendering (CLAUDE.md, CI). Run `bun run test:e2e`. Verify: it passes, or each failure is mapped to an open Issue it already reports, with the Issue named in the note. A new failure becomes a task or an Issue (`source:e2e`).
+  Note (2026-11-15): `bun run test:e2e` on cfdd7afa: Chromium 901 pass 0 fail; Firefox 864 pass 37 fail, all in the files and tests #174 names (Tree group question and layout, Gantt column, toggles, Table hover audit, Stack/Row/Group, Form session) or #144 (Gantt axis at day zoom); WebKit 900 pass 1 fail (`shown-revision-act-session`, "Select recommended and Submit…", no answer event in the log), which passed in a full WebKit rerun (904 pass 0 fail): a load flake, no Issue filed; perf 91/56/89 pass 0 fail; conformance on Bun, run apart because the browser step failed first: three configurations passed, 59 pass 5 skip.
+- [x] 5.5 Records completed.
   - `docs/as-built/icon-set.md`: the sizes of 5.3, the test counts, Q1's outcome and any deviation.
   - DESIGN.md's Icons table equals the module's exports and the board page's icon.
   - Tests: none (documents).
   - Verify: each named file carries its lines, and `grep -c '^| `Icon' docs/ux-askboard-2026-10-27/DESIGN.md` equals the module's export count.
+  Note (2026-11-15): `docs/as-built/icon-set.md` carries the sizes, the check and Dependabot group; DESIGN.md's Icons table has 9 rows, the module's 9 exports. Q1 (a), no deviation.
 - [ ] 5.6 Review checkpoint: spec review of group 5's range (askboard-spec-reviewer). Verify: as 2.6.
 
 ## 6. Rebase and pull request
