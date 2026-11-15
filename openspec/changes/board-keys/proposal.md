@@ -27,7 +27,7 @@ None.
 
 - `contract`: new requirements "The board's key table" and "Board keys a native control takes"; modified "The override check's default tables" (the board's table is read too).
 - `view-and-widgets`: new requirements "Next and previous open by key", "Answer by key", "A blocked answer by key", "The board's key table matches its handlers", "The board's keys are discoverable", "The board's keys panel" and "The user's keys on the board's own keys"; modified "Follow-up thread" (the composer sends on the keys in effect).
-- `skills`: new requirement "The board's keys in the help skill"; modified "The help skill teaches the key configuration" (the board's keys are reached and listed).
+- `skills`: new requirement "The board's keys in the help skill"; modified "The help skill teaches the key configuration" (the board's keys are reached and listed, and the rules it teaches hold for them).
 
 ## Impact
 

@@ -18,7 +18,15 @@
 ## MODIFIED Requirements
 
 ### Requirement: The help skill teaches the key configuration
-`askboard-help` SHALL explain where the user's key overrides go, how they are written, the rules they meet, what a refused file does, that a project file's overrides are ignored, and where and when they apply, naming the board's own keys and the widget types whose chunk registers a key table as the only ones they reach. It SHALL list every action an override may name with its default keys, generated from the key tables, and pass each example through the key-override check (NFR-12, FR-29, AD-14).
+`askboard-help` SHALL explain where the user's key overrides go, how to write them, the rules they meet, what a refused file does, that the project file ignores them, when they apply, and that they reach only the board's own keys and the widget types whose chunk registers its key table with the board. It SHALL list every action an override may name with its default keys, generated from the key tables. Its examples SHALL pass the key-override check (NFR-12, FR-29, AD-14).
+
+#### Scenario: The keys a native control takes
+- **WHEN** `askboard-help`'s key configuration reference is read
+- **THEN** it says that the actions of the board's own table that act across a question, named from that table (next open, previous open, answer, and the keys panel), refuse with no modifier or Shift alone the keys a control inside a question takes, as the key-override check refuses `{"board.nextOpen": ["Enter"]}`
+
+#### Scenario: A refused file
+- **WHEN** `askboard-help`'s key configuration reference is read
+- **THEN** it says that any problem refuses the whole `keys`, so the board's own keys and every widget's keep their defaults
 
 #### Scenario: Where the user's keys apply
 - **WHEN** `askboard-help`'s key configuration reference is read
