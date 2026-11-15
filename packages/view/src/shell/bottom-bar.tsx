@@ -84,7 +84,8 @@ export type BottomBarProps = {
   /**
    * Submit sent its acts, from the button or from the replace dialog (answering-flow-fixes, design
    * decision 1): focus goes to the question in view's heading. Not called by "Send and switch",
-   * whose focus Radix gives back to the switch.
+   * which switches to immediate delivery and gives focus to the switch (the dialogs have no
+   * trigger, so Radix restores none).
    */
   readonly onSubmitted?: () => void;
   /** The bar's Snapshot, and whether the board offers it now. */
@@ -115,8 +116,10 @@ export const BottomBar = (props: BottomBarProps) => {
   >();
   const submitButton = useRef<HTMLButtonElement>(null);
   const immediateButton = useRef<HTMLButtonElement>(null);
-  // The replace dialog's Submit sent something: once it has closed, focus goes to the heading, not to Submit.
-  const sent = useRef(false);
+  // What the replace dialog's Submit did, for where focus goes once it has closed: "submitted" sent
+  // (the heading), "switched" sent and switched to immediate delivery (the switch, since Submit is
+  // disabled there), nothing: back to Submit.
+  const sent = useRef<"submitted" | "switched" | undefined>(undefined);
   const text = useStrings();
   const language = useLanguage();
   const snapshot = <SnapshotButton control={props.snapshot} offer={props.snapshotOffer} />;
@@ -156,8 +159,10 @@ export const BottomBar = (props: BottomBarProps) => {
   // immediate delivery does.
   const sendActsOf = (acts: readonly ViewAct[], then?: () => void, dialog = false): void => {
     sendSubmit(context, acts);
-    if (then !== undefined) then();
-    else if (dialog) sent.current = true;
+    if (then !== undefined) {
+      if (dialog) sent.current = "switched";
+      then();
+    } else if (dialog) sent.current = "submitted";
     else props.onSubmitted?.();
   };
   const send = (then?: () => void): void => {
@@ -308,11 +313,11 @@ export const BottomBar = (props: BottomBarProps) => {
             onCloseAutoFocus={(event) => {
               // The dialog has no trigger, so Radix restores no focus: it goes back to Submit.
               event.preventDefault();
-              if (!sent.current) submitButton.current?.focus();
-              else {
-                sent.current = false;
-                props.onSubmitted?.();
-              }
+              const did = sent.current;
+              sent.current = undefined;
+              if (did === "submitted") props.onSubmitted?.();
+              else if (did === "switched") immediateButton.current?.focus();
+              else submitButton.current?.focus();
             }}
           >
             <AlertDialog.Title className="text-body-lg font-semibold">

@@ -536,7 +536,7 @@ Visual contrast lives in DESIGN.md, Colors.
   - in one question per view, to the new question's heading on navigation;
   - after Postpone or Decline, to the question's heading;
   - after "Answer" or "Accept recommended" sends at once, and after a confirmed revision, to the question's heading; marking an answer ready keeps focus on "Answer";
-  - after Submit sends, to the heading of the question in view;
+  - after Submit sends, to the heading of the question in view; after "Send and switch" sends (through the replace confirmation or not), to the switch's "Immediate";
   - after the agent deletes the question that holds focus, to the next question's heading;
   - when the ask closes or is discarded, to the banner;
   - after the reading panel or a comment card closes, back to the reference or the pin (F-03, F-35);

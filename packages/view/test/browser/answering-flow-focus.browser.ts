@@ -301,7 +301,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
-      "Send and switch keeps focus out of the page",
+      "Send and switch leaves focus on the Immediate button",
       async () => {
         const { run, board } = await open(start, "sections", "submitted");
         await answerWithKeys(board, "q1");
@@ -319,7 +319,52 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           state: "detached",
           timeout: STEP_TIMEOUT_MS,
         });
-        await eventually(async () => !(await focusOnPage(board)), "focus off the page");
+        await eventually(
+          () => isFocused(barButton(board, "Immediate")),
+          "focus on the Immediate button",
+        );
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "Send and switch through the replace dialog leaves focus on the Immediate button, not on the page",
+      async () => {
+        const run = await start(lifecycleScenario(reviewedAsk("submitted"), dist));
+        const board = await openBoard(run, [PLAN, "review"]);
+        const markReady = async (decision: string) => {
+          await decisionOf(board, PLAN, decision).click({ timeout: STEP_TIMEOUT_MS });
+          await answerOf(board, PLAN).click({ timeout: STEP_TIMEOUT_MS });
+          await eventually(
+            async () => (await outlineEntry(board, PLAN).textContent())?.includes("Ready") === true,
+            `${PLAN} ready`,
+          );
+        };
+        await markReady("Approve");
+        await barButton(board, "Submit").click({ timeout: STEP_TIMEOUT_MS });
+        await actsDone(run, 1);
+        await markReady("Reject");
+        await run.session.collect();
+        await card(board, PLAN)
+          .getByText("delivered to the agent", { exact: true })
+          .waitFor({ timeout: STEP_TIMEOUT_MS });
+        await barButton(board, "Immediate").click({ timeout: STEP_TIMEOUT_MS });
+        const dialog = board.view.getByRole("alertdialog");
+        await dialog
+          .getByRole("button", { name: "Send and switch", exact: true })
+          .click({ timeout: STEP_TIMEOUT_MS });
+        await dialog
+          .getByText("Send new answers?", { exact: true })
+          .waitFor({ timeout: STEP_TIMEOUT_MS });
+        await dialog
+          .getByRole("button", { name: "Submit", exact: true })
+          .click({ timeout: STEP_TIMEOUT_MS });
+        await dialog.waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
+        await actsDone(run, 2);
+        await eventually(
+          () => isFocused(barButton(board, "Immediate")),
+          "focus on the Immediate button",
+        );
       },
       TEST_TIMEOUT_MS,
     );
