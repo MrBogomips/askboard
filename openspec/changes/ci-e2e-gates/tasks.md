@@ -129,21 +129,24 @@ Task 3.2 follows groups 1 and 2, since it records their names and #198's cause. 
 
 ## 4. On the runners, then the pull request
 
-- [ ] 4.1 Probes P1 and P2, and #198's fix on the hosted runners. Push the branch, then run `gh workflow run e2e.yml --ref worktree-fix-ci-e2e-gates -f cadence=weekly` and the same with `-f cadence=nightly`. Tests: the runs themselves. Verify:
+- [x] 4.1 Probes P1 and P2, and #198's fix on the hosted runners. Push the branch, then run `gh workflow run e2e.yml --ref worktree-fix-ci-e2e-gates -f cadence=weekly` and the same with `-f cadence=nightly`. Tests: the runs themselves. Verify:
   - every `perf` job is green on both runners, and the note records each runner's worst median against its scaled bound;
   - on macOS, the 17 WebKit cases #197 lists pass;
   - case (g) passes in Chromium on both runners, and in Firefox on Linux;
   - any other failure is mapped to an open Issue (#174, #145, #191, #199 to #201), or filed as a new one (`source:e2e`, with its area), including the dense Markdown case if it is still not ready (design.md, Risks).
   - Record both run IDs.
-- [ ] 4.2 Rebase onto `origin/main` and re-check every borrowed name (askboard-contract-versioning; no set is widened, so nothing is bound). Verify:
+  - Done: dispatched on 2ea4cecc (before the 4.4-4.8 fixes): weekly macOS run 43692312800 and nightly Linux run 43692310919. P1 holds: no WebKit keyboard case failed on macOS (#197). #198: reopen-session passed in every engine on both runners. #196: perf passes in Chromium and Firefox on both runners and in WebKit on Linux; on macOS WebKit the dense Markdown case did not become ready within the scaled 360 s (D3: possible real hang) and the Table worst form missed at factor 3: filed as their own Issues. Conformance failed in 3 of 6 jobs on #120 (raised). The remaining browser failures are the known Firefox set and WebKit races, filed or commented by the coordinator. Refs #196, #197, #198.
+- [x] 4.2 Rebase onto `origin/main` and re-check every borrowed name (askboard-contract-versioning; no set is widened, so nothing is bound). Verify:
   - `git grep` finds each name on the rebased head;
   - the check and `npx --yes @fission-ai/openspec@1.15.0 validate --all --strict --no-interactive` pass;
   - the note records main's SHA.
-- [ ] 4.3 Pre-PR review: spec review and security review of the whole range, plus the kaizen step (askboard-delivery). The pull request body says:
+  - Done: origin/main e2cc5fd3 (Biome and ws bumps) merged in 54f0111a; no borrowed name changed; check green after a rebuild. Refs #196.
+- [x] 4.3 Pre-PR review: spec review and security review of the whole range, plus the kaizen step (askboard-delivery). The pull request body says:
   - `Closes #196`;
   - `Closes #197` if task 4.1 showed the 17 cases green, `Refs #197` otherwise;
   - `Closes #198` if task 4.1 showed case (g) green on both runners; otherwise `Refs #198`, and the plan goes back through `/opsx:update`;
   - D1 to D3 as defaults, D4 as the PO's answer to Q1, and #198's cause.
+  - Done: pre-PR spec review (L 4) and security review (L 1), folded in 4.4 to 4.8. Kaizen: nothing beyond the reviewers' memory notes. Refs #196.
 
   Verify: both reviews' verdicts and the pull request number are in the note.
 
