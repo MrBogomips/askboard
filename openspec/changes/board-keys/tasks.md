@@ -37,6 +37,7 @@ Terms used below:
   - `{"board.answer": ["Mod+Shift+Enter"]}` passes; `{"board.sendFollowUp": ["j"]}` gives a `reserved` problem (an editor's typing key).
   - `{"board.nextOpen": ["j"], "board.sendFollowUp": []}` passes, and `changedKeyActions` gives both.
   - `keyExitActions()` is unchanged.
+  - `{"cursor.up": ["ArrowDown"]}` gives no `reserved` problem: the Kanban's part named `board` is a widget's (D6).
 
   In `packages/core/test/config-keys-board.test.ts`, a user file with `board.nextOpen: ["j"]` applies with no warning, and one with `["Enter"]` gives one `keys-not-applied` warning naming `board.nextOpen`. Verify: the new cases fail before 1.3 and pass after it, and every existing case of these files passes unchanged. Done 2026-11-15. Added 8 cases to `keys-overrides.test.ts`, 2 to `keys-effective.test.ts` and 2 to `config-keys-board.test.ts` (appended to the existing file; core applies `board.nextOpen: ["j"]` with no warning, and `["Enter"]` gives one `keys-not-applied` with rule reserved). Extra cases: a widget action sharing the part name `board` stays unreserved, prototype names are no action. All existing cases pass unchanged.
 - [x] 1.3 Implement D1 and D6 in `packages/contract/src/keys/`:

@@ -34,7 +34,7 @@ Constraints: AD-1 (the view imports `contract`; no new edge), AD-8 (the panel sh
 
 ### D1. The board's key table lives in the contract (#187; decision 6)
 
-`contract/src/keys/board-table.ts` exports `BOARD_KEYS`, checked by `keyTableProblems` under the name `BOARD_KEY_TYPE = "board"`. It also exports `BOARD_PART = "board"`, `type BoardKeyAction` and `BOARD_KEY_TABLE: RegisteredKeyTable`. `tables.ts` adds `ALL_KEY_TABLES = [BOARD_KEY_TABLE, ...REGISTERED_KEY_TABLES]`, frozen.
+`contract/src/keys/board-table.ts` exports `BOARD_KEYS`, checked by `keyTableProblems` under the name `BOARD_KEY_TYPE = "board"`. It also exports `BOARD_PART = "board"`, `type BoardKeyAction` and `BOARD_KEY_TABLE: RegisteredKeyTable`. A part's name means something only within its own table, and the Kanban's table has a part `board` too, so every rule about the board's part reads the board's own table (D6). `tables.ts` adds `ALL_KEY_TABLES = [BOARD_KEY_TABLE, ...REGISTERED_KEY_TABLES]`, frozen.
 
 | Action | Part | Keys | Shows | `readOnly` | Label |
 |---|---|---|---|---|---|
@@ -103,7 +103,7 @@ The primary button gets the attribute `data-askboard-primary`, the name change 4
 In the contract:
 
 - `keyOverridesProblems`, `keyExitActions` and `changedKeyActions` default to `ALL_KEY_TABLES`. `ask-core` (`core/src/config/rules.ts:56`), the board page's `key-overrides.ts` and `settings-keys-data.ts` follow with no edit. A core test shows a user file with `board.nextOpen` applied, and one with `Enter` refused with `keys-not-applied`.
-- `actionProblems` refuses `takenByControls` keys for every action any table has in part `board`, beside `keys.open`. The rule is "reserved".
+- `actionProblems` refuses `takenByControls` keys, as it does for `keys.open`, for each action that the board's own table, the table of type `BOARD_KEY_TYPE`, has in its part `BOARD_PART`. Those actions are `board.nextOpen`, `board.previousOpen`, `board.answer` and `keys.open`, which was already reserved. The rule is "reserved". The set is read by the table's type, not by the part's name alone. Part names belong to their table: the Kanban's table also names a part `board` (`widgets/kanban/keys.ts`), whose `cursor.*` and `move.*` keep the vocabulary's keys (ArrowUp, Enter and the like) unreserved. Group 1 found this, and `keys-overrides.test.ts` pins it.
 - `openConflicts` already sets `keys.open` against every keyed binding of every table it reads, so `?` against a board key is reported once `ALL_KEY_TABLES` is the default.
 
 The composer replaces `isSendKey` with `keyActionOf(table, "editor", keyPressOf(event), false)?.action === "board.sendFollowUp"`, and `isSendKey` and its tests go. By default this narrows the composer's send. Ctrl with Shift and Enter, and Ctrl with Cmd and Enter, no longer send, and Enter that confirms an input method's candidate never sends (`keyPressOf`'s composing rule).

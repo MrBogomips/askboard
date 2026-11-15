@@ -16,7 +16,7 @@ The contract SHALL hold the board's own key table, checked like a widget type's 
 - **THEN** a test fails naming the type
 
 ### Requirement: Board keys a native control takes
-The key-override check SHALL refuse giving an action of the board's part, which acts across buttons, options and links, a key a native control takes with no modifier or Shift alone (Enter, Space, Escape, the arrows, Home, End, Page Up, Page Down, Delete, Backspace), as it refuses it for the keys panel, and SHALL report a conflict between two actions of that part on one key once applied (NFR-12, NFR-10).
+The key-override check SHALL refuse giving an action of the board's own key table in its part that acts across buttons, options and links a key a native control takes with no modifier or Shift alone (Enter, Space, Escape, the arrows, Home, End, Page Up, Page Down, Delete, Backspace), as for the keys panel. It SHALL report a conflict between two actions of that part on one key once applied. A widget table's part of the same name SHALL keep its keys (NFR-12, NFR-10).
 
 #### Scenario: Enter for the next open question
 - **WHEN** the overrides give next open `Enter`
@@ -29,6 +29,10 @@ The key-override check SHALL refuse giving an action of the board's part, which 
 #### Scenario: A board key on the keys panel's key
 - **WHEN** the overrides give previous open `?`
 - **THEN** the check reports a conflict naming previous open, the combination and the keys panel
+
+#### Scenario: A widget's part of the same name
+- **WHEN** the overrides give cursor up `ArrowDown`, a key a native control takes, and the Kanban binds cursor up in its own part named `board`
+- **THEN** the check reports no reserved key for cursor up
 
 #### Scenario: A board key a widget also takes
 - **WHEN** the overrides give answer `Mod+Shift+Enter`, the key of a Tree's add a child
