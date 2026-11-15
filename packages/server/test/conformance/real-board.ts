@@ -70,9 +70,12 @@ export const openRealBoard = async (browser: Browser, link: string): Promise<Rea
         .filter({ hasNot: view.getByRole("alert") })
         .waitFor({ state: "visible", timeout: LOAD_TIMEOUT_MS }),
     option: (label) => view.getByRole("radio", { name: label, exact: true }),
-    answer: view.getByRole("button", { name: "Answer", exact: true }),
+    answer: view.locator("[data-askboard-primary]"),
     receipt: (text) =>
-      view.getByText(text, { exact: true }).waitFor({ state: "visible", timeout: STEP_TIMEOUT_MS }),
+      view
+        .locator(`[data-askboard-receipt="${text === "sent" ? "sent" : "delivered"}"]`)
+        .first()
+        .waitFor({ state: "visible", timeout: STEP_TIMEOUT_MS }),
     banner: (text) =>
       page.getByText(text).first().waitFor({ state: "visible", timeout: STEP_TIMEOUT_MS }),
     header: view.getByRole("banner"),

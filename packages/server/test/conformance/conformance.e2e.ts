@@ -795,7 +795,7 @@ describe("a question with context (excerpts)", () => {
       await panel.waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
       // The user answers; the missing pointer left the question answerable.
       await board.optionIn("fix", "Fix B").click();
-      await board.buttonIn("fix", "Answer").click();
+      await board.card("fix").locator("[data-askboard-primary]").click();
       await board.receipt("sent");
       expect(board.errors).toEqual([]);
     } finally {
