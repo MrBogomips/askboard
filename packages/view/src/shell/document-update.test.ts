@@ -13,6 +13,7 @@ import { connectDrafts, createBoardDraft, moveMarks } from "./board-draft.ts";
 import { applyDocumentUpdate } from "./document-update.ts";
 import { createDraftStore } from "./draft-store.ts";
 import type { HeadingRequest } from "./heading-request.ts";
+import { createStatusMessages, type StatusMessage } from "./status-messages.ts";
 import { createStore } from "./store.ts";
 
 const [first] = plainChoiceBoardDocument.items;
@@ -111,6 +112,64 @@ describe("the update step for a new document", () => {
     applyDocumentUpdate(before, documentOf(questionOf("fresh")), stores);
     expect(stores.board.get().inView).toBeUndefined();
     expect(stores.focus.get()).toBeUndefined();
+  });
+});
+
+describe("the status messages of an update (answering-flow-fixes, design decision 4; #182)", () => {
+  const plan = questionOf("plan");
+  const other = questionOf("other");
+  const third = questionOf("third");
+  const heard = (before: ViewDocument, after: ViewDocument, inView?: string) => {
+    const stores = setUp(before);
+    if (inView !== undefined) stores.board.setInView(inView);
+    const status = createStatusMessages();
+    const keys: StatusMessage[] = [];
+    status.subscribe(() => keys.push(...status.get().messages.slice(-1)));
+    applyDocumentUpdate(before, after, { ...stores, status });
+    return keys;
+  };
+
+  test("one question added: its header chip, else its text", () => {
+    const withHeader = {
+      ...third,
+      props: { ...third.props, header: "Scope" },
+    } as unknown as ViewQuestion;
+    expect(heard(documentOf(plan), documentOf(plan, withHeader))).toEqual([
+      { key: "status.added", params: { count: 1, title: "Scope" } },
+    ]);
+    const plain = {
+      ...third,
+      props: { ...third.props, header: undefined },
+    } as unknown as ViewQuestion;
+    expect(heard(documentOf(plan), documentOf(plan, plain))).toEqual([
+      { key: "status.added", params: { count: 1, title: "third" } },
+    ]);
+  });
+
+  test("several added: the count", () => {
+    expect(heard(documentOf(plan), documentOf(plan, other, third))).toEqual([
+      { key: "status.added", params: { count: 2 } },
+    ]);
+  });
+
+  test("a revision of a question and an unchanged document say nothing", () => {
+    expect(heard(documentOf(plan), documentOf(questionOf("plan", 2)))).toEqual([]);
+    expect(heard(documentOf(plan), documentOf(plan))).toEqual([]);
+  });
+
+  test("the question in view deleted: the removal is announced", () => {
+    expect(heard(documentOf(plan, other), documentOf(plan), "other")).toEqual([
+      { key: "navigator.removed" },
+    ]);
+  });
+
+  test("a deleted question out of view says nothing", () => {
+    expect(heard(documentOf(plan, other), documentOf(plan), "plan")).toEqual([]);
+  });
+
+  test("without a store nothing is announced and nothing breaks", () => {
+    const before = documentOf(plan);
+    applyDocumentUpdate(before, documentOf(plan, third), setUp(before));
   });
 });
 

@@ -71,6 +71,7 @@ import { prefillReopened } from "./reopen-prefill.ts";
 import { createRevisingSnapshot } from "./revising.ts";
 import { createSizeNotices, settle } from "./size-notices.ts";
 import { createSnapshotControl } from "./snapshot-control.ts";
+import { createStatusMessages } from "./status-messages.ts";
 import { createStore } from "./store.ts";
 import { shimStyleElements } from "./style-shim.ts";
 import type { ThreadRequest } from "./thread.tsx";
@@ -165,6 +166,8 @@ const boot = (): void => {
   const reasons = createStore<ReasonRequest | undefined>(undefined);
   const focus = createStore<HeadingRequest | undefined>(undefined);
   const removed = createStore(false);
+  // What the board says to a screen reader about the answering flow (#182).
+  const status = createStatusMessages();
   // The lines for a message too large: a command refused or closed, a draft left out; an act
   // line goes when its question's work changes (oversized-acts, design decisions 2 to 4).
   const notices = createSizeNotices((questionId) => {
@@ -215,6 +218,8 @@ const boot = (): void => {
         focus,
         removed,
         focused: focusedQuestion,
+        // A restore is no news from the agent: the first update after a reload carries it.
+        ...(update.restore !== undefined && update.restore.id > restored ? {} : { status }),
       });
       // A prefill's mark alone is no unsent work: when the agent moves the question past it, the mark
       // follows, so the change shows at once with no notice (design decision 4).
@@ -308,6 +313,7 @@ const boot = (): void => {
     channel,
     acts,
     notices,
+    status,
     board,
     attention,
     revisions,

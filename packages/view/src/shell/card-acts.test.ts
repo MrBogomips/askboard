@@ -42,6 +42,7 @@ import type { ViewChannel } from "./channel.ts";
 import { createDerivedStore } from "./derived-store.ts";
 import { createDraftStore } from "./draft-store.ts";
 import { confirmationOf, settle, settleConfirmation } from "./revision-confirm.ts";
+import { createStatusMessages } from "./status-messages.ts";
 
 const [database] = plainChoiceBoardDocument.items;
 const [scope] = lifecycleBoardDocument.items as unknown as readonly [ViewArea];
@@ -182,6 +183,81 @@ describe("what Answer reports (answering-flow-fixes, design decision 1)", () => 
   test("undefined when there is nothing to send", () => {
     const { context } = setUp();
     expect(answer(database, context)).toBeUndefined();
+  });
+});
+
+describe("the status messages of Answer (answering-flow-fixes, design decision 4; #182)", () => {
+  const heard = (delivery: Delivery) => {
+    const { sent, draft, board, acts, context } = setUp(delivery);
+    const status = createStatusMessages();
+    const log: unknown[] = [];
+    status.subscribe(() => log.push(status.get().messages.at(-1)));
+    return { sent, draft, board, acts, log, context: { ...context, status } };
+  };
+
+  test("an answer sent says which option, only once the board page says it started", async () => {
+    const { draft, log, context } = heard("immediate");
+    draft.set("payment", ["Stripe"]);
+    answer(payment, context);
+    expect(log).toEqual([]);
+    await Bun.sleep(0);
+    expect(log).toEqual([{ key: "status.answerSent", params: { option: "Stripe" } }]);
+  });
+
+  test("a command the board page queued or refused announces nothing", async () => {
+    const replies = [
+      { outcome: "queued", actionId: ACTION_ID },
+      { outcome: "refused", detail: "x", size: 1 },
+    ];
+    for (const reply of replies) {
+      const { draft, log, context } = heard("immediate");
+      draft.set("payment", ["Stripe"]);
+      const channel: ViewChannel = {
+        ...context.channel,
+        send: async () => reply,
+      };
+      answer(payment, { ...context, channel });
+      await Bun.sleep(0);
+      expect(log).toEqual([]);
+    }
+  });
+
+  test("a note alone sent says so", async () => {
+    const { board, log, context } = heard("immediate");
+    board.edit("database", 1, () => ({ rev: 1, note: "Ask ops." }));
+    answer(database, context);
+    await Bun.sleep(0);
+    expect(log).toEqual([{ key: "status.noteSent" }]);
+  });
+
+  test("an answer marked ready says ready, not sent, and counts the answers held", () => {
+    const { draft, log, context } = heard("submitted");
+    draft.set("payment", ["Stripe"]);
+    draft.set("database", ["Postgres"]);
+    answer(payment, context);
+    answer(database, context);
+    expect(log).toEqual([
+      { key: "status.ready", params: { count: 1 } },
+      { key: "status.ready", params: { count: 2 } },
+    ]);
+  });
+
+  test("un-marking says nothing", () => {
+    const { draft, log, context } = heard("submitted");
+    draft.set("payment", ["Stripe"]);
+    answer(payment, context);
+    answer(payment, context);
+    expect(log).toHaveLength(1);
+  });
+
+  test("a note alone held says nothing and is left out of the count", () => {
+    const { draft, board, log, context } = heard("submitted");
+    board.edit("database", 1, () => ({ rev: 1, note: "Ask ops." }));
+    expect(answer(database, context)).toBe("note-held");
+    expect(log).toEqual([]);
+    draft.set("payment", ["Stripe"]);
+    answer(payment, context);
+    expect(log).toEqual([{ key: "status.ready", params: { count: 1 } }]);
   });
 });
 

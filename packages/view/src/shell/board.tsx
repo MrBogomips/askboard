@@ -54,6 +54,8 @@ import { type CardContext, QuestionCard } from "./question-card.tsx";
 import { revealAndFocus } from "./reveal.ts";
 import { type SnapshotControl, snapshotOfferOf } from "./snapshot-control.ts";
 import { SnapshotTopLine } from "./snapshot-top-line.tsx";
+import type { StatusMessages } from "./status-messages.ts";
+import { StatusRegion } from "./status-region.tsx";
 import type { Store } from "./store.ts";
 import { FOCUS_RING, INFO_BADGE } from "./styles.ts";
 import { hasRecommendation, releaseFailed, selectRecommended, submitStateOf } from "./submit.ts";
@@ -81,6 +83,8 @@ export type BoardContext = CardContext & {
   readonly focus: Store<HeadingRequest | undefined>;
   /** The agent deleted the question in view, in one question per view (F-55). */
   readonly removed: Store<boolean>;
+  /** What the board says to a screen reader (answering-flow-fixes, #182). */
+  readonly status: StatusMessages;
 };
 
 /**
@@ -426,6 +430,7 @@ export const Board = ({
       data-askboard-ended={endedOf(lock) ? "" : undefined}
       className="group/board flex min-h-screen flex-col"
     >
+      <StatusRegion status={context.status} />
       {context.opened === undefined ? null : <SnapshotTopLine opened={context.opened} />}
       <BoardHeader
         title={document.title}
@@ -433,6 +438,7 @@ export const Board = ({
         counts={single || endedOf(lock) ? undefined : counts}
         ended={endedOf(lock)}
         header={extras.header}
+        status={context.status}
         controls={extras.presentation}
       />
       {body}
@@ -450,14 +456,22 @@ export const Board = ({
           load={context.tracker.questionStatus}
           locked={lock !== undefined}
           context={context}
-          onSelectRecommended={() =>
-            selectRecommended(document, state, { ...context, readOnlyOf, shownOf }, (id) => {
-              const question = questions.find((each) => each.id === id);
-              return (
-                question === undefined || !takesSelection(context, question, draft, kept, lock)
-              );
-            })
-          }
+          onSelectRecommended={() => {
+            const count = selectRecommended(
+              document,
+              state,
+              { ...context, readOnlyOf, shownOf },
+              (id) => {
+                const question = questions.find((each) => each.id === id);
+                return (
+                  question === undefined || !takesSelection(context, question, draft, kept, lock)
+                );
+              },
+            );
+            // Every press says how many were prefilled, none included; nothing was sent.
+            context.status.announce({ key: "status.prefilled", params: { count } });
+            return count;
+          }}
           // The card focuses its prompt itself: the heading's focus would run after it (the board's
           // effect follows the card's) and take it away.
           onNeedsReason={(id) => {

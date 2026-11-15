@@ -291,7 +291,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
             document.querySelector(selector)?.getBoundingClientRect();
           const header = box("header");
           const row = box('[data-askboard-header="who-and-where"]');
-          const pill = box('[role="status"]');
+          const pill = box("[data-askboard-agent-pill]");
           return {
             scrolled: window.scrollY,
             top: header?.top,

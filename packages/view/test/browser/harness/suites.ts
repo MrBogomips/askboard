@@ -35,6 +35,7 @@ export const BROWSER_FILES: Readonly<Record<string, BrowserFileEntry>> = {
   "approval-latex.browser.ts": {},
   "answering-flow-focus.browser.ts": {},
   "answering-flow-in-view.browser.ts": {},
+  "answering-flow-status.browser.ts": {},
   "approval-submit.browser.ts": {},
   "atoms-it.browser.ts": {},
   "atoms-session.browser.ts": {},

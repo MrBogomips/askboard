@@ -52,6 +52,8 @@ export type Board = {
   field(label: "Project" | "Directory" | "Branch" | "Worktree"): Locator;
   /** The agent pill. */
   readonly agentPill: Locator;
+  /** The one status region of the answering flow, outside the cards (answering-flow-fixes, #182). */
+  readonly status: Locator;
 };
 
 export const boardOf = (page: Page): Board => {
@@ -82,7 +84,8 @@ export const boardOf = (page: Page): Board => {
         .locator("dl > div")
         .filter({ has: view.locator("dt").getByText(label, { exact: true }) })
         .locator("dd"),
-    agentPill: view.getByRole("status").filter({ hasText: /^Agent: / }),
+    status: view.locator('[role="status"][aria-live="polite"][aria-atomic="true"].sr-only'),
+    agentPill: view.locator("[data-askboard-agent-pill]").filter({ hasText: /^Agent: / }),
     viewFrame: async () => {
       const content = await (await frame.elementHandle())?.contentFrame();
       if (content === null || content === undefined) throw new Error("the board has no view frame");

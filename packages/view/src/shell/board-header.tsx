@@ -15,6 +15,7 @@ import type { HeaderData } from "./header-data.ts";
 import { AskPill } from "./markers.tsx";
 import type { PresentationControls } from "./presentation-controls.ts";
 import { QuickToggles } from "./quick-toggles.tsx";
+import type { StatusMessages } from "./status-messages.ts";
 import type { Store } from "./store.ts";
 import { BUTTON_LINK, BUTTON_SECONDARY, INFO_BADGE, SEPARATOR } from "./styles.ts";
 import { WhoAndWhere } from "./who-and-where.tsx";
@@ -67,6 +68,7 @@ export const BoardHeader = ({
   pill,
   counts,
   header,
+  status,
   controls,
   ended = false,
 }: {
@@ -75,6 +77,8 @@ export const BoardHeader = ({
   readonly counts?: HeaderCounts | undefined;
   /** Who asked and where, and the agent status (push delivery). */
   readonly header: Store<HeaderData>;
+  /** Where the agent pill announces a change to waiting. */
+  readonly status: Pick<StatusMessages, "announce">;
   /** The quick toggles at the right end of row 2 (settings-languages). */
   readonly controls: PresentationControls;
   /** The ask is closed or discarded: no agent pill, which would be stale (review F-18). */
@@ -93,7 +97,7 @@ export const BoardHeader = ({
         </h1>
         <span className="text-label text-muted-foreground uppercase">{text("header.ask")}</span>
         <AskPill pill={pill} />
-        {ended ? null : <AgentPill header={header} />}
+        {ended ? null : <AgentPill header={header} status={status} />}
         {counts === undefined ? null : <Counts counts={counts} />}
         <QuickToggles controls={controls} />
       </div>
