@@ -140,7 +140,7 @@ export const CardBody = ({
             aria-label={text("annotations.close")}
             onClick={onClose}
           >
-            <IconClose aria-hidden="true" className="size-4" />
+            <IconClose className="size-4" />
           </button>
         </div>
       </div>

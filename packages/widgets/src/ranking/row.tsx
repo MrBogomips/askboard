@@ -45,7 +45,7 @@ const Handle = ({
       data-grab=""
       className={HANDLE}
     >
-      <IconDragHandle aria-hidden="true" className="size-3" />
+      <IconDragHandle className="size-3" />
     </span>
   );
 };

@@ -63,7 +63,7 @@ const Chevron = ({ open }: { readonly open: boolean }) => (
     aria-hidden="true"
     className={open ? `${CHEVRON} ${CHEVRON_OPEN}` : CHEVRON}
   >
-    <IconDisclosure aria-hidden="true" className="size-3" />
+    <IconDisclosure className="size-3" />
   </span>
 );
 
@@ -84,7 +84,7 @@ const DragHandle = ({
     data-grab=""
     className={DRAG_HANDLE}
   >
-    <IconDragHandle aria-hidden="true" className="size-3" />
+    <IconDragHandle className="size-3" />
   </span>
 );
 

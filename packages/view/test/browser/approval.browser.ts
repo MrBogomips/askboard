@@ -83,6 +83,12 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const mark = decision(board, "Reject").locator("svg.lucide");
         expect(await mark.count()).toBe(1);
         expect(await mark.getAttribute("aria-hidden")).toBe("true");
+        // The icon comes before the label's text.
+        expect(
+          await decision(board, "Reject").evaluate(
+            (el) => el.firstElementChild?.matches("svg.lucide") ?? false,
+          ),
+        ).toBe(true);
         expect(await board.view.getByRole("radio", { name: "Reject", exact: true }).count()).toBe(
           1,
         );

@@ -60,9 +60,7 @@ export const ApprovalWidget = ({
               className={DECISION}
               disabled={!selectable(value, summary.count)}
             >
-              {decision === value ? (
-                <IconSelected aria-hidden="true" className={`size-4 ${CHECK}`} />
-              ) : null}
+              {decision === value ? <IconSelected className={`size-4 ${CHECK}`} /> : null}
               {text(DECISION_KEYS[value])}
             </ToggleGroup.Item>
           ))}
