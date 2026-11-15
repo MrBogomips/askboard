@@ -27,11 +27,11 @@ In the requirements of this capability, "Answer" SHALL name the question's prima
 - **THEN** the act is "Confirm" on that question
 
 ### Requirement: The answer state ladder
-Each question SHALL show one state, as a text label with a shape: To do, Draft, Ready not sent, Not sent yet, Sent, Delivered to the agent, Postponed or Declined, the same on its card, its outline entry and its question-navigator marker. A state SHALL show only when it is true: Sent once the board page has sent the act, Delivered to the agent once the receipt says the agent received it (AD-3, AD-10, NFR-10).
+Each question SHALL show one state, as a text label with a shape: To do, Draft, Ready not sent, Not sent yet, Sent, Delivered to the agent, Postponed or Declined, the same on its card, its outline entry and its question-navigator marker. A state SHALL show only when it is true: Sent once the board page has sent the act, Delivered to the agent once the receipt says the agent received it (AD-3, AD-10, NFR-10). A revision, a draft no held or sent undo reopens, SHALL not count as to do.
 
 #### Scenario: Ready, not sent
 - **WHEN** in "All together" the user confirms question 1
-- **THEN** its card, its outline entry and its tab read "Ready, not sent", and the ask pill still reads "Waiting"
+- **THEN** its card and its outline entry read "Ready, not sent", its tab's count to do falls by one, and the ask pill still reads "Waiting"
 
 #### Scenario: Delivered to the agent
 - **WHEN** the agent collects question 1's answer
@@ -47,7 +47,15 @@ Each question SHALL show one state, as a text label with a shape: To do, Draft, 
 
 #### Scenario: A revision
 - **WHEN** the user edits an answered question whose receipt reads "Delivered to the agent"
-- **THEN** its card reads "Draft" with the latest answer and its receipt still shown, and the question does not count as to do
+- **THEN** its card reads "Draft" showing the edit, with no receipt, and the question does not count as to do
+
+#### Scenario: A reopened question being edited
+- **WHEN** question 2's decline is logged, and in "All together" the user undoes it and selects an option
+- **THEN** question 2 reads "Draft" and counts as to do
+
+#### Scenario: An answer the agent recorded
+- **WHEN** the agent records an answer to question 1 itself
+- **THEN** its card and its outline entry read "Delivered to the agent"
 
 ### Requirement: The after-answer setting
 Every board SHALL offer the presentation setting "After answering", "Go to the next" (the default) or "Stay here", in the settings panel. A change SHALL apply at once and be written as the user-level setting, and a value the project file sets SHALL win and show read-only (FR-35, AD-14).
@@ -198,7 +206,7 @@ An ask of one question SHALL show as EXPERIENCE's single-question board, whateve
 - **THEN** the card reads "Sent", focus is on its heading, and no completion panel or "Continue" shows
 
 ### Requirement: Delivery receipt on the board
-A sent answer SHALL show "Sent", then "Delivered to the agent" once the board is told so; never that the agent read it. An answer given while the connection is lost SHALL show "Not sent yet" and SHALL be sent on reconnect (FR-22, NFR-10).
+A sent answer SHALL show "Sent", then "Delivered to the agent" once the board is told so; never that the agent read it. An answer the primary sends while the connection is lost SHALL show "Not sent yet" and SHALL be sent on reconnect (FR-22, NFR-10).
 
 #### Scenario: The agent collects
 - **WHEN** the agent collects the answer
@@ -265,7 +273,7 @@ With sections or tabs, the board SHALL show the outline navigator: areas and que
 - **THEN** question 2's outline entry reads "Ready, not sent"
 
 ### Requirement: Counts and the next-open jump
-On a board of two or more questions, in every presentation, the header SHALL show the count to do (to do, draft and postponed questions, the postponed ones named apart) and "Next to do", which reaches unseen questions the agent added first, then those to do or in draft after the question in view, then the postponed ones, each in board order wrapping to the start. The ask pill SHALL show only what the agent has received: "Partly answered n/m", or "answered, 1 postponed" (FR-24).
+On a board of two or more questions, in every presentation, the header SHALL show the count to do (to do, first-draft and postponed questions, the postponed ones named apart, never a revision) and "Next to do", which reaches unseen questions the agent added first, then those to do or in a first draft after the question in view, then the postponed ones, each in board order wrapping to the start. The ask pill SHALL show only what the agent has received: "Partly answered n/m", or "answered, 1 postponed" (FR-24).
 
 #### Scenario: A ready answer does not move the pill
 - **WHEN** in submitted delivery the user marks two of three questions ready
@@ -288,11 +296,15 @@ On a board of two or more questions, in every presentation, the header SHALL sho
 - **THEN** the header reads "4 to do (1 postponed)", and "4 da fare (di cui 1 rimandata)" in it-IT
 
 ### Requirement: Open prompt
-Every question SHALL show its open prompt, "Note for the agent (optional)", whose text SHALL leave only with the question's answer or decline, or alone through the primary ("Send the note" in "One by one"), leaving the question to do with "Note sent {time}" under the prompt while the page stays open; never on typing or blur (FR-7, AD-20). While an item's held result requires a reason, as with an Approval's "Approve with changes", the prompt SHALL read "Reason for the changes (required)" (FR-11).
+Every question SHALL show its open prompt, "Note for the agent (optional)", whose text SHALL leave only with the question's answer or decline, or alone through the primary ("Send the note" in "One by one"), leaving the question to do with "Note sent {time}" under the prompt, shown once the note's command is done (never while it is queued, refused or dropped) and kept while the page stays open; never on typing or blur (FR-7, AD-20, NFR-10). While an item's held result requires a reason, as with an Approval's "Approve with changes", the prompt SHALL read "Reason for the changes (required)" (FR-11).
 
 #### Scenario: A note without an answer
 - **WHEN** the user writes only a note and presses "Send the note"
 - **THEN** a note is sent, the question still reads "To do" and counts as to do, and "Note sent" shows under the prompt
+
+#### Scenario: A note while the connection is lost
+- **WHEN** the user sends only a note while the connection is lost
+- **THEN** no "Note sent" line shows and the question reads "Not sent yet"; once the connection returns and the note's command is done, the line shows
 
 #### Scenario: The reason's label
 - **WHEN** the user selects "Approve with changes", then "Reject"
@@ -359,11 +371,11 @@ In "All together", "Send {count} answers", {count} being the ready answers, SHAL
 - **THEN** only the confirmed answer is sent, and the other two keep their selections as drafts
 
 ### Requirement: Revising an answer
-While the ask is open, an answered or declined question SHALL stay editable: an edit fills the draft, the card reads "Draft" while showing its latest answer with that answer's receipt, and the primary sends the revision as the delivery mode says, reading "Send the change" in "One by one". A revision SHALL never move the board on (FR-22).
+While the ask is open, an answered or declined question SHALL stay editable: an edit fills the draft, the card shows the edit and its state line reads "Draft" until the revision is confirmed or sent, and the primary sends the revision as the delivery mode says, reading "Send the change" in "One by one". A revision SHALL never move the board on (FR-22).
 
 #### Scenario: Revising after delivery
 - **WHEN** the agent has received "PostgreSQL" and the user selects "SQLite" and presses "Send the change"
-- **THEN** the revision is sent, the receipt shows "Sent", then "Delivered to the agent" once collected, and focus stays on the question's heading
+- **THEN** the card reads "Draft" until the press, the revision is sent, the state line reads "Sent", then "Delivered to the agent" once collected, and focus stays on the question's heading
 
 ### Requirement: The board's interface in the ask's language
 The view and the board page SHALL show every string of their own in the ask's language, en-US or it-IT, and SHALL set the document's `lang` to it; the agent's content SHALL show as the agent sent it (FR-34; EXPERIENCE, Localization, Voice and Tone). No control on the board SHALL change the language.
