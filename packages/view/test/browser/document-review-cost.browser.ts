@@ -105,8 +105,9 @@ for (const engine of enginesFor(import.meta.path)) {
           {
             label: `${label} key beside 99 quotes against four times a key alone plus 60`,
             samples: busySamples,
-            gate: median(aloneSamples) * 4 + 60,
+            gate: median(aloneSamples) * 4 + perfScaled(60),
             below: true,
+            factor: 1,
           },
         ]);
       },

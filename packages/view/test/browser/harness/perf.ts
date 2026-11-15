@@ -92,14 +92,20 @@ export type PerfCheck = {
   readonly samples: readonly number[];
   readonly gate: number;
   readonly below?: boolean;
+  /**
+   * Overrides the run's factor for this check. A gate built from a baseline measured in the same run
+   * (`k x alone + c`) already carries the runner's slowness, so it sets 1 and scales only `c`
+   * through `perfScaled` (ci-e2e-gates, decision 2).
+   */
+  readonly factor?: number;
 };
 
 /** Judges every check, printing a line for each, and fails once naming each that did not hold. */
 export const judgeMedians = (checks: readonly PerfCheck[], factor = PERF_FACTOR): void => {
   const failures: string[] = [];
-  for (const { label, samples, gate, below } of checks) {
+  for (const { label, samples, gate, below, factor: own } of checks) {
     try {
-      expectMedianWithin(label, samples, gate, below ?? false, factor);
+      expectMedianWithin(label, samples, gate, below ?? false, own ?? factor);
     } catch (error) {
       failures.push(error instanceof Error ? error.message : String(error));
     }

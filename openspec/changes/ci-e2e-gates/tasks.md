@@ -69,7 +69,7 @@ Task 3.2 follows groups 1 and 2, since it records their names and #198's cause. 
 - [x] 1.4 Review checkpoint: spec review of group 1's range (askboard-spec-reviewer). No security review: the group touches only the test harness. Verify: every finding is fixed as a task, tests first, or recorded with its reason, and the review's range and verdict are in the note.
   - Done: spec review found S-1 (M, fixed waits capping the scaled Document review bounds), fixed in 1.5; no H or M finding open. The pre-PR review covers 1.5 again. Refs #196.
 - [x] 1.5 Fix review finding S-1 (M): a fixed wait around a timed sample caps the scaled bound per run. Tests first: `perf-files.test.ts` (no perf file gives `eventually` a literal wait; the LaTeX frame's parent wait, the field-error wait and the Document review's test timeouts go through `perfScaled`). Verify: the test fails before the fix and passes after; the perf set passes in Chromium.
-  - Note: `document-review-cost` (three `eventually(…, 30_000)` and both test timeouts), `latex-bounds` (the ten-items 30 s wait, `hasError`'s default 5 s against a 2 s gate) and `latex-frame.ts` (`PARENT_ANSWER_MS` sleep, the same value as its gate) now go through `perfScaled`; no gate changed. `table-bounds` and `markdown-total` waits are setup waits or already scaled. perf-files.test.ts 47 pass with perf.test.ts. Perf set, Chromium, no variable: 91 pass, 0 fail, 162 s. `timeout-minutes: 45` stays: a passing run waits only as long as its samples (about 3 s a sample at 3 times the local figures, whole job observed at 6 min on macOS in run 43664045953), and a wait that reaches its cap fails its test at once (at most 90 s on macOS), so scaling adds minutes only to failing tests, not 18 per test. Refs #196.
+  - Note: `document-review-cost` (three `eventually(…, 30_000)` and both test timeouts), `latex-bounds` (the ten-items 30 s wait, `hasError`'s default 5 s against a 2 s gate) and `latex-frame.ts` (`PARENT_ANSWER_MS` sleep, the same value as its gate) now go through `perfScaled`; no gate changed. `table-bounds` waits are already scaled; markdown-total's `readyIn` and the LaTeX render timeout were not, and are scaled in 4.7 (this note said "setup waits" wrongly: `readyIn` is the timed interval). perf-files.test.ts 47 pass with perf.test.ts. Perf set, Chromium, no variable: 91 pass, 0 fail, 162 s. `timeout-minutes: 45` stays: a passing run waits only as long as its samples (about 3 s a sample at 3 times the local figures, whole job observed at 6 min on macOS in run 43664045953), and a wait that reaches its cap fails its test at once (at most 90 s on macOS), so scaling adds minutes only to failing tests, not 18 per test. Refs #196.
 
 ## 2. Reopen-session case (g) (#198)
 
@@ -124,7 +124,7 @@ Task 3.2 follows groups 1 and 2, since it records their names and #198's cause. 
     - each named file carries its sentence;
     - `./setup.sh --check` reports whether the Codex files are stale, and `./setup.sh --codex-only` refreshes them if so;
     - the check passes.
-  - Note: `CLAUDE.md` (CI, Triggers: the "Known: ... never reached Answer" sentence replaced by the factor, the variable and the macOS step with the local setting), the spine Tests row (factor clause), `test-harness-patterns.md` (timed-checks rule names `PERF_FACTOR`, `perfScaled`, the variable; the keyboard bullet no longer calls the WebKit failure a known CI one), and `docs/as-built/ci-e2e-gates.md` (names, 1.5 waits, D1 to D3, D4 as Q1, #198 cause and fix, no status, no versions). `grep "never reached Answer" CLAUDE.md` finds nothing; `./setup.sh --check`: Codex files up to date. Refs #196, #197, #198.
+  - Note: `CLAUDE.md` (CI, Triggers: the "Known: ... never reached Answer" sentence replaced by the factor, the variable and the macOS step with the local setting), the spine Tests row (factor clause), `test-harness-patterns.md` (timed-checks rule names `PERF_FACTOR`, `perfScaled`, the variable; the keyboard bullet no longer calls the WebKit failure a known CI one), and `docs/as-built/ci-e2e-gates.md` (names, 1.5 waits, D1 to D3, D4 as Q1, #198 cause and fix, no status, no versions). `grep "never reached Answer" CLAUDE.md` finds nothing; `./setup.sh --check`: Codex files up to date. The check passes at the end of group 4 (task 4.8 records it). Refs #196, #197, #198.
 - [ ] 3.3 Review checkpoint: spec review of group 3's range, plus a security review (askboard-security-reviewer), because the group changes a workflow of a public repository that the release gate calls. Verify: every finding is fixed as a task, tests first, or recorded with its reason, and both reviews' ranges and verdicts are in the note.
 
 ## 4. On the runners, then the pull request
@@ -141,8 +141,19 @@ Task 3.2 follows groups 1 and 2, since it records their names and #198's cause. 
   - the note records main's SHA.
 - [ ] 4.3 Pre-PR review: spec review and security review of the whole range, plus the kaizen step (askboard-delivery). The pull request body says:
   - `Closes #196`;
-  - `Closes #197` if task 3.1 showed the 17 cases green, `Refs #197` otherwise;
+  - `Closes #197` if task 4.1 showed the 17 cases green, `Refs #197` otherwise;
   - `Closes #198` if task 4.1 showed case (g) green on both runners; otherwise `Refs #198`, and the plan goes back through `/opsx:update`;
   - D1 to D3 as defaults, D4 as the PO's answer to Q1, and #198's cause.
 
   Verify: both reviews' verdicts and the pull request number are in the note.
+
+- [x] 4.4 Fix X-1 (L) of the security review: a relative gate scales only its constant. Tests first: `harness/perf.test.ts` (a check with `factor: 1` at run factor 3, alone 30 / busy 300, fails; 290 passes) and `perf-files.test.ts` (the Document review's check is `median(aloneSamples) * 4 + perfScaled(60)` with `factor: 1`). Verify: both fail before and pass after.
+  - Note: `PerfCheck` gains an optional `factor` that `judgeMedians` honours and prints; `document-review-cost` judges its per-key check at factor 1 with the 60 ms through `perfScaled`. Rule recorded in design.md decision 2 and in the as-built note. perf.test.ts and perf-files.test.ts 50 pass. Refs #196.
+- [x] 4.5 Fix S-1 (L) of the spec review: task 4.3 names task 4.1, not 3.1, for `Closes #197`. Documents only. Refs #197.
+  - Note: done in 4.3's second bullet.
+- [x] 4.6 Fix S-2 (L) and S-3 (L): task 3.2's note records the check; CLAUDE.md keeps only the System Settings instruction (Keyboard navigation), without the `defaults write org.webkit.Playwright` hint (decision 5 turned that bundle id down as undocumented). Documents only. Refs #197.
+  - Note: the check (`bun run build`, then `GITHUB_TOKEN=$(gh auth token) bun run check`, after the merge of e2cc5fd3) passes: 14,702 pass, 0 fail; a first run without a rebuild failed only `notices.test.ts` ("in-memory build equals dist"), stale `dist/` after the ws bump.
+- [x] 4.7 Fix S-4 (L): scale markdown-total's `readyIn` and latex-frame's render timeout. Tests first: `perf-files.test.ts` (every `readyIn` in markdown-total takes `perfScaled(...)`; the frame's default is `perfScaled(RENDER_TIMEOUT_MS)`). Verify: fails before, passes after; perf set in Chromium.
+  - Note: `readyIn(run, timeoutMs = LOAD_TIMEOUT_MS)`; the three calls in markdown-total pass `perfScaled(LOAD_TIMEOUT_MS)`; `rendering` defaults to `perfScaled(RENDER_TIMEOUT_MS)`. Task 1.5's note corrected. Perf set, Chromium, no variable: 91 pass, 0 fail. Refs #196.
+- [x] 4.8 Final local verification of the fixes. Verify: check green, actionlint clean, `openspec validate ci-e2e-gates --strict` valid.
+  - Note: merged origin/main (e2cc5fd3, Biome 2.6.7 and ws 8.22.2) and ran `bun install`; check green (no new Biome finding to fix), actionlint clean, validate valid. Refs #196, #197, #198.

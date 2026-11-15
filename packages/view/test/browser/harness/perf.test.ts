@@ -237,6 +237,22 @@ describe("the factor on a judgement", () => {
     );
   });
 
+  test("a check with its own factor keeps it whatever the run's factor (a gate relative to a baseline)", () => {
+    // A gate built from a baseline measured in the same run: 30 ms alone, 300 ms busy is a key ten
+    // times its cost alone on one machine, and fails at the runner's factor 3 as at factor 1.
+    const relative = (busy: number) => [
+      {
+        label: "rel",
+        samples: [busy, busy, busy],
+        gate: 30 * 4 + 60 * 3,
+        below: true,
+        factor: 1,
+      },
+    ];
+    expect(() => judgeMedians(relative(300), 3)).toThrow(/not under the gate 300/);
+    expect(() => judgeMedians(relative(290), 3)).not.toThrow();
+  });
+
   test("perfRuns applies the factor it is given", async () => {
     const figures = [150, 160, 170];
     await perfRuns("t", async (run, gate) => gate("edit", figures[run] as number, 100), 2);

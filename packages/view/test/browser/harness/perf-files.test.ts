@@ -356,4 +356,20 @@ describe("a wait around a timed sample (ci-e2e-gates, review S-1)", () => {
     const helper = /const hasError = [\s\S]*?\n {2}\);/.exec(text)?.[0] ?? "";
     expect(helper).toMatch(/perfScaled\(/);
   });
+
+  test("the Markdown total's two readiness waits and the LaTeX frame's render wait are scaled (review S-4)", () => {
+    const markdown = readFileSync(join(BROWSER_DIR, "markdown-total.browser.ts"), "utf8");
+    expect(markdown.match(/readyIn\([^)]*\)/g)?.every((call) => /perfScaled\(/.test(call))).toBe(
+      true,
+    );
+    const frame = readFileSync(join(import.meta.dir, "latex-frame.ts"), "utf8");
+    expect(frame).toMatch(/timeoutMs = perfScaled\(RENDER_TIMEOUT_MS\)/);
+  });
+
+  test("the Document review's relative key check scales only its constant (review X-1)", () => {
+    const text = readFileSync(join(BROWSER_DIR, "document-review-cost.browser.ts"), "utf8");
+    expect(text).toMatch(
+      /gate: median\(aloneSamples\) \* 4 \+ perfScaled\(60\),\s*below: true,\s*factor: 1,/,
+    );
+  });
 });

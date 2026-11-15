@@ -66,6 +66,7 @@ A factor keeps a gate on every runner. On Linux, a regression that doubles the T
 - `expectMedianWithin` gains a last parameter, `factor = PERF_FACTOR`. It judges `median ≤ gate × factor`, or `<` when `below`. `judgeMedians` and `perfRuns` pass it through, so every perf file gets the factor with no edit to its gates.
 - `perfLine` keeps today's text when the factor is 1, so local notes stay comparable with e2e-cadence's. Otherwise it appends ` factor f bound b`. The failure message names the bound applied.
 - `perfScaled(ms)` returns `ms × PERF_FACTOR` for the waits of decision 4.
+- A gate relative to a baseline measured in the same run (`k × alone + c`) scales only its constant: a `PerfCheck` may carry its own `factor`, set to 1, with `c` written through `perfScaled`, because the baseline already holds the runner's slowness (review X-1).
 - Alternative rejected: a numeric `ASKBOARD_PERF_SCALE` set in the YAML. It would put the numbers in the workflows, away from the gates and their unit tests, and let any caller pick any number.
 
 ### 3. What stays

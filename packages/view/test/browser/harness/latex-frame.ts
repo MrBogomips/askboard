@@ -167,7 +167,7 @@ export class LatexFrame {
    */
   async rendering(
     expression: string,
-    timeoutMs = RENDER_TIMEOUT_MS,
+    timeoutMs = perfScaled(RENDER_TIMEOUT_MS),
   ): Promise<({ readonly ok: true; readonly parentMs: number } & Rendering) | Failure> {
     const result = await this.#call<Rendering>(
       `window.__drawn(${JSON.stringify(expression)})`,

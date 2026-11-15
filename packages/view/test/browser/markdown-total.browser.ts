@@ -15,7 +15,7 @@ import { describe, expect, test } from "bun:test";
 import { MARKDOWN_HTML_MAX_CHARS, markdownHtml } from "../../src/markdown/markdown.ts";
 import { atomDocument } from "./fixtures/atom-documents.ts";
 import { DENSE_TABLE } from "./fixtures/dense-markdown.ts";
-import { eventually, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
+import { eventually, LOAD_TIMEOUT_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
 import { PERF_RUNS, perfRuns, perfScaled } from "./harness/perf.ts";
 import { enginesFor } from "./harness/suites.ts";
 import { readyIn } from "./harness/tree-steps.ts";
@@ -65,12 +65,12 @@ for (const engine of enginesFor(import.meta.path)) {
         await perfRuns(`markdown-total ${engine}`, async (_run, gate) => {
           const plainStarted = performance.now();
           const plain = await host(dist, atomDocument(texts("plain text")));
-          await readyIn(plain);
+          await readyIn(plain, perfScaled(LOAD_TIMEOUT_MS));
           const plainMs = performance.now() - plainStarted;
 
           const started = performance.now();
           const run = await host(dist, atomDocument(texts(NEAR_CAP, true)));
-          await readyIn(run);
+          await readyIn(run, perfScaled(LOAD_TIMEOUT_MS));
           const heavyMs = performance.now() - started;
           const extra = heavyMs - plainMs;
           console.error(
@@ -99,7 +99,7 @@ for (const engine of enginesFor(import.meta.path)) {
         );
         const plainStarted = performance.now();
         const plain = await host(dist, atomDocument(texts("plain text")));
-        await readyIn(plain);
+        await readyIn(plain, perfScaled(LOAD_TIMEOUT_MS));
         const plainMs = performance.now() - plainStarted;
 
         const started = performance.now();
