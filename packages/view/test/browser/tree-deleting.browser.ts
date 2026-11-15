@@ -7,14 +7,9 @@ import { treeBoardDocument } from "@askboard/contract/fixtures";
 import { validateTreeProps } from "@askboard/contract/validate";
 import type { Locator } from "playwright";
 import { plan, wbs } from "./fixtures/tree-documents.ts";
-import {
-  eventually,
-  isFocused,
-  QUIET_MS,
-  STEP_TIMEOUT_MS,
-  TEST_TIMEOUT_MS,
-} from "./harness/board-test.ts";
+import { eventually, isFocused, STEP_TIMEOUT_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
 import { enginesFrom } from "./harness/engines.ts";
+import { viewSettled } from "./harness/probes.ts";
 import {
   deleteQuestion,
   enabledTools,
@@ -79,7 +74,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await tree.row("build").getAttribute("aria-expanded")).toBeNull();
         expect(await pressIn(board, "Tab")).toEqual({ nodeId: "build", cell: 1 });
         expect(board.page.url()).toBe(url);
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(board);
         expect(run.messages).toEqual([{ type: "ready", itemId: plan.id }]);
         // The draft holds `build` with no child left: "Answer" sends it.
         await board.answer.click({ timeout: STEP_TIMEOUT_MS });
@@ -189,7 +184,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await tree.rows.count()).toBe(0);
         expect(await enabledTools(tree.tools)).toEqual(["Add node"]);
         expect(await toolFocus(board)).toBe("Add node");
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(board);
         expect(run.messages).toEqual([{ type: "ready", itemId: plan.id }]);
         // "Answer" sends the empty Tree, which the contract allows.
         await board.answer.click({ timeout: STEP_TIMEOUT_MS });
@@ -257,7 +252,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await build("the node").waitFor({ timeout: STEP_TIMEOUT_MS });
         await board.answer.click({ timeout: STEP_TIMEOUT_MS });
         await eventually(() => run.messages.length > 1, "the answer message");
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(board);
         expect(await deleteQuestion(board).count()).toBe(0);
         expect(await shownIds(tree)).toEqual(["build", "u-1"]);
         const [, answer] = run.messages;

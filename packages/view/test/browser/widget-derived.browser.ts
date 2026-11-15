@@ -11,14 +11,9 @@ import { ganttPlanBoardDocument, uj2ExpandedBoardDocument } from "@askboard/cont
 import { planGantt, planQuestion } from "./fixtures/gantt-plan.ts";
 import { barDates, criticalTasks, ganttOf } from "./fixtures/gantt-view.ts";
 import { wbsPlan, wbsQuestion, wbsTree } from "./fixtures/wbs-documents.ts";
-import {
-  eventually,
-  isFocused,
-  QUIET_MS,
-  STEP_TIMEOUT_MS,
-  TEST_TIMEOUT_MS,
-} from "./harness/board-test.ts";
+import { eventually, isFocused, STEP_TIMEOUT_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
 import { enginesFrom } from "./harness/engines.ts";
+import { hostSettled } from "./harness/probes.ts";
 import { treeFocus, treeGridOf } from "./harness/tree-grid.ts";
 import { enterField, expectSteps, readyIn, tabUntil } from "./harness/tree-steps.ts";
 import { readViewBuild } from "./harness/view-build.ts";
@@ -72,7 +67,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           await board.page.keyboard.press("Enter");
           await run.submit?.();
           await eventually(() => run.messages.length > 1, "the answer message", STEP_TIMEOUT_MS);
-          await Bun.sleep(QUIET_MS);
+          await hostSettled(board);
           const [answer]: unknown[] = run.messages.filter((message) => message.type === "answer");
           const { values, derived } = answer as {
             values: Record<string, unknown>;

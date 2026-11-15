@@ -7,8 +7,9 @@
 // 250 ms after its click. The fan-out form (each formula reads `[worst.a]`, the total of the input
 // column, so one edit recalculates 1,810 nodes) takes the same edit gate in Chromium and 150 ms in
 // WebKit, whose paint of 200 rows leaves it just over 100 ms (decision 13's known limit). "Painted" is the second
-// animation frame after the change shows in the grid. Each run prints its figures as a line
-// `table-bounds <form> <engine> {...}` for the task's note.
+// animation frame after the change shows in the grid. Each form takes three runs in fresh pages inside one test (the perf
+// pass, e2e-cadence decision 6): the Table is shown and the CSP clean on every run, and each gate is judged once, on the
+// median of the three, as a line `perf table-bounds <form> <engine> <gate> [a, b, c] median m gate g` for the task's note.
 //
 // Run one engine by hand: ASKBOARD_E2E_ENGINES=webkit bun test ./packages/view/test/browser/table-bounds.browser.ts
 
@@ -19,6 +20,7 @@ import type { Frame } from "playwright";
 import { atomDocument } from "./fixtures/atom-documents.ts";
 import { eventually, LOAD_TIMEOUT_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
 import { enginesFrom } from "./harness/engines.ts";
+import { PERF_RUNS, perfRuns } from "./harness/perf.ts";
 import { cellOf, tableGridOf, toolOf } from "./harness/table-grid.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 import { useWidgetHost } from "./harness/widget-host-test.ts";
@@ -33,9 +35,6 @@ const FAN_OUT_WEBKIT_EDIT_GATE = 150;
 
 const editGate = (form: string, engine: string): number =>
   form === "fan-out" && engine === "webkit" ? FAN_OUT_WEBKIT_EDIT_GATE : GATES.edit;
-
-/** Runs of each form, each in a fresh page. */
-const RUNS = 3;
 
 const WORST_ID = "worst";
 
@@ -86,8 +85,6 @@ const INSTALL = `
 })
 `;
 
-type Figures = { visible: number; edit: number; add: number };
-
 const watch = async (
   frame: Frame,
   args: Record<string, unknown>,
@@ -105,10 +102,10 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       ["fan-out", fanOut],
     ];
     for (const [name, props] of forms) {
-      for (let run = 1; run <= RUNS; run += 1) {
-        test(
-          `the ${name} form, fresh page ${run}: visible, one cell edit painted, one row added painted, each within its gate`,
-          async () => {
+      test(
+        `the ${name} form, three fresh pages: visible, one cell edit painted, one row added painted, each within its gate on the median`,
+        async () => {
+          await perfRuns(`table-bounds ${name} ${engine}`, async (_run, gate) => {
             const form = props();
             const page = await host(dist, documentOf(form), { colorScheme: "light" });
             await page.board.page.setViewportSize({ width: 1280, height: 900 });
@@ -155,20 +152,14 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
             });
             await toolOf(table, "Add row").click();
             const add = await adding();
-            const figures: Figures = {
-              visible: Math.round(visible),
-              edit: Math.round(edit),
-              add: Math.round(add),
-            };
-            process.stdout.write(`table-bounds ${name} ${engine} ${JSON.stringify(figures)}\n`);
-            expect(figures.visible).toBeLessThanOrEqual(GATES.visible);
-            expect(figures.edit).toBeLessThanOrEqual(editGate(name, engine));
-            expect(figures.add).toBeLessThanOrEqual(GATES.add);
             expect(page.browser.cspProblems()).toEqual([]);
-          },
-          TEST_TIMEOUT_MS,
-        );
-      }
+            gate("visible", Math.round(visible), GATES.visible);
+            gate("edit", Math.round(edit), editGate(name, engine));
+            gate("add", Math.round(add), GATES.add);
+          });
+        },
+        PERF_RUNS * TEST_TIMEOUT_MS,
+      );
     }
   });
 }

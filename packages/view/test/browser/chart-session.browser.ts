@@ -12,7 +12,6 @@ import { checkedEvents, checkedFetchItem } from "./harness/approval-board.ts";
 import {
   eventually,
   expectNoCspProblem,
-  QUIET_MS,
   reloadBoard,
   STEP_TIMEOUT_MS,
   TEST_TIMEOUT_MS,
@@ -34,6 +33,7 @@ import {
   sentActs,
   sentDrafts,
 } from "./harness/lifecycle-test.ts";
+import { hostSettled } from "./harness/probes.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 
 const dist = await readViewBuild();
@@ -134,7 +134,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await ringOfBar(board, THREE, 0, 1)).toBe(false);
         await eventually(() => promptArmed(board), "the prompt to be armed after the reload");
         expect(await answerOf(board, "plan").isEnabled()).toBe(true);
-        await Bun.sleep(QUIET_MS);
+        await hostSettled(board);
         expect(sentActs(run)).toEqual([]);
         expect((await run.session.collect()).events).toEqual([]);
         expectNoCspProblem(run);

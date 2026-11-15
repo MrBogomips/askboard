@@ -25,7 +25,6 @@ import {
 import {
   eventually,
   isFocused,
-  QUIET_MS,
   STEP_TIMEOUT_MS,
   TEST_TIMEOUT_MS,
   useEngine,
@@ -39,6 +38,7 @@ import {
   sentActs,
   sentDrafts,
 } from "./harness/lifecycle-test.ts";
+import { draftSettled } from "./harness/probes.ts";
 import {
   boxOf,
   dragEntry,
@@ -130,7 +130,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await board.view.locator('[data-change="moved"]').count()).toBe(0);
         expect(await counterText(board)).toBe("No changes");
         expect(await board.answer.isDisabled()).toBe(true);
-        await Bun.sleep(QUIET_MS);
+        await draftSettled(board);
         expect(run.messages.map((message) => message.type)).toEqual(["ready"]);
         expect(run.drafts).toEqual([]);
         expect(run.browser.violations).toEqual([]);
@@ -155,7 +155,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const during = await boxOf(shapeOf(board, "checkout"));
         expect(Math.round(during.x - before.x)).toBe(7 * PER_DAY[zoom]);
         expect(during.y).toBeGreaterThan(before.y);
-        await Bun.sleep(QUIET_MS / 3);
+        await draftSettled(board);
         expect(run.drafts).toEqual([]);
         expect(await days(board, "checkout")).toEqual(CHECKOUT);
         await release(board);
@@ -203,7 +203,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           "the drag to end",
         );
         await release(board);
-        await Bun.sleep(QUIET_MS / 3);
+        await draftSettled(board);
         expect(await boxOf(shapeOf(board, "checkout"))).toEqual(before);
         expect(await days(board, "checkout")).toEqual(CHECKOUT);
         expect(await counterText(board)).toBe("No changes");
@@ -231,7 +231,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         );
         expect(await board.view.locator('[data-change="moved"]').count()).toBe(0);
         expect(await counterText(board)).toBe("No changes");
-        await Bun.sleep(QUIET_MS / 3);
+        await draftSettled(board);
         expect(run.drafts).toEqual([]);
         expect(await board.answer.isDisabled()).toBe(true);
       },
@@ -371,7 +371,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await tool(board, "Move later").getAttribute("aria-disabled")).toBe("true");
         await tool(board, "Move later").focus();
         await board.page.keyboard.press("Enter");
-        await Bun.sleep(QUIET_MS / 3);
+        await draftSettled(board);
         expect(await isFocused(tool(board, "Move later"))).toBe(true);
         expect((await days(board, "end")).date).toBe("9999-12-31");
         expect(run.drafts).toEqual([]);
@@ -485,7 +485,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await entryOf(board, "launch").focus();
         await board.page.keyboard.press("ArrowUp");
         await board.page.keyboard.press("Enter");
-        await Bun.sleep(QUIET_MS);
+        await draftSettled(board);
         expect((await days(board, "launch")).date).toBe("2026-02-02");
         expect(await entryOf(board, "launch").getAttribute("data-dragging")).toBeNull();
         expect([sentDrafts(run).length, sentActs(run).length]).toEqual([drafts, acts]);

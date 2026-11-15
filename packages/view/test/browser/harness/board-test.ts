@@ -15,6 +15,7 @@ import {
   pageHalf,
   pageHalfProblems,
 } from "./messages.ts";
+import { noReconnectWaitMs, type Settleable, timerSettled } from "./probes.ts";
 import { reloadAndWait, viewFrameLost } from "./reload.ts";
 import { type BoardSession, type Scenario, startSession } from "./session.ts";
 import type { ReplayTranscript } from "./transcripts.ts";
@@ -26,8 +27,8 @@ export const LOAD_TIMEOUT_MS = 8_000;
 export const STEP_TIMEOUT_MS = 5_000;
 /** A reconnect with backoff after the network returns. */
 export const RECONNECT_TIMEOUT_MS = 15_000;
-/** How long a test watches for something that must not happen, such as a reconnect. */
-export const QUIET_MS = 1_500;
+/** How long a test watches for something that must not happen, where no probe fits (`quiet`). */
+export { QUIET_MS } from "./probes.ts";
 
 /** The plain-choice question's ID, which every transcript's board document keeps. */
 export const QUESTION = "database";
@@ -232,10 +233,10 @@ export const expectNoCspProblem = (run: BoardRun): void => {
   expect(run.browser.cspProblems()).toEqual([]);
 };
 
-/** The board page opens no further WebSocket for a while. */
-export const expectNoReconnect = async (run: BoardRun): Promise<void> => {
+/** The board page opens no further WebSocket once its next reconnect delay has passed (`timerSettled`). */
+export const expectNoReconnect = async (run: BoardRun, board: Settleable): Promise<void> => {
   const before = run.browser.sockets.length;
-  await Bun.sleep(QUIET_MS);
+  await timerSettled(noReconnectWaitMs(before), board);
   expect(run.browser.sockets.length).toBe(before);
 };
 

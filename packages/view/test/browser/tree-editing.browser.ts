@@ -7,14 +7,9 @@ import { describe, expect, test } from "bun:test";
 import { treeBoardDocument } from "@askboard/contract/fixtures";
 import { validateTreeProps } from "@askboard/contract/validate";
 import { plan, wbs, withPortal } from "./fixtures/tree-documents.ts";
-import {
-  eventually,
-  isFocused,
-  QUIET_MS,
-  STEP_TIMEOUT_MS,
-  TEST_TIMEOUT_MS,
-} from "./harness/board-test.ts";
+import { eventually, isFocused, STEP_TIMEOUT_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
 import { enginesFrom } from "./harness/engines.ts";
+import { viewSettled } from "./harness/probes.ts";
 import { pressIn, tabStops, treeFocus, treeGridOf } from "./harness/tree-grid.ts";
 import {
   expectNewNode,
@@ -104,7 +99,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await tree.editor.count()).toBe(0);
         expect(await tree.cell("portal", 1).textContent()).toBe("1234.5");
         expect(await board.answer.isEnabled()).toBe(true);
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(board);
         expect(run.messages).toEqual([{ type: "ready", itemId: plan.id }]);
         // The draft holds the change: "Answer" sends it as the Tree's full edited value.
         await board.answer.click({ timeout: STEP_TIMEOUT_MS });
@@ -165,7 +160,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await tree.editor.count()).toBe(0);
         expect(await tree.cell("portal", 2).textContent()).toBe("13");
         expect(await board.answer.isEnabled()).toBe(true);
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(board);
         expect(run.messages).toEqual([{ type: "ready", itemId: plan.id }]);
         expect(run.browser.cspProblems()).toEqual([]);
       },
@@ -189,7 +184,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           field?.dispatchEvent(new FocusEvent("blur"));
           field?.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
         });
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(board);
         expect(await tree.editor.count()).toBe(1);
         expect(await tree.editor.inputValue()).toBe("Customer portal: accounts");
         expect(await isFocused(tree.editor)).toBe(true);
@@ -216,7 +211,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await tree.cell("billing", 2).click({ timeout: STEP_TIMEOUT_MS });
         expect(await tree.editor.count()).toBe(0);
         expect(await tree.cell("portal", 0).textContent()).toBe("Customer portal: accounts");
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(board);
         expect(await treeFocus(board)).toEqual({ nodeId: "billing", cell: 2 });
         expect(await tabStops(tree.grid)).toBe(1);
         // A new node's name too: the node is added, and the focus goes to the cell clicked.
@@ -225,7 +220,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await board.page.keyboard.type("Billing: refunds");
         await tree.cell("design", 1).click({ timeout: STEP_TIMEOUT_MS });
         expect(await tree.cell("u-1", 0).textContent()).toBe("Billing: refunds");
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(board);
         expect(await treeFocus(board)).toEqual({ nodeId: "design", cell: 1 });
         expect(await tabStops(tree.grid)).toBe(1);
         expect(run.messages).toEqual([{ type: "ready", itemId: plan.id }]);

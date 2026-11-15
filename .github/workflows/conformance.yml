@@ -1,29 +1,86 @@
 name: Conformance
+# The conformance suite in AD-1's three configurations on each runtime it is given (e2e-cadence,
+# decisions 1 to 3). The defaults are the manual run: Bun and Node 24, a build of its own.
 on:
   workflow_call:
     inputs:
       runs-on:
         type: string
         default: macos-latest
+      # False when only documents changed: the job still runs and ends after one step (#173).
+      code:
+        type: boolean
+        default: true
+      # The run's build artifact (decision 2); empty builds in the job.
+      build-artifact:
+        type: string
+        default: ""
+      # False leaves the Playwright browser cache unused (the release's call, X-1).
+      cache:
+        type: boolean
+        default: true
+      # A JSON list of bun, node-24 and node-26. Node 24 is the Node the shared setup installs
+      # (package.json); node-26 sets Node 26 up after it.
+      runtimes:
+        type: string
+        default: '["bun","node-24"]'
 permissions:
   contents: read
 jobs:
   conformance:
     name: Conformance, ${{ matrix.runtime }}
     runs-on: ${{ inputs.runs-on }}
-    timeout-minutes: 20
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        runtime: [bun, node]
+        runtime: ${{ fromJSON(inputs.runtimes) }}
     env:
       BROWSER: ${{ github.workspace }}/packages/view/test/browser/fixtures/record-link.sh
+      # The engine's download, in a folder the cache below keeps between runs.
+      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.playwright-browsers
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Only documents changed
+        if: ${{ !inputs.code }}
+        run: echo "Only documents changed (see tools/ci/changed-paths.sh), so no conformance run."
+      - if: inputs.code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup-bun
-      - run: bun run build
+      - if: inputs.code
+        uses: ./.github/actions/setup-bun
+      - name: Build
+        if: inputs.code && inputs.build-artifact == ''
+        run: bun run build
+      - name: Download the run's build
+        if: inputs.code && inputs.build-artifact != ''
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ inputs.build-artifact }}
+          path: .
+      # The suite answers the plain choice and the ask with areas on the real board page, in
+      # Playwright's Chromium, as the browser job installs it.
+      - id: playwright
+        if: inputs.code
+        run: echo "version=$(node -p 'require("playwright/package.json").version')" >> "$GITHUB_OUTPUT"
+      - if: inputs.code && inputs.cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.PLAYWRIGHT_BROWSERS_PATH }}
+          key: playwright-${{ runner.os }}-chromium-${{ steps.playwright.outputs.version }}
+      - name: Install chromium with its system dependencies
+        if: inputs.code
+        run: node_modules/.bin/playwright install --with-deps chromium
+      # After the shared setup, whose Node 24 is the default `node`; the suite finds `node` on PATH.
+      - name: Node 26
+        if: inputs.code && matrix.runtime == 'node-26'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 26
       # The suite's three configurations (mod and hooks, mod disabled, hooks disabled) run in turn;
-      # on Node 24 it is the runtime AskBoard ships on until AXFX NFR-1 admits the executable (AD-19).
-      - run: bun packages/server/test/conformance/run.ts --runtime ${{ matrix.runtime }}
+      # Node 24 is the runtime AskBoard ships on until AXFX NFR-1 admits the executable (AD-19).
+      - name: Conformance suite
+        if: inputs.code
+        env:
+          RUNTIME: ${{ startsWith(matrix.runtime, 'node') && 'node' || 'bun' }}
+        run: bun packages/server/test/conformance/run.ts --runtime "$RUNTIME"

@@ -8,10 +8,10 @@
 // past the limit each show their field error, keep the last
 // preview and leave "Answer" enabled; KaTeX's message shows its controls as marked escapes; a draw that
 // throws fails the item; an answered LaTeX is read-only; an Italian board shows it in Italian. No
-// font or other request is made and no Content Security Policy violation occurs.
+// font or other request is made and no Content Security Policy violation occurs. The one test that times
+// a refused expression against the 2-second bound is in `latex-bounds.browser.ts`, with the other bounds.
 
 import { describe, expect, test } from "bun:test";
-import { LATEX_NESTING_MAX_DEPTH } from "@askboard/contract";
 import type { BrowserContext } from "playwright";
 import {
   draftExpression,
@@ -24,7 +24,6 @@ import {
 import {
   eventually,
   LOAD_TIMEOUT_MS,
-  QUIET_MS,
   STEP_TIMEOUT_MS,
   TEST_TIMEOUT_MS,
   useEngine,
@@ -38,6 +37,7 @@ import {
   sentActs,
   sentDrafts,
 } from "./harness/lifecycle-test.ts";
+import { draftSettled } from "./harness/probes.ts";
 import { readyIn } from "./harness/tree-steps.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 import { useWidgetHost, type WidgetHostRun } from "./harness/widget-host-test.ts";
@@ -87,31 +87,6 @@ const hasError = (board: Board, start: string, at = 0) =>
 const networkRequests = (run: WidgetHostRun): readonly string[] =>
   run.requests.filter((url) => /^(https?|wss?):/.test(url)).map((url) => new URL(url).pathname);
 
-// A preview untouched: no node of it changes while `action` runs and the board settles.
-const unchangedBy = async (board: Board, action: () => Promise<void>): Promise<void> => {
-  const before = await markup(board);
-  const frame = await board.viewFrame();
-  await frame.evaluate(() => {
-    const watched = document.querySelector("[data-latex-preview]") as Element;
-    const log: MutationRecord[] = [];
-    new MutationObserver((records) => log.push(...records)).observe(watched, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      characterData: true,
-    });
-    (globalThis as unknown as { __mutations: MutationRecord[] }).__mutations = log;
-  });
-  await action();
-  await Bun.sleep(QUIET_MS / 3);
-  expect(
-    await frame.evaluate(
-      () => (globalThis as never as { __mutations: unknown[] }).__mutations.length,
-    ),
-  ).toBe(0);
-  expect(await markup(board)).toBe(before);
-};
-
 // The init script of the two scenarios that make a draw throw. Both run in every frame, the
 // view's included, and act only on text no other test types:
 // - `\zzthrow` makes the contract's scan throw (the scan reads each control word through a Set),
@@ -155,7 +130,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await source(board).getAttribute("data-change")).toBeNull();
         expect(((await counter(board).textContent()) ?? "").trim()).toBe("No changes");
         expect(await board.answer.isDisabled()).toBe(true);
-        await Bun.sleep(QUIET_MS);
+        await draftSettled(board);
         expect(run.messages.map((message) => message.type)).toEqual(["ready"]);
         expect(run.drafts).toEqual([]);
         expect(networkRequests(run)).toEqual(["/"]);
@@ -379,42 +354,6 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
-      "\\def\\a{x}\\a, then \\color{x}\\current@color, then a nest one level past the limit, each typed after a rendered expression, give their field error, leave the preview untouched and hold the text",
-      async () => {
-        const run = await host(dist, latexDocument("x^2"));
-        await readyIn(run);
-        const { board } = run;
-        const past = LATEX_NESTING_MAX_DEPTH + 1;
-        const nest = `${"\\frac{".repeat(past)}x${"}{x}".repeat(past)}`;
-        for (const [expression, words] of [
-          ["\\def\\a{x}\\a", "This expression defines a macro with \\def,"],
-          [
-            "\\color{x}\\current@color",
-            "This expression uses \\current@color, one of KaTeX's internal",
-          ],
-          [
-            nest,
-            `This expression nests ${past} levels deep, more than the limit of ${LATEX_NESTING_MAX_DEPTH}.`,
-          ],
-        ] as const) {
-          const started = Date.now();
-          await unchangedBy(board, async () => {
-            await source(board).fill(expression);
-            await hasError(board, words);
-          });
-          expect(Date.now() - started).toBeLessThan(2_000 + QUIET_MS);
-          await draftHolds(run, expression, "the draft to hold the text as typed");
-          expect(await board.answer.isEnabled()).toBe(true);
-        }
-        // A board that answers: the field takes a valid expression and draws it again.
-        await source(board).fill("y^3");
-        await eventually(async () => (await fieldError(board).count()) === 0, "the error to go");
-        expect(run.browser.violations).toEqual([]);
-      },
-      TEST_TIMEOUT_MS,
-    );
-
-    test(
       "\\show and \\char` are refused naming the command, in the third field error",
       async () => {
         const run = await host(dist, latexDocument("x^2"));
@@ -582,7 +521,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const [drafts, acts] = [sentDrafts(run).length, sentActs(run).length];
         await source(board).click({ force: true });
         await board.page.keyboard.type("zz");
-        await Bun.sleep(QUIET_MS);
+        await draftSettled(board);
         expect(await fieldValue(board)).toBe("a^2+b^2=c^2");
         expect([sentDrafts(run).length, sentActs(run).length]).toEqual([drafts, acts]);
       },

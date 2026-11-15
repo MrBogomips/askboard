@@ -15,7 +15,6 @@ import { atomAsk, atomDocument } from "./fixtures/atom-documents.ts";
 import {
   eventually,
   expectNoCspProblem,
-  QUIET_MS,
   reloadBoard,
   STEP_TIMEOUT_MS,
   TEST_TIMEOUT_MS,
@@ -30,6 +29,7 @@ import {
   openBoard,
   sentDrafts,
 } from "./harness/lifecycle-test.ts";
+import { viewSettled } from "./harness/probes.ts";
 import { readyIn } from "./harness/tree-steps.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 import { useWidgetHost, type WidgetHostRun } from "./harness/widget-host-test.ts";
@@ -156,7 +156,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           const field = view.getByLabel(label, { exact: true });
           await typeSlowly(run, field, text);
           await page.keyboard.press("Enter");
-          await Bun.sleep(QUIET_MS);
+          await viewSettled(run.board);
           expect(await field.inputValue()).toBe(text);
         }
         expect(run.messages.map((message) => message.type)).toEqual(["ready"]);

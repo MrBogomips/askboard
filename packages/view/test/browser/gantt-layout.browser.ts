@@ -29,12 +29,12 @@ import {
 import {
   eventually,
   LOAD_TIMEOUT_MS,
-  QUIET_MS,
   STEP_TIMEOUT_MS,
   TEST_TIMEOUT_MS,
 } from "./harness/board-test.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import { openerFor } from "./harness/gantt-steps.ts";
+import { viewSettled } from "./harness/probes.ts";
 import { EVAL_PROBE, readViewBuild, withChunkScript } from "./harness/view-build.ts";
 import { useWidgetHost } from "./harness/widget-host-test.ts";
 
@@ -96,7 +96,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           "the question's ready message",
           LOAD_TIMEOUT_MS,
         );
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(run.board);
         expect(run.messages).toEqual([{ type: "ready", itemId: schedule.id }]);
         const card = run.board.question(schedule.id);
         expect(await card.getAttribute("aria-busy")).toBe("false");
@@ -121,7 +121,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           "the Gantt's item-error message",
           LOAD_TIMEOUT_MS,
         );
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(run.board);
         expect(run.messages).toEqual([
           {
             type: "item-error",

@@ -19,7 +19,6 @@ import {
 import {
   eventually,
   expectNoCspProblem,
-  QUIET_MS,
   STEP_TIMEOUT_MS,
   TEST_TIMEOUT_MS,
   useEngine,
@@ -46,6 +45,7 @@ import {
   sentDrafts,
   viewText,
 } from "./harness/lifecycle-test.ts";
+import { quiet } from "./harness/probes.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 
 const dist = await readViewBuild();
@@ -346,7 +346,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           replaceChildren: { color: "rgb(13, 14, 15)", inHead: false },
         });
         // Let a report the browser queues reach the harness.
-        await Bun.sleep(QUIET_MS);
+        await quiet(
+          "a CSP report the browser queues reaches the harness on its own schedule: no channel to probe",
+        );
         expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,

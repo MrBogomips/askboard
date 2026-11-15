@@ -1,9 +1,9 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { appendFileSync } from "node:fs";
 import { exists, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { BOARD_HOST, BOARD_PORT_RANGE, boardLink } from "@askboard/contract";
+import { BOARD_HOST, BOARD_PORT_RANGE, boardLink, sessionFolder } from "@askboard/contract";
 import { plainChoiceBoardDocument } from "@askboard/contract/fixtures";
 import { DEFAULT_INHERITED_ENV_VARS } from "@modelcontextprotocol/client/stdio";
 import { FakeChild, fakeMcpServer, fakeSpawn } from "./fake-child.ts";
@@ -166,6 +166,7 @@ describe("startSessionProcess", () => {
       "BROWSER",
       LINKS_VARIABLE,
       "XDG_CONFIG_HOME",
+      "XDG_RUNTIME_DIR",
       "CLAUDE_PROJECT_DIR",
     ];
     for (const name of Object.keys(env)) expect(allowed).toContain(name);
@@ -194,6 +195,24 @@ describe("startSessionProcess", () => {
     expect(await read(join(projectDir, ".askboard", "config.json"))).toEqual(project);
     // The scenarios reach the user file through the session, to read what a board wrote.
     expect(session.userConfigPath).toBe(join(configHome, "askboard", "config.json"));
+  });
+
+  // e2e-cadence, design decision 5a: files in parallel never share the machine-wide session folder.
+  test("its session folder is a runtime folder of its own, never the machine-wide one, and goes when the session closes", async () => {
+    const fake = fakeProcess();
+    const session = await start(fake);
+    const second = fakeProcess();
+    await start(second);
+    const env = fake.spawned[0]?.options.env ?? {};
+    const runtime = String(env.XDG_RUNTIME_DIR);
+    expect(runtime).toMatch(new RegExp(`^${tmpdir()}/ab-[A-Za-z0-9]{6}$`));
+    const folder = sessionFolder({ env, uid: process.getuid?.() ?? 0 });
+    expect(folder).toBe(`${runtime}/askboard`);
+    expect(folder).not.toStartWith("/tmp/askboard-");
+    expect(second.spawned[0]?.options.env?.XDG_RUNTIME_DIR).not.toBe(runtime);
+    expect(await exists(runtime)).toBe(true);
+    await session.close();
+    expect(await exists(runtime)).toBe(false);
   });
 
   test("a scenario without a project starts the process without CLAUDE_PROJECT_DIR, the rest still its own", async () => {
@@ -382,5 +401,21 @@ describe("startSessionProcess refuses to start", () => {
     );
     const never = fakeProcess({ open: () => undefined });
     await expect(start(never)).rejects.toThrow("opened 0 board(s) through BROWSER");
+  });
+});
+
+// Security review X-2: the folder belongs to the session, not to the test scope that made it.
+describe("the runtime folder of a session started in a beforeAll", () => {
+  const fake = fakeProcess();
+  beforeAll(async () => {
+    await start(fake);
+  });
+  const runtime = () => String(fake.spawned[0]?.options.env?.XDG_RUNTIME_DIR);
+  afterEach(async () => {
+    expect(await exists(runtime())).toBe(true);
+  });
+
+  test("exists in the test, while the process runs", async () => {
+    expect(await exists(runtime())).toBe(true);
   });
 });

@@ -20,7 +20,6 @@ import { checkedEvents, decisionOf } from "./harness/approval-board.ts";
 import {
   eventually,
   expectNoCspProblem,
-  QUIET_MS,
   STEP_TIMEOUT_MS,
   TEST_TIMEOUT_MS,
   useEngine,
@@ -41,6 +40,7 @@ import {
   sentActs,
   sentDrafts,
 } from "./harness/lifecycle-test.ts";
+import { draftSettled, hostSettled } from "./harness/probes.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 
 const dist = await readViewBuild();
@@ -112,7 +112,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await promptArmed(board)).toBe(true);
         // A change on the board: the question in view moves on.
         await board.header.getByRole("button", { name: "Next open ↓" }).click();
-        await Bun.sleep(QUIET_MS);
+        await draftSettled(board);
         expect(await view.getByLabel("Second", { exact: true }).inputValue()).toBe("Grace Hopper");
         expect(draftHolds(sentDrafts(run), "plan", "b", "Grace Hopper")).toBe(true);
         expect(await promptArmed(board)).toBe(true);
@@ -151,7 +151,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await view.getByLabel("Count", { exact: true }).inputValue()).toBe("12x");
         expect(await answerOf(board, "plan").isDisabled()).toBe(true);
         expect(await hintOf(board)).toBe("Correct Count first.");
-        await Bun.sleep(QUIET_MS);
+        await draftSettled(board);
         const record = sentDrafts(run).at(-1);
         expect(record?.questions.plan).toMatchObject({ rev: 1, entries: { c: "12x" } });
         expect(sentActs(run).flatMap((command) => command.acts.map((act) => act.type))).toEqual([
@@ -209,7 +209,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await dialog(board).waitFor({ timeout: STEP_TIMEOUT_MS });
         await dialog(board).getByRole("button", { name: "Cancel", exact: true }).click();
         await dialog(board).waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
-        await Bun.sleep(QUIET_MS);
+        await hostSettled(board);
         expect(sentActs(run)).toHaveLength(before);
         await answerOf(board, "plan").click();
         await dialog(board).getByRole("button", { name: "Send", exact: true }).click();

@@ -11,9 +11,10 @@ import { ganttPlanBoardDocument } from "@askboard/contract/fixtures";
 import { schedule } from "./fixtures/gantt-documents.ts";
 import { planGantt } from "./fixtures/gantt-plan.ts";
 import { type GanttParts, ganttOf, withTasks } from "./fixtures/gantt-view.ts";
-import { eventually, LOAD_TIMEOUT_MS, QUIET_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
+import { eventually, LOAD_TIMEOUT_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import { openerFor } from "./harness/gantt-steps.ts";
+import { viewSettled } from "./harness/probes.ts";
 import { recordedKeys, recordKeys } from "./harness/tree-grid.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 import { useWidgetHost } from "./harness/widget-host-test.ts";
@@ -54,7 +55,7 @@ const dragEdge = async (run: Awaited<ReturnType<ReturnType<typeof openerFor>>>, 
 
 const expectNotAnAnswer = async (run: Awaited<ReturnType<ReturnType<typeof openerFor>>>) => {
   const gantt = ganttOf(run.board);
-  await Bun.sleep(QUIET_MS);
+  await viewSettled(run.board);
   expect(run.messages).toEqual([{ type: "ready", itemId: schedule.id }]);
   expect(await run.board.answer.isDisabled()).toBe(true);
   expect((await gantt.root.locator("[data-gantt-counter]").textContent())?.trim()).toBe(

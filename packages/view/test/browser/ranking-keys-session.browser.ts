@@ -18,7 +18,6 @@ import {
   eventually,
   isFocused,
   LOAD_TIMEOUT_MS,
-  QUIET_MS,
   reloadBoard,
   STEP_TIMEOUT_MS,
   TEST_TIMEOUT_MS,
@@ -34,6 +33,7 @@ import {
   sentActs,
   sentDrafts,
 } from "./harness/lifecycle-test.ts";
+import { draftSettled, viewSettled } from "./harness/probes.ts";
 import { orderShown, rowOf } from "./harness/ranking-drag.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 
@@ -145,7 +145,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         for (const key of ["Space", "Shift+ArrowDown", "Alt+Shift+ArrowUp", "Enter"]) {
           await board.page.keyboard.press(key);
         }
-        await Bun.sleep(QUIET_MS);
+        await draftSettled(board);
         expect(await orderShown(board)).toEqual(FIVE_ORDER);
         expect(await selected(board)).toEqual([]);
         expect([sentDrafts(run).length, sentActs(run).length]).toEqual([drafts, acts]);
@@ -221,7 +221,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await recordPrevented(board);
         await rowOf(board, "c").focus();
         await board.page.keyboard.press("Alt+Shift+Home");
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(board);
         expect(await orderShown(board)).toEqual(FIVE_ORDER);
         await board.page.keyboard.press("Control+Alt+ArrowUp");
         await expectOrder(board, ["c", "a", "b", "d", "e"]);
@@ -229,7 +229,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await board.page.keyboard.press("Shift+ArrowDown");
         await eventually(async () => (await selected(board)).length === 2, "two rows selected");
         await board.page.keyboard.press("Escape");
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(board);
         expect((await selected(board)).length).toBe(2);
         const seen = await prevented(board);
         expect(seen.filter(({ key }) => key === "Home").map(({ prevented: p }) => p)).toEqual([

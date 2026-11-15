@@ -126,7 +126,7 @@ Last group, before the pull request:
    - For `packages/view/chunk-sizes.json`, follow `askboard-implementation`.
    - Search for leftovers: `grep -rn '^<<<<<<<\|^>>>>>>>' packages tools`.
 6. Bind the labels and move the pins (Rules 1 and 2). Re-check every borrowed name on the rebased head; a difference stops the work for `/opsx:update`.
-7. Run `bun install --frozen-lockfile`, `bun run check`, `bun run build` and `openspec validate --all --strict --no-interactive`, plus `bun run test:e2e` when the view, the server or the conformance suite changed (CLAUDE.md).
+7. Run `bun install --frozen-lockfile`, `bun run check`, `bun run build` and `openspec validate --all --strict --no-interactive`, plus `bun run test:e2e:smoke` when the view, the server or the conformance suite changed, and `bun run test:e2e` when the harness, the runner or a widget's rendering changed (CLAUDE.md, CI section, Triggers).
 8. Record the rebase task's note, the PR body and the as-built note. If another change merges first, repeat from step 1.
 
 ## What the spec reviewer checks

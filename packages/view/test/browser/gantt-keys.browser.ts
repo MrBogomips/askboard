@@ -22,10 +22,11 @@ import {
   withSecondGantt,
   withTasks,
 } from "./fixtures/gantt-view.ts";
-import { QUIET_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
+import { TEST_TIMEOUT_MS } from "./harness/board-test.ts";
 import type { Board } from "./harness/dom.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import { openerFor } from "./harness/gantt-steps.ts";
+import { viewSettled } from "./harness/probes.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 import { useWidgetHost } from "./harness/widget-host-test.ts";
 
@@ -124,7 +125,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await focusedCell(run.board)).toBe("t2.task");
         expect(await pageState(run.board)).toEqual(page);
         expect({ rows: await rowTexts(gantt), bars: await barFacts(gantt) }).toEqual(before);
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(run.board);
         expect(run.messages).toEqual([{ type: "ready", itemId: schedule.id }]);
         expect(await run.board.answer.isDisabled()).toBe(true);
         expect(run.browser.cspProblems()).toEqual([]);

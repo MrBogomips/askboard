@@ -51,12 +51,12 @@ import {
 import {
   eventually,
   LOAD_TIMEOUT_MS,
-  QUIET_MS,
   STEP_TIMEOUT_MS,
   TEST_TIMEOUT_MS,
 } from "./harness/board-test.ts";
 import type { Board } from "./harness/dom.ts";
 import { enginesFrom } from "./harness/engines.ts";
+import { viewSettled } from "./harness/probes.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 import { useWidgetHost, type WidgetHostRun } from "./harness/widget-host-test.ts";
 
@@ -181,7 +181,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await gantt.grid.locator("input").count()).toBe(0);
         expect(await focusedCell(run.board)).toBe("billing.duration");
         expect(await rowTexts(gantt)).toEqual(PLAN_ROWS);
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(run.board);
         expect(run.messages).toEqual([{ type: "ready", itemId: planQuestion.id }]);
         expect(await run.board.answer.isDisabled()).toBe(true);
         expect(await counterText(gantt)).toBe(NONE_YET);
@@ -227,7 +227,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await expectScale(gantt, "day");
         // Choosing the zoom shown again keeps it.
         await board.page.keyboard.press("Enter");
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(board);
         expect(await checkedZoom(gantt)).toEqual(["Day"]);
         await expectScale(gantt, "day");
         // From the last option the right arrow reaches the switch, and the left arrow comes back.
@@ -262,7 +262,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         }
         expect(await rowTexts(gantt)).toEqual(PLAN_ROWS);
         expect(await pageState(board)).toEqual(page);
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(board);
         expect(run.messages).toEqual([{ type: "ready", itemId: planQuestion.id }]);
         expect(await board.answer.isDisabled()).toBe(true);
         expect(await counterText(gantt)).toBe(NONE_YET);
@@ -312,7 +312,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect((await changeOutlines(gantt)).map(({ task }) => task)).toEqual(["reporting"]);
         expect(await counterText(gantt)).toBe("Your changes: 1");
         expect(await run.board.answer.isEnabled()).toBe(true);
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(run.board);
         expect(run.messages).toEqual([{ type: "ready", itemId: planQuestion.id }]);
         expect(run.browser.errors).toEqual([]);
         expect(run.browser.cspProblems()).toEqual([]);

@@ -12,7 +12,6 @@ import { plan } from "./fixtures/tree-documents.ts";
 import {
   eventually,
   isFocused,
-  QUIET_MS,
   STEP_TIMEOUT_MS,
   TEST_TIMEOUT_MS,
   useEngine,
@@ -27,6 +26,7 @@ import {
   sentActs,
   sentDrafts,
 } from "./harness/lifecycle-test.ts";
+import { draftSettled, hostSettled } from "./harness/probes.ts";
 import { tabIntoGroup, tabLeavesGroup } from "./harness/tab-stops.ts";
 import { readyIn } from "./harness/tree-steps.ts";
 import { readViewBuild } from "./harness/view-build.ts";
@@ -65,7 +65,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await unsetTrack(board).getAttribute("aria-valuetext")).toBe("Not set");
         expect(await unsetTrack(board).getAttribute("aria-valuenow")).toBeNull();
         expect(await board.answer.isDisabled()).toBe(true);
-        await Bun.sleep(QUIET_MS);
+        await draftSettled(board);
         expect(run.messages.map((message) => message.type)).toEqual(["ready"]);
         expect(run.drafts).toEqual([]);
         expect(draftHolds(run.drafts, "plan", "share", undefined)).toBe(true);
@@ -248,7 +248,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           "the draft to hold 95",
         );
         await eventually(() => answerOf(board, "plan").isEnabled(), "Answer to be enabled");
-        await Bun.sleep(QUIET_MS);
+        await hostSettled(board);
         expect(sentActs(run).length).toBe(actsBefore);
         // Back to the logged value, which is what the closed ask shows.
         await board.page.keyboard.press("ArrowRight");
@@ -268,7 +268,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await thumbs(board).first().focus();
         await board.page.keyboard.press("ArrowLeft");
         await board.page.keyboard.press("Home");
-        await Bun.sleep(QUIET_MS);
+        await draftSettled(board);
         expect(await value(board).textContent()).toBe("100");
         expect([sentDrafts(run).length, sentActs(run).length]).toEqual([drafts, acts]);
       },

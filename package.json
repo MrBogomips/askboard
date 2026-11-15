@@ -20,6 +20,7 @@
     "format": "biome check --write .",
     "test": "bun test --parallel --no-isolate --timeout 30000 --timings tools/test-timings.json --coverage",
     "test:e2e": "bun packages/view/test/browser/run.ts --no-build --target session-process && bun packages/server/test/conformance/run.ts --runtime bun",
+    "test:e2e:smoke": "bun packages/view/test/browser/run.ts --no-build --target session-process --set smoke --engines chromium && bun packages/server/test/conformance/run.ts --runtime bun",
     "check:imports": "bun tools/check-imports.ts",
     "check:skills": "bun tools/build/skills.ts --check",
     "check:licences": "bun tools/check-licences.ts"

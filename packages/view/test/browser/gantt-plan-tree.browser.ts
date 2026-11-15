@@ -43,14 +43,9 @@ import {
   rowTexts,
 } from "./fixtures/gantt-view.ts";
 import { withBuild } from "./fixtures/tree-documents.ts";
-import {
-  eventually,
-  isFocused,
-  QUIET_MS,
-  STEP_TIMEOUT_MS,
-  TEST_TIMEOUT_MS,
-} from "./harness/board-test.ts";
+import { eventually, isFocused, STEP_TIMEOUT_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
 import { enginesFrom } from "./harness/engines.ts";
+import { viewSettled } from "./harness/probes.ts";
 import {
   deleteQuestion,
   paintOf,
@@ -121,7 +116,7 @@ const SENT_BASELINES = UJ2.map(([task, start, finish]) => `${task} ${start}..${f
 
 /** Nothing but the question's `ready` has left the view, after a quiet spell. */
 const expectOnlyReady = async (run: WidgetHostRun) => {
-  await Bun.sleep(QUIET_MS);
+  await viewSettled(run.board);
   expect(run.messages).toEqual([{ type: "ready", itemId: planQuestion.id }]);
 };
 
@@ -346,7 +341,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         // plan's diff names the three tasks it changed.
         await board.answer.click({ timeout: STEP_TIMEOUT_MS });
         await eventually(() => run.messages.length > 1, "the answer message");
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(board);
         const sentPlan = planGantt.props as { readonly tasks: Readonly<Record<string, unknown>> };
         const plan = {
           ...planGantt.props,

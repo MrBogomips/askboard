@@ -34,13 +34,7 @@ import {
   wbsPlan,
   wbsTree,
 } from "./fixtures/wbs-documents.ts";
-import {
-  eventually,
-  isFocused,
-  QUIET_MS,
-  STEP_TIMEOUT_MS,
-  TEST_TIMEOUT_MS,
-} from "./harness/board-test.ts";
+import { eventually, isFocused, STEP_TIMEOUT_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import {
   expectWrapped,
@@ -48,6 +42,7 @@ import {
   moveClosingQuoteAfterWords,
   wordsReadLeftToRight,
 } from "./harness/group-layout.ts";
+import { viewSettled } from "./harness/probes.ts";
 import { dragDrop, ZONE } from "./harness/tree-drag.ts";
 import {
   deleteQuestion,
@@ -172,7 +167,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           "Architecture, Clickable prototype",
         ]);
         expect(await run.board.answer.isDisabled()).toBe(false);
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(run.board);
         expect(run.messages).toEqual([{ type: "ready", itemId: "plan" }]);
         expect(run.browser.cspProblems()).toEqual([]);
       },
@@ -198,7 +193,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           planWith({ "u-1": { dependencies: ["portal"] } }),
         );
         expect((await rowOf(run, "u-1"))?.[4]).toBe("Customer portal");
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(run.board);
         expect(run.messages).toEqual([{ type: "ready", itemId: "plan" }]);
       },
       TEST_TIMEOUT_MS,
@@ -290,7 +285,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         });
         expect((await rowOf(run, "u-1"))?.[4]).toBe("Architecture, Clickable prototype");
         expect((await rowOf(run, "billing"))?.[4]).toBe("Architecture, Clickable prototype");
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(run.board);
         expect(run.messages).toEqual([{ type: "ready", itemId: "plan" }]);
       },
       TEST_TIMEOUT_MS,
@@ -311,7 +306,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect((await rowOf(run, "reporting"))?.[4]).toBe("Customer portal");
         await expectUnchanged(run);
         expect(draftValues(run)).toEqual({});
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(run.board);
         expect(run.messages).toEqual([{ type: "ready", itemId: "plan" }]);
       },
       TEST_TIMEOUT_MS,
@@ -347,7 +342,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           "reporting to depend on Architecture and Clickable prototype",
         );
         expect(await run.board.answer.isDisabled()).toBe(false);
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(run.board);
         expect(run.messages).toEqual([{ type: "ready", itemId: "plan" }]);
         expect(run.browser.cspProblems()).toEqual([]);
       },
@@ -372,7 +367,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await rowOf(run, "u-1")).toBeUndefined();
         await expectUnchanged(run);
         expect(await run.board.answer.isDisabled()).toBe(true);
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(run.board);
         expect(run.messages).toEqual([{ type: "ready", itemId: "plan" }]);
       },
       TEST_TIMEOUT_MS,

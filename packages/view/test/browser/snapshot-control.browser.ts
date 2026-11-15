@@ -13,7 +13,6 @@ import {
   type BoardRun,
   eventually,
   expectNoCspProblem,
-  QUIET_MS,
   RECONNECT_TIMEOUT_MS,
   STEP_TIMEOUT_MS,
   TEST_TIMEOUT_MS,
@@ -30,6 +29,7 @@ import {
   openBoard,
   optionOf,
 } from "./harness/lifecycle-test.ts";
+import { viewSettled } from "./harness/probes.ts";
 import { targetFrom } from "./harness/target.ts";
 import { replayTranscripts } from "./harness/transcripts.ts";
 import { readViewBuild } from "./harness/view-build.ts";
@@ -130,7 +130,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           .banner(CONNECTION_LOST)
           .waitFor({ state: "hidden", timeout: RECONNECT_TIMEOUT_MS });
         await eventually(async () => !(await snapshotButton(board).isDisabled()), "enabled again");
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(board);
         expect(snapshotRequests(run)).toBe(1);
         expect(run.session.problems()).toEqual([]);
       },
@@ -213,7 +213,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await board.banner(CONNECTION_LOST).first().waitFor({ timeout: RECONNECT_TIMEOUT_MS });
         await eventually(() => snapshotButton(board).isDisabled(), "Snapshot disabled");
         await snapshotButton(board).click({ force: true, timeout: STEP_TIMEOUT_MS });
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(board);
         expect(snapshotRequests(run)).toBe(0);
         expect(await feedbackOf(board).textContent()).toBe("");
         await run.session.restore();

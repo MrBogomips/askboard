@@ -23,6 +23,7 @@ import {
 } from "./harness/board-test.ts";
 import type { Board } from "./harness/dom.ts";
 import { enginesFrom } from "./harness/engines.ts";
+import { quiet } from "./harness/probes.ts";
 import { replayTranscripts } from "./harness/transcripts.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 
@@ -78,7 +79,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await second.receipt("delivered to the agent").waitFor({ timeout: STEP_TIMEOUT_MS });
         await run.session.exit();
         await shows(second, DISCARDED);
-        await expectNoReconnect(run);
+        await expectNoReconnect(run, second);
         expectPageHalf(run, clicked);
         expectNoCspProblem(run);
       },
@@ -92,7 +93,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const board = await run.open();
         await run.session.exit();
         await expectDiscarded(board);
-        await expectNoReconnect(run);
+        await expectNoReconnect(run, board);
         expectPageHalf(run);
       },
       TEST_TIMEOUT_MS,
@@ -105,7 +106,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const board = await run.open();
         await run.session.restart();
         await expectDiscarded(board);
-        await expectNoReconnect(run);
+        await expectNoReconnect(run, board);
         expectPageHalf(run);
       },
       TEST_TIMEOUT_MS,
@@ -168,14 +169,14 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const second = await run.open();
         await shows(first, MOVED);
         expect(await enabledCount(first.options)).toBe(0);
-        await expectNoReconnect(run);
+        await expectNoReconnect(run, first);
         await first.continueHere.click({ timeout: STEP_TIMEOUT_MS });
         await shows(second, MOVED);
         await second.continueHere.waitFor({ state: "visible", timeout: STEP_TIMEOUT_MS });
         await first.banner(MOVED).first().waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
         await first.receipt("delivered to the agent").waitFor({ timeout: STEP_TIMEOUT_MS });
         expect(await first.continueHere.count()).toBe(0);
-        await expectNoReconnect(run);
+        await expectNoReconnect(run, second);
         expectPageHalf(run, clicked);
         expectNoCspProblem(run);
       },
@@ -192,7 +193,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const clicked = await answerWith(board, "PostgreSQL");
         await board.receipt("not sent yet").waitFor({ timeout: STEP_TIMEOUT_MS });
         // Long enough that an answer stamped when it is sent, not when the user acted, shows.
-        await Bun.sleep(1_500);
+        await quiet(
+          "an answer is stamped when it is sent, not when the user acted, only if time passes between the two",
+        );
         await run.session.restore();
         await board.receipt("sent").waitFor({ timeout: RECONNECT_TIMEOUT_MS });
         await board.header

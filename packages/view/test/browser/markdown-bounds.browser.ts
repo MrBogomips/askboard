@@ -4,7 +4,9 @@
 // frame, each under 500 ms from the call to the end of a forced layout (the 2-second bound with a
 // margin of 4, as the LaTeX's) and with its output bounded: the HTML past 200,000 characters shows
 // the source as plain text, so what reaches the page never exceeds that. A fixture over 500 ms
-// stops the task for `/opsx:update`, never a raised bound.
+// stops the task for `/opsx:update`, never a raised bound. The budget is judged in the perf pass
+// (e2e-cadence decision 6): each fixture is rendered in each of three fresh pages, every other
+// outcome asserted on all three, and the budget judged on the median of the three renders.
 //
 // Run one engine by hand: ASKBOARD_E2E_ENGINES=webkit bun test ./packages/view/test/browser/markdown-bounds.browser.ts
 
@@ -12,8 +14,9 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { TEXT_MAX_CHARS } from "@askboard/contract";
 import { MARKDOWN_HTML_MAX_CHARS } from "../../src/markdown/markdown.ts";
 import { DENSE_TABLE, EMPTY_ITEMS, paddedTable } from "./fixtures/dense-markdown.ts";
-import { enginesFrom } from "./harness/engines.ts";
 import { MarkdownFrame } from "./harness/markdown-frame.ts";
+import { PERF_RUNS, perfRuns } from "./harness/perf.ts";
+import { enginesFor } from "./harness/suites.ts";
 
 const TEST_TIMEOUT_MS = 120_000;
 const BUDGET_MS = 500;
@@ -89,29 +92,32 @@ const FIXTURES: readonly (readonly [string, string])[] = [
   ["many items holding one URL, 100 characters", reuse(100, "![r][r] [r][r]")],
 ];
 
-for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES).filter(
-  (name) => name !== "firefox",
-)) {
+for (const engine of enginesFor(import.meta.path)) {
   describe(`${engine}: Markdown's bounded work`, () => {
-    const frame = new MarkdownFrame(engine);
-    afterAll(() => frame.close());
+    // One page for each run, so that each fixture's three samples come from three fresh pages.
+    const frames = Array.from({ length: PERF_RUNS }, () => new MarkdownFrame(engine));
+    const frame = frames[0] as MarkdownFrame;
+    afterAll(() => Promise.all(frames.map((one) => one.close())));
 
     for (const [name, source] of FIXTURES) {
       test(
         `${name}: under ${BUDGET_MS} ms, with output bounded and nothing unsafe`,
         async () => {
           expect(Array.from(source).length).toBeLessThanOrEqual(TEXT_MAX_CHARS);
-          const shown = await frame.render(source);
-          console.error(
-            `markdown-bounds ${engine}: ${name}: ${shown.ms.toFixed(0)} ms, ${shown.nodes} nodes, ${(shown.html ?? "").length} HTML characters`,
-          );
-          expect(shown.ms, `${name} took ${shown.ms.toFixed(0)} ms`).toBeLessThan(BUDGET_MS);
-          expect(shown.nodes).toBeLessThanOrEqual(NODES_MAX);
-          expect((shown.html ?? "").length).toBeLessThanOrEqual(MARKDOWN_HTML_MAX_CHARS);
-          expect(shown.violations).toEqual([]);
-          expect(frame.requests).toEqual([]);
+          await perfRuns(`markdown-bounds ${engine} ${name}`, async (run, gate) => {
+            const page = frames[run] as MarkdownFrame;
+            const shown = await page.render(source);
+            console.error(
+              `markdown-bounds ${engine}: ${name}: ${shown.ms.toFixed(0)} ms, ${shown.nodes} nodes, ${(shown.html ?? "").length} HTML characters`,
+            );
+            expect(shown.nodes).toBeLessThanOrEqual(NODES_MAX);
+            expect((shown.html ?? "").length).toBeLessThanOrEqual(MARKDOWN_HTML_MAX_CHARS);
+            expect(shown.violations).toEqual([]);
+            expect(page.requests).toEqual([]);
+            gate("render", shown.ms, BUDGET_MS, true);
+          });
         },
-        TEST_TIMEOUT_MS,
+        PERF_RUNS * TEST_TIMEOUT_MS,
       );
     }
 

@@ -18,8 +18,9 @@ import {
   WBS_HEADERS,
   wbsQuestion,
 } from "./fixtures/wbs-documents.ts";
-import { eventually, LOAD_TIMEOUT_MS, QUIET_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
+import { eventually, LOAD_TIMEOUT_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
 import { enginesFrom } from "./harness/engines.ts";
+import { viewSettled } from "./harness/probes.ts";
 import { chevronAngle, rightGaps, treeGridOf } from "./harness/tree-grid.ts";
 import { FIXTURE_ROWS, readyIn } from "./harness/tree-steps.ts";
 import { readViewBuild } from "./harness/view-build.ts";
@@ -52,7 +53,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           "the question's ready message",
           LOAD_TIMEOUT_MS,
         );
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(run.board);
         expect(run.messages).toEqual([{ type: "ready", itemId: wbsQuestion.id }]);
         const card = run.board.question(wbsQuestion.id);
         expect(await card.getAttribute("aria-busy")).toBe("false");

@@ -1,60 +1,33 @@
-// Runs the browser tests (design decision 11): builds, then runs every `*.browser.ts` file under
-// `bun test` once per engine, the engines in parallel, each in its own process with
-// `ASKBOARD_E2E_ENGINES` naming it. `bun run test` never runs these files: `bun test` picks up only
-// `*.test.ts`, and they need a build and the Playwright browsers.
+// Runs the browser tests (design decision 11, e2e-cadence decision 5): builds, then runs the files
+// of the chosen set under `bun test`, one engine at a time, each in its own process with
+// `ASKBOARD_E2E_ENGINES` naming it and its files in parallel over the workers. `bun run test` never
+// runs these files: `bun test` picks up only `*.test.ts`, and they need a build and the
+// Playwright browsers.
+//
+// The sets are the manifest's (`harness/suites.ts`): `smoke`, `full` (every file that is not a perf
+// file), `perf` (the timed bounds, serially, judged alone) and `all`, which is `full` then `perf`.
+// `--shard k/n` takes one part of each smoke or full pass, balanced by `timings/<engine>.json` when
+// it exists; it is refused with the `perf` and `all` sets, whose perf pass is never sharded.
+// `--update-timings` writes those files, on an unsharded `full` or `all` run only; `--timings-out
+// <file>` writes one engine's full set, sharded or not, to a file of its own instead (the nightly's
+// shard jobs, merged by `tools/ci/merge-timings.ts`). See `run-options.ts` and `run-plan.ts`.
 //
 // The tests talk to the test server, or with `--target session-process` to the built session
 // process `dist/askboard.mjs` (task 9.3), on Bun or with `--runtime node` on Node 24; the ask
 // lifecycle's scenarios talk to the session process on either target. The build is `bun run
 // build` (the bundle and `dist/view/`); `--no-build` uses what `dist/` holds.
 //
-// Usage: bun packages/view/test/browser/run.ts [--engines chromium,firefox,webkit]
-//          [--target test-server|session-process] [--runtime bun|node] [--no-build] [--serial]
-//          [-- <more bun test arguments, such as -t <pattern>>]
+// Usage: see USAGE in `run-options.ts`.
 
-import { readdir } from "node:fs/promises";
-import { join, relative } from "node:path";
-import { type Engine, enginesFrom } from "./harness/engines.ts";
-import { type Runtime, runtimeFrom, type Target, targetFrom } from "./harness/target.ts";
+import { copyFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { availableParallelism } from "node:os";
+import { dirname, join, resolve } from "node:path";
+import { BROWSER_FILES } from "./harness/suites.ts";
+import { type Options, parseArgs, USAGE } from "./run-options.ts";
+import { type Pass, planPasses, timingsFile } from "./run-plan.ts";
 
 const HERE = import.meta.dir;
 const ROOT = join(HERE, "..", "..", "..", "..");
-const TEST_TIMEOUT_MS = 60_000;
-
-type Options = {
-  readonly engines: readonly Engine[];
-  readonly target: Target;
-  readonly runtime: Runtime;
-  readonly build: boolean;
-  readonly serial: boolean;
-  readonly extra: readonly string[];
-};
-
-const USAGE =
-  "usage: bun packages/view/test/browser/run.ts [--engines a,b] [--target test-server|session-process] [--runtime bun|node] [--no-build] [--serial] [-- <bun test arguments>]";
-
-const parseArgs = (args: readonly string[]): Options | undefined => {
-  let engines = enginesFrom(process.env.ASKBOARD_E2E_ENGINES);
-  let target = targetFrom(process.env.ASKBOARD_E2E_TARGET);
-  let runtime = runtimeFrom(process.env.ASKBOARD_E2E_RUNTIME);
-  let build = true;
-  let serial = false;
-  const options = () => ({ engines, target, runtime, build, serial });
-  for (let at = 0; at < args.length; at += 1) {
-    const arg = args[at];
-    const value = args[at + 1];
-    if (arg === "--") return { ...options(), extra: args.slice(at + 1) };
-    if (arg === "--no-build") build = false;
-    else if (arg === "--serial") serial = true;
-    else if (value === undefined) return undefined;
-    else if (arg === "--engines") engines = enginesFrom(value);
-    else if (arg === "--target") target = targetFrom(value);
-    else if (arg === "--runtime") runtime = runtimeFrom(value);
-    else return undefined;
-    if (arg === "--engines" || arg === "--target" || arg === "--runtime") at += 1;
-  }
-  return { ...options(), extra: [] };
-};
 
 const children = new Set<Bun.Subprocess>();
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
@@ -64,12 +37,11 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
   });
 }
 
-// The session process serves the view beside its bundle, so its target builds both; so does the
+// The session process serves the view beside its bundle, so every target builds both; so does the
 // test server's, since the lifecycle's scenarios run on the session process whatever the target
 // (ask-lifecycle, `Scenario.ask`).
-const buildFor = async (_target: Target): Promise<number> => {
-  const command = ["run", "build"];
-  const child = Bun.spawn([process.execPath, ...command], {
+const build = async (): Promise<number> => {
+  const child = Bun.spawn([process.execPath, "run", "build"], {
     cwd: ROOT,
     stdout: "inherit",
     stderr: "inherit",
@@ -80,28 +52,32 @@ const buildFor = async (_target: Target): Promise<number> => {
   return code;
 };
 
-type EngineRun = { engine: Engine; code: number; output: string; seconds: number };
+type PassRun = { pass: Pass; code: number; output: string; seconds: number };
 
-const runEngine = async (
-  engine: Engine,
-  files: readonly string[],
-  options: Options,
-): Promise<EngineRun> => {
+// The file a `--timings-out` pass writes starts as the engine's committed timings (or empty), so
+// that `bun test` balances the shard by them: Bun reads the file, runs, and rewrites it.
+const seedTimings = (pass: Pass, from: string): void => {
+  if (pass.timingsOut === undefined) return;
+  mkdirSync(dirname(pass.timingsOut.file), { recursive: true });
+  if (pass.timingsOut.base === undefined) {
+    writeFileSync(pass.timingsOut.file, `${JSON.stringify({ version: 1, files: {} })}\n`);
+  } else copyFileSync(join(from, pass.timingsOut.base), pass.timingsOut.file);
+};
+
+const runPass = async (pass: Pass, options: Options): Promise<PassRun> => {
+  seedTimings(pass, ROOT);
   const started = performance.now();
-  const child = Bun.spawn(
-    [process.execPath, "test", "--timeout", String(TEST_TIMEOUT_MS), ...files, ...options.extra],
-    {
-      cwd: ROOT,
-      env: {
-        ...process.env,
-        ASKBOARD_E2E_ENGINES: engine,
-        ASKBOARD_E2E_TARGET: options.target,
-        ASKBOARD_E2E_RUNTIME: options.runtime,
-      },
-      stdout: "pipe",
-      stderr: "pipe",
+  const child = Bun.spawn([process.execPath, ...pass.args], {
+    cwd: ROOT,
+    env: {
+      ...process.env,
+      ASKBOARD_E2E_ENGINES: pass.engine,
+      ASKBOARD_E2E_TARGET: options.target,
+      ASKBOARD_E2E_RUNTIME: options.runtime,
     },
-  );
+    stdout: "pipe",
+    stderr: "pipe",
+  });
   children.add(child);
   const [stdout, stderr, code] = await Promise.all([
     new Response(child.stdout).text(),
@@ -109,47 +85,55 @@ const runEngine = async (
     child.exited,
   ]);
   children.delete(child);
-  const seconds = (performance.now() - started) / 1000;
-  return { engine, code, output: `${stdout}${stderr}`, seconds };
+  return {
+    pass,
+    code,
+    output: `${stdout}${stderr}`,
+    seconds: (performance.now() - started) / 1000,
+  };
 };
 
 const count = (output: string, word: "pass" | "fail") =>
   Number(new RegExp(`^\\s*(\\d+) ${word}$`, "m").exec(output)?.[1] ?? 0);
 
 const main = async (args: readonly string[]): Promise<number> => {
-  let options: Options | undefined;
+  let options: Options;
   try {
-    options = parseArgs(args);
+    options = parseArgs(args, { env: process.env, cores: availableParallelism() });
   } catch (error) {
-    console.log(error instanceof Error ? error.message : String(error));
+    console.log(error instanceof Error ? error.message : `${String(error)}\n${USAGE}`);
     return 1;
   }
-  if (options === undefined) {
-    console.log(USAGE);
-    return 1;
+  if (options.build && (await build()) !== 0) return 1;
+  // The runner works from the repository root; a relative file is the caller's own.
+  const timingsOut = options.timingsOut === undefined ? undefined : resolve(options.timingsOut);
+  const passes = planPasses(
+    timingsOut === undefined ? options : { ...options, timingsOut },
+    BROWSER_FILES,
+    (engine) => existsSync(join(ROOT, timingsFile(engine))),
+  );
+  // The engines run in turn, a pass after a pass: three engines at once saturate the machine and add
+  // failures that only load causes (task 0.3).
+  const runs: PassRun[] = [];
+  for (const pass of passes) {
+    const run = await runPass(pass, options);
+    runs.push(run);
+    console.log(`\n=== ${pass.set} ${pass.engine} ===\n${run.output.trimEnd()}`);
   }
-  if (options.build && (await buildFor(options.target)) !== 0) return 1;
-  const files = (await readdir(HERE))
-    .filter((name) => name.endsWith(".browser.ts"))
-    .sort()
-    .map((name) => `./${relative(ROOT, join(HERE, name))}`);
-  const runs: EngineRun[] = [];
-  if (options.serial) {
-    for (const engine of options.engines) runs.push(await runEngine(engine, files, options));
-  } else {
-    runs.push(
-      ...(await Promise.all(options.engines.map((engine) => runEngine(engine, files, options)))),
-    );
-  }
-  for (const run of runs) console.log(`\n=== ${run.engine} ===\n${run.output.trimEnd()}`);
   const target =
     options.target === "session-process"
       ? `the session process on ${options.runtime}`
       : "the test server";
   console.log(`\nbrowser tests against ${target}:`);
-  for (const run of runs) {
-    const outcome = `${count(run.output, "pass")} pass, ${count(run.output, "fail")} fail`;
-    console.log(`  ${run.engine.padEnd(8)} ${outcome} in ${run.seconds.toFixed(1)} s`);
+  for (const { pass, output, seconds } of runs) {
+    const outcome = `${count(output, "pass")} pass, ${count(output, "fail")} fail`;
+    console.log(
+      `  ${pass.set.padEnd(5)} ${pass.engine.padEnd(8)} ${outcome} in ${seconds.toFixed(1)} s`,
+    );
+  }
+  if (passes.length === 0) {
+    console.log("  no file to run for these engines and this set");
+    return 1;
   }
   return runs.every((run) => run.code === 0) ? 0 : 1;
 };

@@ -17,7 +17,6 @@ import { checkedEvents, checkedFetchItem, decisionOf } from "./harness/approval-
 import {
   eventually,
   expectNoCspProblem,
-  QUIET_MS,
   reloadBoard,
   STEP_TIMEOUT_MS,
   TEST_TIMEOUT_MS,
@@ -37,6 +36,7 @@ import {
   sentActs,
   sentDrafts,
 } from "./harness/lifecycle-test.ts";
+import { draftSettled, hostSettled } from "./harness/probes.ts";
 import {
   beginDrag,
   dragOver,
@@ -109,7 +109,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         );
         await eventually(() => promptArmed(board), "the prompt to be armed after the reload");
         expect(await answerOf(board, "plan").isEnabled()).toBe(true);
-        await Bun.sleep(QUIET_MS);
+        await hostSettled(board);
         expect(sentActs(run)).toEqual([]);
         expect((await run.session.collect()).events).toEqual([]);
         expectNoCspProblem(run);
@@ -281,7 +281,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const reopened = card(board, "plan").locator('[data-askboard-notice="reopened"]');
         await reopened.getByText("Reopened by the agent").waitFor({ timeout: STEP_TIMEOUT_MS });
         await reopened.getByRole("button", { name: "Start from my previous answer" }).click();
-        await Bun.sleep(QUIET_MS);
+        await draftSettled(board);
         for (const id of [RANKING_FIXTURE_ITEM.id, "share", "verdict"]) {
           expect(draftHolds(sentDrafts(run), "plan", id, undefined), id).toBe(true);
         }

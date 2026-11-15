@@ -16,13 +16,7 @@ import {
   LINE_PROPS,
 } from "./fixtures/chart-documents.ts";
 import { plan } from "./fixtures/tree-documents.ts";
-import {
-  eventually,
-  QUIET_MS,
-  STEP_TIMEOUT_MS,
-  TEST_TIMEOUT_MS,
-  useEngine,
-} from "./harness/board-test.ts";
+import { eventually, STEP_TIMEOUT_MS, TEST_TIMEOUT_MS, useEngine } from "./harness/board-test.ts";
 import { barCentre, barWidthOf, boxOf, clickAt, wearsRing } from "./harness/chart-points.ts";
 import type { Board } from "./harness/dom.ts";
 import { draftHolds } from "./harness/draft-results.ts";
@@ -34,6 +28,7 @@ import {
   sentActs,
   sentDrafts,
 } from "./harness/lifecycle-test.ts";
+import { draftSettled } from "./harness/probes.ts";
 import { tabIntoGroup, tabLeavesGroup } from "./harness/tab-stops.ts";
 import { readyIn } from "./harness/tree-steps.ts";
 import { readViewBuild } from "./harness/view-build.ts";
@@ -100,7 +95,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await chartOf(board).getAttribute("role")).toBe("application");
         expect(await chartOf(board).getAttribute("aria-roledescription")).toBe("chart");
         expect(await board.answer.isDisabled()).toBe(true);
-        await Bun.sleep(QUIET_MS);
+        await draftSettled(board);
         expect(run.messages.map((message) => message.type)).toEqual(["ready"]);
         expect(run.drafts).toEqual([]);
         expect(run.browser.cspProblems()).toEqual([]);
@@ -168,7 +163,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await board.page.keyboard.press("ArrowRight");
         await liveIs(board, "Fix B, Failures: 9 runs");
         await board.page.keyboard.press("Space");
-        await Bun.sleep(QUIET_MS);
+        await draftSettled(board);
         expect(await live(board).textContent()).toBe("Fix B, Failures: 9 runs");
         expect(await ringOf(board, 0, 1)).toBe(false);
         expect(run.drafts).toEqual([]);
@@ -312,7 +307,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await tabIntoGroup(board, plan.props.text, chartOf(board));
         await board.page.keyboard.press("ArrowRight");
         await board.page.keyboard.press("Space");
-        await Bun.sleep(QUIET_MS);
+        await draftSettled(board);
         expect(await counter(board).textContent()).toBe("1 point highlighted");
         expect(await ringOf(board, 0, 1)).toBe(true);
         expect(await ringOf(board, 0, 0)).toBe(false);

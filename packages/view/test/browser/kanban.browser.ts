@@ -32,7 +32,6 @@ import {
 import {
   eventually,
   isFocused,
-  QUIET_MS,
   STEP_TIMEOUT_MS,
   TEST_TIMEOUT_MS,
   useEngine,
@@ -58,6 +57,7 @@ import {
   sentActs,
   sentDrafts,
 } from "./harness/lifecycle-test.ts";
+import { draftSettled, viewSettled } from "./harness/probes.ts";
 import { readyIn } from "./harness/tree-steps.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 import { useWidgetHost, type WidgetHostRun } from "./harness/widget-host-test.ts";
@@ -124,7 +124,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await board.view.locator('[data-change="moved"]').count()).toBe(0);
         expect(await counterText(board)).toBe("No changes");
         expect(await board.answer.isDisabled()).toBe(true);
-        await Bun.sleep(QUIET_MS);
+        await draftSettled(board);
         expect(run.messages.map((message) => message.type)).toEqual(["ready"]);
         expect(run.drafts).toEqual([]);
         expect(run.browser.violations).toEqual([]);
@@ -180,7 +180,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await columnOf(board, "todo").getAttribute("data-drop")).toBeNull();
         expect(await lineCount(board)).toBe(0);
         await release(board);
-        await Bun.sleep(QUIET_MS / 3);
+        await viewSettled(board);
         expect(await cardsIn(board, "todo")).toEqual(["a", "c"]);
 
         await beginDrag(board, cardOf(board, "a"));
@@ -210,7 +210,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const grip = board.view.locator('[data-node-id="portal"] [data-drag-handle]');
         await beginDrag(board, grip);
         await dragOver(board, columnOf(board, "doing"));
-        await Bun.sleep(QUIET_MS / 3);
+        await viewSettled(board);
         expect(await columnOf(board, "doing").getAttribute("data-drop")).toBeNull();
         await release(board);
         expect(await cardsIn(board, "doing")).toEqual([]);
@@ -322,7 +322,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await moveTo(board).focus();
         await board.page.keyboard.press("Enter");
         await board.page.keyboard.press("ArrowDown");
-        await Bun.sleep(QUIET_MS / 3);
+        await draftSettled(board);
         expect(await board.view.getByRole("menu").count()).toBe(0);
         expect(await isFocused(moveTo(board))).toBe(true);
         expect(run.drafts).toEqual([]);
@@ -473,7 +473,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await expectLine(board, "d", null);
         expect(await lineCount(board)).toBe(0);
         await release(board);
-        await Bun.sleep(QUIET_MS / 3);
+        await draftSettled(board);
         expect(await cardsIn(board, "todo")).toEqual(["a", "c", "d"]);
         expect(run.drafts).toEqual([]);
         expect(await counterText(board)).toBe("No changes");
@@ -641,7 +641,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const before = await place();
         await board.page.keyboard.press("Shift+ArrowUp");
         await board.page.keyboard.press("Alt+ArrowUp");
-        await Bun.sleep(QUIET_MS / 3);
+        await draftSettled(board);
         expect(await current(board, "c")).toBe("true");
         expect(await cardsIn(board, "todo")).toEqual(["a", "c", "d"]);
         expect(run.drafts).toEqual([]);
@@ -654,7 +654,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await board.page.keyboard.press("Alt+Shift+ArrowUp");
         await board.page.keyboard.press("Alt+Shift+Home");
         await board.page.keyboard.press("Control+Shift+ArrowUp");
-        await Bun.sleep(QUIET_MS / 3);
+        await draftSettled(board);
         expect(await cardsIn(board, "todo")).toEqual(["a", "c", "d"]);
         expect(await current(board, "a")).toBe("true");
         expect(run.drafts).toEqual([]);
@@ -801,7 +801,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await cardOf(board, "c").focus();
         await board.page.keyboard.press("ArrowDown");
         await board.page.keyboard.press("Enter");
-        await Bun.sleep(QUIET_MS);
+        await draftSettled(board);
         expect(await cardsIn(board, "doing")).toEqual(["a"]);
         expect(await cardsIn(board, "todo")).toEqual(["c"]);
         expect(await cardsIn(board, "done")).toEqual(["b"]);
@@ -848,7 +848,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           expect(await tool(board, name).getAttribute("aria-disabled")).toBe("true");
           await tool(board, name).click({ force: true, timeout: STEP_TIMEOUT_MS });
         }
-        await Bun.sleep(QUIET_MS);
+        await draftSettled(board);
         expect(await cardsIn(board, "todo")).toEqual(["d", "a", "c"]);
         expect(await cardsIn(board, "done")).toEqual(["b"]);
         expect(await cardOf(board, "d").getAttribute("data-change")).toBe("moved");

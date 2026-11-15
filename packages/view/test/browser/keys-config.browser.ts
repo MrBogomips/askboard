@@ -15,7 +15,6 @@ import { FIVE_ORDER, rankingFiveAsk } from "./fixtures/ranking-documents.ts";
 import {
   eventually,
   isFocused,
-  QUIET_MS,
   STEP_TIMEOUT_MS,
   TEST_TIMEOUT_MS,
   useEngine,
@@ -23,6 +22,7 @@ import {
 import type { Board } from "./harness/dom.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import { lifecycleScenario, openBoard } from "./harness/lifecycle-test.ts";
+import { quiet, viewSettled } from "./harness/probes.ts";
 import { orderShown, rowOf } from "./harness/ranking-drag.ts";
 import { readViewBuild, withKeysProbe } from "./harness/view-build.ts";
 
@@ -124,7 +124,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await ariaOf(keysButton(board, "second"), MOD_ALT_ENTER, "the Keys button's new keys");
         await list(board, "second").focus();
         await board.page.keyboard.press("?");
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(board);
         expect(await panel(board).count()).toBe(0);
         await board.page.keyboard.press(CHORD);
         await panel(board).waitFor({ timeout: STEP_TIMEOUT_MS });
@@ -156,7 +156,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await ariaOf(button, null, "the Keys button to lose its attribute");
         await list(board, "second").focus();
         await board.page.keyboard.press("?");
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(board);
         expect(await panel(board).count()).toBe(0);
         await button.hover();
         await board.view.getByText("Keys", { exact: true }).first().waitFor({
@@ -190,7 +190,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           "Alt+Shift+ArrowUp",
           "Move up to keep its default",
         );
-        await Bun.sleep(QUIET_MS);
+        await quiet(
+          "the user's keys come with the first update from the board page to the view, which no probe covers",
+        );
         expect(await aria(tool(board, "first", "Probe top"))).toBe(
           "Alt+Shift+Home Control+Shift+ArrowUp Meta+Shift+ArrowUp",
         );
@@ -218,7 +220,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           );
         expect(await orderShown(board)).toEqual(FIVE_ORDER);
         // The board page applies the user's keys with its first update; wait for it, as above.
-        await Bun.sleep(QUIET_MS);
+        await quiet(
+          "the user's keys come with the first update from the board page to the view, which no probe covers",
+        );
         await rowOf(board, "c").focus();
         await board.page.keyboard.press("Alt+Shift+Home");
         await expectOrder(["c", "a", "b", "d", "e"]);

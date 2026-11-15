@@ -16,10 +16,15 @@ Each rule says why and which PR taught it. Paths are relative to the repository 
 
 ## Browser tests (`packages/view/test/browser/*.browser.ts`)
 
-Run with `bun packages/view/test/browser/run.ts` (flags in the file's header; `bun run test:e2e` after a build). `bun run test` never runs them. Each `*.browser.ts` file runs once per engine, the engines in parallel, each in its own process; `ASKBOARD_E2E_ENGINES` names the engine. Needs `node_modules/.bin/playwright install chromium firefox webkit`.
+Run with `bun packages/view/test/browser/run.ts` (flags in the file's header; `bun run test:e2e` after a build). `bun run test` never runs them. The runner takes `--set smoke|full|perf|all` (`bun run test:e2e` runs `all`, `bun run test:e2e:smoke` the smoke set in Chromium): each `*.browser.ts` file runs once per engine, the engines in turn, the files of an engine in parallel workers (`--workers`), the perf files afterwards one at a time; `ASKBOARD_E2E_ENGINES` names the engine. Needs `node_modules/.bin/playwright install chromium firefox webkit`.
+
+### Waits and timed checks (enforced by tests)
+- A new browser file needs an entry in `BROWSER_FILES` (`harness/suites.ts`): its engines (fewer than three only with the requirement that names them, in `why`), `smoke` or `perf`. `harness/suites.test.ts` fails otherwise.
+- Never `Bun.sleep(QUIET_MS)`, a fraction of it or its literal: wait on a probe of `harness/probes.ts` (`viewSettled`, `draftSettled`, `hostSettled`, `timerSettled`), or `quiet(reason)` with a non-empty reason when no probe applies. `harness/probes.test.ts` fails otherwise.
+- A wall-clock bound lives only in a perf file (`perf: true` in the manifest), through `harness/perf.ts` (`perfRuns`, `PERF_RUNS` runs judged on the median); the parallel set holds none. `harness/perf-files.test.ts` fails otherwise.
 
 ### Helpers to use
-- Board and locators: `harness/dom.ts` (`boardOf`, `Board`, `VIEW_FRAME`: the view lives in a sandboxed iframe, so every locator goes through it); `harness/lifecycle-test.ts` (`lifecycleScenario`, `openBoard`, `card`, `optionOf`, `answerOf`, `noteOf`, `buttonOf`, `barButton`, `tabTo`, `sentActs`, `actsSent`, `actsDone`); `harness/board-test.ts` (`useEngine`, `waitForQuestion`, `eventually`, `answerWith`, `expectNoCspProblem`, `expectNoReconnect`, and the timeouts `STEP_TIMEOUT_MS`, `LOAD_TIMEOUT_MS`, `RECONNECT_TIMEOUT_MS`).
+- Board and locators: `harness/dom.ts` (`boardOf`, `Board`, `VIEW_FRAME`: the view lives in a sandboxed iframe, so every locator goes through it); `harness/lifecycle-test.ts` (`lifecycleScenario`, `openBoard`, `card`, `optionOf`, `answerOf`, `noteOf`, `buttonOf`, `barButton`, `tabTo`, `sentActs`, `actsSent`, `actsDone`); `harness/board-test.ts` (`useEngine`, `waitForQuestion`, `eventually`, `answerWith`, `expectNoCspProblem`, `expectNoReconnect(run, board)`, and the timeouts `STEP_TIMEOUT_MS`, `LOAD_TIMEOUT_MS`, `RECONNECT_TIMEOUT_MS`).
 - The agent's side after a user's act: `actsApplied(run, n)` (`board-test.ts`) or `actsDone` (`lifecycle-test.ts`). A card shows "sent" once the page has sent the act, before board-host applies it, so collecting, replying or updating on that receipt races. #25: on slow CI, WebKit found no follow-up to reply to (lifecycle-acts) and a collect returned nothing (lifecycle-revisions). Wait for board-host's done on the act commands, and await the ws write before the next step in transcript replays.
 - Reload: `reloadBoard` (`board-test.ts`) over `harness/reload.ts`. #25: Playwright's Firefox driver sometimes loses the view's iframe after a reload (frame at `about:blank`; about 1 reload in 20 to 60 under CPU load, not a product bug). The helper reloads once more only when the frame is lost, says so, and fails otherwise. Never write a bare reload followed by a view locator.
 - Widgets: `harness/widget-board.ts` (`widgetBoardFor`, with the places `widget host` and `session process`), `harness/widget-host-test.ts`, `harness/tree-steps.ts`, `harness/gantt-steps.ts`, `harness/tree-grid.ts`.
@@ -56,7 +61,7 @@ Run with `bun packages/server/test/conformance/run.ts` (`--runtime node` for Nod
 
 ## When only CI can run an engine
 
-Firefox cannot launch in the local sandbox (#27, #28, #31) and Linux is not covered locally. CI runs the browser and conformance suites only on demand (`workflow_dispatch` of `ci.yml`). So:
+Firefox cannot launch in the local sandbox (#27, #28, #31) and Linux is not covered locally. `e2e.yml` runs them in CI: the smoke set in Chromium and conformance on Bun on every pull request, every file in all three engines every night (Linux) and every Saturday and before a release (macOS; the release gate leaves Firefox out until #174 and #145 close, and runs Firefox's smoke set on Linux). The e2e statuses are not required checks (CLAUDE.md, CI section). So:
 1. Run Chromium and WebKit locally and report the counts.
 2. Write Firefox-sensitive tests (focus order, image URLs, frame loss, huge SVG layout, first-request timing) by the notes above, without a local run.
 3. In the report, under "only CI can verify", list each browser file you touched or added, the engines not run, and the specific Firefox risk you see. The caller ticks the "CI green" task after the run; you do not.

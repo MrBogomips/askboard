@@ -14,7 +14,6 @@ import { checkedEvents, checkedFetchItem } from "./harness/approval-board.ts";
 import {
   eventually,
   expectNoCspProblem,
-  QUIET_MS,
   reloadBoard,
   STEP_TIMEOUT_MS,
   TEST_TIMEOUT_MS,
@@ -31,6 +30,7 @@ import {
   sentActs,
   sentDrafts,
 } from "./harness/lifecycle-test.ts";
+import { draftSettled } from "./harness/probes.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 
 const dist = await readViewBuild();
@@ -283,7 +283,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           await field(board, label).focus();
           await board.page.keyboard.press("Enter");
         }
-        await Bun.sleep(QUIET_MS);
+        await draftSettled(board);
         expect(sentActs(run)).toEqual([]);
         expect((await run.session.collect()).events).toEqual([]);
         expect(draftHolds(sentDrafts(run), QUESTION, "form-name", "Ada Lovelace")).toBe(true);

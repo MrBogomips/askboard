@@ -8,9 +8,10 @@
 import { describe, expect, test } from "bun:test";
 import { treeBoardDocument } from "@askboard/contract/fixtures";
 import { plan } from "./fixtures/tree-documents.ts";
-import { eventually, QUIET_MS, STEP_TIMEOUT_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
+import { eventually, STEP_TIMEOUT_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
 import { tokenColor } from "./harness/design-colors.ts";
 import { enginesFrom } from "./harness/engines.ts";
+import { viewSettled } from "./harness/probes.ts";
 import {
   deleteQuestion,
   focusRing,
@@ -102,7 +103,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await board.page.keyboard.press("Enter");
         await question.waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
         expect(await tree.counter.textContent()).toBe("Your changes: 6");
-        await Bun.sleep(QUIET_MS);
+        await viewSettled(board);
         expect(run.messages).toEqual([{ type: "ready", itemId: plan.id }]);
         // After "Answer", the Tree shows the sent value with its marks and its count.
         await board.answer.click({ timeout: STEP_TIMEOUT_MS });
@@ -176,7 +177,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           // The counter's mark is the change dot.
           const dot = tree.counter.locator("[aria-hidden]");
           expect((await paintOf(dot)).background).toBe(change);
-          await Bun.sleep(QUIET_MS);
+          await viewSettled(board);
           expect(run.messages).toEqual([{ type: "ready", itemId: plan.id }]);
           expect(run.browser.errors).toEqual([]);
           expect(run.browser.cspProblems()).toEqual([]);

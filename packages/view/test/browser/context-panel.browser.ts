@@ -28,6 +28,7 @@ import {
 import type { Board } from "./harness/dom.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import { lifecycleScenario, openBoard } from "./harness/lifecycle-test.ts";
+import { quiet } from "./harness/probes.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 
 const dist = await readViewBuild();
@@ -305,7 +306,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const page = await run.browser.context.newPage();
         try {
           await page.goto(other, { waitUntil: "commit", timeout: STEP_TIMEOUT_MS });
-          await Bun.sleep(1500);
+          await quiet(
+            "a refused frame raises no event a test can wait for, and Firefox's error page never answers",
+          );
           const child = page.frames().find((each) => each !== page.mainFrame());
           // A refused frame can be an error page that never answers (Firefox): no answer is no text.
           const unanswered = new Promise<string>((resolve) => setTimeout(() => resolve(""), 3000));
