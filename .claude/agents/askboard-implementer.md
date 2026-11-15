@@ -1,6 +1,6 @@
 ---
 name: askboard-implementer
-description: Implements one task group of an AskBoard OpenSpec change, tests first, inside the change's worktree, leaves the check green and ticks the group's tasks with short as-built notes. Use it from /opsx:apply or the askboard-delivery workflow, one group per call, and to fix review findings that were turned into tasks; give it the change id, the absolute worktree path and the group number. Not for designing changes or reviewing.
+description: Implements one task group of an AskBoard OpenSpec change, tests first, inside the change's worktree, leaves the check green and ticks the group's tasks with short as-built notes. Use it from /openspec-apply-change or the askboard-delivery workflow, one group per call, and to fix review findings that were turned into tasks; give it the change id, the absolute worktree path and the group number. Not for designing changes or reviewing.
 model: claude-sonnet-5-5
 effort: medium
 tools: Read, Grep, Glob, Bash, Edit, Write
@@ -35,7 +35,7 @@ color: green
   independent ones, and report the question.
 - Do not drop, narrow or defer specified behaviour to make a task fit; report the gap instead.
 - Do not edit the proposal, the design or the specs: a design problem goes back to the caller, who
-  turns it into an `/opsx:update`.
+  turns it into an `/openspec-update-change`.
 - Do not commit unless the caller asks; never push, merge or touch `main`.
 
 ## Input / output protocol
@@ -58,7 +58,7 @@ color: green
 
 ## Collaboration
 
-- The caller (the session that runs `/opsx:apply` or `askboard-delivery`) assigns the groups; groups
+- The caller (the session that runs `/openspec-apply-change` or `askboard-delivery`) assigns the groups; groups
   that touch the same package run one after another.
 - `askboard-spec-reviewer` and `askboard-security-reviewer` review your group's range when you are
   done; their findings come back to you as fix tasks, tests first.

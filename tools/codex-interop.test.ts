@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { lstatSync, readdirSync, readFileSync, readlinkSync } from "node:fs";
 import { join } from "node:path";
 
 // Codex interop (CLAUDE.md): CLAUDE.md is the one source, and the Codex files are generated
@@ -16,9 +16,42 @@ describe("Codex interop", () => {
     expect(imports).toEqual([]);
   });
 
-  test("the Codex files are gitignored", () => {
-    const ignored = read(".gitignore").split("\n");
-    expect(ignored).toEqual(expect.arrayContaining(["/AGENTS.md", "/.agents/", "/.codex/"]));
+  test("the Codex files are gitignored; OpenSpec's shared skills are not", () => {
+    const ignored = (path: string): boolean =>
+      Bun.spawnSync(["git", "check-ignore", "-q", "--no-index", path], { cwd: ROOT }).exitCode ===
+      0;
+    for (const generated of [
+      "AGENTS.md",
+      ".codex/agents/askboard-architect.toml",
+      ".codex/codex-port.manifest",
+      ".agents/skills/askboard-delivery/SKILL.md",
+      ".agents/skills/askboard-delivery/agents/openai.yaml",
+      ".agents/other.txt",
+    ]) {
+      expect({ generated, ignored: ignored(generated) }).toEqual({ generated, ignored: true });
+    }
+    for (const openspec of [
+      ".agents/skills/.openspec-target",
+      ".agents/skills/openspec-propose/SKILL.md",
+    ]) {
+      expect({ openspec, ignored: ignored(openspec) }).toEqual({ openspec, ignored: false });
+    }
+  });
+
+  test("every skill linked into .claude/skills resolves to OpenSpec's tracked shared copy", () => {
+    const links = readdirSync(join(ROOT, ".claude/skills")).filter((name) =>
+      lstatSync(join(ROOT, ".claude/skills", name)).isSymbolicLink(),
+    );
+    expect(links.length).toBeGreaterThan(0);
+    for (const name of links) {
+      expect(name).toStartWith("openspec-");
+      expect(readlinkSync(join(ROOT, ".claude/skills", name))).toBe(`../../.agents/skills/${name}`);
+      const tracked = Bun.spawnSync(
+        ["git", "ls-files", "--error-unmatch", `.agents/skills/${name}/SKILL.md`],
+        { cwd: ROOT },
+      );
+      expect({ name, tracked: tracked.exitCode }).toEqual({ name, tracked: 0 });
+    }
   });
 
   test("setup.sh carries the codex-port block and runs it", () => {

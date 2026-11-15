@@ -164,8 +164,8 @@ Uninstalling removes the plugin from that scope and deletes its data folder unde
 Changes are driven by [OpenSpec](https://github.com/Fission-AI/OpenSpec): propose a change, implement it, archive it into `openspec/specs/`. The backlog is the repository's GitHub Issues.
 
 ```sh
-npx --yes @fission-ai/openspec@1.15.0 list                    # changes in flight
-npx --yes @fission-ai/openspec@1.15.0 validate --all --strict  # what CI runs
+npx --yes @fission-ai/openspec@2.0.0 list                    # changes in flight
+npx --yes @fission-ai/openspec@2.0.0 validate --all --strict  # what CI runs
 ```
 
 Requirements: Bun 1.4.4, the version in `packageManager`, and Node 24.22.1 or later, pinned for the repository with Volta. The code lives in the ten packages under `packages/`; `tools/` holds the repository checks.

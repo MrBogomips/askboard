@@ -5,7 +5,7 @@
 
 import type { ElementShape } from "../element-diff.ts";
 
-/** A Table holds at most this many rows (design decision 13: lowered only through `/opsx:update`). */
+/** A Table holds at most this many rows (design decision 13: lowered only through `/openspec-update-change`). */
 export const TABLE_MAX_ROWS = 200;
 /** A Table holds at least this many columns, and at most `TABLE_MAX_COLUMNS`. */
 export const TABLE_MIN_COLUMNS = 1;

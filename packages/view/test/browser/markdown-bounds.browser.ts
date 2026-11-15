@@ -4,7 +4,7 @@
 // frame, each under 500 ms from the call to the end of a forced layout (the 2-second bound with a
 // margin of 4, as the LaTeX's) and with its output bounded: the HTML past 200,000 characters shows
 // the source as plain text, so what reaches the page never exceeds that. A fixture over 500 ms
-// stops the task for `/opsx:update`, never a raised bound. The budget is judged in the perf pass
+// stops the task for `/openspec-update-change`, never a raised bound. The budget is judged in the perf pass
 // (e2e-cadence decision 6): each fixture is rendered in each of three fresh pages, every other
 // outcome asserted on all three, and the budget judged on the median of the three renders.
 //

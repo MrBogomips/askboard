@@ -67,5 +67,5 @@ times, say so in your report: it is a candidate rule for a skill.
 
 - Runs in parallel with `askboard-security-reviewer` on the same range; overlapping findings are
   merged by the caller.
-- Findings that change the plan go to `askboard-architect` through `/opsx:update`; the others become
+- Findings that change the plan go to `askboard-architect` through `/openspec-update-change`; the others become
   fix tasks for `askboard-implementer`.

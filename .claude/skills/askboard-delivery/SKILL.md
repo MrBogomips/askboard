@@ -1,6 +1,6 @@
 ---
 name: askboard-delivery
-description: Runs an AskBoard OpenSpec change end to end with the project's agents, from its GitHub Issue to the pull request that closes it - design with askboard-architect, implementation one task group at a time with askboard-implementer, a review checkpoint after each group with askboard-spec-reviewer and askboard-security-reviewer, fixes tests first, then the rebase, the checks and the pre-PR review. Use it whenever you propose, apply, implement, continue, resume, review, re-review, fix review findings of, rebase or prepare the pull request of an AskBoard change, in attended or unattended runs, and whenever /opsx:apply's guidance points here. Not for questions, small fixes committed directly on main, or work outside OpenSpec changes.
+description: Runs an AskBoard OpenSpec change end to end with the project's agents, from its GitHub Issue to the pull request that closes it - design with askboard-architect, implementation one task group at a time with askboard-implementer, a review checkpoint after each group with askboard-spec-reviewer and askboard-security-reviewer, fixes tests first, then the rebase, the checks and the pre-PR review. Use it whenever you propose, apply, implement, continue, resume, review, re-review, fix review findings of, rebase or prepare the pull request of an AskBoard change, in attended or unattended runs, and whenever /openspec-apply-change's guidance points here. Not for questions, small fixes committed directly on main, or work outside OpenSpec changes.
 ---
 
 # Delivering an AskBoard change with the project's agents
@@ -8,14 +8,14 @@ description: Runs an AskBoard OpenSpec change end to end with the project's agen
 The session that runs this skill is the coordinator. It holds the change's state (ids, SHAs,
 findings), delegates the file-heavy work to the agents, and keeps their conclusions, not their
 reading. OpenSpec owns the artifacts: everything written under `openspec/changes/<id>/` goes through
-the opsx skills. GitHub Issues own the backlog: a change starts from its Issue, and `CLAUDE.md` (The
+the `openspec-*` skills. GitHub Issues own the backlog: a change starts from its Issue, and `CLAUDE.md` (The
 backlog) holds the procedure and the commands for every step below that touches one.
 
 ## 1. Team, model and effort
 
 | Agent | Does | Model | Default effort | Raise to |
 |---|---|---|---|---|
-| `askboard-architect` | proposal, design, specs, tasks; `/opsx:update` | opus | xhigh | none; lower to high for small updates |
+| `askboard-architect` | proposal, design, specs, tasks; `/openspec-update-change` | opus | xhigh | none; lower to high for small updates |
 | `askboard-implementer` | one task group, tests first | sonnet | medium | high for contract and core groups, rebase conflicts, a second attempt |
 | `askboard-spec-reviewer` | conformance, scenarios to tests, versions and seams, documents | opus | medium | high for the pre-PR review |
 | `askboard-security-reviewer` | invariants and threats | opus | high | xhigh for the pre-PR review |
@@ -72,7 +72,7 @@ and the base of the next one.
       re-review.
    5. The kaizen retrospective of the development workflow, then the pull request. Its body says
       `Closes #n`, or `Refs #n` when the Issue spans several changes (the last one says `Closes`).
-5. **Before `/opsx:archive`:** the pull request is merged; every Verify task is ticked or its reason
+5. **Before `/openspec-archive-change`:** the pull request is merged; every Verify task is ticked or its reason
    recorded; the change's as-built note `docs/as-built/<change-id>.md` describes it as built (the
    change never edits CLAUDE.md for its own record, and the archive does not touch it); the PRD,
    spine and UX documents carry the updates the change states. The archive pull request says
@@ -85,7 +85,7 @@ and the base of the next one.
 - Results conflict (two reviewers, a reviewer and the implementer): keep both with their source;
   decide by the rule they cite, or ask the PO. Never delete either silently.
 - The implementer reports a design problem: stop the groups that depend on it, run the architect
-  through `/opsx:update`, then resume.
+  through `/openspec-update-change`, then resume.
 - Unattended runs: the end of a group is not a stopping point. Go on with the next unblocked group,
   record the PO's questions on the Issues (`needs-po`) and in the change, and report at the end.
   Never push, merge or touch `main` unless the handoff says so.

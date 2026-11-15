@@ -6,6 +6,7 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -175,6 +176,44 @@ describe("codex-port block", () => {
     );
     expect(run(["--codex-only"]).code).toBe(0);
     expect(existsSync(join(repo, "keep.txt"))).toBe(true);
+  });
+});
+
+// OpenSpec 2.0 writes its skills once to .agents/skills/, which Codex reads, and links each
+// into .claude/skills/ (CLAUDE.md, Codex interop): the block ports none of them and never
+// removes or overwrites their files.
+describe("a skill linked into .agents/skills", () => {
+  const SHARED = ".agents/skills/openspec-propose/SKILL.md";
+  const TEXT = "---\nname: openspec-propose\ndescription: Use when proposing.\n---\nPropose.\n";
+
+  beforeEach(() => {
+    write(SHARED, TEXT);
+    symlinkSync(
+      "../../.agents/skills/openspec-propose",
+      join(repo, ".claude/skills/openspec-propose"),
+    );
+  });
+
+  test("is left to its owner: not ported, not listed, its file unchanged", () => {
+    const { code, out } = run(["--codex-only"]);
+    expect(out).toContain("rulesync 9.9.9 wrote AGENTS.md, 2 skills and 1 agents");
+    expect(code).toBe(0);
+    expect(read(SHARED)).toBe(TEXT);
+    expect(read(".codex/codex-port.manifest")).not.toContain("openspec-propose");
+  });
+
+  test("passes --check", () => {
+    expect(run(["--codex-only"]).code).toBe(0);
+    const { code, out } = run(["--check"]);
+    expect(out).toContain("up to date (2 skills, 1 agents)");
+    expect(code).toBe(0);
+  });
+
+  test("keeps its files when an earlier run's manifest lists them", () => {
+    expect(run(["--codex-only"]).code).toBe(0);
+    write(".codex/codex-port.manifest", `${read(".codex/codex-port.manifest")}${SHARED}\n`);
+    expect(run(["--codex-only"]).code).toBe(0);
+    expect(read(SHARED)).toBe(TEXT);
   });
 });
 

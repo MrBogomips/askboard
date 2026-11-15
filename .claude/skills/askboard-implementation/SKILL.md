@@ -5,7 +5,7 @@ description: How to implement one task group of an AskBoard OpenSpec change in t
 
 # Implementing an AskBoard task group
 
-You implement ONE task group of an OpenSpec change, inside the change's worktree, as the coordinator assigned it (the session that runs `/opsx:apply` or the `askboard-delivery` skill). This skill adds what the OpenSpec workflow does not know: the rework classes of this repository. `CLAUDE.md` holds the commands, the working documents and the invariants; do not restate them, follow them. The test patterns are in `references/test-harness-patterns.md`: read it before writing any browser, conformance or timing-dependent test.
+You implement ONE task group of an OpenSpec change, inside the change's worktree, as the coordinator assigned it (the session that runs `/openspec-apply-change` or the `askboard-delivery` skill). This skill adds what the OpenSpec workflow does not know: the rework classes of this repository. `CLAUDE.md` holds the commands, the working documents and the invariants; do not restate them, follow them. The test patterns are in `references/test-harness-patterns.md`: read it before writing any browser, conformance or timing-dependent test.
 
 ## Per-group workflow
 
@@ -14,7 +14,7 @@ You implement ONE task group of an OpenSpec change, inside the change's worktree
 3. **Implement the minimum** that passes. Keep files under about 400 lines and functions short.
 4. **Run the package's tests**, then the whole check: `GITHUB_TOKEN=$(gh auth token) bun run check` (stops at the first failure). Coverage of every file you add or change must be at least 80% of lines and functions, read from the per-file table, not the total.
 5. **View, widgets or `tools/build/` changed:** run `bun run build:view` and handle the chunk budget (below). Run the browser files that touch what you changed, on Chromium and WebKit (`bun packages/view/test/browser/run.ts --engines chromium,webkit --target session-process -- -t <pattern>`: the file argument does not narrow a run, see the reference). Do not run the full three-engine suite unless the caller asks.
-6. **Stay in the group's packages.** If the task needs an edit outside them (another package, `docs/`, specs, CI, `package.json`, `bun.lock`), say so in the report and keep that edit minimal and separate. Never hand-edit `.claude/commands/opsx/` or `.claude/skills/openspec-*`.
+6. **Stay in the group's packages.** If the task needs an edit outside them (another package, `docs/`, specs, CI, `package.json`, `bun.lock`), say so in the report and keep that edit minimal and separate. Never hand-edit `.agents/skills/openspec-*` or the links `.claude/skills/openspec-*`.
 7. **Tick and note.** Tick the task box in `tasks.md` and add a `  - Note:` of about five lines: what was built, the commit, test counts (pass, skip, fail), deviations from the plan. Notes over 2,000 characters bury the decisions (several in widget-answers and push-delivery do); reasoning belongs in the design, through the caller. Where the task or the change has a GitHub Issue (the proposal's `Issue: #n`), the note names it, and so does the commit body (`Refs #n`, never `Closes`, which only the pull request says). Do not commit unless the caller says so; when you do, use conventional commits with no attribution lines.
 8. **Report to the caller:** tasks done, test counts, files touched (absolute paths), deviations, open questions, the Issues opened, and what only CI can verify.
 

@@ -45,7 +45,9 @@ check_toolchain() {
 #   sources with the latest rulesync. It converts a copy of the sources in a temporary folder
 #   and checks the result there, so a failed or surprising conversion leaves the files as they
 #   were. It records what it wrote in .codex/codex-port.manifest and removes what an earlier
-#   run wrote for a source that is gone.
+#   run wrote for a source that is gone. A skill that is a symbolic link in .claude/skills/
+#   (OpenSpec 2 links its skills there from .agents/skills/, which Codex reads) is its owner's:
+#   it ports none and never removes or overwrites its files.
 #   --dry-run  list what it would write; change nothing
 #   --check    check the files against the sources, without the network: every skill and
 #              agent has its Codex file, and AGENTS.md matches CLAUDE.md
@@ -69,6 +71,8 @@ codex_port() (
     echo "codex-port: AGENTS.md, .agents or .codex is a symbolic link; it writes through none" >&2
     return 1
   fi
+  # cp_linked <skill>: the skill is a link in .claude/skills/, its files already in .agents/skills/.
+  cp_linked() { [ -L ".claude/skills/$1" ]; }
 
   # cp_checks <root>: the Codex files under <root> cover every source of this project.
   cp_checks() {
@@ -84,6 +88,7 @@ codex_port() (
     for cp_src in .claude/skills/*/SKILL.md; do
       [ -f "$cp_src" ] || continue
       cp_name=$(basename "$(dirname "$cp_src")")
+      if cp_linked "$cp_name"; then continue; fi
       cp_skills=$((cp_skills + 1))
       [ -f "$1/.agents/skills/$cp_name/SKILL.md" ] ||
         { echo "codex-port: skill '$cp_name' is not ported" >&2; cp_fail=1; }
@@ -135,6 +140,9 @@ codex_port() (
       [ -e "$cp_src" ] || continue
       case ${cp_src#.claude/} in worktrees | settings.local.json | CLAUDE.local.md) continue ;; esac
       cp -R "$cp_src" "$cp_tmp/.claude/"
+    done
+    for cp_src in .claude/skills/*; do
+      if [ -L "$cp_src" ]; then rm -f "$cp_tmp/$cp_src"; fi
     done
   fi
   # Package install scripts never run (npm_config_ignore_scripts).
@@ -190,6 +198,9 @@ codex_port() (
     while IFS= read -r cp_path; do
       case $cp_path in
         *..*) ;;
+        .agents/skills/*/*)
+          cp_name=${cp_path#.agents/skills/}
+          cp_linked "${cp_name%%/*}" || rm -f "$cp_path" ;;
         AGENTS.md | .agents/* | .codex/*) rm -f "$cp_path" ;;
       esac
     done <"$cp_manifest"

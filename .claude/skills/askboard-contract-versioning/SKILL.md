@@ -5,7 +5,7 @@ description: Keeps concurrent AskBoard OpenSpec changes from colliding on the ve
 
 # Contract versions and seams across concurrent changes
 
-AskBoard designs and builds several OpenSpec changes at once, in separate worktrees, and most of them widen the same schema sets in `packages/contract` and extend the same dispatch points. Every collision so far cost a relabel, an `/opsx:update` or a rebase with dozens of conflicting hunks. This skill says where a version number may be written, when it is bound, what moves with it, and how borrowed names stay valid until the merge. CLAUDE.md holds the commands and the working documents; `askboard-implementation` holds the Biome rule for appended export blocks; `askboard-review-protocol` holds the finding format.
+AskBoard designs and builds several OpenSpec changes at once, in separate worktrees, and most of them widen the same schema sets in `packages/contract` and extend the same dispatch points. Every collision so far cost a relabel, an `/openspec-update-change` or a rebase with dozens of conflicting hunks. This skill says where a version number may be written, when it is bound, what moves with it, and how borrowed names stay valid until the merge. CLAUDE.md holds the commands and the working documents; `askboard-implementation` holds the Biome rule for appended export blocks; `askboard-review-protocol` holds the finding format.
 
 ## When it applies
 
@@ -102,12 +102,12 @@ Rules:
 
 - Borrow only names present on `main`: `git grep -n '<name>' origin/main -- packages`.
 - A name from an unmerged change is a merge point. List it in design.md under Merge points with the owning change, the branch commit you read it at, and the tasks that use it; those tasks wait for that change's merge, and the rebase re-checks the name.
-- When your change creates a point later changes will extend, make it a table or a union they append to, and keep its name once another design cites it. If you must rename, find every design that cites it (`openspec/changes/*/design.md` on `main` and on the feature branches) and tell the coordinator, since each needs an `/opsx:update`.
+- When your change creates a point later changes will extend, make it a table or a union they append to, and keep its name once another design cites it. If you must rename, find every design that cites it (`openspec/changes/*/design.md` on `main` and on the feature branches) and tell the coordinator, since each needs an `/openspec-update-change`.
 - Append at the end; never reorder or rewrite another change's entries.
 
 Group 0 task, in the repository's task style:
 
-> - [ ] 0.N Check every name design.md borrows (Merge points) on `origin/main` with `git grep -n`, and record each with its file and line in this task's note. Record the version each set this change widens holds on `main`; the constants start at the next minor and are bound at the rebase task. Verify that the note lists every name and version; if a name, signature or shape differs, or a name is not on `main`, stop and run `/opsx:update` before group 1.
+> - [ ] 0.N Check every name design.md borrows (Merge points) on `origin/main` with `git grep -n`, and record each with its file and line in this task's note. Record the version each set this change widens holds on `main`; the constants start at the next minor and are bound at the rebase task. Verify that the note lists every name and version; if a name, signature or shape differs, or a name is not on `main`, stop and run `/openspec-update-change` before group 1.
 
 Last group, before the pull request:
 
@@ -125,7 +125,7 @@ Last group, before the pull request:
    - Take main's version constant, then rebind it.
    - For `packages/view/chunk-sizes.json`, follow `askboard-implementation`.
    - Search for leftovers: `grep -rn '^<<<<<<<\|^>>>>>>>' packages tools`.
-6. Bind the labels and move the pins (Rules 1 and 2). Re-check every borrowed name on the rebased head; a difference stops the work for `/opsx:update`.
+6. Bind the labels and move the pins (Rules 1 and 2). Re-check every borrowed name on the rebased head; a difference stops the work for `/openspec-update-change`.
 7. Run `bun install --frozen-lockfile`, `bun run check`, `bun run build` and `openspec validate --all --strict --no-interactive`, plus `bun run test:e2e:smoke` when the view, the server or the conformance suite changed, and `bun run test:e2e` when the harness, the runner or a widget's rendering changed (CLAUDE.md, CI section, Triggers).
 8. Record the rebase task's note, the PR body and the as-built note. If another change merges first, repeat from step 1.
 
