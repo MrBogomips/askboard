@@ -2,7 +2,8 @@
 // Answer; DESIGN.md, the same; ask-lifecycle, task 6.5): on the left Postpone, a toggle that
 // undoes when pressed again, and "More", a Radix Dropdown Menu, keyboard operable, holding Explain
 // and Decline, which also undoes when chosen again; on the right the delivery receipt and "Answer".
-// After Postpone or Decline, focus moves to the question's heading (Accessibility Floor, Focus).
+// After Postpone or Decline, the board moves on or focus goes to the question's heading, as After an
+// answer says (answering-flow-guidance, decision 3; Accessibility Floor, Focus).
 // The menu is not modal, so it locks no scroll and adds no style element.
 
 import { DropdownMenu } from "radix-ui";
@@ -63,8 +64,11 @@ export type ActionsRowProps = {
    * the More menu's trigger, which a confirmation gives focus back to.
    */
   readonly onDecline: (control: HTMLElement | undefined) => boolean;
-  /** Moves focus to the question's heading. */
-  readonly focusHeading: () => void;
+  /**
+   * Decline went through and the More menu has closed: the card moves on or focuses the heading.
+   * Radix's own focus return to "More" is prevented, so this is where focus goes.
+   */
+  readonly onMenuClosed: () => void;
 };
 
 export const ActionsRow = ({
@@ -83,7 +87,7 @@ export const ActionsRow = ({
   onPostpone,
   onExplain,
   onDecline,
-  focusHeading,
+  onMenuClosed,
 }: ActionsRowProps) => {
   // Decline moves focus to the heading once the menu has closed, instead of back to "More".
   const toHeading = useRef(false);
@@ -114,10 +118,7 @@ export const ActionsRow = ({
           aria-pressed={actions.postponed}
           data-askboard-postpone=""
           disabled={!actions.canPostpone}
-          onClick={() => {
-            onPostpone();
-            focusHeading();
-          }}
+          onClick={onPostpone}
         >
           {actions.postponed ? <QuestionMarker mark="postponed" inControl /> : null}
           {text("question.postpone")}
@@ -135,7 +136,7 @@ export const ActionsRow = ({
                 if (!toHeading.current) return;
                 toHeading.current = false;
                 event.preventDefault();
-                focusHeading();
+                onMenuClosed();
               }}
             >
               <DropdownMenu.Item

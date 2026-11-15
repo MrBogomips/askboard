@@ -59,8 +59,11 @@ import { NO_CHANNEL, openChannel, type ViewChannel } from "./channel.ts";
 import { createDerivedStore } from "./derived-store.ts";
 import { applyDocumentUpdate, carriesNewRestore, connectTracker } from "./document-update.ts";
 import { createDraftStore } from "./draft-store.ts";
+import { readyLostMessageOf } from "./flow-messages.ts";
 import { focusOpener } from "./focus-opener.ts";
+import { createSentRecords, type Footer } from "./guided-flow.ts";
 import type { HeadingRequest } from "./heading-request.ts";
+import { createHeldKeyGuard } from "./held-key-guard.ts";
 import { measureInset } from "./measure-inset.ts";
 import { snapshotPresentationOf, snapshotTitleOf } from "./opened-snapshot.ts";
 import { startPresentation } from "./presentation-extras.ts";
@@ -149,6 +152,7 @@ const boot = (): void => {
     cellEntries,
     revisions,
     shownOf,
+    (label) => status.announce(readyLostMessageOf(label)),
   );
   // The board document as the cards show it, which every item reads the board from: each question at
   // the revision its card shows, walked again only when the document or the board's work changes.
@@ -161,6 +165,11 @@ const boot = (): void => {
   const reasons = createStore<ReasonRequest | undefined>(undefined);
   const focus = createStore<HeadingRequest | undefined>(undefined);
   const removed = createStore(false);
+  // The footer of the card "Stay here" left the board on, what the flow recorded for the messages of
+  // each command, and the guard that keeps a held key from the card the board moved to (decision 3).
+  const footer = createStore<Footer | undefined>(undefined);
+  const recorded = createSentRecords();
+  const guard = createHeldKeyGuard();
   // When each question's note alone was sent, written once the note's command is done (see the
   // update handler below): kept here for the life of the page, never in browser storage (AD-8), so
   // "Note sent {time}" shows under the prompt while the page stays open.
@@ -327,6 +336,9 @@ const boot = (): void => {
     reasons,
     focus,
     removed,
+    footer,
+    recorded,
+    guard,
     noteSent,
     // The board components read follows the latest document, which an agent update replaces, with
     // each question at the revision its card shows, and the answers of the latest board state

@@ -10,8 +10,8 @@ import type { StatusMessage } from "./status-messages.ts";
 
 const LIMIT = 80;
 
-// At most `LIMIT` characters, the last an ellipsis when something was cut; whole code points.
-const cut = (text: string): string => {
+/** At most 80 characters, the last an ellipsis when something was cut; whole code points. */
+export const cutTitle = (text: string): string => {
   const points = Array.from(text);
   return points.length <= LIMIT ? text : `${points.slice(0, LIMIT - 1).join("")}…`;
 };
@@ -19,7 +19,7 @@ const cut = (text: string): string => {
 // The chosen labels, then the "Other…" text, joined with ", "; none when the answer names no choice.
 const optionOf = (act: ViewAnswerAct): string | undefined => {
   const parts = [...(act.choice ?? []), ...(act.other === undefined ? [] : [act.other])];
-  return parts.length === 0 ? undefined : cut(parts.join(", "));
+  return parts.length === 0 ? undefined : cutTitle(parts.join(", "));
 };
 
 /**
@@ -53,7 +53,7 @@ export const addedMessageOf = (questions: readonly ViewQuestion[]): StatusMessag
   if (only === undefined) return undefined;
   if (rest.length > 0) return { key: "status.added", params: { count: questions.length } };
   const { header, text } = only.props;
-  return { key: "status.added", params: { count: 1, title: cut(header ?? text) } };
+  return { key: "status.added", params: { count: 1, title: cutTitle(header ?? text) } };
 };
 
 /** The question the board went to, as the message names it: its title and its place on the board. */
@@ -62,7 +62,7 @@ export type NextTarget = { readonly title: string; readonly n: number; readonly 
 /** "Next: {title}, {n} of {m}.": the title is the agent's, so it goes in as text, cut at 80. */
 export const nextMessageOf = ({ title, n, m }: NextTarget): StatusMessage => ({
   key: "status.next",
-  params: { title: cut(title), n, m },
+  params: { title: cutTitle(title), n, m },
 });
 
 const withNext = (
@@ -98,13 +98,13 @@ export const declinedMessagesOf = (next?: NextTarget): readonly StatusMessage[] 
 /** A held answer lost its ready mark to a field: the field to fix (`fieldToFixOf`'s label). */
 export const readyLostMessageOf = (label: string): StatusMessage => ({
   key: "status.readyLost",
-  params: { label: cut(label) },
+  params: { label: cutTitle(label) },
 });
 
 /** An area has nothing left to do. */
 export const areaDoneMessageOf = (area: string): StatusMessage => ({
   key: "status.areaDone",
-  params: { area: cut(area) },
+  params: { area: cutTitle(area) },
 });
 
 /** Every question has an answer: the two lines of the completion panel, counted from receipts. */
@@ -133,3 +133,38 @@ export const deliveredMessageOf = ({
   readonly sent: number;
   readonly delivered: number;
 }): StatusMessage => ({ key: "status.delivered", params: { d: delivered, s: sent } });
+
+/** What the board recorded at the act for the messages of its command: see `commandSentMessagesOf`. */
+export type SentRecord = {
+  readonly next?: NextTarget;
+  readonly areaDone?: string;
+  readonly revision?: boolean;
+};
+
+/**
+ * Every message a command says once the board page reports it sent: the answer's, the change's, a
+ * postpone's or a decline's, then the area the act finished, then where the board went. A revision
+ * says only that the change was sent. A command with nothing to say (a reopen, a note under no
+ * record) says nothing beyond `sentMessagesOf`.
+ */
+export const commandSentMessagesOf = (
+  via: "answer" | "submit",
+  acts: readonly ViewAct[],
+  { next, areaDone, revision = false }: SentRecord = {},
+): readonly StatusMessage[] => {
+  const base = sentMessagesOf(via, acts, { revision });
+  const own =
+    base.length > 0 || via === "submit"
+      ? base
+      : acts.some((act) => act.type === "postpone")
+        ? [{ key: "status.postponed" } as const]
+        : acts.some((act) => act.type === "decline")
+          ? [{ key: "status.declined" } as const]
+          : [];
+  if (own.length === 0 || revision) return own;
+  return [
+    ...own,
+    ...(areaDone === undefined ? [] : [areaDoneMessageOf(areaDone)]),
+    ...(next === undefined ? [] : [nextMessageOf(next)]),
+  ];
+};

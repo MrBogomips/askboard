@@ -492,8 +492,20 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           await answerOf(board, id).click({ timeout: STEP_TIMEOUT_MS });
           await actsSent(run, at + 2);
         }
-        // Question 5 in view: the focus rests on its heading, which the key leaves alone.
+        // The board moved on to question 2 with a smooth scroll: wait for the move to end, then rest
+        // the focus on question 5's heading, which the key leaves alone.
+        await eventually(
+          async () => (await board.view.locator("[data-askboard-arrived]").count()) === 0,
+          "the arrival mark gone",
+        );
         await headingOf(board, "p5").focus();
+        await eventually(
+          async () =>
+            (await board.view
+              .locator('[data-askboard-outline="p5"]')
+              .getAttribute("aria-current")) === "true",
+          "p5 in view",
+        );
         await watchKeys(board);
         await viewSettled(board);
         await board.page.keyboard.press("Shift+N");

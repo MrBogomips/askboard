@@ -5,8 +5,16 @@
 
 import type { Store } from "./store.ts";
 
-export type HeadingRequest = { readonly id: string; readonly n: number };
+export type HeadingRequest = {
+  readonly id: string;
+  readonly n: number;
+  /** The move After an answer and "Continue" make: a smooth scroll and the arrival mark (decision 4). */
+  readonly smooth?: boolean;
+};
 
 /** Asks for focus on a question's heading, once the board has rendered. */
-export const requestHeading = (focus: Store<HeadingRequest | undefined>, id: string): void =>
-  focus.set({ id, n: (focus.get()?.n ?? 0) + 1 });
+export const requestHeading = (
+  focus: Store<HeadingRequest | undefined>,
+  id: string,
+  smooth = false,
+): void => focus.set({ id, n: (focus.get()?.n ?? 0) + 1, ...(smooth ? { smooth } : {}) });

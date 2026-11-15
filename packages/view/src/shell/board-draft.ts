@@ -29,6 +29,7 @@ import {
 } from "./cell-entries.ts";
 import type { DraftStore, DraftRecord as ValueRecord } from "./draft-store.ts";
 import { cutEntry, entryIdsOf, fieldEntryIdsOf, idsOver } from "./entries.ts";
+import { fieldBlock } from "./field-block.ts";
 import { draftAnswerOf } from "./question-state.ts";
 
 /** A question's work besides its items' values, on the revision it was made on. */
@@ -387,6 +388,7 @@ export const moveMarks = (
  * revision, an edit to a ready answer's values makes it not ready, and work that holds nothing
  * any more is dropped with its revision. Returns what stops it. `shownOf` gives the question as the
  * card shows it: the readers walk the items of that revision too, as the work was made on it.
+ * `readyLost` hears the label of the field that an edit to a ready answer leaves failing.
  */
 export const connectDrafts = (
   document: ViewDocument | (() => ViewDocument),
@@ -397,6 +399,7 @@ export const connectDrafts = (
   cellEntries?: DraftStore,
   revisions: EarlierRevisions = NO_REVISIONS,
   shownOf?: ShownOf,
+  readyLost?: (label: string) => void,
 ): (() => void) => {
   const shownIn = (question: ViewQuestion): ViewQuestion => shownOf?.(question) ?? question;
   const documentOf = typeof document === "function" ? document : () => document;
@@ -422,6 +425,10 @@ export const connectDrafts = (
         board.edit(question.id, question.rev, (fresh) => fresh);
       } else if (work !== undefined && isAnswerHeld(work.held)) {
         board.edit(question.id, work.rev, releaseHeld);
+        // A ready answer that an edit leaves failing a field's check is no longer ready: say which
+        // field to correct (answering-flow-guidance, decision 7).
+        const block = work.held?.act === "answer" ? fieldBlock(shown, typed, held) : undefined;
+        if (block !== undefined) readyLost?.(block.label);
       }
     }
     previous = record;

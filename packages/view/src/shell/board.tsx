@@ -17,7 +17,7 @@
 
 import type { LifecycleBoardState } from "@askboard/contract";
 import { Tabs } from "radix-ui";
-import { type ReactNode, useEffect, useSyncExternalStore } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import { questionTextId, useLanguage, useStrings } from "../catalog/port.ts";
 import {
   areaOf,
@@ -54,8 +54,10 @@ import { BottomBar } from "./bottom-bar.tsx";
 import { CARD_ACTS } from "./card-acts.ts";
 import { entriesWithCells } from "./cell-entries.ts";
 import type { DraftStore } from "./draft-store.ts";
+import { createFlow, type Flow, type FlowView } from "./flow.ts";
 import type { HeaderData } from "./header-data.ts";
 import { type HeadingRequest, requestHeading } from "./heading-request.ts";
+import type { HeldKeyGuard } from "./held-key-guard.ts";
 import { type EntryMarks, Outline, QuestionNavigator } from "./navigators.tsx";
 import type { PresentationControls } from "./presentation-controls.ts";
 import { type CardContext, QuestionCard } from "./question-card.tsx";
@@ -70,6 +72,7 @@ import { FOCUS_RING, INFO_BADGE } from "./styles.ts";
 import { hasRecommendation, releaseFailed, selectRecommended, submitStateOf } from "./submit.ts";
 import { useBoardKeyTable } from "./use-board-keys.ts";
 import { useHeaderHeight } from "./use-header-height.ts";
+import { useHeldKeyGuard } from "./use-held-key-guard.ts";
 import { useQuestionInView } from "./use-question-in-view.ts";
 
 /** What the board page last told the view, with the latest board document. */
@@ -83,6 +86,8 @@ export type BoardView = {
 type Shared = {
   /** The ladder's inputs, one for every surface of the board (answering-flow-guidance, decision 1). */
   readonly ladder: Ladder;
+  /** What follows an act: the move or the footer (decision 3). */
+  readonly flow: Flow;
   readonly document: ViewDocument;
   readonly state: LifecycleBoardState;
   readonly lock: ViewLock | undefined;
@@ -98,6 +103,8 @@ export type BoardContext = CardContext & {
   readonly removed: Store<boolean>;
   /** What the board says to a screen reader (answering-flow-fixes, #182). */
   readonly status: StatusMessages;
+  /** Keeps a held key's repeats from the card the board moved to (decision 3; NFR-10). */
+  readonly guard: HeldKeyGuard;
 };
 
 /**
@@ -144,6 +151,7 @@ const Card = ({
     level={level ?? 2}
     context={shared.context}
     ladder={shared.ladder}
+    flow={shared.flow}
   />
 );
 
@@ -275,7 +283,7 @@ const useHeadingFocus = (focus: Store<HeadingRequest | undefined>) => {
   useEffect(() => {
     if (target === undefined) return;
     const heading = document.getElementById(questionTextId(target.id));
-    if (heading !== null) revealAndFocus(heading);
+    if (heading !== null) revealAndFocus(heading, { smooth: target.smooth === true });
   }, [target]);
   return (id: string) => requestHeading(focus, id);
 };
@@ -349,9 +357,50 @@ export const Board = ({
     },
     revisingOf: revisingOfBoard(context, revisingSet, { document, state }),
   };
-  const shared: Shared = { ladder, document, state, lock, draft, context };
   const presentation = presentationOf(document);
   const questions = questionsOf(document);
+  // What follows an act, asked at the act of the card (answering-flow-guidance, decision 3): the
+  // flow reads the board as it stands then, through a ref the render keeps current, and the work
+  // afresh from the store, which the act has just changed.
+  const setting = useSyncExternalStore(
+    extras.presentation.presentation.subscribe,
+    () => extras.presentation.presentation.get().afterAnswer,
+  );
+  const latest = useRef<Omit<FlowView, "work"> | undefined>(undefined);
+  latest.current = {
+    document,
+    state,
+    ladder,
+    unseen: attention.unseen,
+    setting,
+    delivery: presentation === "single" ? "immediate" : draft.delivery,
+    single: presentation === "single",
+  };
+  const flow = useMemo(
+    () =>
+      createFlow({
+        view: () => ({
+          ...(latest.current as Omit<FlowView, "work">),
+          work: context.board.get().questions,
+        }),
+        footer: context.footer,
+        recorded: context.recorded,
+        focus: context.focus,
+        removed: context.removed,
+        show: (id) => context.board.setInView(id),
+        status: context.status,
+        guard: context.guard,
+      }),
+    [context],
+  );
+  useHeldKeyGuard(context.guard);
+  // The footer of "Stay here" goes when the board no longer holds the question it names.
+  const footer = useSyncExternalStore(context.footer.subscribe, context.footer.get);
+  const footerGone = footer !== undefined && !questions.some((each) => each.id === footer.target);
+  useEffect(() => {
+    if (footerGone) context.footer.set(undefined);
+  }, [footerGone, context.footer]);
+  const shared: Shared = { ladder, flow, document, state, lock, draft, context };
   // Submit waits for a held act's question that is loading or failed (Issue #103): the board
   // redraws when any question's status changes, whatever else it reads of the tracker.
   const statuses = useSyncExternalStore(context.tracker.subscribe, () =>
@@ -567,7 +616,8 @@ export const Board = ({
           onJump={go}
           // The question in view, else the first, takes the focus once Submit has sent.
           onSubmitted={() => {
-            const id = current ?? questions[0]?.id;
+            // The next question to do after the one in view, while one is left (After Submit).
+            const id = target ?? current ?? questions[0]?.id;
             if (id !== undefined) focusHeading(id);
           }}
           snapshot={extras.snapshot}

@@ -93,11 +93,18 @@ const scrollSmoothly = (view: Window, delta: number): void => {
   const frames = scrollFrames(view.scrollY, view.scrollY + delta, SCROLL_MS);
   if (animation !== undefined) view.cancelAnimationFrame(animation);
   const start = view.performance.now();
+  let last = view.scrollY;
   const step = (now: number) => {
+    // The user scrolled meanwhile: the move stops where it is, and never fights the user.
+    if (Math.abs(view.scrollY - last) > 2) {
+      animation = undefined;
+      return;
+    }
     const elapsed = now - start;
     const frame = frames.find((each) => each.at >= elapsed) ?? frames[frames.length - 1];
     if (frame === undefined) return;
     view.scrollTo({ top: frame.y, behavior: "instant" });
+    last = view.scrollY;
     animation = frame === frames[frames.length - 1] ? undefined : view.requestAnimationFrame(step);
   };
   animation = view.requestAnimationFrame(step);

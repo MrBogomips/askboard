@@ -6,6 +6,7 @@ import {
   allAnsweredMessagesOf,
   allReadyMessageOf,
   areaDoneMessageOf,
+  commandSentMessagesOf,
   declinedMessagesOf,
   deliveredMessageOf,
   nextMessageOf,
@@ -228,5 +229,56 @@ describe("the other messages of the guided flow", () => {
       key: "status.delivered",
       params: { d: 2, s: 5 },
     });
+  });
+});
+
+describe("the messages of a command the board page reports sent (decision 7)", () => {
+  const next = { title: "Cache", n: 4, m: 9 };
+
+  test("an answer, then the area it finished, then where the board went", () => {
+    expect(
+      commandSentMessagesOf("answer", [answerAct({ choice: ["Yes"] })], {
+        next,
+        areaDone: "Scope",
+      }),
+    ).toEqual([
+      { key: "status.answerSent", params: { option: "Yes" } },
+      { key: "status.areaDone", params: { area: "Scope" } },
+      { key: "status.next", params: { title: "Cache", n: 4, m: 9 } },
+    ]);
+  });
+
+  test("a revision says the change was sent and never moves", () => {
+    expect(
+      commandSentMessagesOf("answer", [answerAct({ choice: ["Yes"] })], {
+        revision: true,
+        next,
+        areaDone: "Scope",
+      }),
+    ).toEqual([{ key: "status.changeSent" }]);
+  });
+
+  test("a postpone or a decline that was sent says so, and where the board went", () => {
+    expect(
+      commandSentMessagesOf("answer", [{ type: "postpone", itemId: "p", rev: 1 }], { next }),
+    ).toEqual([
+      { key: "status.postponed" },
+      { key: "status.next", params: { title: "Cache", n: 4, m: 9 } },
+    ]);
+    const decline = { type: "decline", itemId: "p", rev: 1, when: WHEN } as ViewAct;
+    expect(commandSentMessagesOf("answer", [decline], { areaDone: "Scope" })).toEqual([
+      { key: "status.declined" },
+      { key: "status.areaDone", params: { area: "Scope" } },
+    ]);
+  });
+
+  test("a reopen, with no record, and Submit's command say what they said before", () => {
+    expect(commandSentMessagesOf("answer", [{ type: "reopen", itemId: "p" }])).toEqual([]);
+    expect(
+      commandSentMessagesOf("submit", [answerAct({ choice: ["A"] }, "one")], { next }),
+    ).toEqual([
+      { key: "status.submitted", params: { count: 1 } },
+      { key: "status.next", params: { title: "Cache", n: 4, m: 9 } },
+    ]);
   });
 });

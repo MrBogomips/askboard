@@ -331,24 +331,50 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
-      "a new question from the agent: the footer says so",
+      "a new question from the agent that the user has not seen: the footer names it and says so",
       async () => {
-        const { run, board } = await openPlain(start, 3, { setting: "stay" });
+        const { run, board } = await openTall(start, { setting: "stay" });
         await run.session.update([
           {
             action: "add",
+            parentId: "release",
             item: {
               type: "question",
-              id: "p9",
-              props: { text: "Is the new step needed?", header: "P9", options: [{ label: "Yes" }] },
+              id: "q10",
+              props: {
+                text: "Is the new step needed?",
+                header: "Q10",
+                options: [{ label: "Yes" }],
+              },
             },
           },
         ]);
-        await board.question("p9").waitFor({ state: "attached", timeout: LOAD_TIMEOUT_MS });
-        await answerWithKeys(board, "p1");
-        await eventually(() => isFocused(continueOf(board, "p1")), "focus on Continue");
-        expect(await footerOf(board, "p1").textContent()).toContain("New from the agent");
-        expect(await footerOf(board, "p1").textContent()).toContain("Next: P9");
+        await board.question("q10").waitFor({ state: "attached", timeout: LOAD_TIMEOUT_MS });
+        await answerWithKeys(board, "q1");
+        await eventually(() => isFocused(continueOf(board, "q1")), "focus on Continue");
+        const text = (await footerOf(board, "q1").textContent()) ?? "";
+        expect(text).toContain("Next: Q10");
+        expect(text).toContain("New from the agent");
+      },
+      TEST_TIMEOUT_MS,
+    );
+    test(
+      "a ready answer whose field is edited to fail its pattern is no longer ready, and the region names the field",
+      async () => {
+        const { board } = await openTall(start, { delivery: "submitted" });
+        await card(board, "q4")
+          .getByRole("textbox", { name: "Service name" })
+          .fill("billing", { timeout: STEP_TIMEOUT_MS });
+        await answerOf(board, "q4").click({ timeout: STEP_TIMEOUT_MS });
+        await eventually(
+          async () => (await answerOf(board, "q4").getAttribute("aria-pressed")) === "true",
+          "q4 ready",
+        );
+        await card(board, "q4")
+          .getByRole("textbox", { name: "Ticket" })
+          .fill("x", { timeout: STEP_TIMEOUT_MS });
+        await said(board, "No longer ready: correct Ticket.");
+        expect(await answerOf(board, "q4").getAttribute("aria-pressed")).toBe("false");
       },
       TEST_TIMEOUT_MS,
     );
@@ -379,7 +405,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           await answerWithKeys(board, id);
           await actsSent(run, Number(id.slice(1)));
         }
-        await said(board, "Answer sent: Yes. Scope completed. Next: Q4, 4 of 9.");
+        await said(board, "Answer sent: Yes. Scope completed Next: Q4, 4 of 9.");
         const data = board.view.getByRole("tab", { name: /Data/ });
         await eventually(
           async () => (await data.getAttribute("aria-selected")) === "true",
