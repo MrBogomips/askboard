@@ -228,3 +228,4 @@ Merging is enough. A board opened after the merge draws the icons, and saved Sna
   - Proposed default: (a). The same icon set everywhere the user looks, the same adoption evidence (one repository, one release train), about 1 KB, and no hand-copied paths outside the licence pipeline. (b) leaves a platform-font glyph beside Lucide icons in the same window.
   - Only group 4 and the requirement "The board page's close icon" depend on it. Task 0.1 records the answer before group 4 starts.
   - Posted on #188 on 2026-11-15 (comment 6893675552), with D1 to D5 for information; `needs-po` added.
+  - **Answer (PO, 2026-11-15, #188 comment 6893768848): (a).** Adopt `lucide` at the same version as `lucide-react` (1.73.0), with a test keeping the two pins equal; the board page's two close buttons use it. D1 to D5 accepted as stated. `needs-po` removed.
