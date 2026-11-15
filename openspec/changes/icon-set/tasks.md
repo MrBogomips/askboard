@@ -189,15 +189,17 @@ Terms used below:
 
 ## 4. The board page's close icon (Q1; waits for 0.1)
 
-- [ ] 4.1 Pin `lucide` (decision 10; requirement "The board page's close icon", scenario "Two pins apart").
+- [x] 4.1 Pin `lucide` (decision 10; requirement "The board page's close icon", scenario "Two pins apart").
   - Tests first, in `tools/workspace.test.ts`: when `packages/view/package.json` pins both `lucide` and `lucide-react`, the versions are equal, and a fixture with two versions fails naming both.
   - Then add `"lucide": "<the version>"`, run `bun install`, and extend 1.1's Dependabot ignore to `lucide`.
   - Add the spine's Stack row `lucide` (the board page's close icon; the same version as `lucide-react`).
   - Verify:
     - the test fails on the fixture and passes on the tree;
     - `GITHUB_TOKEN=$(gh auth token) bun run check:licences` passes.
-- [ ] 4.2 The rule for `lucide` (decision 5). Tests first, in `tools/check-imports.test.ts`: `lucide` from `packages/view/src/board-page/icons.ts` passes; from any other file, and any `lucide/…` path, fails. Then the rule. Verify: the cases fail before and pass after, and `bun run check:imports` passes.
-- [ ] 4.3 `board-page/icons.ts` and the two panels (decision 10).
+  - Note (2026-11-15): `lucide` 1.73.0 added to `packages/view/package.json` (`bun install` adds one package), Dependabot ignore, spine Stack row. Two tests in `tools/workspace.test.ts` (fixture with two versions names both; the tree); the tree test failed before. `check:licences` passes (170 installed, 29 direct).
+- [x] 4.2 The rule for `lucide` (decision 5). Tests first, in `tools/check-imports.test.ts`: `lucide` from `packages/view/src/board-page/icons.ts` passes; from any other file, and any `lucide/…` path, fails. Then the rule. Verify: the cases fail before and pass after, and `bun run check:imports` passes.
+  - Note (2026-11-15): `lucide` has no exports map, so the rule is on its files: `lucide/dist/esm/createElement.mjs` and `lucide/dist/esm/icons/<name>.mjs` pass only in `board-page/icons.ts` or a test; main entry, other `dist` files, `lucide-*`, `@lucide/*` and any other case fail everywhere (also X-1's lower-case comparison). 21 cases failed before; `check-imports.test.ts` 235 pass; `check:imports` passes. Deviation: design says `createElement` from the main entry; the main entry is refused (it holds `createIcons`).
+- [x] 4.3 `board-page/icons.ts` and the two panels (decision 10).
   - Tests first:
     - `context-panel.browser.ts`: scenario "The reading panel's close control";
     - `settings-panel.browser.ts`: scenario "The settings panel's close control".
@@ -206,6 +208,7 @@ Terms used below:
   - Verify:
     - the cases fail before and pass after, in a browser run of both files with the three engines;
     - the board-page chunk passes its size check without a new record.
+  - Note (2026-11-15): two browser cases (one per panel) failed before (0 hidden icons) and pass in chromium, firefox and webkit (context-panel 18, settings-panel 12 each). `closeIcon` uses `lucide/dist/esm/createElement.mjs` and the `x` file, attributes are constants; `board-page/lucide.d.ts` types the two paths (referenced by a path directive in `icons.ts`, since other packages typecheck the file without the view's include). The settings close button gets the reading panel's `w-7` form. DESIGN.md Icons row says the icon lands drawn by the board page's icon file, no Q1 mark. Build passes with no size record; the board page's notices list `lucide` (ISC). The built-chunk check of `x`'s path data only (design decision 10 guard) is not written: it belongs in `tools/build/view.test.ts`, which group 3 owns; left to group 5 (task 5.1).
 - [ ] 4.4 Review checkpoint: spec review of group 4's range, plus a security review (askboard-security-reviewer), because the group changes the board page, which holds the token outside the sandbox, and adds a dependency. Verify: as 1.6.
 
 ## 5. Integration and records

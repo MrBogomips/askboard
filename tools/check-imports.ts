@@ -97,7 +97,7 @@ const RULE_NODE_MODULES =
 const RULE_REFERENCE =
   "contract, core, compute and mod reference no type package and no library beyond ECMAScript outside their tests: core, compute and mod compile without DOM, Node or Bun types (AD-1)";
 const RULE_LUCIDE =
-  "lucide-react is imported only as lucide-react/icons/<icon>, in packages/view/src/icons/index.ts or a test: every other file imports the icon module (AD-1, icon-set design decision 5)";
+  "lucide-react is imported only as lucide-react/icons/<icon>, in packages/view/src/icons/index.ts or a test, and lucide only as lucide/dist/esm/createElement.mjs or lucide/dist/esm/icons/<icon>.mjs, in packages/view/src/board-page/icons.ts or a test: every other file imports the icon module; no main entry, no @lucide/* (AD-1, icon-set design decisions 5 and 10)";
 const RULE_LINK = "a symbolic link under packages/, which the check does not follow (AD-1)";
 
 type Target =
@@ -209,18 +209,30 @@ const specifiersOf = (file: string, source: string): string[] => {
   return [...new Set([...scanned, ...queried])];
 };
 
-// `lucide-react` and its subpaths: one icon by its path passes, in the icon module or a test; the
-// main entry, its alias `icons`, `dynamic*` and `dist/…` fail everywhere. The specifier is compared
-// in lower case to find Lucide (a differently cased path resolves on a case-insensitive disk), but
-// only the exact lower-case form of one icon passes.
-const LUCIDE = /^lucide-react(\/|$)/i;
-const LUCIDE_ICON = /^lucide-react\/icons\/[a-z0-9]+(-[a-z0-9]+)*$/;
+// Lucide enters in two forms only. The view's icon module imports one `lucide-react` icon by its
+// path. The board page's icon file imports `lucide`'s `createElement` and one icon file by path
+// (`lucide` has no exports map, so its paths are its files; the main entry's `createIcons` scans
+// the DOM and is refused). Every other `lucide`, `lucide-*` and `@lucide/*` specifier fails
+// everywhere. Lucide is found in lower case (a differently cased path resolves on a
+// case-insensitive disk), but only the exact lower-case form passes.
+const LUCIDE = /^(@lucide\/|lucide(-[a-z0-9]+)*(\/|$))/i;
+const LUCIDE_REACT_ICON = /^lucide-react\/icons\/[a-z0-9]+(-[a-z0-9]+)*$/;
+const LUCIDE_VANILLA_ICON = /^lucide\/dist\/esm\/icons\/[a-z0-9]+(-[a-z0-9]+)*\.mjs$/;
+const LUCIDE_CREATE_ELEMENT = "lucide/dist/esm/createElement.mjs";
 const ICON_MODULE = "packages/view/src/icons/index.ts";
+const BOARD_PAGE_ICONS = "packages/view/src/board-page/icons.ts";
 
-const lucideViolation = (file: string, specifier: string): Violation | undefined => {
-  if (LUCIDE_ICON.test(specifier) && (file === ICON_MODULE || isTestFile(file))) return undefined;
-  return { file, specifier, target: "lucide-react", rule: RULE_LUCIDE };
+const lucidePasses = (file: string, specifier: string): boolean => {
+  if (LUCIDE_REACT_ICON.test(specifier)) return file === ICON_MODULE || isTestFile(file);
+  if (LUCIDE_VANILLA_ICON.test(specifier) || specifier === LUCIDE_CREATE_ELEMENT)
+    return file === BOARD_PAGE_ICONS || isTestFile(file);
+  return false;
 };
+
+const lucideViolation = (file: string, specifier: string): Violation | undefined =>
+  lucidePasses(file, specifier)
+    ? undefined
+    : { file, specifier, target: "lucide", rule: RULE_LUCIDE };
 
 const violationOf = (file: string, unit: string, specifier: string): Violation | undefined => {
   if (LUCIDE.test(specifier)) return lucideViolation(file, specifier);

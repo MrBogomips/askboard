@@ -907,7 +907,7 @@ shadcn's derived `rounded-sm` (2px) and `rounded-xl` (10px) are not used. The sm
 
 ## Icons
 
-Every icon on the board comes from one set: Lucide (ISC, with Feather's MIT text for the icons derived from it), adopted under the adoption rule and pinned exactly (`lucide-react`, Stack in the spine). The view and the widgets draw an icon only from the icon module, `@askboard/view/icons` (`packages/view/src/icons/index.ts`), which re-exports each icon under the name of its role on the board; nothing else imports Lucide, and `check:imports` fails CI when it does. The module is bundled once, in the `icons` library chunk that the shell and the component chunks share.
+Every icon on the board comes from one set: Lucide (ISC, with Feather's MIT text for the icons derived from it), adopted under the adoption rule and pinned exactly (`lucide-react`, Stack in the spine). The view and the widgets draw an icon only from the icon module, `@askboard/view/icons` (`packages/view/src/icons/index.ts`), which re-exports each icon under the name of its role on the board; nothing else imports Lucide, except the board page's own icon file for `lucide` (below), and `check:imports` fails CI when it does. The module is bundled once, in the `icons` library chunk that the shell and the component chunks share.
 
 | Export | Lucide icon | Where | Replaces |
 |---|---|---|---|
@@ -920,7 +920,7 @@ Every icon on the board comes from one set: Lucide (ISC, with Feather's MIT text
 | `IconCalendar` | `calendar` | the date field's calendar button | the field's own SVG |
 | `IconDisclosure` | `chevron-right` | the Tree's chevron, turned 90° when open | the row's own SVG |
 | `IconDragHandle` | `grip-vertical` | the Tree's and the Ranking's drag handles | the rows' own SVGs |
-| `closeIcon` (`x`, from `lucide`) | `x` | the reading panel's and the settings panel's close buttons, which are plain DOM and load no React (lands with the board page's group of `icon-set`) | ✕ |
+| `closeIcon` (`x`, from `lucide`) | `x` | the reading panel's and the settings panel's close buttons, which are plain DOM and load no React; drawn by `packages/view/src/board-page/icons.ts` from `lucide`, the DOM package of the same release | ✕ |
 
 - **Colour.** `currentColor` only: an icon takes the text colour of its element, so it follows the theme. No icon gets a fill or a colour of its own.
 - **Size.** The caller's size utility, never the `size` prop: 16 px (`size-4`) beside control text, 12 px (`size-3`) in badges, hints and widget rows, 14 px (`size-3.5`) for the calendar. Stroke is Lucide's 2 on its 24 grid, never set per icon.

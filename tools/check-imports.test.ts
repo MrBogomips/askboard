@@ -351,6 +351,50 @@ describe("the icon set's import rule (icon-set, design decision 5)", () => {
   });
 });
 
+// icon-set design decision 10: `lucide` (vanilla) enters only as its createElement module and one
+// icon module by path, in the board page's icon file; the main entry (createIcons scans the DOM)
+// and `@lucide/*` fail everywhere. `lucide` has no exports map, so the paths are its files.
+describe("the board page's Lucide import rule (icon-set, design decision 10)", () => {
+  const BOARD_ICONS = "packages/view/src/board-page/icons.ts";
+
+  test.each([
+    ["packages/view/src/board-page/reading-panel.ts", "lucide/dist/esm/icons/x.mjs"],
+    ["packages/view/src/icons/index.ts", "lucide/dist/esm/icons/x.mjs"],
+    ["packages/widgets/src/a.tsx", "lucide/dist/esm/createElement.mjs"],
+    [BOARD_ICONS, "lucide"],
+    [BOARD_ICONS, "lucide/dist/esm/lucide.mjs"],
+    [BOARD_ICONS, "lucide/dist/esm/replaceElement.mjs"],
+    [BOARD_ICONS, "lucide/dist/esm/iconsAndAliases.mjs"],
+    [BOARD_ICONS, "lucide/dist/cjs/lucide.js"],
+    [BOARD_ICONS, "lucide/dist/umd/lucide.js"],
+    [BOARD_ICONS, "lucide/dist/esm/icons/X.mjs"],
+    [BOARD_ICONS, "lucide/dist/esm/icons/x.js"],
+    [BOARD_ICONS, "lucide/dist/esm/icons/a/b.mjs"],
+    [BOARD_ICONS, "Lucide/dist/esm/icons/x.mjs"],
+    [BOARD_ICONS, "LUCIDE"],
+    [BOARD_ICONS, "@lucide/lab"],
+    [BOARD_ICONS, "@lucide/icons"],
+    [BOARD_ICONS, "@Lucide/lab"],
+    [BOARD_ICONS, "lucide-react/icons/x"],
+    [BOARD_ICONS, "lucide-static"],
+  ])("%s may not import %s", (file, specifier) => {
+    const violations = checkSource(file, importOf(specifier));
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toMatchObject({ file, specifier });
+    expect(violations[0]?.rule).toContain("lucide");
+  });
+
+  test.each([
+    [BOARD_ICONS, "lucide/dist/esm/icons/x.mjs"],
+    [BOARD_ICONS, "lucide/dist/esm/icons/message-square-reply.mjs"],
+    [BOARD_ICONS, "lucide/dist/esm/createElement.mjs"],
+    ["packages/view/src/board-page/icons.test.ts", "lucide/dist/esm/icons/x.mjs"],
+    ["packages/view/test/browser/a.ts", "lucide/dist/esm/createElement.mjs"],
+  ])("%s may import %s", (file, specifier) => {
+    expect(checkSource(file, importOf(specifier))).toEqual([]);
+  });
+});
+
 describe("runtime-specific imports in core, compute and mod (AD-1)", () => {
   const BUILT_INS = ["node:fs", "fs", "fs/promises", "path", "bun", "bun:sqlite", "bun:test"];
 

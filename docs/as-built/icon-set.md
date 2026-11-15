@@ -13,7 +13,7 @@ In code since `icon-set` (Issue #188): one icon set, Lucide, drawn through one m
 **Names and seams.**
 - The nine exports of the module, named for their role: `IconNextOpen`, `IconReplies`, `IconAgentChanged`, `IconExternal`, `IconSelected`, `IconClose`, `IconCalendar`, `IconDisclosure`, `IconDragHandle`. No wrapper, class or default prop.
 - The `icons` chunk is a library chunk needing `react`, with no styles; its notice carries the package's whole `LICENSE`. The shared-module test lists each icon name as "listed ahead" until the source that draws it lands.
-- The Lucide rule: a specifier `lucide-react/icons/<name>` passes only in the icon module or a test; the main entry, `icons`, `dynamic*` and `dist/…` fail everywhere.
+- The Lucide rule: Lucide is found in lower case (`Lucide-React/…` and `LUCIDE-REACT` fail, security finding X-1). A specifier `lucide-react/icons/<name>` passes only in the icon module or a test; the main entry, `icons`, `dynamic*` and `dist/…` fail everywhere. For `lucide` (the DOM package, which has no exports map), only `lucide/dist/esm/createElement.mjs` and `lucide/dist/esm/icons/<name>.mjs` pass, in `packages/view/src/board-page/icons.ts` or a test; the main entry (its `createIcons` scans the DOM), the other `dist` files, `lucide-*` and `@lucide/*` fail everywhere.
 
 **Correction.** The Issue lists "↑/← widget moves" among the glyphs. The only ↑ and ← on `main` are key names in `catalog/keys/label.ts`, which stay text (DESIGN.md, Icons).
 
@@ -23,3 +23,4 @@ In code since `icon-set` (Issue #188): one icon set, Lucide, drawn through one m
 - Because the shell and the date-field and context chunks import the module, their `needs` list `icons`; `tools/build/view.test.ts` states that.
 - `packages/view/test/browser/icons.browser.ts`: the jump, the outline's marks, the hint, the calendar button, the theme colours and a Snapshot offline.
 
+**The board page's close icon (Q1, the PO chose (a)).** `lucide` 1.73.0, exact, in `packages/view/package.json` and the spine's Stack, kept equal to `lucide-react` by a test in `tools/workspace.test.ts`; Dependabot ignores its minor and patch releases. `packages/view/src/board-page/icons.ts` exports `closeIcon(document)`, built from the package's `createElement` and the `x` icon file with constant attributes (`aria-hidden="true"`, `class="size-4"`), no SVG string and no `createIcons`; the types of the two deep paths are in `board-page/lucide.d.ts`. `reading-panel.ts` and `settings-panel.ts` append it in place of the ✕ text, each button keeping its `aria-label`. The board page's notices list `lucide`'s ISC licence file.

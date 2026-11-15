@@ -670,6 +670,7 @@ Solid arrows are code imports, from dependent to dependency. Dotted arrows are r
 | `radix-ui` (view primitives: Checkbox, Switch, Tabs, Slider, Toggle Group, Popover, Dialog, Alert Dialog, Dropdown Menu; not Select) | 1.8.1 |
 | `react-day-picker` (the Date Picker's calendar) | 10.0.2 |
 | `lucide-react` (the icon set: the view's icon module, each icon by its path) | 1.73.0 |
+| `lucide` (the board page's close icon; the same version as `lucide-react`) | 1.73.0 |
 | `markdown-it` (Markdown, `html: false`) | 15.0.3 |
 | `dompurify` (the Markdown sanitizer) | 3.4.17 |
 | `katex` (LaTeX) | 0.19.1 |

@@ -129,6 +129,33 @@ describe("workspace layout", () => {
     }
   });
 
+  // icon-set decision 10: the board page's `lucide` is the same release as the view's `lucide-react`.
+  const lucidePinMismatch = (manifest: Record<string, Record<string, string> | undefined>) => {
+    const field = DEPENDENCY_FIELDS.find((name) => manifest[name]?.lucide !== undefined);
+    const vanilla = field === undefined ? undefined : manifest[field]?.lucide;
+    const react = DEPENDENCY_FIELDS.map((name) => manifest[name]?.["lucide-react"]).find(Boolean);
+    if (vanilla === react) return undefined;
+    return `lucide ${vanilla ?? "(missing)"} and lucide-react ${react ?? "(missing)"} differ`;
+  };
+
+  test("a fixture that pins lucide and lucide-react apart fails, naming both versions", () => {
+    const message = lucidePinMismatch({
+      dependencies: { lucide: "1.73.0", "lucide-react": "1.74.0" },
+    });
+    expect(message).toContain("1.73.0");
+    expect(message).toContain("1.74.0");
+    expect(
+      lucidePinMismatch({ dependencies: { lucide: "1.73.0", "lucide-react": "1.73.0" } }),
+    ).toBe(undefined);
+    expect(lucidePinMismatch({ dependencies: { "lucide-react": "1.73.0" } })).toContain("missing");
+  });
+
+  test("the view pins lucide and lucide-react to one version", async () => {
+    const manifest = await readJson(join(root, "packages/view/package.json"));
+    expect(manifest.dependencies.lucide).toMatch(PINNED);
+    expect(lucidePinMismatch(manifest)).toBeUndefined();
+  });
+
   // The import check resolves only @askboard/* and relative specifiers, so nothing may alias them.
   test("no configuration aliases imports", async () => {
     for (const path of configPaths) {

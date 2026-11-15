@@ -10,6 +10,7 @@
 import type { EditorOutcomeMessage, SourceStateMessage } from "@askboard/contract";
 import { markedString } from "../catalog/context/marks.ts";
 import type { ReferenceInset } from "../view-protocol.ts";
+import { closeIcon } from "./icons.ts";
 import {
   LOADING,
   noteRuns,
@@ -177,7 +178,8 @@ export const createReadingPanel = (document: Document, options: PanelOptions): R
     const editor = made(document, "button", BUTTON, "Open in editor");
     editor.type = "button";
     editor.disabled = true;
-    const close = made(document, "button", CLOSE, "✕");
+    const close = made(document, "button", CLOSE);
+    close.append(closeIcon(document));
     close.type = "button";
     close.setAttribute("aria-label", "Close reading panel");
     header.append(path, chip, editor, close);
