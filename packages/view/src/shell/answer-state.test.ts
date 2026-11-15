@@ -1,7 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import type { LifecycleBoardState, LifecycleQuestionStatus } from "@askboard/contract";
 import type { ViewDocument, ViewQuestion } from "../view-document.ts";
-import { type AnswerStateInputs, answerStateOf, ladderCountsOf } from "./answer-state.ts";
+import {
+  type AnswerStateInputs,
+  answerStateOf,
+  isRevision,
+  ladderCountsOf,
+} from "./answer-state.ts";
 import type { QuestionWork } from "./board-draft.ts";
 
 // The answer state ladder (answering-flow-guidance, design decision 1): one state per question,
@@ -131,6 +136,37 @@ describe("an open question", () => {
   });
 });
 
+describe("a revision (isRevision)", () => {
+  const revises = (inputs: Partial<AnswerStateInputs> & { status?: LifecycleQuestionStatus }) =>
+    isRevision({ status: open("open"), revising: true, ...inputs });
+
+  test("is answer work over a logged answer or decline", () => {
+    expect(revises({ status: logged("answered", "delivered") })).toBe(true);
+    expect(revises({ status: logged("answered", "sent") })).toBe(true);
+    expect(revises({ status: logged("declined", "sent") })).toBe(true);
+  });
+
+  test("is not one without answer work, or on a question that is not logged answered or declined", () => {
+    expect(revises({ status: logged("answered", "sent"), revising: false })).toBe(false);
+    expect(revises({})).toBe(false);
+    expect(revises({ status: open("postponed") })).toBe(false);
+    expect(revises({ status: undefined })).toBe(false);
+  });
+
+  test("is not one once an undo reopens the question: held, undone, or a reopen on its way", () => {
+    const status = logged("declined", "sent");
+    // Positive first: the same inputs without the undo are a revision.
+    expect(revises({ status })).toBe(true);
+    expect(revises({ status, held: "reopen" })).toBe(false);
+    expect(revises({ status, undone: true })).toBe(false);
+    expect(revises({ status, flight: { outcome: "sent", act: "reopen" } })).toBe(false);
+    expect(revises({ status, flight: { act: "reopen" } })).toBe(false);
+    expect(revises({ status, flight: { outcome: "queued", act: "reopen" } })).toBe(false);
+    // Another command on its way does not reopen it.
+    expect(revises({ status, flight: { outcome: "sent", act: "answer" } })).toBe(true);
+  });
+});
+
 describe("the ladder's counts over a board", () => {
   const question = (id: string): ViewQuestion =>
     ({ type: "question", id, rev: 1, props: { text: id } }) as unknown as ViewQuestion;
@@ -200,5 +236,47 @@ describe("the ladder's counts over a board", () => {
     expect(counts.declined).toBe(0);
     expect(counts.sent).toBe(0);
     expect(counts.delivered).toBe(0);
+  });
+});
+
+describe("a reopened question being edited", () => {
+  const question = (id: string): ViewQuestion =>
+    ({ type: "question", id, rev: 1, props: { text: id } }) as unknown as ViewQuestion;
+  const document = { items: ["a", "b"].map(question) } as unknown as ViewDocument;
+  const state = {
+    ask: "partly-answered",
+    questions: [logged("declined", "sent", "a"), logged("answered", "sent", "b")],
+  } as unknown as LifecycleBoardState;
+
+  test("is a draft that is no revision: revisions leaves it out", () => {
+    const edited = (work: Map<string, QuestionWork>) =>
+      ladderCountsOf(
+        document,
+        state,
+        work,
+        () => undefined,
+        () => true,
+      );
+    // Positive: with no undo, both are revisions.
+    expect(edited(new Map()).revisions).toBe(2);
+    const undone = edited(
+      new Map<string, QuestionWork>([
+        ["a", { rev: 1, held: { act: "reopen", order: 1 } }],
+        ["b", { rev: 1, undo: { act: "reopen", order: 2 } }],
+      ]),
+    );
+    expect(undone.draft).toBe(2);
+    expect(undone.revisions).toBe(0);
+  });
+
+  test("a reopen on its way leaves it out as well", () => {
+    const counts = ladderCountsOf(
+      document,
+      state,
+      new Map(),
+      (id) => (id === "a" ? { outcome: "sent", act: "reopen" } : undefined),
+      () => true,
+    );
+    expect(counts.revisions).toBe(1);
   });
 });

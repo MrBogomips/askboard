@@ -13,7 +13,13 @@ import {
   type ViewQuestion,
 } from "../view-document.ts";
 import type { ViewLock } from "../view-protocol.ts";
-import { type AnswerState, answerStateOf, type FlightOf } from "./answer-state.ts";
+import {
+  type AnswerState,
+  type AnswerStateInputs,
+  answerStateOf,
+  type FlightOf,
+  isRevision,
+} from "./answer-state.ts";
 import type { QuestionWork } from "./board-draft.ts";
 
 /**
@@ -96,6 +102,19 @@ export type Ladder = {
 const statusOf = (state: LifecycleBoardState, questionId: string) =>
   state.questions.find((question) => question.itemId === questionId);
 
+const inputsOf = (
+  questionId: string,
+  state: LifecycleBoardState,
+  work: Work,
+  ladder: Ladder,
+): AnswerStateInputs => ({
+  status: statusOf(state, questionId),
+  held: work.get(questionId)?.held?.act,
+  undone: work.get(questionId)?.undo !== undefined,
+  flight: ladder.flightOf(questionId),
+  revising: ladder.revisingOf(questionId),
+});
+
 /**
  * The question's mark, as Submit will leave it: `answerStateOf`, over the held act, a held undo, the
  * card's flight, the logged status and the work the board holds. A held answer is ready, a
@@ -108,19 +127,12 @@ export const markOf = (
   state: LifecycleBoardState,
   work: Work,
   ladder: Ladder,
-): Mark =>
-  answerStateOf({
-    status: statusOf(state, questionId),
-    held: work.get(questionId)?.held?.act,
-    undone: work.get(questionId)?.undo !== undefined,
-    flight: ladder.flightOf(questionId),
-    revising: ladder.revisingOf(questionId),
-  });
+): Mark => answerStateOf(inputsOf(questionId, state, work, ladder));
 
 /**
  * Whether a question counts as to do on the board: to do, a first draft, or postponed (EXPERIENCE.md,
- * Counting). A revision (a draft over a logged answer or decline) reads Draft but is not counted:
- * the agent holds an answer, as `ladderCountsOf` counts it.
+ * Counting). A revision (`isRevision`) reads Draft but is not counted: the agent holds an answer, as
+ * `ladderCountsOf` counts it; a reopened question being edited is a first draft and is.
  */
 export const isOpen = (
   questionId: string,
@@ -128,11 +140,9 @@ export const isOpen = (
   work: Work,
   ladder: Ladder,
 ): boolean => {
-  const mark = markOf(questionId, state, work, ladder);
-  if (mark === "draft") {
-    const logged = statusOf(state, questionId)?.state;
-    return logged !== "answered" && logged !== "declined";
-  }
+  const inputs = inputsOf(questionId, state, work, ladder);
+  const mark = answerStateOf(inputs);
+  if (mark === "draft") return !isRevision(inputs);
   return mark === "todo" || mark === "postponed";
 };
 

@@ -92,13 +92,19 @@ export const ActionsRow = ({
   const text = useStrings();
   const answerKey = useBoardKeyTable().find((entry) => entry.action === "board.answer");
   const language = useLanguage();
-  if (opened) {
-    return card.receipt === undefined ? null : (
-      <span data-askboard-receipt={card.receiptKind} className="text-badge text-muted-foreground">
-        {card.receipt}
-      </span>
-    );
-  }
+  // The state line: the marker beside its label, the one place a question's marker stands on the
+  // card; a Snapshot keeps it where Answer is hidden (DESIGN.md, Delivery receipt).
+  const stateLine = (
+    <span
+      data-askboard-state={mark}
+      data-askboard-receipt={RECEIPT_OF[mark]}
+      className="flex items-center gap-1.5 text-badge text-muted-foreground"
+    >
+      <QuestionMarker mark={mark} />
+      {markLabel(mark, language)}
+    </span>
+  );
+  if (opened) return stateLine;
   return (
     <>
       <div className="flex flex-wrap items-center gap-md">
@@ -113,7 +119,7 @@ export const ActionsRow = ({
             focusHeading();
           }}
         >
-          {actions.postponed ? <QuestionMarker mark="postponed" /> : null}
+          {actions.postponed ? <QuestionMarker mark="postponed" inControl /> : null}
           {text("question.postpone")}
         </button>
         <DropdownMenu.Root modal={false}>
@@ -149,7 +155,7 @@ export const ActionsRow = ({
               >
                 <span aria-hidden="true" className="flex size-3 items-center justify-center">
                   <DropdownMenu.ItemIndicator>
-                    <QuestionMarker mark="declined" />
+                    <QuestionMarker mark="declined" inControl />
                   </DropdownMenu.ItemIndicator>
                 </span>
                 {text("question.decline")}
@@ -158,14 +164,7 @@ export const ActionsRow = ({
           </DropdownMenu.Portal>
         </DropdownMenu.Root>
         <span className="ml-auto flex items-center gap-md">
-          <span
-            data-askboard-state={mark}
-            data-askboard-receipt={RECEIPT_OF[mark]}
-            className="flex items-center gap-1.5 text-badge text-muted-foreground"
-          >
-            <QuestionMarker mark={mark} />
-            {markLabel(mark, language)}
-          </span>
+          {stateLine}
           {fieldToFix === undefined || locked ? null : (
             <button
               type="button"
@@ -184,7 +183,7 @@ export const ActionsRow = ({
             submitted={submitted}
             onAnswer={onAnswer}
           >
-            {card.ready ? <QuestionMarker mark="ready" /> : null}
+            {card.ready ? <QuestionMarker mark="ready" inControl /> : null}
             {text(
               primaryLabelOf({
                 single,

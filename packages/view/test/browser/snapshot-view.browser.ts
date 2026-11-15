@@ -174,8 +174,12 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await page.locator("[data-askboard-next-to-do]").click({ timeout: STEP_TIMEOUT_MS });
         const analytics = page.locator('[data-askboard-question="analytics"]');
         await analytics.waitFor({ state: "visible", timeout: STEP_TIMEOUT_MS });
-        // The postponed marker is two short bars.
-        expect(await analytics.locator(".w-0\\.5").count()).toBe(2);
+        // The Snapshot keeps the state line, with its marker beside the label: two short bars,
+        // and no other marker on the card.
+        const line = analytics.locator('[data-askboard-state="postponed"]');
+        expect((await line.textContent())?.trim()).toBe("Postponed");
+        expect(await line.locator("[data-askboard-marker]").locator(".w-0\\.5").count()).toBe(2);
+        expect(await analytics.locator("[data-askboard-marker]").count()).toBe(1);
         expect(await actingControls(page)).toBe(0);
         expect(
           requests.filter((url) => !url.startsWith("file:") && !url.startsWith("data:")),

@@ -9,6 +9,19 @@ import { valueItemsOf } from "../nested-items.ts";
 import { questionsOf, type ViewDocument, type ViewQuestion } from "../view-document.ts";
 
 /**
+ * The receipt of the question's logged answer or decline, `sent` or `delivered`, none while the
+ * board state holds no such answer: the card's `data-askboard-logged-receipt`, read from the same
+ * status as `confirmsRevisionOf`. It carries no agent text and no token.
+ */
+export const loggedReceiptOf = (
+  status: LifecycleQuestionStatus | undefined,
+): "sent" | "delivered" | undefined => {
+  if (status?.state !== "answered" && status?.state !== "declined") return undefined;
+  const { receipt } = status.answer;
+  return receipt === "sent" || receipt === "delivered" ? receipt : undefined;
+};
+
+/**
  * Whether "Answer" or Decline on the question asks first: its latest answer or decline has been
  * delivered to the agent, and one of its widget items has facts that ask for it. A question the
  * agent has not received an answer of, whose receipt reads queued or sent, is revised freely.
@@ -18,8 +31,7 @@ export const confirmsRevisionOf = (
   status: LifecycleQuestionStatus | undefined,
   factsOf: (type: string) => ComponentFacts | undefined = componentFacts,
 ): boolean =>
-  (status?.state === "answered" || status?.state === "declined") &&
-  status.answer.receipt === "delivered" &&
+  loggedReceiptOf(status) === "delivered" &&
   valueItemsOf(question.props.items).some(({ type }) => factsOf(type)?.confirmsRevision === true);
 
 /**

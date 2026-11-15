@@ -331,6 +331,48 @@ describe("the ladder on every surface (answering-flow-guidance, decision 1; EXPE
     expect(openCountOf(lifecycleBoardDocument, state, ready, own)).toBe(2);
   });
 
+  test("a reopened question being edited is a first draft: it reads Draft and counts as to do", () => {
+    const declined = stateOf("partly-answered", [
+      {
+        itemId: "region",
+        rev: 1,
+        state: "declined",
+        answer: { declined: true, when, receipt: "sent" },
+      },
+      answeredAs("payment"),
+      ...["analytics", "rollout", "erp-export"].map((itemId) => ({
+        itemId,
+        rev: 1,
+        state: "open",
+      })),
+    ]);
+    const own = revisingOnly("region", "payment");
+    // A revision with no undo is not counted: three to do (analytics, rollout, erp-export).
+    expect(isOpen("region", declined, noWork, own)).toBe(false);
+    expect(openCountOf(lifecycleBoardDocument, declined, noWork, own)).toBe(3);
+    // The undo held (a decline's reopen), the option selected: a first draft, one more to do.
+    const reopened = held([["region", { act: "reopen", order: 0 }]]);
+    expect(markOf("region", declined, reopened, own)).toBe("draft");
+    expect(isOpen("region", declined, reopened, own)).toBe(true);
+    expect(openCountOf(lifecycleBoardDocument, declined, reopened, own)).toBe(4);
+    // The same for a logged answer and a held undo beneath another work (`undone`).
+    const undone = new Map<string, QuestionWork>([
+      ["payment", { rev: 1, undo: { act: "reopen", order: 0 } }],
+    ]);
+    expect(markOf("payment", declined, undone, own)).toBe("draft");
+    expect(isOpen("payment", declined, undone, own)).toBe(true);
+    expect(openCountOf(lifecycleBoardDocument, declined, undone, own)).toBe(4);
+  });
+
+  test("a reopen on its way keeps the edited question to do", () => {
+    const reopening: Ladder = {
+      flightOf: (id) => (id === "payment" ? { outcome: "sent", act: "reopen" } : undefined),
+      revisingOf: (id) => id === "payment",
+    };
+    expect(markOf("payment", state, noWork, reopening)).toBe("draft");
+    expect(isOpen("payment", state, noWork, reopening)).toBe(true);
+  });
+
   test("a revision is never a next-question target; a first draft is", () => {
     const own = revisingOnly("region", "analytics");
     expect(nextOpenOrder(lifecycleBoardDocument, state, noWork, own, new Set())).toEqual([

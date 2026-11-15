@@ -5,8 +5,13 @@
 
 import type { LifecycleBoardState, LifecycleQuestionStatus } from "@askboard/contract";
 import { questionsOf, type ViewDocument, type ViewQuestion } from "../view-document.ts";
-import type { Flight } from "./answer-acts.ts";
-import { type AnswerState, answerStateOf } from "./answer-state.ts";
+import {
+  type AnswerState,
+  type AnswerStateInputs,
+  answerStateOf,
+  type FlightOf,
+  isRevision,
+} from "./answer-state.ts";
 import type { Delivery, QuestionWork } from "./board-draft.ts";
 
 export type Completion =
@@ -58,7 +63,7 @@ export const completionOf = (
   document: ViewDocument,
   state: LifecycleBoardState,
   work: ReadonlyMap<string, QuestionWork>,
-  flightOf: (questionId: string) => Pick<Flight, "outcome"> | undefined,
+  flightOf: (questionId: string) => FlightOf | undefined,
   revisingOf: (question: ViewQuestion) => boolean,
   delivery: Delivery,
 ): Completion => {
@@ -73,17 +78,17 @@ export const completionOf = (
     if (flightOf(question.id) !== undefined) return NONE;
     const own = work.get(question.id);
     const status = statuses.get(question.id);
-    const ladder: AnswerState = answerStateOf({
+    const inputs: AnswerStateInputs = {
       status,
       held: own?.held?.act,
       undone: own?.undo !== undefined,
       flight: flightOf(question.id),
       revising: revisingOf(question),
-    });
-    // A revision (a draft on a logged answer or decline) keeps the panel: only a first draft or
-    // a question to do holds it back.
-    const revision = status?.state === "answered" || status?.state === "declined";
-    if (ladder === "todo" || (ladder === "draft" && !revision)) return NONE;
+    };
+    const ladder: AnswerState = answerStateOf(inputs);
+    // A revision (`isRevision`) keeps the panel: only a first draft (a reopened question being
+    // edited included) or a question to do holds it back.
+    if (ladder === "todo" || (ladder === "draft" && !isRevision(inputs))) return NONE;
     if (own?.held !== undefined) {
       heldActs += 1;
       if (own.held.act === "answer") heldAnswers += 1;

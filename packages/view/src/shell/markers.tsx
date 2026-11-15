@@ -53,11 +53,21 @@ export const AskPill = ({ pill }: { readonly pill: Pill }) => {
  * (DESIGN.md, Markers). To do is a hollow ring, Draft a ring with a bar, Ready a dot in a ring, Not
  * sent yet a dashed ring, Sent a half-filled dot, Delivered a filled dot.
  */
-export const QuestionMarker = ({ mark }: { readonly mark: Mark }) => {
+export const QuestionMarker = ({
+  mark,
+  inControl = false,
+}: {
+  readonly mark: Mark;
+  /** Drawn inside a button, beside its own label: not the state line's marker, so no hook. */
+  readonly inControl?: boolean;
+}) => {
+  // The test hook names the marker beside a state's label (`data-askboard-marker`, decision 5).
+  const hook = inControl ? {} : { "data-askboard-marker": mark };
   switch (mark) {
     case "todo":
       return (
         <span
+          {...hook}
           aria-hidden="true"
           className="size-2 shrink-0 rounded-full border border-ask-waiting"
         />
@@ -66,6 +76,7 @@ export const QuestionMarker = ({ mark }: { readonly mark: Mark }) => {
       // A ring with a bar across its middle.
       return (
         <span
+          {...hook}
           aria-hidden="true"
           className="relative flex size-2.5 shrink-0 items-center justify-center rounded-full border border-ask-partial"
         >
@@ -75,6 +86,7 @@ export const QuestionMarker = ({ mark }: { readonly mark: Mark }) => {
     case "not-sent-yet":
       return (
         <span
+          {...hook}
           aria-hidden="true"
           className="size-2 shrink-0 rounded-full border border-dashed border-foreground-secondary"
         />
@@ -82,16 +94,24 @@ export const QuestionMarker = ({ mark }: { readonly mark: Mark }) => {
     case "sent":
       return (
         <span
+          {...hook}
           aria-hidden="true"
           className="size-2 shrink-0 rounded-full border border-ask-partial bg-linear-to-r from-ask-partial from-50% to-transparent to-50%"
         />
       );
     case "delivered":
-      return <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-ask-answered" />;
+      return (
+        <span
+          {...hook}
+          aria-hidden="true"
+          className="size-2 shrink-0 rounded-full bg-ask-answered"
+        />
+      );
     case "ready":
       // A dot in a ring (`question-marker-held`).
       return (
         <span
+          {...hook}
           aria-hidden="true"
           className="flex size-2.5 shrink-0 items-center justify-center rounded-full border border-ask-answered"
         >
@@ -101,7 +121,7 @@ export const QuestionMarker = ({ mark }: { readonly mark: Mark }) => {
     case "postponed":
       // Two short bars (`question-marker-postponed`).
       return (
-        <span aria-hidden="true" className="flex h-2 shrink-0 gap-0.5">
+        <span {...hook} aria-hidden="true" className="flex h-2 shrink-0 gap-0.5">
           <span className="h-2 w-0.5 bg-muted-foreground" />
           <span className="h-2 w-0.5 bg-muted-foreground" />
         </span>
@@ -110,6 +130,7 @@ export const QuestionMarker = ({ mark }: { readonly mark: Mark }) => {
       // A slashed ring (`question-marker-declined`).
       return (
         <span
+          {...hook}
           aria-hidden="true"
           className="relative flex size-2.5 shrink-0 items-center justify-center rounded-full border border-foreground-secondary"
         >

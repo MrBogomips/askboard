@@ -113,6 +113,12 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           const { board } = await open(start, "sections", { delivery: "submitted", language });
           await helper(board, HELPER[language].submitted).waitFor({ timeout: STEP_TIMEOUT_MS });
           expect(await helper(board, HELPER[language].immediate).count()).toBe(0);
+          if (language === "it-IT") {
+            // "Una alla volta": the immediate text, through the bar, and the submitted one gone.
+            await board.delivery("immediate").click({ timeout: STEP_TIMEOUT_MS });
+            await helper(board, HELPER[language].immediate).waitFor({ timeout: STEP_TIMEOUT_MS });
+            expect(await helper(board, HELPER[language].submitted).count()).toBe(0);
+          }
         }
         const { run, board } = await open(start, "sections", { delivery: "submitted" });
         await helper(board, HELPER["en-US"].submitted).waitFor({ timeout: STEP_TIMEOUT_MS });
@@ -129,6 +135,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         // Neither helper text shows anywhere on the single board (each was found on the other).
         for (const language of ["en-US", "it-IT"] as const) {
           for (const text of Object.values(HELPER[language])) {
+            expect(await helper(only, text).count()).toBe(0);
             expect(await only.view.getByText(text, { exact: true }).count()).toBe(0);
           }
         }

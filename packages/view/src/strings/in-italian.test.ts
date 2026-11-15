@@ -90,7 +90,24 @@ describe("the view's texts in Italian", () => {
         { flightOf: () => undefined, revisingOf: () => false },
         "it-IT",
       ),
-    ).toBe("Hai 1 domanda rinviata: chiudendo perdi questa richiesta");
+    ).toBe("Hai 1 domanda rimandata: chiudendo perdi questa richiesta");
+    const twice = stateOf(
+      "waiting",
+      ["region", "payment", "analytics", "rollout", "erp-export"].map((itemId) =>
+        itemId === "payment" || itemId === "rollout"
+          ? postponed(itemId)
+          : { itemId, rev: 1, state: "open" },
+      ),
+    );
+    expect(
+      postponedWarningOf(
+        lifecycleBoardDocument,
+        twice,
+        new Map<string, QuestionWork>(),
+        { flightOf: () => undefined, revisingOf: () => false },
+        "it-IT",
+      ),
+    ).toBe("Hai 2 domande rimandate: chiudendo perdi questa richiesta");
   });
 
   test("counts: changes, updates and messages", () => {

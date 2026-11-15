@@ -21,11 +21,17 @@ import {
   actsDone,
   answerOf,
   card,
+  chooseFromMore,
+  focused,
+  headingOf,
   lifecycleScenario,
+  loggedReceiptOf,
   noteOf,
   openBoard,
   optionOf,
+  postponeOf,
 } from "./harness/lifecycle-test.ts";
+import { viewSettled } from "./harness/probes.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 
 const dist = await readViewBuild();
@@ -327,13 +333,204 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await answerOf(board, "q1").click({ timeout: STEP_TIMEOUT_MS });
         await line.waitFor({ timeout: STEP_TIMEOUT_MS });
         expect((await line.innerText()).trim()).toMatch(/^Note sent \d{1,2}:\d{2}/);
-        await actsDone(run, 1);
+        const [sent] = await actsDone(run, 1);
+        expect(sent?.acts.map((act) => act.type)).toEqual(["note"]);
         await reads(lineOf(board, "q1"), "todo", "To do");
         await reads(entryOf(board, "q1"), "todo", "To do");
         await toDo(board, 9);
         // Another question shows no such line.
         expect(await card(board, "q2").locator("[data-askboard-note-sent]").count()).toBe(0);
         expectNoCspProblem(run);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a reopened question being edited reads Draft and still counts as to do (A reopened question being edited)",
+      async () => {
+        const { run, board } = await open(start);
+        // Question 2 is declined in "One by one" and the decline is logged.
+        await chooseFromMore(board, "q2", "Decline");
+        await actsDone(run, 1);
+        await reads(lineOf(board, "q2"), "declined", "Declined");
+        await toDo(board, 8);
+        // In "All together" Undo on it holds the reopen: question 2 is to do again.
+        await board.delivery("submitted").click({ timeout: STEP_TIMEOUT_MS });
+        await chooseFromMore(board, "q2", "Decline");
+        await reads(lineOf(board, "q2"), "todo", "To do");
+        await toDo(board, 9);
+        // An option selected: a first draft over the undone decline, which counts as to do.
+        await choose(board, "q2");
+        await reads(lineOf(board, "q2"), "draft", "Draft");
+        await reads(entryOf(board, "q2"), "draft", "Draft");
+        await viewSettled(board);
+        await toDo(board, 9);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a note while the connection is lost reads Not sent yet and shows Note sent only once the note's command is done; one that is dropped never does",
+      async () => {
+        const { run, board } = await open(start);
+        const sentLine = (id: string) => card(board, id).locator("[data-askboard-note-sent]");
+        // Positive first: a note sent while connected shows the line, so the locator finds it.
+        await noteOf(board, "q2").fill("Ask ops first.");
+        await answerOf(board, "q2").click({ timeout: STEP_TIMEOUT_MS });
+        await actsDone(run, 1);
+        await sentLine("q2").waitFor({ timeout: STEP_TIMEOUT_MS });
+        // (a) The connection is lost: the note is queued, and the line stays away.
+        await run.session.drop();
+        await board
+          .banner("Connection lost, retrying")
+          .first()
+          .waitFor({ timeout: STEP_TIMEOUT_MS });
+        await noteOf(board, "q1").fill("Check with the platform team.");
+        await answerOf(board, "q1").click({ timeout: STEP_TIMEOUT_MS });
+        await reads(lineOf(board, "q1"), "not-sent-yet", "Not sent yet");
+        await viewSettled(board);
+        expect(await sentLine("q1").count()).toBe(0);
+        await run.session.restore();
+        const acts = await actsDone(run, 2);
+        expect(acts.map((command) => command.acts.map((act) => act.type))).toEqual([
+          ["note"],
+          ["note"],
+        ]);
+        await sentLine("q1").waitFor({ timeout: STEP_TIMEOUT_MS });
+        expect((await sentLine("q1").innerText()).trim()).toMatch(/^Note sent \d{1,2}:\d{2}/);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a note the agent's closing drops on reconnect never shows Note sent (the path taken: a note past the open prompt's bound cannot be built, since the prompt holds 10,000 characters and the message limit is far above it)",
+      async () => {
+        const { run, board } = await open(start);
+        const sentLine = (id: string) => card(board, id).locator("[data-askboard-note-sent]");
+        await noteOf(board, "q2").fill("Ask ops first.");
+        await answerOf(board, "q2").click({ timeout: STEP_TIMEOUT_MS });
+        await sentLine("q2").waitFor({ timeout: STEP_TIMEOUT_MS });
+        await actsDone(run, 1);
+        await run.session.drop();
+        await board
+          .banner("Connection lost, retrying")
+          .first()
+          .waitFor({ timeout: STEP_TIMEOUT_MS });
+        await noteOf(board, "q1").fill("Check with the platform team.");
+        await answerOf(board, "q1").click({ timeout: STEP_TIMEOUT_MS });
+        await reads(lineOf(board, "q1"), "not-sent-yet", "Not sent yet");
+        // The agent closes the ask before the note returns; the note is dropped on reconnect.
+        await run.session.update([{ action: "close" }]);
+        await run.session.restore();
+        await eventually(async () => (await holding(board, "not-sent-yet")) === 0, "the note gone");
+        await viewSettled(board);
+        expect(await sentLine("q1").count()).toBe(0);
+        expect(await actsDone(run, 1)).toHaveLength(1);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "the card's logged receipt turns from sent to delivered on collect while its state line still reads Ready, not sent",
+      async () => {
+        const { run, board } = await open(start, { delivery: "submitted" });
+        await choose(board, "q1");
+        await answerOf(board, "q1").click({ timeout: STEP_TIMEOUT_MS });
+        await board.submit.click({ timeout: STEP_TIMEOUT_MS });
+        await loggedReceiptOf(board, "q1", "sent").waitFor({ timeout: STEP_TIMEOUT_MS });
+        await actsDone(run, 1);
+        // A revision confirmed, not sent: the line reads Ready, the logged answer still Sent.
+        await optionOf(board, "q1", "No").check({ timeout: STEP_TIMEOUT_MS });
+        await answerOf(board, "q1").click({ timeout: STEP_TIMEOUT_MS });
+        await reads(lineOf(board, "q1"), "ready", "Ready, not sent");
+        expect(await loggedReceiptOf(board, "q1", "delivered").count()).toBe(0);
+        await run.session.collect();
+        await loggedReceiptOf(board, "q1", "delivered").waitFor({ timeout: STEP_TIMEOUT_MS });
+        await reads(lineOf(board, "q1"), "ready", "Ready, not sent");
+        expect(await loggedReceiptOf(board, "q1", "sent").count()).toBe(0);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "revising after delivery: Draft with no receipt, then Sent, then Delivered to the agent",
+      async () => {
+        const { run, board } = await open(start);
+        await choose(board, "q1");
+        await answerOf(board, "q1").click({ timeout: STEP_TIMEOUT_MS });
+        await actsDone(run, 1);
+        await run.session.collect();
+        await reads(lineOf(board, "q1"), "delivered", "Delivered to the agent");
+        await card(board, "q1")
+          .locator('[data-askboard-receipt="delivered"]')
+          .waitFor({ timeout: STEP_TIMEOUT_MS });
+        await optionOf(board, "q1", "No").check({ timeout: STEP_TIMEOUT_MS });
+        await reads(lineOf(board, "q1"), "draft", "Draft");
+        expect(await card(board, "q1").locator("[data-askboard-receipt]").count()).toBe(0);
+        expect((await answerOf(board, "q1").innerText()).trim()).toBe("Send the change");
+        await answerOf(board, "q1").click({ timeout: STEP_TIMEOUT_MS });
+        await reads(lineOf(board, "q1"), "sent", "Sent");
+        await eventually(() => focused(headingOf(board, "q1")), "focus on question 1's heading");
+        await actsDone(run, 2);
+        await run.session.collect();
+        await reads(lineOf(board, "q1"), "delivered", "Delivered to the agent");
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "an answer the agent recorded reads Delivered to the agent on the card and in the outline",
+      async () => {
+        const { run, board } = await open(start);
+        await reads(lineOf(board, "q2"), "todo", "To do");
+        await run.session.update([{ action: "answer", itemId: "q2", answer: { choice: ["Yes"] } }]);
+        await reads(lineOf(board, "q2"), "delivered", "Delivered to the agent");
+        await reads(entryOf(board, "q2"), "delivered", "Delivered to the agent");
+        expect(await lineOf(board, "q1").getAttribute("data-askboard-state")).toBe("todo");
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a state line holds one marker beside its label and the header row none: Ready, Postponed, Declined, Delivered",
+      async () => {
+        const { run, board } = await open(start);
+        await choose(board, "q1");
+        await answerOf(board, "q1").click({ timeout: STEP_TIMEOUT_MS });
+        await actsDone(run, 1);
+        await run.session.collect();
+        await postponeOf(board, "q2").click({ timeout: STEP_TIMEOUT_MS });
+        await chooseFromMore(board, "q3", "Decline");
+        // Not sent yet: the connection lost, which also disables the delivery switch.
+        await run.session.drop();
+        await board
+          .banner("Connection lost, retrying")
+          .first()
+          .waitFor({ timeout: STEP_TIMEOUT_MS });
+        await choose(board, "q5");
+        await answerOf(board, "q5").click({ timeout: STEP_TIMEOUT_MS });
+        await reads(lineOf(board, "q5"), "not-sent-yet", "Not sent yet");
+        expect(await card(board, "q5").locator("[data-askboard-marker]").count()).toBe(1);
+        expect(
+          await lineOf(board, "q5").locator('[data-askboard-marker="not-sent-yet"]').count(),
+        ).toBe(1);
+        await run.session.restore();
+        await board.delivery("submitted").click({ timeout: STEP_TIMEOUT_MS });
+        await choose(board, "q7");
+        await answerOf(board, "q7").click({ timeout: STEP_TIMEOUT_MS });
+        const cases = [
+          ["q1", "delivered", "Delivered to the agent"],
+          ["q2", "postponed", "Postponed"],
+          ["q3", "declined", "Declined"],
+          ["q7", "ready", "Ready, not sent"],
+        ] as const;
+        for (const [id, state, label] of cases) {
+          await reads(lineOf(board, id), state, label);
+          expect(await card(board, id).locator("[data-askboard-marker]").count()).toBe(1);
+          expect(await lineOf(board, id).locator(`[data-askboard-marker="${state}"]`).count()).toBe(
+            1,
+          );
+        }
       },
       TEST_TIMEOUT_MS,
     );

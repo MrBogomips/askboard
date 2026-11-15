@@ -198,10 +198,6 @@ export const IT_IT = {
   "bar.submitted": "Tutte insieme",
   "bar.immediateHelp": "Ogni risposta parte appena la invii.",
   "bar.submittedHelp": "Le risposte restano qui finché non premi «{submit}».",
-  "bar.postponedWarning": {
-    one: "Hai {count} domanda rinviata: chiudendo perdi questa richiesta",
-    other: "Hai {count} domande rinviate: chiudendo perdi questa richiesta",
-  },
   "bar.selectRecommended": "Seleziona le consigliate",
   "bar.updates": {
     one: "{count} aggiornamento richiede una scelta",
@@ -638,6 +634,12 @@ export const IT_IT = {
   "header.openPostponed": {
     one: "{open} da fare (di cui {count} rimandata)",
     other: "{open} da fare (di cui {count} rimandate)",
+  },
+  // The postponed warning takes "rimandata" like the rest of the guided flow; the ask pill keeps
+  // its own word (decisions 5 and 10); to review with a native speaker.
+  "bar.postponedWarning": {
+    one: "Hai {count} domanda rimandata: chiudendo perdi questa richiesta",
+    other: "Hai {count} domande rimandate: chiudendo perdi questa richiesta",
   },
   "completion.title": "Tutte le domande hanno una risposta.",
   "settings.afterAnswer": "Dopo la risposta",

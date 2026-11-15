@@ -73,7 +73,6 @@ import { ContextColumn } from "./context-column.tsx";
 import { couldSplit, layoutOf } from "./context-layout.ts";
 import { fieldToFixOf, holdsBlock } from "./field-block.ts";
 import { focusField } from "./focus-field.ts";
-import { QuestionMarker } from "./markers.tsx";
 import type { OpenedSnapshot } from "./opened-snapshot.ts";
 import { ActionsRow } from "./question-actions.tsx";
 import {
@@ -93,6 +92,7 @@ import {
   type Confirmation,
   confirmationOf,
   type FocusTarget,
+  loggedReceiptOf,
   settleConfirmation,
 } from "./revision-confirm.ts";
 import type { SizeNotices } from "./size-notices.ts";
@@ -480,10 +480,6 @@ export const QuestionCard = (props: CardProps) => {
     // An answer sent at once moves focus to the heading when the act is taken, never when its
     // command settles (answering-flow-fixes, design decision 1); marking ready keeps it on "Answer".
     if (pressed.kind === "done" && sentResult(outcomeOfPress.current)) focusHeading();
-    if (pressed.kind === "done" && outcomeOfPress.current === "note-sent") {
-      const when = new Date().toISOString();
-      context.noteSent.set(new Map(context.noteSent.get()).set(question.id, when));
-    }
     chosen.current = false;
     setWaiting(
       confirmationOf("answer", pressed.kind === "waiting" ? pressed.waiting : undefined, control),
@@ -628,6 +624,7 @@ export const QuestionCard = (props: CardProps) => {
     <section
       ref={section}
       data-askboard-question={question.id}
+      data-askboard-logged-receipt={loggedReceiptOf(status)}
       aria-busy={load === "loading"}
       aria-labelledby={questionTextId(question.id)}
       className="flex flex-col gap-md rounded-lg border border-border bg-card p-lg"
@@ -657,10 +654,9 @@ export const QuestionCard = (props: CardProps) => {
           }}
         />
       )}
-      {header === undefined && mark === "todo" ? null : (
+      {header === undefined ? null : (
         <div className="flex items-center gap-sm">
-          {mark === "todo" ? null : <QuestionMarker mark={mark} />}
-          {header === undefined ? null : <span className={CHIP}>{header}</span>}
+          <span className={CHIP}>{header}</span>
         </div>
       )}
       {split ? (

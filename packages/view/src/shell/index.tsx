@@ -161,8 +161,9 @@ const boot = (): void => {
   const reasons = createStore<ReasonRequest | undefined>(undefined);
   const focus = createStore<HeadingRequest | undefined>(undefined);
   const removed = createStore(false);
-  // When each question's note alone was sent: kept here for the life of the page, never in browser
-  // storage (AD-8), so "Note sent {time}" shows under the prompt while the page stays open.
+  // When each question's note alone was sent, written once the note's command is done (see the
+  // update handler below): kept here for the life of the page, never in browser storage (AD-8), so
+  // "Note sent {time}" shows under the prompt while the page stays open.
   const noteSent = createStore<ReadonlyMap<string, string>>(new Map());
   // What the board says to a screen reader about the answering flow (#182).
   const status = createStatusMessages();
@@ -257,6 +258,11 @@ const boot = (): void => {
     // `reconcile` settles them, which keeps the work in the draft as for any refusal.
     for (const flight of settle(acts, update.pending ?? [], update.settled ?? [], notices)) {
       clearCarried(flight, document, draft, results, entries, cellEntries, board, kept, revisions);
+      // A note shows "Note sent {time}" only now that its command is done, never at the press: a
+      // note that was refused or dropped never settles as done (NFR-10, review finding X-1).
+      for (const act of flight.acts) {
+        if (act.type === "note") noteSent.set(new Map(noteSent.get()).set(act.itemId, act.when));
+      }
     }
     // A reopened question the agent left unchanged starts from the user's previous answer, once, and
     // only after this update's restore: the first update after a reload or a takeover carries the

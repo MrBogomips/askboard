@@ -139,6 +139,28 @@ describe("a revision keeps the panel", () => {
     );
   });
 
+  test("a reopened question being edited gives none: a reopen on its way, or one held", () => {
+    // The same board without the reopen keeps the panel (positive case first).
+    expect(completion({ specs: ["answered:sent", "answered:sent"], revising: ["q2"] }).kind).toBe(
+      "done",
+    );
+    // A reopen flight: the first rule (any act in flight) already gives none.
+    expect(
+      completion({ specs: ["answered:sent", "answered:sent"], flights: ["q2"], revising: ["q2"] }),
+    ).toEqual({ kind: "none" });
+    // A reopen held in All together, the question being edited: a first draft, no panel.
+    expect(
+      completion(
+        {
+          specs: ["answered:sent", "declined:sent"],
+          work: { q2: { rev: 1, held: { act: "reopen", order: 1 } } },
+          revising: ["q2"],
+        },
+        "submitted",
+      ),
+    ).toEqual({ kind: "none" });
+  });
+
   test("a held revision in All together gives send-all", () => {
     expect(
       completion(

@@ -76,9 +76,21 @@ export const answerStateOf = ({
   return revising ? "draft" : "todo";
 };
 
+/**
+ * Whether the question's answer work is a revision (design decision 1): answer work over a logged
+ * answer or decline that no undo reopens, a held `reopen`, a held undo (`undone`) or a `reopen`
+ * command on its way. A reopened question being edited is a first draft, not a revision.
+ */
+export const isRevision = ({ status, held, undone = false, flight, revising }: AnswerStateInputs) =>
+  revising &&
+  (status?.state === "answered" || status?.state === "declined") &&
+  held !== "reopen" &&
+  !undone &&
+  flight?.act !== "reopen";
+
 /** The count of the board's questions in each state. */
 export type LadderCounts = Readonly<Record<AnswerState, number>> & {
-  /** The `draft` questions whose status is answered or declined: revisions, not to do. */
+  /** The `draft` questions that are revisions (`isRevision`): not to do. */
   readonly revisions: number;
 };
 
@@ -104,16 +116,16 @@ export const ladderCountsOf = (
   for (const question of questionsOf(document)) {
     const own = work.get(question.id);
     const status = statuses.get(question.id);
-    const ladder = answerStateOf({
+    const inputs: AnswerStateInputs = {
       status,
       held: own?.held?.act,
       undone: own?.undo !== undefined,
       flight: flightOf(question.id),
       revising: revisingOf(question),
-    });
+    };
+    const ladder = answerStateOf(inputs);
     counts[ladder] += 1;
-    if (ladder === "draft" && (status?.state === "answered" || status?.state === "declined"))
-      revisions += 1;
+    if (ladder === "draft" && isRevision(inputs)) revisions += 1;
   }
   return { ...counts, revisions };
 };

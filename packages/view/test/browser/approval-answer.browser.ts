@@ -38,6 +38,7 @@ import {
   chooseFromMore,
   headingOf,
   lifecycleScenario,
+  loggedReceiptOf,
   openBoard,
   optionOf,
   receiptOf,
@@ -284,8 +285,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           .locator('[data-askboard-state="declined"]')
           .waitFor({ timeout: STEP_TIMEOUT_MS });
         await run.session.collect();
-        // A decline reads Declined whatever its receipt: delivery is not visible on the card.
-        await hostSettled(board);
+        // A decline reads Declined whatever its receipt: delivery shows in the card's logged receipt.
+        await loggedReceiptOf(board, PLAN, "delivered").waitFor({ timeout: STEP_TIMEOUT_MS });
         await chooseFromMore(board, PLAN, "Decline");
         await dialog(board).waitFor({ timeout: STEP_TIMEOUT_MS });
         await dialog(board).getByRole("button", { name: "Cancel", exact: true }).click();

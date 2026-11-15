@@ -52,6 +52,15 @@ export const postponeOf = (board: Board, id: string): Locator =>
 export const receiptOf = (board: Board, id: string, kind: ReceiptKind): Locator =>
   card(board, id).locator(`[data-askboard-receipt="${kind}"]`);
 
+/**
+ * The card while the board state holds a logged answer or decline of it with that receipt
+ * (`data-askboard-logged-receipt`): the probe of delivery where the state line cannot show it (a
+ * held answer reads Ready, a decline Declined). It follows the board state, so it turns to
+ * `delivered` when the agent's `collect` has returned the answer.
+ */
+export const loggedReceiptOf = (board: Board, id: string, kind: "sent" | "delivered"): Locator =>
+  card(board, id).and(board.view.locator(`[data-askboard-logged-receipt="${kind}"]`));
+
 export const noteOf = (board: Board, id: string): Locator =>
   card(board, id).getByRole("textbox", { name: "Note for the agent (optional)" });
 
