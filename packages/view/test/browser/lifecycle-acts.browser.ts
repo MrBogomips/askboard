@@ -95,12 +95,13 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
-      "in immediate delivery a postpone and its undo reach board-host, focus moves to the heading, and the question is open again",
+      "in immediate delivery a postpone and its undo reach board-host, focus moves to the next question to do, and the question is open again",
       async () => {
         const run = await start(lifecycleScenario(twoAsk, dist));
         const board = await openBoard(run, ["database", "cache"]);
         await postponeOf(board, "database").click();
-        await eventually(() => focused(headingOf(board, "database")), "focus on the heading");
+        // The act moves on to the next question to do (answering-flow-guidance, After an answer).
+        await eventually(() => focused(headingOf(board, "cache")), "focus on the next heading");
         await actsSent(run, 1);
         await outlineSays(board, "database", "Postponed");
         await eventually(async () => (await pressed(board, "database")) === "true", "pressed");
@@ -155,7 +156,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const board = await openBoard(run, ["database", "cache", "audit"]);
         await noteOf(board, "audit").fill("The compliance team decides this.");
         await chooseFromMore(board, "audit", "Decline");
-        await eventually(() => focused(headingOf(board, "audit")), "focus on the heading");
+        // The decline moves on, wrapping to the first question to do.
+        await eventually(() => focused(headingOf(board, "database")), "focus on the next heading");
         await outlineSays(board, "audit", "Declined");
         expect(sentActs(run)).toEqual([]);
         await board.submit.click();

@@ -19,6 +19,7 @@ import {
   actsDone,
   answerOf,
   card,
+  headingOf,
   lifecycleScenario,
   mirrored,
   noteOf,
@@ -327,9 +328,13 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           async () => (await answerOf(board, "database").getAttribute("aria-pressed")) === "true",
           "database ready",
         );
+        // The first confirm moves on to the next question to do (answering-flow-guidance, After an
+        // answer); the keys below act once the board has come to rest there.
+        await eventually(() => isFocused(headingOf(board, "cache")), "focus on cache's heading");
+        // Taking focus back to the option brings its question into view, which the draft mirrors.
+        await optionOf(board, "database", "SQLite").focus();
         await draftSettled(board);
         const before = sentDrafts(run).length;
-        await optionOf(board, "database", "SQLite").focus();
         await board.page.keyboard.press("Space");
         await board.page.keyboard.press("Enter");
         await draftSettled(board);

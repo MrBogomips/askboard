@@ -50,6 +50,10 @@ const answerYes = async (board: Board, id: string) => {
   await receiptOf(board, id, "sent").waitFor({ timeout: STEP_TIMEOUT_MS });
 };
 
+// "Stay here": these cases answer several questions in turn and look at the board where it is; the
+// moves of "Go to the next" are answering-flow-advance's (answering-flow-guidance, After an answer).
+const STAY = { user: { version: "1.0", afterAnswer: "stay" } };
+
 for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
   describe(`${engine}: presentations and navigation`, () => {
     const { start } = useEngine(engine);
@@ -76,7 +80,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     test(
       "tabs: one tab per area with its open count; hidden tabs stay mounted and ready; answering the last open question of a tab clears its count only",
       async () => {
-        const run = await start(lifecycleScenario(tabsAsk, dist));
+        const run = await start({ ...lifecycleScenario(tabsAsk, dist), config: STAY });
         const board = await openBoard(run, [
           "region",
           "payment",
@@ -123,9 +127,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
-      "one question per view: Question n of m, Previous and Next stop at the ends, Next open wraps, focus to the heading, no auto-advance",
+      "one question per view: Question n of m, Previous and Next stop at the ends, Next open wraps, focus to the heading, no move with Stay here",
       async () => {
-        const run = await start(lifecycleScenario(onePerViewAsk, dist));
+        const run = await start({ ...lifecycleScenario(onePerViewAsk, dist), config: STAY });
         const board = await openBoard(run, ["q1", "q2", "q3", "q4", "q5"]);
         const navigator = board.view.getByRole("navigation", { name: "Question navigator" });
         await navigator.getByText("Question 1 of 5", { exact: true }).waitFor();
@@ -135,7 +139,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const nextOpen = board.header.locator("[data-askboard-next-to-do]");
         expect(await previous.isDisabled()).toBe(true);
         await answerYes(board, "q1");
-        // Answering does not advance.
+        // With Stay here, answering does not advance.
         await navigator.getByText("Question 1 of 5", { exact: true }).waitFor();
         await next.click();
         await next.click();
@@ -181,7 +185,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     test(
       "the outline jumps into a hidden tab: the tab becomes active and the heading takes focus",
       async () => {
-        const run = await start(lifecycleScenario(tabsAsk, dist));
+        const run = await start({ ...lifecycleScenario(tabsAsk, dist), config: STAY });
         const board = await openBoard(run, ["region", "erp-export"]);
         expect(await card(board, "erp-export").isVisible()).toBe(false);
         const outline = board.view.getByRole("navigation", { name: "Outline" });

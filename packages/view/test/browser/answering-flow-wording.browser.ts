@@ -21,6 +21,7 @@ import { enginesFrom } from "./harness/engines.ts";
 import {
   answerOf,
   buttonOf,
+  headingOf,
   lifecycleScenario,
   noteOf,
   openBoard,
@@ -77,7 +78,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
-      "in All together the primary reads Confirm, then Edit with focus kept, then Confirm",
+      "in All together the primary reads Confirm, then Edit after a first confirm that moves on, then Confirm with focus kept",
       async () => {
         const { board } = await open(start, { delivery: "submitted" });
         await yes(board, "q1").check({ timeout: STEP_TIMEOUT_MS });
@@ -87,7 +88,10 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await primary.focus({ timeout: STEP_TIMEOUT_MS });
         await primary.press("Enter", { timeout: STEP_TIMEOUT_MS });
         await reads(primary, "Edit");
-        await eventually(() => isFocused(primary), "focus kept on the primary");
+        // A first confirm moves on to the next question to do (answering-flow-guidance, After an
+        // answer); "Edit" then keeps focus on the primary.
+        await eventually(() => isFocused(headingOf(board, "q2")), "focus on q2's heading");
+        await primary.focus({ timeout: STEP_TIMEOUT_MS });
         await primary.press("Enter", { timeout: STEP_TIMEOUT_MS });
         await reads(primary, "Confirm");
         await eventually(() => isFocused(primary), "focus kept on the primary after Edit");

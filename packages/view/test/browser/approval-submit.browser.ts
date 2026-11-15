@@ -137,7 +137,7 @@ const seedLostReasonOffScreen = async (run: BoardRun, board: Board): Promise<voi
       .getByText(`Question ${position} of 2`, { exact: true })
       .waitFor({ timeout: STEP_TIMEOUT_MS });
   await markReady(board, PLAN, "Approve");
-  await navigator.getByRole("button", { name: "Next", exact: true }).click();
+  // The first confirm goes on to the review, the next question to do (answering-flow-guidance).
   await at(2);
   await seedLostReason(run, board);
   // The reload keeps the review shown: go back to the plan, leaving the review mounted but hidden.

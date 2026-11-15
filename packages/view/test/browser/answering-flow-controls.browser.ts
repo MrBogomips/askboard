@@ -91,8 +91,12 @@ const descriptionOf = (answer: Locator): Promise<{ text: string; visible: boolea
     return { text: target.textContent ?? "", visible: width > 1 && height > 1 };
   });
 
+// "Stay here": the answers below leave the question shown, as the walk through the navigator needs
+// (answering-flow-guidance, After an answer).
+const STAY = { user: { version: "1.0", afterAnswer: "stay" } };
+
 const onePerViewBoard = async (start: ReturnType<typeof useEngine>["start"]) => {
-  const run = await start(lifecycleScenario(onePerViewAsk, dist));
+  const run = await start({ ...lifecycleScenario(onePerViewAsk, dist), config: STAY });
   const board = await openBoard(run, ["q1", "q2", "q3", "q4", "q5"]);
   return { run, board };
 };

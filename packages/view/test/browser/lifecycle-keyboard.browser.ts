@@ -58,7 +58,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     const { start } = useEngine(engine);
 
     test(
-      "with the keyboard alone the user answers, postpones, sends a follow-up, declines, submits and switches delivery; focus moves to the heading after Postpone and Decline",
+      "with the keyboard alone the user answers, postpones, sends a follow-up, declines, submits and switches delivery; focus moves to the next question to do after Postpone, and stays on the heading after the last Decline",
       async () => {
         const run = await start(lifecycleScenario(submittedAsk, dist));
         const board = await openBoard(run, QUESTIONS);
@@ -81,11 +81,11 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await keyboard.press("Enter");
         await outlineSays(board, "database", "Ready, not sent");
 
-        // Postpone, then focus on the question's heading.
+        // Postpone, then focus on the next question to do's heading (answering-flow-guidance).
         await tabTo(board, postponeOf(board, "cache"));
         expect(await ringShown(postponeOf(board, "cache"))).toBe(true);
         await keyboard.press("Enter");
-        await eventually(() => focused(headingOf(board, "cache")), "focus on the cache heading");
+        await eventually(() => focused(headingOf(board, "audit")), "focus on the audit heading");
         await outlineSays(board, "cache", "Postponed");
 
         // A follow-up: Enter on "Ask a follow-up" opens the composer; Ctrl+Enter sends at once.
@@ -128,10 +128,11 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         ]);
         await receiptOf(board, "database", "sent").waitFor();
         await eventually(() => board.submit.isDisabled(), "nothing held");
-        // Submit leaves focus on the heading of the question in view (answering-flow-fixes, #179):
-        // at Submit focus is outside every card, so "audit" is the question in view by position:
-        // its card crosses the reading line, a third down the band (D3), and ends the page.
-        await eventually(() => focused(headingOf(board, "audit")), "focus on the audit heading");
+        // Only a postponed question is left, so Submit keeps the base's focus rule until the
+        // completion panel owns it (answering-flow-guidance, group 7): the heading of the question
+        // in view (answering-flow-fixes, #179). The moves above left the board with "cache" under
+        // the reading line.
+        await eventually(() => focused(headingOf(board, "cache")), "focus on the cache heading");
 
         // The delivery switch: with nothing held, Enter switches at once.
         await tabTo(board, board.delivery("immediate"), { max: 120 });
