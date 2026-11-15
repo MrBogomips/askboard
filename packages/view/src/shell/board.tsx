@@ -41,6 +41,7 @@ import {
   openCountOf,
   postponedWarningOf,
   presentationOf,
+  shownQuestionOf,
   tabOpenCount,
 } from "./board-view.ts";
 import { BottomBar } from "./bottom-bar.tsx";
@@ -315,7 +316,13 @@ export const Board = ({
     show(questionId);
     focusHeading(questionId);
   };
-  const target = nextOpenFrom(document, state, draft.questions, attention.unseen, current);
+  const target = nextOpenFrom(
+    document,
+    state,
+    draft.questions,
+    attention.unseen,
+    shownQuestionOf(document, current),
+  );
   const nextOpen = target === undefined ? undefined : () => go(target);
   const firstOf = (ids: ReadonlySet<string> | ReadonlyMap<string, number>) =>
     questions.find((question) => ids.has(question.id))?.id;
