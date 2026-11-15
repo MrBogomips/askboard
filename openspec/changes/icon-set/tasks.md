@@ -252,7 +252,7 @@ Terms used below:
 
 ## 6. Rebase and pull request
 
-- [ ] 6.1 Rebase onto `origin/main` and apply design.md's merge-point rules, above all the navigator jump if `answering-flow-fixes` has merged.
+- [x] 6.1 Rebase onto `origin/main` and apply design.md's merge-point rules, above all the navigator jump if `answering-flow-fixes` has merged.
   - Re-check every borrowed name with `git grep -n`.
   - If `navigator.nextOpen` is gone from `main`, drop its exemption from `strings/glyphs.test.ts` (decision 7).
   - Rebuild and run `bun run build:view --record-sizes`; never merge the numbers by hand.
@@ -261,7 +261,9 @@ Terms used below:
     - the check and `bun run test:e2e:smoke` pass;
     - `openspec validate icon-set --strict` is valid;
     - the note lists each conflict and how it was resolved.
-- [ ] 6.2 Pre-PR review: spec review and security review of the whole range, plus the kaizen step (askboard-delivery). Fix the findings as tasks, tests first. The pull request body says:
+  Note (2026-11-15): no rebase needed: `origin/main` is unchanged at 583a0161, so no merge-point rule applied.
+
+- [x] 6.2 Pre-PR review: spec review and security review of the whole range, plus the kaizen step (askboard-delivery). Fix the findings as tasks, tests first. The pull request body says:
   - what changed and why;
   - the checks run and their results;
   - `Closes #188`;
@@ -269,6 +271,7 @@ Terms used below:
 
   Verify: both reviews' verdicts are in the note, and the body holds no AI attribution.
   Note (2026-11-15): pre-PR spec review (S-27 to S-31) and security review (no findings, ready) on 583a0161..40a4d400. Checks at 40a4d400: `bun run check` pass (14,795 unit), build pass, `openspec validate --all` 14 of 14, `test:e2e:smoke` pass including conformance. Full `test:e2e` at cfdd7afa: Chromium 901 pass 0 fail; WebKit 1 fail, #207 (rerun 904 pass 0 fail); Firefox 37 fail, the same tests failing on `origin/main` 583a0161 (36; the wbs-linking crashes are intermittent) plus #145, all under #174, #144 and #145.
+  Note (2026-11-15): pull request #210; the kaizen retrospective ran and the PO accepted no harness changes.
 
 ## Workflow follow-up
 
