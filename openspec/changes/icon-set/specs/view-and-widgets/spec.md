@@ -18,7 +18,7 @@ The view, its components and the widgets SHALL draw every icon from Lucide throu
 - **THEN** the icons it shows render as inline SVG, no request leaves the page, and no CSP violation is reported
 
 ### Requirement: Icons enter only through the icon module
-`bun run check` SHALL fail on any import of Lucide's React package other than one icon, by its path, in the icon module: the package's main entry, its `icons` index, its dynamic loaders, or an icon imported anywhere else. A widget SHALL reach icons only through `view`'s icon module (AD-1, AD-9).
+`bun run check` SHALL fail on any import of Lucide's React package other than one icon, by its path, in the icon module or in a test: the package's main entry, its `icons` index, its dynamic loaders, or an icon imported anywhere else. A widget SHALL reach icons only through `view`'s icon module (AD-1, AD-9).
 
 #### Scenario: The package's main entry
 - **WHEN** a file under `packages/widgets/src` imports `{ Check }` from `lucide-react`

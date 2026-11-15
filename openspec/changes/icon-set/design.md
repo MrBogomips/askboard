@@ -85,6 +85,7 @@ Every name above exists in the 1.73.0 tarball as `dist/esm/icons/<name>.mjs` (ch
 
 - **The chunk.** A new `LIBRARY_CHUNKS` entry, `icons`, provides `@askboard/view/icons`. The view's components import the module by its relative path, which a new `BY_PATH` entry maps (tail `icons/index.ts`, file `ICONS_FILE` in `tools/build/paths.ts`). The widgets import it by its name.
 - **Its names.** The names list is read from the module's exports without running it, as `portExports` reads the port's, so adding an icon is one line and a name missing from the list cannot happen.
+- **Unused names, while groups 2 to 4 land.** `tools/build/shared-modules.test.ts` fails on a name a library chunk lists that no view or widget source imports. Group 1 lists all nine names before their sources exist, so that test exempts the icon module through `EXEMPT_MODULES` (82ec183d, review finding S-1). One exemption, rather than an entry per name, keeps groups 2 and 3 out of that file. Task 5.2 adds the module's own "every icon used" test and removes the exemption.
 - **Its needs.** The chunk needs `react` through the shared `react` chunk, since Lucide imports `forwardRef`, `createElement`, `createContext`, `useContext` and `useMemo`. The shell needs `icons` on every board and Snapshot, because the header draws one, and `assemble`'s selection follows needs (`assemble/select.ts`).
 - **No styles.** The chunk is not in `STYLED_LIBRARIES`: the module sets no class, and the callers' sources carry their own utilities.
 - **Size.** Measured with `bun build --minify --format iife --external react` on the nine icons of decision 3: 5,934 bytes (2,670 gzip), against 4,087 for the runtime and one icon. Group 1 records it. The shell and the component chunks grow only by their shims, within the margin. Group 5 records the final sizes once.
@@ -96,14 +97,14 @@ Every name above exists in the 1.73.0 tarball as `dist/esm/icons/<name>.mjs` (ch
 - **The Lucide rule**, in `tools/check-imports.ts` beside the AD-1 rules, so `bun run check:imports` enforces it on CI:
   - A specifier `lucide-react` or `lucide-react/…` passes only as `lucide-react/icons/<kebab-name>`, and only in `packages/view/src/icons/index.ts`, or in a test file.
   - The package's main entry, `lucide-react/icons` (an alias of the main entry in its exports map), `lucide-react/dynamic*`, `lucide-react/dynamicIconImports*` and `lucide-react/dist/…` fail everywhere.
-  - With Q1 (a), `lucide` passes only in `packages/view/src/board-page/icons.ts` (decision 10).
+  - With Q1 (a), `lucide` passes only in `packages/view/src/board-page/icons.ts` or a test, and only as one static named import from its documented main entry of `createElement` and PascalCase icon names (cf895390). `createIcons` (it scans the DOM), `icons`, namespace, default and dynamic imports, re-exports, every subpath and `@lucide/*` fail. Lucide's specifiers are matched in lower case, so a differently cased path cannot slip through on a case-insensitive disk (8d55ebc6).
 - **Alternative.** A separate unit test scanning the sources, as the Issue suggests. Rejected because `check-imports` already parses every specifier of every package, test files included, and fails CI with the file and the rule. Its tests show the failure the Issue asks for.
 
 ### 6. Accessible names
 
 Three cases, each a scenario of the requirement "Accessible names of icons":
 
-1. **Decorative**: an icon beside text that says what it means (both jumps, the hint, the selected decision, the calendar button whose name is unchanged, the chevron, both grips inside their named `role="img"` handles). Lucide's default `aria-hidden="true"` applies, and nothing is passed.
+1. **Decorative**: an icon beside text that says what it means (the header's jump, the hint, the selected decision, the calendar button whose name is unchanged, the chevron, both grips inside their named `role="img"` handles). Lucide's default `aria-hidden="true"` applies, and nothing is passed.
 2. **A mark that is only an icon, or an icon and a count**: the outline's reply badge and agent-change flag. The badge `span` takes `role="img"` and `aria-label` from the existing strings: `header.newReplies` (plural-aware in both languages, "1 new reply") for the badge, `header.agentUpdated` for the flag. Its children are then presentational. The `title` stays for pointer users. The `outline.newReplies` title, whose en-US value is not plural-aware, gives way to `header.newReplies` in the badge's `title` too. In the question navigator the entry button carries its own `aria-label` (`navigator.entry`), so the badges there stay decorative.
 3. **An icon-only control**: the comment card's close (`aria-label` "Close", kept) and the board page's two close buttons (their `aria-label`s, kept). The icon is hidden.
 
@@ -118,11 +119,11 @@ Three cases, each a scenario of the requirement "Accessible names of icons":
 
 - **Colour**: `currentColor` only. An icon takes the text colour of its element and so follows the theme, and later palettes and forced colours (#189). No icon gets a fill or a colour class of its own unless its text has one.
 - **Size**: the caller's size utility, never the `size` prop.
-  - 16 px (`size-4`) beside control text: the two jumps and the selected decision.
+  - 16 px (`size-4`) beside control text: the header's jump and the selected decision.
   - 12 px (`size-3`) in badges, hints and widget rows: the reply badge, the agent-change flag, the external hint, the chevron and the grips, as today.
   - 14 px (`size-3.5`) for the calendar, as today.
 - **Stroke**: Lucide's 2 on its 24 grid, never set per icon.
-- **Placement**: an icon sits before the text for a state (the selected decision) and after it for a direction (the jumps, the external hint), as the glyphs did.
+- **Placement**: an icon sits before the text for a state (the selected decision) and after it for a direction (the header's jump, the external hint), as the glyphs did.
 
 ### 9. Dependabot
 
@@ -131,11 +132,11 @@ Lucide released 1.63.0 to 1.73.0 between 2026-10-28 and 2026-11-14, every one a 
 - **Why.** Without the rule, Lucide would ride in the weekly `bun-dev` group, so a redrawn icon would ship inside an unrelated bump without review. A change that needs a new icon bumps Lucide by hand, re-reads the adoption evidence, looks at the icons and records the sizes. A major still gets its own pull request.
 - **Risk.** The ignore also holds back security updates for Lucide (Risks).
 
-### 10. The board page's close controls (Q1, proposed default (a))
+### 10. The board page's close controls (Q1, answered (a))
 
 `lucide-react` needs React, which the board page does not load. With the default, `lucide` 1.73.0 (Lucide's DOM package: same repository, licence and release; `sideEffects: false`, no dependencies) is pinned in `packages/view/package.json`, beside `lucide-react`.
 
-- **The module.** `packages/view/src/board-page/icons.ts` exports `closeIcon(document)`, built with the package's documented `createElement(X, { "aria-hidden": "true", class: … })`. It is imported from the main entry, which tree-shakes to 1,135 bytes for `createElement` and `X` (measured on 1.73.0). `reading-panel.ts` and `settings-panel.ts` append it in place of the ✕ text.
+- **The module.** `packages/view/src/board-page/icons.ts` exports `closeIcon(document)`, built with the package's documented `createElement(X, { "aria-hidden": "true", class: … })`. It imports `{ createElement, X }` from the package's documented main entry, which tree-shakes to 1,135 bytes for the two (measured on 1.73.0), under decision 5's rule. A first version imported two `dist/esm` files by path, which the package does not document; cf895390 replaced it. `reading-panel.ts` and `settings-panel.ts` append it in place of the ✕ text.
 - **Guards.**
   - `tools/workspace.test.ts` fails when the two pins differ.
   - A test of the built board page finds `x`'s path data and no other icon's (`check`'s).
@@ -202,7 +203,7 @@ Task 0.2 re-checks them, and task 6.1 checks them again after the rebase. No sea
 
 None about Claude Code's run time: the change touches no mod, hook, agent or permission behaviour. Library behaviour, checked by tasks rather than assumed:
 
-- **P1** Inside the view build, the `icons` chunk bundles only the module's icons and takes React from the `react` chunk. The shared-module plugin once made Bun ignore `sideEffects` (comment in `shared-modules.ts`). Task 1.4's build test checks the manifest's needs, and that `tree`'s and `ranking`'s outputs hold no Lucide code.
+- **P1** Inside the view build, the `icons` chunk bundles only the module's icons and takes React from the `react` chunk. The shared-module plugin once made Bun ignore `sideEffects` (comment in `shared-modules.ts`). Task 1.4's build test checks the manifest's needs. Task 5.1 checks that the component chunks' and the shell's outputs hold no Lucide code.
 - **P2** TypeScript 7 under `moduleResolution: bundler` resolves `lucide-react/icons/<name>` to `dist/lucide-icon.d.mts`. Task 1.2's typecheck.
 - **P3** Lucide's `aria-hidden` default and its dropping when `aria-label` and `role` are passed. Task 1.2's unit test renders both.
 
