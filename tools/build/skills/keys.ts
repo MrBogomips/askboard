@@ -9,6 +9,7 @@ import {
   KEY_VOCABULARY,
   type KeyBinding,
   type KeyEntry,
+  type KeyTypes,
   type VocabularyAction,
   type WidgetType,
 } from "@askboard/contract";
@@ -140,7 +141,7 @@ export type ActionRow = {
  * vocabulary and the registry list them. A vocabulary action takes its name from the first table
  * that binds it, else from its label key.
  */
-export const actionRows = (widgets: readonly WidgetType[]): readonly ActionRow[] => {
+export const actionRows = (widgets: KeyTypes): readonly ActionRow[] => {
   const entries = widgets.flatMap(({ keys }) => withKeys(keys));
   const first = (action: string) => entries.find((entry) => entry.action === action);
   const nativeOnly = (action: string) =>

@@ -607,3 +607,61 @@ describe("every problem is reported", () => {
     expect(check({ "move.up": ["F2"] }, odd).map((p) => p.rule)).toEqual([]);
   });
 });
+
+describe("the board's keys in the default tables (board-keys, D6; contract spec: Board keys a native control takes)", () => {
+  test("a key a native control takes is reserved on the board's part, as on the keys panel", () => {
+    expect(only({ "board.nextOpen": ["Enter"] })).toEqual({
+      rule: "reserved",
+      action: "board.nextOpen",
+      binding: "Enter",
+    });
+    for (const binding of ["Space", "ArrowDown"]) {
+      expect(only({ "board.previousOpen": [binding] }).rule).toBe("reserved");
+    }
+    expect(only({ "board.previousOpen": ["Shift+Home"] }).rule).toBe("reserved");
+  });
+
+  test("two board actions on one key, and a board key on the keys panel's", () => {
+    expect(only({ "board.nextOpen": ["Shift+n"] })).toEqual({
+      rule: "conflict",
+      action: "board.nextOpen",
+      binding: "Shift+n",
+      with: "board.previousOpen",
+    });
+    expect(only({ "board.previousOpen": ["?"] })).toEqual({
+      rule: "conflict",
+      action: "board.previousOpen",
+      binding: "?",
+      with: "keys.open",
+    });
+  });
+
+  test("a key a widget also takes passes, since the board's keys never act inside a widget", () => {
+    expect(check({ "board.answer": ["Mod+Shift+ArrowUp"] })).toEqual([]);
+  });
+
+  test("the composer's send is an editor action: no typing key", () => {
+    expect(only({ "board.sendFollowUp": ["j"] })).toEqual({
+      rule: "reserved",
+      action: "board.sendFollowUp",
+      binding: "j",
+    });
+  });
+
+  test("a letter for next open and no key for send a follow-up pass", () => {
+    expect(check({ "board.nextOpen": ["j"], "board.sendFollowUp": [] })).toEqual([]);
+  });
+
+  test("a widget's action of the same part name `board` is not reserved", () => {
+    expect(check({ "cursor.up": ["ArrowDown"] }).filter((p) => p.rule === "reserved")).toEqual([]);
+  });
+
+  test("keyExitActions is unchanged by the board's table", () => {
+    expect(keyExitActions()).toEqual(keyExitActions(WIDGET_TYPES));
+    expect(keyExitActions()).not.toContain("board.nextOpen");
+  });
+
+  test("prototype names are no actions", () => {
+    expect(only({ "board.__proto__": ["j"] }).rule).toBe("action");
+  });
+});

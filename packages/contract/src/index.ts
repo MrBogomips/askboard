@@ -1200,3 +1200,14 @@ export { KANBAN_KEYS, type KanbanKeyAction } from "./widgets/kanban/index.ts";
 export { RANKING_KEYS, type RankingKeyAction } from "./widgets/ranking/index.ts";
 export { TIMELINE_KEYS, type TimelineKeyAction } from "./widgets/timeline/index.ts";
 export { TREE_KEYS, type TreeKeyAction } from "./widgets/tree/index.ts";
+
+// The board's own key table and the list of every table the user's keys apply to (board-keys).
+
+export {
+  ALL_KEY_TABLES,
+  BOARD_KEY_TABLE,
+  BOARD_KEY_TYPE,
+  BOARD_KEYS,
+  BOARD_PART,
+  type BoardKeyAction,
+} from "./keys/index.ts";

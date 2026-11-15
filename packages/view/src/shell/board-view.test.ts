@@ -14,6 +14,7 @@ import {
   openCountOf,
   postponedWarningOf,
   presentationOf,
+  previousOpenFrom,
   shownQuestionOf,
   tabOpenCount,
 } from "./board-view.ts";
@@ -354,5 +355,57 @@ describe("an ended ask", () => {
     expect(endedOf("discarded")).toBe(true);
     expect(endedOf("moved")).toBe(false);
     expect(endedOf(undefined)).toBe(false);
+  });
+});
+
+describe("previousOpenFrom (board-keys, design decision 3; mirrors nextOpenFrom)", () => {
+  // Open: region, payment and rollout (1, 2 and 4 of ids' first four); the rest answered.
+  const state = stateOf("partly-answered", [
+    { itemId: "region", rev: 1, state: "open" },
+    { itemId: "payment", rev: 1, state: "open" },
+    answeredAs("analytics"),
+    { itemId: "rollout", rev: 1, state: "open" },
+    answeredAs("erp-export"),
+  ]);
+  const from = (current: string | undefined, s = state) =>
+    previousOpenFrom(lifecycleBoardDocument, s, noWork, current);
+
+  test("from question 4 with 1, 2 and 4 open, the question 2", () => {
+    expect(from("rollout")).toBe("payment");
+  });
+
+  test("from a question that is not open, the open one before it", () => {
+    expect(from("erp-export")).toBe("rollout");
+    expect(from("analytics")).toBe("payment");
+  });
+
+  test("from the first open question, wrapping to the last", () => {
+    expect(from("region")).toBe("rollout");
+  });
+
+  test("with no question in view, the last open question", () => {
+    expect(from(undefined)).toBe("rollout");
+  });
+
+  test("never the question in view, and none when no other is open", () => {
+    const one = stateOf("partly-answered", [
+      { itemId: "payment", rev: 1, state: "open" },
+      ...ids.filter((id) => id !== "payment").map((id) => answeredAs(id)),
+    ]);
+    expect(from("payment", one)).toBeUndefined();
+    const done = stateOf(
+      "answered",
+      ids.map((id) => answeredAs(id)),
+    );
+    expect(from("region", done)).toBeUndefined();
+    expect(from(undefined, done)).toBeUndefined();
+  });
+
+  test("the order is the board's: unseen questions get no priority, unlike the jump forward", () => {
+    // Forward, an unseen question the agent added comes first; backward, only board order counts.
+    const unseen = new Set(["rollout"]);
+    expect(nextOpenFrom(lifecycleBoardDocument, state, noWork, unseen, "payment")).toBe("rollout");
+    expect(previousOpenFrom(lifecycleBoardDocument, state, noWork, "rollout")).toBe("payment");
+    expect(previousOpenFrom(lifecycleBoardDocument, state, noWork, "payment")).toBe("region");
   });
 });

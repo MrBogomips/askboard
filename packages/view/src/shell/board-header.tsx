@@ -8,60 +8,19 @@
 // the pills (L198). The title is agent text and renders as text only (AD-8).
 
 import { useStrings } from "../catalog/port.ts";
-import { IconNextOpen } from "../icons/index.ts";
 import { AgentPill } from "./agent-pill.tsx";
+import type { BoardKeysProps } from "./board-keys-panel.tsx";
 import type { AskPill as Pill } from "./board-view.ts";
+import { HeaderActions, type HeaderCounts } from "./header-actions.tsx";
 import type { HeaderData } from "./header-data.ts";
 import { AskPill } from "./markers.tsx";
 import type { PresentationControls } from "./presentation-controls.ts";
 import { QuickToggles } from "./quick-toggles.tsx";
 import type { StatusMessages } from "./status-messages.ts";
 import type { Store } from "./store.ts";
-import { BUTTON_LINK, BUTTON_SECONDARY, INFO_BADGE, SEPARATOR } from "./styles.ts";
 import { WhoAndWhere } from "./who-and-where.tsx";
 
-/** What row 2 shows beyond the pill; absent on a single-question board. */
-export type HeaderCounts = {
-  readonly open: number;
-  /** Goes to the next open question; disabled when there is none to go to. */
-  readonly onNextOpen: (() => void) | undefined;
-  readonly unreadReplies: number;
-  readonly onUnread: () => void;
-  /** Questions the agent changed under the user's unsent work. */
-  readonly changed: number;
-  readonly onChanged: () => void;
-};
-
-const Counts = ({ counts }: { readonly counts: HeaderCounts }) => {
-  const text = useStrings();
-  return (
-    <>
-      <span aria-hidden="true" className={SEPARATOR} />
-      <span className="text-control font-semibold text-foreground">
-        {text("header.open", { count: counts.open })}
-      </span>
-      <button
-        type="button"
-        className={BUTTON_SECONDARY}
-        disabled={counts.onNextOpen === undefined}
-        onClick={counts.onNextOpen}
-      >
-        {text("header.nextOpen")}
-        <IconNextOpen className="size-4" />
-      </button>
-      {counts.unreadReplies === 0 ? null : (
-        <button type="button" className={BUTTON_LINK} onClick={counts.onUnread}>
-          {text("header.newReplies", { count: counts.unreadReplies })}
-        </button>
-      )}
-      {counts.changed === 0 ? null : (
-        <button type="button" className={`${INFO_BADGE} ${BUTTON_LINK}`} onClick={counts.onChanged}>
-          {text("header.agentUpdated")}
-        </button>
-      )}
-    </>
-  );
-};
+export type { HeaderCounts };
 
 export const BoardHeader = ({
   title,
@@ -71,6 +30,7 @@ export const BoardHeader = ({
   status,
   controls,
   ended = false,
+  keys,
 }: {
   readonly title: string;
   readonly pill: Pill;
@@ -83,6 +43,8 @@ export const BoardHeader = ({
   readonly controls: PresentationControls;
   /** The ask is closed or discarded: no agent pill, which would be stale (review F-18). */
   readonly ended?: boolean;
+  /** The Keys button and its panel: none on an ended board (board-keys, decision 5). */
+  readonly keys?: BoardKeysProps | undefined;
 }) => {
   const text = useStrings();
   return (
@@ -98,7 +60,7 @@ export const BoardHeader = ({
         <span className="text-label text-muted-foreground uppercase">{text("header.ask")}</span>
         <AskPill pill={pill} />
         {ended ? null : <AgentPill header={header} status={status} />}
-        {counts === undefined ? null : <Counts counts={counts} />}
+        <HeaderActions counts={counts} keys={keys} />
         <QuickToggles controls={controls} />
       </div>
     </header>

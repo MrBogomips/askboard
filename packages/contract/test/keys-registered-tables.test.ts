@@ -7,6 +7,7 @@ import { describe, expect, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  BOARD_KEY_TABLE,
   type KeyOverrides,
   keyExitActions,
   keyOverridesProblems,
@@ -36,7 +37,10 @@ describe("REGISTERED_KEY_TABLES", () => {
   });
 });
 
-describe("the check's default is the registry's types", () => {
+// The check's default tables are the board's own table, then the registry's types (board-keys, D6).
+const DEFAULT_TABLES = [BOARD_KEY_TABLE, ...WIDGET_TYPES];
+
+describe("the check's default is the board's table and the registry's types", () => {
   const rules: readonly (readonly [string, unknown])[] = [
     ["{}", {}],
     [
@@ -51,16 +55,23 @@ describe("the check's default is the registry's types", () => {
     ["conflict", { "move.up": ["ArrowDown"] }],
     ["exit", { "edit.cancel": [] }],
     ["keys.open", { "keys.open": ["Enter"] }],
+    ["board reserved", { "board.nextOpen": ["Enter"] }],
+    ["board conflict", { "board.previousOpen": ["?"] }],
     ["not an object", [] as unknown],
   ];
 
-  test.each(rules)("keyOverridesProblems(x) equals the registry's on %s", (_name, given) => {
-    const overrides = given as KeyOverrides;
-    expect(keyOverridesProblems(overrides)).toEqual(keyOverridesProblems(overrides, WIDGET_TYPES));
-  });
+  test.each(rules)(
+    "keyOverridesProblems(x) equals the board's table and the registry's on %s",
+    (_name, given) => {
+      const overrides = given as KeyOverrides;
+      expect(keyOverridesProblems(overrides)).toEqual(
+        keyOverridesProblems(overrides, DEFAULT_TABLES),
+      );
+    },
+  );
 
   test("the rules above each find a problem, so the comparison means something", () => {
-    for (const [name, given] of rules.slice(2, 10)) {
+    for (const [name, given] of rules.slice(2, 12)) {
       expect({ name, found: keyOverridesProblems(given as KeyOverrides).length > 0 }).toEqual({
         name,
         found: true,
@@ -68,8 +79,8 @@ describe("the check's default is the registry's types", () => {
     }
   });
 
-  test("keyExitActions() equals keyExitActions(WIDGET_TYPES)", () => {
-    expect(keyExitActions()).toEqual(keyExitActions(WIDGET_TYPES));
+  test("keyExitActions() equals keyExitActions of the same tables", () => {
+    expect(keyExitActions()).toEqual(keyExitActions(DEFAULT_TABLES));
     expect(keyExitActions()).toContain("edit.cancel");
   });
 });

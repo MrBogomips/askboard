@@ -34,10 +34,13 @@ const bindingText = (binding: KeyBinding): string =>
 
 const shown = (value: unknown): string => JSON.stringify(value) ?? String(value);
 
-// The keys `mod` takes: Cmd or Ctrl with Z (undo) and A (select all); every other letter, W and S
-// among them, is the browser's. With Shift, the keys the vocabulary moves to the top or bottom and
-// adds a child with.
-const MOD_KEYS: ReadonlySet<string> = new Set(["z", "a"]);
+// The keys `mod` takes: Cmd or Ctrl with Z (undo), A (select all) and Enter (the board's answer and
+// send); every other letter, W and S among them, is the browser's. Engines differ on whether
+// Ctrl+Enter or Cmd+Enter activates a focused button or selects a radio, and none binds it in page
+// content except on a focused link, which it opens in a new tab: a handler of `Mod+Enter` therefore
+// prevents the default, and leaves links alone (board-keys, design decision 4). With Shift, the
+// keys the vocabulary moves to the top or bottom and adds a child with.
+const MOD_KEYS: ReadonlySet<string> = new Set(["z", "a", "Enter"]);
 const MOD_SHIFT_KEYS: ReadonlySet<string> = new Set(["ArrowUp", "ArrowDown", "Enter"]);
 const CHARS: ReadonlySet<string> = new Set(["?", "%"]);
 const FUNCTION_KEYS = /^F(1|[3-9]|1[0-2])$/;
@@ -49,7 +52,7 @@ const TYPES_CHARACTER = /^\P{Cc}$/u;
 
 /**
  * Why a whole binding is a key the browser or the system needs, or undefined: Tab; F1 and F3 to
- * F12; Cmd or Ctrl with any key but Z and A; with Shift any but the arrows up and down and Enter; a
+ * F12; Cmd or Ctrl with any key but Z, A and Enter; with Shift any but the arrows up and down and Enter; a
  * printed character but `?` and `%`; Cmd or Ctrl with Alt on any key outside `MOD_ALT_KEYS`; and
  * Alt with Shift on a key that types a character (review 8.6, S-25; review 8.13, S-41): macOS
  * reports the character Option and Shift compose as `event.key`, so the binding would never match,
@@ -287,7 +290,7 @@ export type KeyTableProblem = {
  * vocabulary nor `<type>.<name>`; a vocabulary action whose keys differ from the vocabulary's by a
  * key added or left out, or whose `when` differs (`delete` is the plain pair, with or without the
  * Alt+Shift pair, or the Alt+Shift pair beside another action that takes the plain pair); one
- * binding twice in one part; Tab; F1 and F3 to F12; Cmd or Ctrl with any key but Z and A, and with
+ * binding twice in one part; Tab; F1 and F3 to F12; Cmd or Ctrl with any key but Z, A and Enter, and with
  * Shift any but the arrows up and down and Enter; Alt with Shift on a key that types a character;
  * in an `editor` part, a key that types a character (a letter of any script, a digit, punctuation,
  * a symbol or Space with no modifier or Shift, a printed character); a printed character but `?` and `%`; a hold no

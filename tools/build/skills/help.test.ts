@@ -5,6 +5,9 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  BOARD_KEY_TABLE,
+  BOARD_KEYS,
+  BOARD_PART,
   CONFIGURATION_VERSION,
   KEY_VOCABULARY,
   KEYS_OPEN_RESERVED_KEYS,
@@ -22,11 +25,11 @@ import {
 } from "@askboard/contract";
 import { PROBE_WIDGET } from "@askboard/contract/fixtures";
 import { MOLECULE_SKILLS, READY_MOLECULES } from "@askboard/molecules";
-import { budgetReport, HELP_SKILL, parseFrontmatter } from "./budgets.ts";
+import { budgetReport, HELP_BUDGETS, HELP_SKILL, parseFrontmatter } from "./budgets.ts";
 import { contractSchemaResolver } from "./fields.ts";
 import { generateHelpSkill, SESSION_TOOL_PREFIX } from "./help.ts";
-import { KEY_EXAMPLES, rowWarningsBound } from "./help-keys.ts";
-import { actionRows, PANEL_NOTE } from "./keys.ts";
+import { configureKeysText, KEY_EXAMPLES, rowWarningsBound } from "./help-keys.ts";
+import { actionName, actionRows, keysText, PANEL_NOTE } from "./keys.ts";
 
 const help = generateHelpSkill();
 const file = (path: string): string => {
@@ -282,7 +285,7 @@ describe("the keys panel in the help skill", () => {
 
   test("configure-keys.md names the listed types as the only ones the user's keys reach", () => {
     const text = at(on, "references/configure-keys.md");
-    expect(text).toContain("only in the Ranking");
+    expect(text).toContain("only in the board's own keys and in the Ranking");
     expect(text).not.toContain("every widget that has the action");
     expect(text).toContain("the Keys button");
   });
@@ -290,7 +293,9 @@ describe("the keys panel in the help skill", () => {
   // Skills spec, "Where the user's keys apply": the shipped file names the Ranking alone.
   test("the shipped configure-keys.md names the Ranking as the widget the user's keys reach, and no other", () => {
     const text = file("references/configure-keys.md");
-    expect(text).toContain("only in the Ranking, the widget the board gives a Keys button");
+    expect(text).toContain(
+      "only in the board's own keys and in the Ranking, the widget the board gives a Keys button",
+    );
     expect(text).not.toContain("the widgets the board gives a Keys button");
     for (const other of ["Tree", "Gantt", "Kanban", "Timeline", "Chart"]) {
       expect(text).not.toContain(`the ${other}`);
@@ -300,6 +305,7 @@ describe("the keys panel in the help skill", () => {
   test("with an empty list, configure-keys.md says no widget takes the user's keys yet and claims no panel", () => {
     const text = at(generateHelpSkill({ keyTablesOnBoard: [] }), "references/configure-keys.md");
     expect(text).toContain("no widget takes them yet");
+    expect(text).toContain("board's own keys");
     expect(text).not.toContain("every widget that has the action");
     expect(text).not.toMatch(/Keys button|keys panel shows/);
   });
@@ -307,7 +313,7 @@ describe("the keys panel in the help skill", () => {
   test("several listed types are named in order", () => {
     const two = generateHelpSkill({ keyTablesOnBoard: ["ranking", "gantt"] });
     const text = at(two, "references/configure-keys.md");
-    expect(text).toContain("only in the Ranking and the Gantt");
+    expect(text).toContain("only in the board's own keys and in the Ranking and the Gantt");
     expect(text).toContain("the widgets the board gives a Keys button");
     expect(text).not.toContain("the widget the board gives a Keys button");
   });
@@ -507,6 +513,63 @@ describe("configure-keys.md's rules", () => {
     expect(lineWith("another action")).toMatch(/takes/);
   });
 
+  test("names the board's actions that refuse the keys a native control takes, from the board table, and ties them to the check", () => {
+    const line = lineWith("refuse, with no modifier or Shift");
+    const expected = BOARD_KEY_TABLE.keys
+      .filter(({ part }) => part === BOARD_PART)
+      .map(({ action }) => action);
+    expect(expected).toEqual(["board.nextOpen", "board.previousOpen", "board.answer", "keys.open"]);
+    expect(names(line)).toEqual(expected);
+    for (const key of KEYS_OPEN_RESERVED_KEYS) {
+      expect(line).toContain(`\`${key === " " ? "Space" : key}\``);
+    }
+    for (const action of expected) {
+      const reserved = keyOverridesProblems({ [action]: ["Enter"] }).filter(
+        ({ rule }) => rule === "reserved",
+      );
+      expect(reserved).toMatchObject([{ rule: "reserved", action }]);
+    }
+    const nextOpen = keyOverridesProblems({ "board.nextOpen": ["Enter"] });
+    expect(nextOpen.filter(({ rule }) => rule === "reserved")).toMatchObject([
+      { action: "board.nextOpen" },
+    ]);
+    const probeTable = {
+      ...BOARD_KEY_TABLE,
+      keys: [
+        ...BOARD_KEY_TABLE.keys,
+        ownEntry("board.probeAction", BOARD_PART, [keyBinding("p")], "tool", { readOnly: true }),
+      ],
+    };
+    const probed = configureKeysText([], KEY_EXAMPLES.slice(0, 1), [], 8, probeTable);
+    expect(names(lineWith("refuse, with no modifier or Shift", probed))).toEqual([
+      ...expected,
+      "board.probeAction",
+    ]);
+  });
+
+  test("says keys.open refuses a key another board action takes, and the sharing rule holds for the board", () => {
+    const open = lineWith("another action of the board takes");
+    expect(open).toContain("`keys.open`");
+    expect(keyOverridesProblems({ "keys.open": ["n"] })).toMatchObject([
+      { rule: "conflict", action: "keys.open", with: "board.nextOpen" },
+    ]);
+    const sharing = lineWith("cannot share a key");
+    expect(sharing).toMatch(/board/);
+    expect(keyOverridesProblems({ "board.nextOpen": ["Shift+n"] })).toContainEqual(
+      expect.objectContaining({
+        rule: "conflict",
+        action: "board.nextOpen",
+        with: "board.previousOpen",
+      }),
+    );
+  });
+
+  test("says a refused keys leaves the board's own keys and every widget's at their defaults", () => {
+    const line = lineWith("refuses the whole `keys`");
+    expect(line).toContain("the board's own keys and every widget's");
+    expect(text).not.toContain("every widget keeps its default keys");
+  });
+
   test("lists the problems Settings shows, up to the row's bound read from the board protocol schema", () => {
     const schema = contractSchemaResolver()("urn:askboard:board-protocol:settings") as {
       $defs: { row: { properties: { warnings: { maxItems: number } } } };
@@ -595,6 +658,123 @@ describe("the shipped help skill", () => {
     expect(report.problems).toEqual([]);
     for (const [path, text] of help.files) {
       if (path !== "SKILL.md") expect(text.length).toBeLessThanOrEqual(4000);
+    }
+  });
+});
+
+// board-keys, task 5.1 (design decision 7; skills spec: The board's keys in the help skill, The help
+// skill teaches the key configuration): the board's keys come from `BOARD_KEYS` and the English
+// strings, so a board table changed without regenerating fails `check:skills`.
+describe("the board's keys in the help skill", () => {
+  const actions = file("references/key-actions.md");
+  const WHERE: Record<string, string> = {
+    "board.nextOpen": "outside text fields and widgets",
+    "board.previousOpen": "outside text fields and widgets",
+    "board.answer": "on a question's own controls",
+    "keys.open": "outside text fields and widgets",
+    "board.sendFollowUp": "in the follow-up composer",
+  };
+
+  test("key-actions.md opens with a Board keys section, before the list of every action", () => {
+    const lines = actions.split("\n");
+    expect(lines[0]).toBe("# Actions and their default keys");
+    const board = actions.indexOf("## Board keys");
+    expect(board).toBeGreaterThan(-1);
+    expect(board).toBeLessThan(actions.indexOf("- `cursor.up`"));
+  });
+
+  test("each row gives the action, where it acts and its keys in both forms", () => {
+    const section = actions.slice(
+      actions.indexOf("## Board keys"),
+      actions.indexOf("- `cursor.up`"),
+    );
+    for (const entry of BOARD_KEYS) {
+      const where = WHERE[entry.action];
+      expect(where).toBeDefined();
+      const name = actionName(entry.label);
+      expect(section).toContain(`| ${name} | ${where} | ${keysText(entry.keys)} |`);
+    }
+    expect(section).toContain("outside text fields and widgets | N (N) |");
+    expect(section).toContain("| Previous open | outside text fields and widgets | Shift+N (⇧N) |");
+    expect(section).toContain(
+      "| Answer the question in focus | on a question's own controls | Ctrl+Enter (⌘↩) |",
+    );
+    expect(section).toContain(
+      "| Send the follow-up | in the follow-up composer | Ctrl+Enter (⌘↩) |",
+    );
+    expect(section).toContain("| ? (?) |");
+  });
+
+  test("it says the keys do nothing in a field or a widget, and that sending all held answers has no key", () => {
+    expect(actions).toContain(
+      "do nothing in a text field or inside a widget, apart from the follow-up's send",
+    );
+    expect(actions).toContain("Sending all held answers has no key.");
+  });
+
+  test("the list of every action includes the board's own actions", () => {
+    for (const action of [
+      "board.nextOpen",
+      "board.previousOpen",
+      "board.answer",
+      "board.sendFollowUp",
+    ]) {
+      expect(actions).toContain(`- \`${action}\`:`);
+    }
+    expect(actionRows([BOARD_KEY_TABLE, ...WIDGET_TYPES]).map(({ action }) => action)).toContain(
+      "board.answer",
+    );
+  });
+
+  test("configure-keys.md names the board's own keys and the Ranking, and no other widget", () => {
+    const text = file("references/configure-keys.md");
+    expect(text).toContain("the board's own keys");
+    expect(text).toContain("the Ranking");
+    for (const other of ["Tree", "Gantt", "Kanban", "Timeline", "Chart"]) {
+      expect(text).not.toContain(`the ${other}`);
+    }
+  });
+
+  test("the examples are checked against the board's table and the widgets", () => {
+    const own = (overrides: Record<string, readonly string[]>) =>
+      generateHelpSkill({ keyExamples: [{ title: "Board key", overrides }] });
+    expect(() => own({ "board.nextOpen": ["j"] })).not.toThrow();
+    expect(() => own({ "board.nextOpen": ["Enter"] })).toThrow(/Board key.*board\.nextOpen/);
+  });
+
+  test("SKILL.md's last line is the one that points to the board's keys and the configuration", () => {
+    const last = skill.trimEnd().split("\n").at(-1);
+    expect(last).toBe(
+      "The board's own keys, and every action with its default keys: [key-actions](references/key-actions.md). Changing keys: [configure-keys](references/configure-keys.md).",
+    );
+  });
+
+  test("the budgets stay as they are, and every file keeps within them", () => {
+    expect(HELP_BUDGETS).toEqual({
+      description: 400,
+      skill: 6000,
+      skillLines: 150,
+      reference: 4000,
+    });
+    for (const [path, text] of help.files) {
+      expect(text.length).toBeLessThanOrEqual(path === "SKILL.md" ? 6000 : 4000);
+    }
+  });
+
+  // Review S-1 (1b.4): the refused-keys line follows what the check does with `Mod`.
+  test("the refused-keys line says which Mod keys the check admits, and the check admits them", () => {
+    const text = file("references/configure-keys.md");
+    expect(text).toContain("`Mod` with any key but Z, A and Enter");
+    expect(text).not.toContain("any key but Z and A");
+    for (const key of ["Mod+Enter", "Mod+z", "Mod+a"]) {
+      expect(keyOverridesProblems({ "edit.start": [key] }).map(({ rule }) => rule)).not.toContain(
+        "reserved",
+      );
+    }
+    for (const key of ["Mod+c", "Mod+Space", "Mod+ArrowUp"]) {
+      expect(keyOverridesProblems({ "edit.start": [key] }).map(({ rule }) => rule)).toContain(
+        "reserved",
+      );
     }
   });
 });

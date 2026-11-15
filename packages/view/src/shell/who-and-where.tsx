@@ -130,7 +130,7 @@ const Field = ({ label, value }: { readonly label: string; readonly value?: stri
 );
 
 export const WhoAndWhere = ({ header }: { readonly header: Store<HeaderData> }) => {
-  const { origin } = useSyncExternalStore(header.subscribe, header.get);
+  const { origin } = useSyncExternalStore(header.subscribe, header.get, header.get);
   const text = useStrings();
   return (
     <div

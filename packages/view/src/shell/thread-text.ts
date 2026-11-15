@@ -3,7 +3,14 @@
 // ask's locale ("5:42 PM", "17:42"), the author of the agent's replies, whether Explain still waits
 // for its reply, and the composer's send key, a modified Enter.
 
-import { formatTime, type Locale, type ThreadEntry } from "@askboard/contract";
+import {
+  formatTime,
+  type KeyEntry,
+  keyActionOf,
+  type Locale,
+  type ThreadEntry,
+} from "@askboard/contract";
+import { type KeyEventFields, keyPressOf } from "../catalog/keys/press.ts";
 import { t } from "../strings/index.ts";
 import type { ViewAct } from "../view-protocol.ts";
 
@@ -52,9 +59,10 @@ export const explainPending = (
   );
 };
 
-/** The composer's send key: Ctrl+Enter or Cmd+Enter; Enter alone adds a line (F-50). */
-export const isSendKey = (event: {
-  readonly key: string;
-  readonly ctrlKey: boolean;
-  readonly metaKey: boolean;
-}): boolean => event.key === "Enter" && (event.ctrlKey || event.metaKey);
+/**
+ * Whether the press is the composer's send: the `board.sendFollowUp` entry of the table in effect,
+ * matched in the `editor` part, so Enter alone adds a line, an extra modifier does not send and an
+ * Enter that confirms an input method's candidate never does (board-keys, design decision 6).
+ */
+export const sendKeyOf = (table: readonly KeyEntry[], event: KeyEventFields): boolean =>
+  keyActionOf(table, "editor", keyPressOf(event), false)?.action === "board.sendFollowUp";

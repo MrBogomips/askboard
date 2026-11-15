@@ -10,16 +10,12 @@ import { useId, useRef } from "react";
 import { useStrings } from "../catalog/port.ts";
 import type { FieldToFix } from "./field-block.ts";
 import { QuestionMarker } from "./markers.tsx";
+import { PrimaryButton } from "./primary-button.tsx";
 import type { CardActions, CardState } from "./question-state.ts";
 import { SizeLines } from "./size-lines.tsx";
 import type { SizeNotice } from "./size-notices.ts";
-import {
-  BUTTON_ANSWER,
-  BUTTON_ANSWER_PRIMARY,
-  BUTTON_LINK_MUTED,
-  BUTTON_SECONDARY,
-  FOCUS_RING,
-} from "./styles.ts";
+import { BUTTON_LINK_MUTED, BUTTON_SECONDARY, FOCUS_RING } from "./styles.ts";
+import { useBoardKeyTable } from "./use-board-keys.ts";
 
 const MENU =
   "z-20 flex min-w-36 flex-col gap-0.5 rounded-md border border-border bg-popover p-1 text-control text-foreground shadow-md";
@@ -82,6 +78,7 @@ export const ActionsRow = ({
   const hintId = useId();
   const more = useRef<HTMLButtonElement>(null);
   const text = useStrings();
+  const answerKey = useBoardKeyTable().find((entry) => entry.action === "board.answer");
   if (opened) {
     return card.receipt === undefined ? null : (
       <span className="text-badge text-muted-foreground">{card.receipt}</span>
@@ -158,17 +155,17 @@ export const ActionsRow = ({
               {fieldToFix.text}
             </button>
           )}
-          <button
-            type="button"
-            disabled={!card.canAnswer}
-            aria-describedby={fieldToFix === undefined ? undefined : hintId}
-            onClick={(event) => onAnswer(event.currentTarget)}
-            aria-pressed={submitted ? card.ready : undefined}
-            className={single ? BUTTON_ANSWER_PRIMARY : BUTTON_ANSWER}
+          <PrimaryButton
+            card={card}
+            entry={answerKey}
+            describedBy={fieldToFix === undefined ? undefined : hintId}
+            single={single}
+            submitted={submitted}
+            onAnswer={onAnswer}
           >
             {card.ready ? <QuestionMarker mark="ready" /> : null}
             {text("question.answer")}
-          </button>
+          </PrimaryButton>
           {fieldToFix === undefined || !locked ? null : (
             <span id={hintId} className="sr-only">
               {fieldToFix.text}

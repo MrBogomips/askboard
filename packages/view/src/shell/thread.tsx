@@ -7,12 +7,14 @@
 // not. A jump to an unread reply opens it and brings the latest reply into view. Every message is
 // text (AD-8). A reply is no change to the question and raises no notice.
 
-import { FOLLOW_UP_MAX_CHARS, type ThreadEntry } from "@askboard/contract";
+import type { ThreadEntry } from "@askboard/contract";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useLanguage, useLocale, useStrings } from "../catalog/port.ts";
 import type { Store } from "./store.ts";
-import { BUTTON_LINK, BUTTON_SECONDARY, TEXT_FIELD } from "./styles.ts";
-import { agentAuthor, isSendKey, messageCountOf, messagesLabel, timeOf } from "./thread-text.ts";
+import { BUTTON_LINK } from "./styles.ts";
+import { Composer } from "./thread-composer.tsx";
+import { agentAuthor, messageCountOf, messagesLabel, timeOf } from "./thread-text.ts";
+import { useBoardKeyTable } from "./use-board-keys.ts";
 
 /** A request to open a question's thread and show its latest reply, numbered so each runs once. */
 export type ThreadRequest = { readonly questionId: string; readonly n: number };
@@ -104,6 +106,7 @@ export const Thread = ({
   const language = useLanguage();
   const id = `${questionId}:thread`;
   const canSend = usable && !sending && composer !== "";
+  const table = useBoardKeyTable();
   if (readOnly && count === 0) return null;
   if (!open) {
     return (
@@ -132,6 +135,7 @@ export const Thread = ({
     <section
       id={id}
       aria-label={text("thread.title")}
+      data-askboard-thread=""
       className="flex flex-col rounded-md border border-border"
     >
       <div className="flex items-center gap-sm border-b border-border px-md py-1.5">
@@ -175,27 +179,17 @@ export const Thread = ({
         </ol>
       )}
       {readOnly ? null : (
-        <div className="flex items-end gap-sm border-t border-border p-sm">
-          <textarea
-            ref={composerRef}
-            aria-label={text("thread.composer")}
-            placeholder={text("thread.composer")}
-            value={composer}
-            readOnly={!usable || sending}
-            maxLength={FOLLOW_UP_MAX_CHARS}
-            rows={2}
-            onChange={(event) => onComposerChange(event.target.value)}
-            onKeyDown={(event) => {
-              if (!isSendKey(event)) return;
-              event.preventDefault();
-              if (canSend) onSend();
-            }}
-            className={TEXT_FIELD}
-          />
-          <button type="button" className={BUTTON_SECONDARY} disabled={!canSend} onClick={onSend}>
-            {text("thread.send")}
-          </button>
-        </div>
+        <Composer
+          composerRef={composerRef}
+          label={text("thread.composer")}
+          sendLabel={text("thread.send")}
+          value={composer}
+          editable={usable && !sending}
+          canSend={canSend}
+          table={table}
+          onChange={onComposerChange}
+          onSend={onSend}
+        />
       )}
     </section>
   );

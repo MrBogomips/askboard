@@ -549,6 +549,9 @@ export const EN_US = {
   "keys.action.gantt.fit": "Fit the column to its content",
   "keys.action.gantt.togglePredecessor": "Toggle a predecessor",
   "keys.action.chart.highlight": "Highlight the point",
+  "keys.action.board.previousOpen": "Previous open",
+  "keys.action.board.answer": "Answer the question in focus",
+  "keys.action.board.sendFollowUp": "Send the follow-up",
   "key.enter": "Enter",
   "key.escape": "Esc",
   "key.home": "Home",
@@ -569,6 +572,10 @@ export const EN_US = {
   "keys.group.move": "Move items",
   "keys.group.edit": "Edit",
   "keys.group.other": "Other",
+  "keys.group.board": "Questions",
+  "keys.panel.boardTitle": "Board keys",
+  "keys.panel.boardNote":
+    "These keys do nothing in a text field or inside a widget, apart from sending a follow-up. Sending all held answers has no key.",
   "ranking.toTop": "To top",
   "ranking.toBottom": "To bottom",
   "ranking.selectNone": "Select none",
@@ -587,4 +594,7 @@ export const EN_US = {
     one: "The agent added {count} question: {title}.",
     other: "The agent added {count} questions.",
   },
+  "status.answerBlocked": "Not answered. {reason}",
+  "status.answerEmpty": "Not answered. Choose an answer or write a note first.",
+  "status.answerChangePending": "Not answered. Choose what to do with the agent's update first.",
 } as const satisfies StringTable;

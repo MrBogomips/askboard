@@ -1,13 +1,14 @@
 import { describe, expect, test } from "bun:test";
-import type { ThreadEntry } from "@askboard/contract";
+import { BOARD_KEYS, type KeyEntry, type ThreadEntry } from "@askboard/contract";
+import type { KeyEventFields } from "../catalog/keys/press.ts";
 import type { ViewAct } from "../view-protocol.ts";
 import { EXPLAIN } from "./card-acts.ts";
 import {
   AGENT_AUTHOR,
   explainPending,
-  isSendKey,
   messageCountOf,
   messagesLabel,
+  sendKeyOf,
   timeOf,
   viewerOffset,
 } from "./thread-text.ts";
@@ -63,10 +64,43 @@ describe("the follow-up thread's texts (EXPERIENCE.md, Voice and Tone: Follow-up
     expect(explainPending([entry(EXPLAIN, 1)], sending)).toBe(true);
   });
 
-  test("Ctrl+Enter and Cmd+Enter send; Enter alone adds a line", () => {
-    expect(isSendKey({ key: "Enter", ctrlKey: true, metaKey: false })).toBe(true);
-    expect(isSendKey({ key: "Enter", ctrlKey: false, metaKey: true })).toBe(true);
-    expect(isSendKey({ key: "Enter", ctrlKey: false, metaKey: false })).toBe(false);
-    expect(isSendKey({ key: "a", ctrlKey: true, metaKey: false })).toBe(false);
+  describe("the composer's send key", () => {
+    const table = BOARD_KEYS as readonly KeyEntry[];
+    const key = (over: Partial<KeyEventFields> = {}): KeyEventFields => ({
+      key: "Enter",
+      keyCode: 13,
+      altKey: false,
+      ctrlKey: false,
+      metaKey: false,
+      shiftKey: false,
+      target: { tagName: "TEXTAREA" },
+      ...over,
+    });
+
+    test("Ctrl+Enter and Cmd+Enter send", () => {
+      expect(sendKeyOf(table, key({ ctrlKey: true }))).toBe(true);
+      expect(sendKeyOf(table, key({ metaKey: true }))).toBe(true);
+    });
+
+    test("Enter, Shift+Enter, Ctrl+Shift+Enter, Ctrl+Cmd+Enter and a composing Enter do not", () => {
+      expect(sendKeyOf(table, key())).toBe(false);
+      expect(sendKeyOf(table, key({ shiftKey: true }))).toBe(false);
+      expect(sendKeyOf(table, key({ ctrlKey: true, shiftKey: true }))).toBe(false);
+      expect(sendKeyOf(table, key({ ctrlKey: true, metaKey: true }))).toBe(false);
+      expect(sendKeyOf(table, key({ ctrlKey: true, isComposing: true }))).toBe(false);
+      expect(sendKeyOf(table, key({ ctrlKey: true, key: "a" }))).toBe(false);
+    });
+
+    test("under Mod+Alt+Enter only that combination sends", () => {
+      const own = [
+        {
+          ...BOARD_KEYS.find((entry) => entry.action === "board.sendFollowUp"),
+          keys: [{ key: "Enter", hold: "mod+alt" }],
+        },
+      ] as unknown as readonly KeyEntry[];
+      expect(sendKeyOf(own, key({ ctrlKey: true, altKey: true }))).toBe(true);
+      expect(sendKeyOf(own, key({ metaKey: true, altKey: true }))).toBe(true);
+      expect(sendKeyOf(own, key({ ctrlKey: true }))).toBe(false);
+    });
   });
 });

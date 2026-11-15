@@ -72,7 +72,8 @@ export const checkboxKeyOf = (
   index: number,
   count: number,
 ): CheckboxKey | undefined => {
-  if (event.key === "Enter") return { kind: "flip" };
+  // Enter flips only with no modifier: Mod+Enter on a box is the board's answer key (board-keys, D4).
+  if (event.key === "Enter") return pressHold(event) === "none" ? { kind: "flip" } : undefined;
   const next = optionMoveOf(event, index, count);
   return next === undefined ? undefined : { kind: "focus", index: next };
 };

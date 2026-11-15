@@ -213,6 +213,25 @@ export const nextOpenFrom = (
 };
 
 /**
+ * Where the previous-open key goes from the question in view: the open question before it in board
+ * order, else the last open one (wrapping); never the question in view, nowhere when no other is
+ * open, the last open one when none is in view. Unseen questions get no priority: going back
+ * returns to a question the user skipped (board-keys, design decision 3).
+ */
+export const previousOpenFrom = (
+  document: ViewDocument,
+  state: LifecycleBoardState,
+  work: Work,
+  current: string | undefined,
+): string | undefined => {
+  const ids = questionsOf(document).map((question) => question.id);
+  const open = ids.filter((id) => id !== current && isOpen(id, state, work));
+  const found = current === undefined ? -1 : ids.indexOf(current);
+  const at = found < 0 ? ids.length : found;
+  return open.filter((id) => ids.indexOf(id) < at).at(-1) ?? open.at(-1);
+};
+
+/**
  * Where one question per view goes when the agent deletes the question in view: the next question
  * after it in the board's earlier order that is still on the board, else the last one before it
  * (EXPERIENCE.md, Question navigator; F-55).

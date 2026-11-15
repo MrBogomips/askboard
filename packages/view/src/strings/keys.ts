@@ -521,6 +521,9 @@ export const STRING_KEYS = [
   "keys.action.gantt.fit",
   "keys.action.gantt.togglePredecessor",
   "keys.action.chart.highlight",
+  "keys.action.board.previousOpen",
+  "keys.action.board.answer",
+  "keys.action.board.sendFollowUp",
   "key.enter",
   "key.escape",
   "key.home",
@@ -541,6 +544,9 @@ export const STRING_KEYS = [
   "keys.group.move",
   "keys.group.edit",
   "keys.group.other",
+  "keys.group.board",
+  "keys.panel.boardTitle",
+  "keys.panel.boardNote",
   "ranking.toTop",
   "ranking.toBottom",
   "ranking.selectNone",
@@ -554,6 +560,9 @@ export const STRING_KEYS = [
   "status.submitted",
   "status.prefilled",
   "status.added",
+  "status.answerBlocked",
+  "status.answerEmpty",
+  "status.answerChangePending",
 ] as const;
 
 export type StringKey = (typeof STRING_KEYS)[number];

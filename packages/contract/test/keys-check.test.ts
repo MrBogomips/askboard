@@ -225,7 +225,10 @@ describe("a key the browser or the system needs", () => {
     );
   });
 
-  test("Cmd or Ctrl takes only Z and A, as `mod`", () => {
+  test("Cmd or Ctrl takes only Z, A and Enter, as `mod`", () => {
+    expect(
+      messages([ownEntry("probe.s", "list", [b("Enter", "mod")], "tool", { readOnly: false })]),
+    ).toEqual([]);
     expect(
       messages([ownEntry("probe.s", "list", [b("s", "mod")], "tool", { readOnly: false })]),
     ).toHaveLength(1);

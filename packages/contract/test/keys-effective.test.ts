@@ -286,3 +286,18 @@ describe("changedKeyActions", () => {
     }
   });
 });
+
+describe("changedKeyActions with the board's table by default (board-keys, D6)", () => {
+  test("gives a changed board action and a board action given no key", () => {
+    expect(changedKeyActions({ "board.nextOpen": ["j"], "board.sendFollowUp": [] })).toEqual([
+      "board.nextOpen",
+      "board.sendFollowUp",
+    ]);
+  });
+
+  test("keys given as they already are change nothing", () => {
+    expect(changedKeyActions({ "board.nextOpen": ["n"], "board.answer": ["Mod+Enter"] })).toEqual(
+      [],
+    );
+  });
+});

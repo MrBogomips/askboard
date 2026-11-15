@@ -12,6 +12,7 @@ import { KANBAN_KEYS } from "../widgets/kanban/keys.ts";
 import { RANKING_KEYS } from "../widgets/ranking/keys.ts";
 import { TIMELINE_KEYS } from "../widgets/timeline/keys.ts";
 import { TREE_KEYS } from "../widgets/tree/keys.ts";
+import { BOARD_KEY_TABLE } from "./board-table.ts";
 import type { KeyTable } from "./vocabulary.ts";
 
 /** A registered type with a key table: what the override check reads of a registry entry. */
@@ -32,4 +33,14 @@ export const REGISTERED_KEY_TABLES: readonly RegisteredKeyTable[] = Object.freez
   { type: "kanban", keys: KANBAN_KEYS },
   { type: "timeline", keys: TIMELINE_KEYS },
   { type: "chart", keys: CHART_KEYS },
+]);
+
+/**
+ * Every table the user's keys apply to: the board's own (`BOARD_KEY_TABLE`), then the registered
+ * ones in order (board-keys, D1). The override check and the effective keys default to it. Frozen.
+ * `BOARD_KEY_TABLE` holds only data, so the list still loads no registry.
+ */
+export const ALL_KEY_TABLES: readonly RegisteredKeyTable[] = Object.freeze([
+  BOARD_KEY_TABLE,
+  ...REGISTERED_KEY_TABLES,
 ]);

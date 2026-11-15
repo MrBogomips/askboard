@@ -3,7 +3,7 @@
 // the effective table through `keyActionOf`, so the keys a user sets act and the ones removed do not.
 
 import { type KeyOverrides, parseKeyCombination } from "./notation.ts";
-import { type KeyTypes, REGISTERED_KEY_TABLES } from "./tables.ts";
+import { ALL_KEY_TABLES, type KeyTypes } from "./tables.ts";
 import {
   isVocabularyAction,
   KEY_VOCABULARY,
@@ -86,7 +86,7 @@ const defaultsOf = (action: string, types: KeyTypes): readonly (readonly KeyBind
  */
 export const changedKeyActions = (
   overrides: KeyOverrides,
-  types: KeyTypes = REGISTERED_KEY_TABLES,
+  types: KeyTypes = ALL_KEY_TABLES,
 ): readonly string[] => {
   if (!isOverrides(overrides)) return Object.freeze([]);
   const changed = Object.keys(overrides).filter((action) => {

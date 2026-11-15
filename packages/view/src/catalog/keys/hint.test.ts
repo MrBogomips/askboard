@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  BOARD_KEYS,
   type KeyEntry,
   type KeyPress,
   ownEntry,
@@ -15,6 +16,7 @@ import {
   KEYS_OPEN_ENTRY,
   labelText,
   opensKeysPanel,
+  PANEL_GROUPS,
   panelGroups,
 } from "./hint.ts";
 
@@ -331,5 +333,42 @@ describe("opensKeysPanel with the keys in effect", () => {
   test("another modifier on the rebound key does not open it", () => {
     expect(opensKeysPanel(press({ key: "Enter", hold: "mod" }), bound)).toBe(false);
     expect(opensKeysPanel(press({ key: "Enter", hold: "alt+shift" }), bound)).toBe(false);
+  });
+});
+
+describe("the board's group (board-keys, design decision 5)", () => {
+  test("board actions are in the group board, which comes first", () => {
+    expect(groupOf("board.nextOpen")).toBe("board");
+    expect(groupOf("board.sendFollowUp")).toBe("board");
+    expect(groupOf("keys.open")).toBe("other");
+    expect(PANEL_GROUPS[0]).toBe("board");
+  });
+
+  test("the board's panel: Questions in order, then Other with the keys panel", () => {
+    const groups = panelGroups(BOARD_KEYS, true, "other", en);
+    expect(groups.map((group) => group.title)).toEqual(["Questions", "Other"]);
+    expect(groups[0]?.rows.map((row) => row.name)).toEqual([
+      en("header.nextOpen"),
+      "Previous open",
+      "Answer the question in focus",
+      "Send the follow-up",
+    ]);
+    expect(groups[1]?.rows.map((row) => row.name)).toEqual(["Show the keys"]);
+  });
+
+  test("with no edits, only next open, previous open and the keys panel", () => {
+    const groups = panelGroups(BOARD_KEYS, false, "other", en);
+    expect(groups[0]?.rows.map((row) => row.name)).toEqual([
+      en("header.nextOpen"),
+      "Previous open",
+    ]);
+    expect(groups[1]?.rows.map((row) => row.name)).toEqual(["Show the keys"]);
+  });
+
+  test("the Ranking's groups are unchanged", () => {
+    const ranking = WIDGET_TYPES.find((type) => type.type === "ranking")?.keys ?? [];
+    expect(panelGroups(ranking, true, "other", en).some((group) => group.id === "board")).toBe(
+      false,
+    );
   });
 });

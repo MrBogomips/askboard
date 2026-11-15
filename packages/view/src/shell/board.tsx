@@ -31,6 +31,8 @@ import { changePending, type KeptChoices, readOnlyOfBoard, shownOfBoard } from "
 import type { AttentionSnapshot } from "./attention.ts";
 import type { BoardDraftState } from "./board-draft.ts";
 import { BoardHeader, type HeaderCounts } from "./board-header.tsx";
+import { useBoardKeys } from "./board-keys-listener.ts";
+import { useBoardPanel } from "./board-keys-panel.tsx";
 import {
   askPillOf,
   endedOf,
@@ -41,6 +43,7 @@ import {
   openCountOf,
   postponedWarningOf,
   presentationOf,
+  previousOpenFrom,
   shownQuestionOf,
   tabOpenCount,
 } from "./board-view.ts";
@@ -60,6 +63,7 @@ import { StatusRegion } from "./status-region.tsx";
 import type { Store } from "./store.ts";
 import { FOCUS_RING, INFO_BADGE } from "./styles.ts";
 import { hasRecommendation, releaseFailed, selectRecommended, submitStateOf } from "./submit.ts";
+import { useBoardKeyTable } from "./use-board-keys.ts";
 import { useQuestionInView } from "./use-question-in-view.ts";
 
 /** What the board page last told the view, with the latest board document. */
@@ -316,14 +320,14 @@ export const Board = ({
     show(questionId);
     focusHeading(questionId);
   };
-  const target = nextOpenFrom(
-    document,
-    state,
-    draft.questions,
-    attention.unseen,
-    shownQuestionOf(document, current),
-  );
+  // The jumps start at the question the board shows (shownQuestionOf).
+  const viewing = shownQuestionOf(document, current);
+  const target = nextOpenFrom(document, state, draft.questions, attention.unseen, viewing);
   const nextOpen = target === undefined ? undefined : () => go(target);
+  const before = previousOpenFrom(document, state, draft.questions, viewing);
+  const previousOpen = before === undefined ? undefined : () => go(before);
+  const panel = useBoardPanel();
+  const boardTable = useBoardKeyTable();
   const firstOf = (ids: ReadonlySet<string> | ReadonlyMap<string, number>) =>
     questions.find((question) => ids.has(question.id))?.id;
   const counts: HeaderCounts = {
@@ -342,6 +346,17 @@ export const Board = ({
       if (first !== undefined) go(first);
     },
   };
+  // The keys act while the header shows their twins: the jump on a board with counts, the Keys button
+  // on a board that has not ended (board-keys, decision 3).
+  const jumps = presentation === "single" || endedOf(lock) ? undefined : { nextOpen, previousOpen };
+  useBoardKeys(
+    {
+      nextOpen: jumps?.nextOpen,
+      previousOpen: jumps?.previousOpen,
+      keysOpen: endedOf(lock) ? undefined : panel.opening,
+    },
+    boardTable,
+  );
   const marksOf = (question: ViewQuestion): EntryMarks => ({
     mark: markOf(question.id, state, draft.questions),
     isNew: attention.unseen.has(question.id),
@@ -446,6 +461,11 @@ export const Board = ({
         header={extras.header}
         status={context.status}
         controls={extras.presentation}
+        keys={
+          endedOf(lock)
+            ? undefined
+            : { panel, takesEdits: lock === undefined && context.opened === undefined }
+        }
       />
       {body}
       {context.opened !== undefined ? null : (

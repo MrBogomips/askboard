@@ -179,3 +179,33 @@ describe("task 9.1's rules hold at every read", () => {
     expect(diagnosed).toHaveLength(1);
   });
 });
+
+describe("the board's own actions in the user file (board-keys, task 1.2; D6)", () => {
+  test("board.nextOpen on j applies with no warning", async () => {
+    const keys = { "board.nextOpen": ["j"] };
+    const { core, diagnosed } = open({ user: { version, keys } });
+    const settings = await core.settings();
+    expect(settings.rows.keys).toEqual({ value: keys, from: "user", writable: false });
+    expect(diagnosed).toEqual([]);
+  });
+
+  test("board.nextOpen on Enter gives one keys-not-applied warning naming it", async () => {
+    const { core } = open({ user: { version, keys: { "board.nextOpen": ["Enter"] } } });
+    const settings = await core.settings();
+    expect(settings.values.keys).toBeUndefined();
+    expect(settings.rows.keys).toEqual({
+      from: "default",
+      writable: false,
+      warnings: [
+        {
+          code: "keys-not-applied",
+          file: "user",
+          key: "keys",
+          rule: "reserved",
+          action: "board.nextOpen",
+          binding: "Enter",
+        },
+      ],
+    });
+  });
+});

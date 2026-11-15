@@ -90,16 +90,16 @@ export const treeFocus = async (board: Board): Promise<FocusAt> =>
 
 /**
  * Tabs into the Tree from its question's text, as a keyboard user does: a click on the text sets
- * where Tab starts, then Tab is pressed until the focus is in the treegrid, at most five times.
+ * where Tab starts, then Tab is pressed until the focus is in the treegrid, at most six times (the header ends with the Keys button, board-keys).
  */
 export const tabIntoTree = async (board: Board, questionText: string): Promise<FocusAt> => {
   await board.view.getByRole("heading", { name: questionText }).click();
-  for (let presses = 0; presses < 5; presses += 1) {
+  for (let presses = 0; presses < 6; presses += 1) {
     await board.page.keyboard.press("Tab");
     const at = await treeFocus(board);
     if (at !== undefined) return at;
   }
-  throw new Error("five presses of Tab never reached the Tree");
+  throw new Error("six presses of Tab never reached the Tree");
 };
 
 /** Presses `key` and returns where the focus is in the Tree then. */
@@ -161,12 +161,12 @@ export const toolFocus = async (board: Board): Promise<string | undefined> =>
 /** Tabs into the Tree's toolbar from its question's text, as `tabIntoTree` does into the tree. */
 export const tabIntoToolbar = async (board: Board, questionText: string): Promise<string> => {
   await board.view.getByRole("heading", { name: questionText }).click();
-  for (let presses = 0; presses < 5; presses += 1) {
+  for (let presses = 0; presses < 6; presses += 1) {
     await board.page.keyboard.press("Tab");
     const tool = await toolFocus(board);
     if (tool !== undefined) return tool;
   }
-  throw new Error("five presses of Tab never reached the Tree's toolbar");
+  throw new Error("six presses of Tab never reached the Tree's toolbar");
 };
 
 /** Presses `key` and returns the toolbar's focused tool then. */
