@@ -87,6 +87,10 @@ On a board of two or more questions, when the primary sends or confirms an answe
 - **WHEN** with "Go to the next" the user activates "Later" on question 3 while question 4 is to do
 - **THEN** question 3 reads "Postponed" and question 4's heading has focus
 
+#### Scenario: A held key
+- **WHEN** with "Go to the next", and again with "Stay here", the user holds Enter down on question 3's "Send answer" so that the key repeats after the board has moved
+- **THEN** question 4 is neither answered nor changed, and "Continue" is not activated by the repeat
+
 ### Requirement: What never moves the board
 The board SHALL not move on after a revision, a note sent or held alone, an undo of a postpone or decline, "Edit", a blocked primary, or an act whose confirmation the user cancelled; focus then SHALL go as Focus after Answer and Submit says. The footer of "Stay here" SHALL leave once the user activates "Continue", edits that question or acts on another (FR-2).
 
