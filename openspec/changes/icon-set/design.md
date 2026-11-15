@@ -129,7 +129,8 @@ Three cases, each a scenario of the requirement "Accessible names of icons":
 
 Lucide released 1.63.0 to 1.73.0 between 2026-10-28 and 2026-11-14, every one a minor. The bun `ignore` list of `.github/dependabot.yml` gains `lucide-react` (and `lucide`) with `update-types: ["version-update:semver-minor", "version-update:semver-patch"]`. The Issue's "ignore patch releases" would suppress none of them.
 
-- **Why.** Without the rule, Lucide would ride in the weekly `bun-dev` group, so a redrawn icon would ship inside an unrelated bump without review. A change that needs a new icon bumps Lucide by hand, re-reads the adoption evidence, looks at the icons and records the sizes. A major still gets its own pull request.
+- **Why.** Without the rule, Lucide would ride in the weekly `bun-dev` group, so a redrawn icon would ship inside an unrelated bump without review. A change that needs a new icon bumps Lucide by hand, re-reads the adoption evidence, looks at the icons and records the sizes.
+- **Majors.** A major of `lucide` or `lucide-react` arrives in one grouped pull request (the `lucide` group in `.github/dependabot.yml`, `update-types: [major]`), since the two pins must stay equal (decision 10, `tools/workspace.test.ts`). This was a coordinator addition in group 5.
 - **Risk.** The ignore also holds back security updates for Lucide (Risks).
 
 ### 10. The board page's close controls (Q1: the PO chose (a), 2026-11-15)
@@ -162,7 +163,7 @@ Lucide released 1.63.0 to 1.73.0 between 2026-10-28 and 2026-11-14, every one a 
 
 - **D1** A library chunk `icons`, not the shell (decision 4).
 - **D2** The four hand-drawn SVG icons come from the module too; the Gantt's duration pin and chart SVGs stay (decision 2).
-- **D3** Dependabot ignores Lucide's minor and patch releases, not only patch (decision 9).
+- **D3** Dependabot ignores Lucide's minor and patch releases, not only patch, and groups the majors of both packages in one pull request (decision 9).
 - **D4** The icon for each role (decision 3's table), from the research's §4.5 mapping. `message-square-reply` for ↩ and `refresh-cw` for ↻ are the two whose look differs most from the glyph.
 - **D5** The Lucide rule lives in `check-imports`, not in a separate test (decision 5).
 
