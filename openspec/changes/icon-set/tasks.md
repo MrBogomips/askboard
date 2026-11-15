@@ -52,7 +52,7 @@ Terms used below:
     - `bun run typecheck` passes.
 - [ ] 1.2 The icon module (decision 3; P2, P3; requirement "Accessible names of icons").
   - Tests first, in `packages/view/src/icons/index.test.ts`:
-    - the module's exports equal the ten names of decision 3's table, no more and no fewer;
+    - the module's exports equal the nine names of decision 3's table, no more and no fewer;
     - each export is the same object as the default export of `lucide-react/icons/<lucide name>`;
     - `renderToStaticMarkup` of `IconClose` holds `aria-hidden="true"` and `stroke="currentColor"`, and no `style=`;
     - with `role="img"` and `aria-label="Close"`, it holds both and no `aria-hidden`;
@@ -99,7 +99,7 @@ Terms used below:
     - Open point 2 settled by `icon-set`;
     - one Do's and Don'ts row: "Draw an icon from the icon module, beside its label | Put a glyph in a string, or an SVG of a component's own, as an icon; import Lucide anywhere but the icon module".
   - The spine's front matter: `updated` and one `sources` line naming `icon-set` and the PO's decision 7 of 2026-11-14.
-  - `docs/as-built/icon-set.md`, first version: the pin and its evidence, the module, its ten names, the chunk, the rule, the ↑/← correction (decision 2), and no status.
+  - `docs/as-built/icon-set.md`, first version: the pin and its evidence, the module, its nine names, the chunk, the rule, the ↑/← correction (decision 2), and no status.
   - Verify:
     - `grep -n "^## Icons" docs/ux-askboard-2026-10-27/DESIGN.md` finds the section;
     - Open point 2 says settled;
@@ -119,14 +119,13 @@ Terms used below:
     - "A Snapshot offline": a Snapshot whose board shows the outline's marks or a reference's hint, with every request blocked.
   - Update the cases that name a glyph:
     - `lifecycle-header.browser.ts` :79 and :90, and `shown-revision-draft-session.browser.ts` :114: "Next open ↓" becomes "Next open";
-    - `lifecycle-presentations.browser.ts` :136: "Next open →" becomes "Next open";
     - `languages.browser.ts` :108: "Prossima aperta ↓" becomes "Prossima aperta";
     - `context-items.browser.ts` :281 and :282: "opens in browser ↗" becomes "opens in browser";
     - `lifecycle-acts.browser.ts` :365: "↩ 1" becomes the badge named "1 new reply".
   - Verify: in a browser run of these files with `--engines chromium`, the new and the edited cases fail on group 1's code for the reasons the scenarios give (a glyph in a name, no `svg`, no image name).
 - [ ] 2.2 The strings (decision 7).
-  - Tests first: `packages/view/src/strings/glyphs.test.ts` fails on ↓ ↩ ↻ ↗ ✓ ✕ × in any value of every language, and on → outside `tree.adjust.example`. The `key.*` values are exempt.
-  - Then remove the glyph from `header.nextOpen` and `navigator.nextOpen` in `en-US.ts` and `it-IT.ts`.
+  - Tests first: `packages/view/src/strings/glyphs.test.ts` fails on ↓ ↩ ↻ ↗ ✓ ✕ × in any value of every language, and on → outside `tree.adjust.example` and `navigator.nextOpen` (decision 7). The `key.*` values are exempt.
+  - Then remove the glyph from `header.nextOpen` in `en-US.ts` and `it-IT.ts`. Leave `navigator.nextOpen` as it is: `answering-flow-fixes` deletes it (#184).
   - Verify:
     - the test fails on the two values and then passes;
     - `bun run check:skills` passes, since `skills/askboard-help/` quotes neither value.
@@ -135,8 +134,7 @@ Terms used below:
   - `navigators.tsx`:
     - the outline's reply badge is an image (`role="img"`, `aria-label` and `title` from `header.newReplies`) holding `IconReplies` (`size-3`) and the count;
     - the agent-change flag is an image named by `header.agentUpdated`, holding `IconAgentChanged` (`size-3`);
-    - in the question navigator, the badges' icons stay decorative;
-    - `IconNextOpenForward` (`size-4`) follows the navigator jump's text.
+    - in the question navigator, the badges' icons stay decorative, and its "Next open →" button is left as it is (decision 3).
   - Each file imports the module by its relative path (`../icons/index.ts`).
   - Verify:
     - 2.1's header, outline and colour cases pass in a browser run with `--engines chromium,firefox,webkit`;
@@ -224,6 +222,7 @@ Terms used below:
 
 - [ ] 6.1 Rebase onto `origin/main` and apply design.md's merge-point rules, above all the navigator jump if `answering-flow-fixes` has merged.
   - Re-check every borrowed name with `git grep -n`.
+  - If `navigator.nextOpen` is gone from `main`, drop its exemption from `strings/glyphs.test.ts` (decision 7).
   - Rebuild and run `bun run build:view --record-sizes`; never merge the numbers by hand.
   - No contract set is widened, so no version is bound (askboard-contract-versioning).
   - Verify:

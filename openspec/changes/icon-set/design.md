@@ -37,7 +37,7 @@ The PO chose Lucide (decision 7, 2026-11-14). The adoption rule (`docs/prd-askbo
 
 | Criterion | Evidence (npm registry and GitHub API, 2026-11-15) |
 |---|---|
-| Licence | `ISC` in package.json. It is in `PERMISSIVE` (`tools/check-licences.ts:45`), with no exception needed. The tarball's `LICENSE` holds the ISC text, then Feather's MIT text for the icons derived from Feather (among them `x`, `check`, `calendar`, `chevron-right`, `external-link`, `arrow-down`, `arrow-right`). GitHub reports `NOASSERTION` because the file holds two texts; `check:licences` reads the package.json field. |
+| Licence | `ISC` in package.json. It is in `PERMISSIVE` (`tools/check-licences.ts:45`), with no exception needed. The tarball's `LICENSE` holds the ISC text, then Feather's MIT text for the icons derived from Feather (among them `x`, `check`, `calendar`, `chevron-right`, `external-link`, `arrow-down`). GitHub reports `NOASSERTION` because the file holds two texts; `check:licences` reads the package.json field. |
 | Stars | 25,766 on `lucide-icons/lucide`. |
 | Activity | Release and push 2026-11-14 (`1.73.0`). Not archived. |
 | Peers | React 19.3.1 and `@types/react` 19.3.0 are admitted. |
@@ -68,7 +68,6 @@ export { default as IconClose } from "lucide-react/icons/x";
 | Export | Lucide icon | Where | Replaces |
 |---|---|---|---|
 | `IconNextOpen` | `arrow-down` | header's next-open jump (`board-header.tsx`) | ↓ in `header.nextOpen` |
-| `IconNextOpenForward` | `arrow-right` | question navigator's next-open jump (`navigators.tsx`) | → in `navigator.nextOpen` |
 | `IconReplies` | `message-square-reply` | unread-reply badge, outline and question navigator | ↩ |
 | `IconAgentChanged` | `refresh-cw` | agent-change flag, outline | ↻ |
 | `IconExternal` | `external-link` | a reference's "opens in browser" hint | ↗ |
@@ -78,6 +77,8 @@ export { default as IconClose } from "lucide-react/icons/x";
 | `IconDisclosure` | `chevron-right` | the Tree's chevron, turned 90° when open as today | `Chevron`'s SVG |
 | `IconDragHandle` | `grip-vertical` | the Tree's and the Ranking's drag handles | `DragHandle`'s SVG, `GRIP_DOTS` |
 
+The question navigator's "Next open →" gets no icon. `answering-flow-fixes` deletes that button and `navigator.nextOpen` (#184; the PO keeps the jump in the header), so icon-set leaves both as they are, and → is not among the glyphs drawn as icons (decision 7).
+
 Every name above exists in the 1.73.0 tarball as `dist/esm/icons/<name>.mjs` (checked 2026-11-15). Icon modules also export `__iconData`, which is internal and never used.
 
 ### 4. One library chunk, `icons`
@@ -86,7 +87,7 @@ Every name above exists in the 1.73.0 tarball as `dist/esm/icons/<name>.mjs` (ch
 - **Its names.** The names list is read from the module's exports without running it, as `portExports` reads the port's, so adding an icon is one line and a name missing from the list cannot happen.
 - **Its needs.** The chunk needs `react` through the shared `react` chunk, since Lucide imports `forwardRef`, `createElement`, `createContext`, `useContext` and `useMemo`. The shell needs `icons` on every board and Snapshot, because the header draws one, and `assemble`'s selection follows needs (`assemble/select.ts`).
 - **No styles.** The chunk is not in `STYLED_LIBRARIES`: the module sets no class, and the callers' sources carry their own utilities.
-- **Size.** Measured with `bun build --minify --format iife --external react` on the ten icons of decision 3: 6,087 bytes (2,719 gzip), against 4,087 for the runtime and one icon. Group 1 records it. The shell and the component chunks grow only by their shims, within the margin. Group 5 records the final sizes once.
+- **Size.** Measured with `bun build --minify --format iife --external react` on the nine icons of decision 3: 5,934 bytes (2,670 gzip), against 4,087 for the runtime and one icon. Group 1 records it. The shell and the component chunks grow only by their shims, within the margin. Group 5 records the final sizes once.
 - **Alternative.** Putting the module in the shell, shared as the port is: one script fewer, but the shell's budget would carry every icon a later change adds. The library chunk keeps the growth on its own line of `chunk-sizes.json`, as `markdown` does.
 
 ### 5. The import rule (AD-1 amended)
@@ -108,8 +109,8 @@ Three cases, each a scenario of the requirement "Accessible names of icons":
 
 ### 7. Strings, quoted glyphs and what stays text
 
-- **Strings.** `header.nextOpen` and `navigator.nextOpen` lose their glyph in en-US and it-IT ("Next open", "Prossima aperta"), and the components draw the icon after the text.
-- **A guard.** A unit test over the string catalogue fails on ↓ ↩ ↻ ↗ ✓ ✕ × in any value, and on → outside `tree.adjust.example` ("{from} → {to}", where the arrow is a word of a sentence). The `key.*` values are exempt, since they are key names.
+- **Strings.** `header.nextOpen` loses its glyph in en-US and it-IT ("Next open", "Prossima aperta"), and the header draws the icon after the text. `navigator.nextOpen` ("Next open →") is not edited (decision 3).
+- **A guard.** A unit test over the string catalogue fails on ↓ ↩ ↻ ↗ ✓ ✕ × in any value, and on → outside `tree.adjust.example` ("{from} → {to}", where the arrow is a word of a sentence) and `navigator.nextOpen`. `navigator.nextOpen` is exempt only while it exists, and task 6.1 drops the exemption once `answering-flow-fixes` has deleted it. The `key.*` values are exempt, since they are key names.
 - **Quoted glyphs.** The specs and EXPERIENCE.md quote labels with their glyph ("Next open ↓", "opens in browser ↗", "the ✕"). Rather than rewrite those lines, several of which `answering-flow-fixes` amends (EXP 235, 241; the spec's "Counts and the next-open jump"), DESIGN.md's Icons section states the reading rule and the new requirement "Icons beside their labels" states it for the specs. EXPERIENCE.md is not edited.
 - **What stays text.** Key names (⌃ ⌥ ⇧ ⌘ ↩ ⌫ ⌦ ↑ ↓ ← →) in caps, tooltips, the keys panel and `skills/askboard-help/`, which stays unchanged (`check:skills`). `…` stays typography.
 
@@ -167,17 +168,20 @@ Lucide released 1.63.0 to 1.73.0 between 2026-10-28 and 2026-11-14, every one a 
 
 ## Merge points
 
-`openspec list` on 2026-11-15 shows only `early-benchmark` (`packages/bench` only, so no overlap). In flight beside it, with no artifacts on a branch yet: `answering-flow-fixes` (worktree `feature-answering-flow-fixes`, Issues #179 to #185, report §8.1 P0-1 to P0-7). Files both are expected to touch:
+`openspec list` on 2026-11-15 shows only `early-benchmark` (`packages/bench` only, so no overlap). In flight beside it, with no artifacts on a branch yet: `answering-flow-fixes` (worktree `feature-answering-flow-fixes`, Issues #179 to #185, report §8.1 P0-1 to P0-7). Its touch points come from its architect's message of 2026-11-15, and that design records the same rules.
 
-| File | icon-set | answering-flow-fixes (expected) | Rule at the rebase |
+| File | icon-set | answering-flow-fixes | Rule at the rebase |
 |---|---|---|---|
-| `packages/view/src/shell/navigators.tsx` | badges, the navigator's jump icon | P0-3 outline `aria-current`; P0-6 removes the navigator's next-open jump (#184) | If P0-6 lands first, drop `IconNextOpenForward` from the module, its test row and DESIGN.md's table (the "every export used" test of task 5.2 fails until then). If icon-set lands first, P0-6 deletes the button with its icon and the export. |
-| `packages/view/src/shell/board-header.tsx` | the jump's icon | P0-2, P0-3 jumps | Keep both; the icon follows the label wherever the button goes. |
-| `packages/view/src/strings/{en-US,it-IT}.ts`, `keys.ts` | two values lose a glyph | P0-4, P0-5, P0-7 add strings | Line-level merge; re-run the catalogue tests. If P0-6 deleted `navigator.nextOpen`, drop it from the guard's expectations. |
-| Browser tests: `lifecycle-header`, `lifecycle-presentations`, `languages`, `shown-revision-draft-session`, `lifecycle-acts`, `harness/suites.ts` | names without the glyph; a new `icons.browser.ts` | focus, jump and status tests | Re-apply the name change ("Next open" without ↓) to any test the other side added. |
-| `packages/view/chunk-sizes.json` | `icons` added; shell and components | shell growth | Never merge the numbers: rebuild and `--record-sizes` after the rebase (task 6.1). |
-| `docs/ux-askboard-2026-10-27/DESIGN.md` | new Icons section, Open point 2, one Do's row | Bottom action bar, Question card actions | Different hunks; keep both. |
-| `openspec/specs/view-and-widgets/spec.md` (deltas) | ADDED requirements only | MODIFIED "Counts and the next-open jump", "Outline navigator", others | No shared requirement, so both sync. |
+| `packages/view/src/shell/navigators.tsx` | the `Badges` component (↩, ↻) and the question navigator's entry badge (:157) | deletes the question navigator's "Next open →" button (#184); outline `aria-current` (#181) | icon-set leaves that button and `navigator.nextOpen` untouched (decision 3). Merge line by line, keeping both sides: the entry badge sits in the same component as the deleted button. |
+| `packages/view/src/shell/board-header.tsx` | the jump's icon | jump wiring (#180, #181); `header.nextOpen` kept as it is | Keep both; the icon follows the label wherever the button goes. |
+| `packages/view/src/strings/{en-US,it-IT}.ts`, `keys.ts` | `header.nextOpen` loses its ↓; a guard test over the catalogue | deletes `navigator.nextOpen`; adds `status.*` and `bar.submittedHelp` | Merge line by line, then re-run the catalogue tests. Once `navigator.nextOpen` is gone, drop its exemption from the guard (task 6.1). |
+| Browser tests: `lifecycle-header`, `languages`, `shown-revision-draft-session`, `lifecycle-acts`, `harness/suites.ts` | "Next open ↓" named "Next open"; a new `icons.browser.ts` | focus, jump and status tests; `lifecycle-presentations` for the deleted button | Whichever lands second names the header's jump "Next open" (without ↓) in any test the other side added. |
+| `packages/view/chunk-sizes.json` | `icons` added; shell and components | shell re-recorded (+3 to 6 KB expected) | Never merge the numbers: rebuild and `--record-sizes` after the rebase (task 6.1). |
+| `docs/ux-askboard-2026-10-27/DESIGN.md` | new Icons section, Open point 2, one Do's row | rows Context header, Next-open jump, Question navigator, Bottom action bar, Answer | Different hunks; keep both. |
+| `docs/ux-askboard-2026-10-27/EXPERIENCE.md` | not edited | Accessibility Floor, Board chrome, Presentations, Voice and Tone rows | None. |
+| `openspec/specs/view-and-widgets/spec.md` (deltas) | ADDED requirements only | MODIFIED "Counts and the next-open jump", "One question per view", "Outline navigator", others | No shared requirement, so both sync. The ADDED requirement "Icons beside their labels" does not draw → as an icon, so the navigator's "Next open →" holds until it is deleted. |
+
+The other files `answering-flow-fixes` touches (`question-actions.tsx`, `bottom-bar.tsx`, `agent-pill.tsx`, `board.tsx`, `question-card.tsx`) are not touched here.
 
 Later consumers, not yet changes: `answering-flow-guidance`, `answering-flow-visual`, `board-keys` and `palettes` (#189). Each adds its icons as lines of the module and records the `icons` chunk's size.
 
@@ -189,7 +193,7 @@ Later consumers, not yet changes: `answering-flow-guidance`, `answering-flow-vis
 - `tools/build/paths.ts`: `MARKDOWN_FILE` :26 (the pattern for `ICONS_FILE`).
 - `tools/check-imports.ts`: `VIEW_ENTRIES` :83.
 - `packages/view/test/browser/harness/suites.ts`: `BROWSER_FILES` :32.
-- The strings `header.nextOpen`, `navigator.nextOpen`, `header.agentUpdated`, `header.newReplies`, `annotations.close`, `settings.close`.
+- The strings `header.nextOpen`, `navigator.nextOpen` (only exempted by the guard, never edited), `header.agentUpdated`, `header.newReplies`, `annotations.close`, `settings.close`.
 - The components `CalendarIcon` (`catalog/date-field/index.tsx:59`), `Chevron` and `DragHandle` (`widgets/src/tree/row.tsx:59`, `:80`), `GRIP_DOTS` (`widgets/src/ranking/row.tsx:28`).
 
 Task 0.2 re-checks them, and task 6.1 checks them again after the rebase. No seam is borrowed from an unmerged change.

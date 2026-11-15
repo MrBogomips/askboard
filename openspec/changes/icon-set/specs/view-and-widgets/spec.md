@@ -33,7 +33,7 @@ The view, its components and the widgets SHALL draw every icon from Lucide throu
 - **THEN** `bun run check:imports` passes
 
 ### Requirement: Icons beside their labels
-Each mark the board drew as a glyph or as an inline SVG of its own SHALL be an icon of the icon module, beside its text label where it has one (DESIGN, Icons). A glyph quoted in a label in this specification or in EXPERIENCE.md (↓ → ↩ ↻ ↗ ✓ ✕ ×) SHALL be drawn as that icon: it SHALL be neither text of the label nor part of its accessible name. An icon SHALL take the text colour of the element that holds it (NFR-12, FR-34).
+Each mark the board drew as a glyph or as an inline SVG of its own SHALL be an icon of the icon module, beside its text label where it has one (DESIGN, Icons). A glyph quoted in a label in this specification or in EXPERIENCE.md (↓ ↩ ↻ ↗ ✓ ✕ ×) SHALL be drawn as that icon: it SHALL be neither text of the label nor part of its accessible name. An icon SHALL take the text colour of the element that holds it (NFR-12, FR-34).
 
 #### Scenario: The header's next-open jump
 - **WHEN** a board of three open questions in sections is shown in en-US, then in it-IT
