@@ -1,0 +1,162 @@
+# Tasks
+
+Each task writes its tests first and sees them fail for the right reason before implementing.
+
+Terms used below:
+
+- **"The check"** means `bun run build && GITHUB_TOKEN=$(gh auth token) bun run check`.
+- **"Browser run"** means `bun packages/view/test/browser/run.ts --no-build --target session-process` after `bun run build`, with the options the task names. Run one browser run at a time on the machine.
+- **"Case (g)"** means the case "(g) a closed ask: …" of `packages/view/test/browser/reopen-session.browser.ts`. Run it alone with `ASKBOARD_E2E_ENGINES=chromium ASKBOARD_E2E_TARGET=session-process bun test ./packages/view/test/browser/reopen-session.browser.ts -t "\(g\)"`, after `bun run build`.
+- **"Decision n"**, **"Dn"**, **"Hn"**, **"Pn"** and **"Q1"** refer to design.md. A requirement cited by name is in this change's delta spec, unless the task names `openspec/specs/`.
+- Commit bodies say `Refs #196` for group 1, `Refs #198` for group 2, `Refs #197` for the keyboard tasks, or each that applies.
+
+**Order.** Group 0 runs first. Then group 1, group 2 and task 3.1 may run in parallel, because their files are disjoint:
+
+- Group 1 edits only `harness/perf.ts`, `harness/perf.test.ts` and `markdown-total.browser.ts`.
+- Group 2 edits `reopen-session.browser.ts`, and, if the cause lies in the product, only the module that holds it and its unit test (decision 8). It does not edit `harness/perf.ts`.
+- Task 3.1 edits only `.github/workflows/browser.yml` and `tools/ci/e2e-workflows.test.ts`.
+- Each group commits its own paths only (`git add <paths>`, never `-a`).
+- Browser runs never overlap: a perf run of 1.2 or 1.3 runs alone on the machine, so group 2's runs wait for it, or it waits for them.
+
+Task 3.2 follows groups 1 and 2, since it records their names and #198's cause. Task 3.3 follows 3.1 and 3.2. Group 4 comes last.
+
+## 0. Decisions and base
+
+- [x] 0.1 Record the PO's answer to Q1 under design.md's Open Questions: (a), from #197's comment of 2026-11-15 (D4; decision 5). Tests: none (documents). Verify: Q1 carries its answer line, D4 says the PO decided it, and #197 has no `needs-po` label.
+  - Note: done by the `/opsx:update` of 2026-11-15 that also added #198 (group 2); `needs-po` was already off #197.
+- [x] 0.2 Base and borrowed names (design.md, Merge points). On `origin/main`, check each borrowed name with `git grep -n` and record its file and line, with main's SHA. This includes #198's names. Confirm that no workflow or test sets or reads `ASKBOARD_PERF_RUNNER` or writes `AppleKeyboardUIMode` yet. Tests: none. Verify: the note lists every name with its file and line. If a name is missing or its shape differs, stop for `/opsx:update` before group 1.
+  - Note: checked on `origin/main` e2cc5fd3 (only a bun.lock bump past the base) with `git grep -n`; all names present, shapes as designed. `perf.ts`: `PERF_RUNS` :15, `perfLine` :33, `expectMedianWithin` :40, `judgeMedians` :62, `perfRuns` :84. `markdown-total.browser.ts`: `DENSE_WAIT_MS` :30, `DENSE_TEST_TIMEOUT_MS` :31. `browser.yml` steps :86 and :104; `release.yml` `e2e-macos` :111; `e2e-workflows.test.ts` browser.yml describe :510. #198: `reopen-session.browser.ts` (g) :613, `reopenPrefills` :62, `prefillReopened` :111, `DRAFT_DEBOUNCE_MS` :10, `reloadBoard` :110, `sentDrafts` :74, `quiet` :113, spec scenario :3604. No file outside `openspec/` and `docs/` names `ASKBOARD_PERF_RUNNER` or `AppleKeyboardUIMode`.
+- [x] 0.3 Probe P1 locally, on a Mac, without touching the global setting (decision 5).
+  - Read Playwright WebKit's bundle id (`CFBundleIdentifier` of `Playwright.app` in the Playwright cache) and the global `defaults read -g AppleKeyboardUIMode`.
+  - Run `defaults write org.webkit.Playwright AppleKeyboardUIMode -int 0`, then a browser run of `board.browser.ts` with `--engines webkit`.
+  - Run `defaults delete org.webkit.Playwright AppleKeyboardUIMode` and repeat the run.
+  - Tests: none (probe).
+  - Verify:
+    - the first run fails with "ten presses of Tab never reached Answer";
+    - the second passes;
+    - after the delete, `defaults read org.webkit.Playwright AppleKeyboardUIMode` reports no such key and the global value is as read at the start.
+  - Record the bundle id, the values and both outcomes in the note. If the first run passes, the hypothesis does not hold: stop for `/opsx:update`.
+  - Note: P1 holds locally. Bundle id `org.webkit.Playwright` (webkit-2388 `Playwright.app`); global `AppleKeyboardUIMode` = 2, per-app key absent at start and at end. With the per-app key set to 0, `board.browser.ts` "answering with the keyboard only" on WebKit failed with "ten presses of Tab never reached Answer" (a wider `-t board` run: 12 failures of the keyboard cases); after `defaults delete` it passed (1 pass). Global value unchanged.
+
+## 1. The runner factor on the perf bounds (#196)
+
+- [x] 1.1 The factor in `harness/perf.ts` (decision 2; requirement Timed bounds on a hosted runner).
+  - Tests first, in `harness/perf.test.ts`:
+    - `perfFactor(undefined)` is 1, `perfFactor("Linux")` is 2 and `perfFactor("macOS")` is 3.
+    - `perfFactor("Windows")` and `perfFactor("")` throw, naming the value and both keys.
+    - `expectMedianWithin` with factor 3 passes `[398, 214, 177]` against gate 100, and its line ends `gate 100 factor 3 bound 300`.
+    - With factor 2 it fails `[240, 260, 250]` against gate 100, and the message names the bound 200.
+    - With factor 1 the line is today's text, unchanged.
+    - `below` keeps its strictness at the scaled bound.
+    - `judgeMedians` and `perfRuns` apply the factor they are given.
+    - A child `bun` process that imports `perf.ts` with `ASKBOARD_PERF_RUNNER=Windows` exits non-zero, naming the value, before any output of a judgement.
+  - Then implement `PERF_RUNNER_FACTORS`, `perfFactor`, `PERF_FACTOR` (evaluated at load), `perfScaled(ms)`, the `factor` parameter of `expectMedianWithin` and its pass-through in `judgeMedians` and `perfRuns`.
+  - Verify: the new cases fail before the change and pass after, the existing `perf.test.ts` and `perf-files.test.ts` cases still pass, and coverage of `perf.ts` is at least 80%.
+  - Note: `PERF_RUNNER_FACTORS`, `perfFactor`, `PERF_FACTOR`, `perfScaled` and the `factor` parameter of `perfLine`, `expectMedianWithin`, `judgeMedians` and `perfRuns` in `harness/perf.ts`. 13 new cases in `perf.test.ts` (including three child `bun` processes for the environment), failing before (import error), 42 pass with `perf-files.test.ts` after. Refs #196.
+- [x] 1.2 The dense Markdown case (decision 4; D3).
+  - Tests first, in `harness/perf.test.ts`: `perfScaled(120_000)` is 120,000 at factor 1 and 360,000 at factor 3.
+  - Then pass `DENSE_WAIT_MS` and `DENSE_TEST_TIMEOUT_MS` in `markdown-total.browser.ts` through `perfScaled`. Its "not ready in … s" line must name the scaled wait.
+  - Verify:
+    - the unit cases pass;
+    - a browser run of `markdown-total.browser.ts` with `--set perf --engines chromium` passes locally, with no variable set;
+    - `git diff` shows no change to `BOUND_MS` or any other gate.
+  - Note: `DENSE_WAIT_MS` and `DENSE_TEST_TIMEOUT_MS` go through `perfScaled`; the unit cases are in 1.1's child-process test (120,000 at factor 1, 360,000 at macOS). `markdown-total` perf run in Chromium: 2 pass, dense case ready in 16.7 s; no gate changed. Refs #196.
+- [x] 1.3 The local perf pass (requirement Timed bounds judged in the perf pass, scenario "A developer's machine"). Tests: none new. Verify:
+  - a browser run with `--set perf --engines chromium,webkit` passes with no variable set, and its `perf …` lines carry no `factor`;
+  - the same run with `ASKBOARD_PERF_RUNNER=Linux` prints `factor 2 bound …` on every line.
+  - Record the pass counts and the worst ratio in the note.
+  - Note: perf pass with no variable: chromium 91 pass, webkit 89 pass, 0 fail, 1,122 `perf` lines and none with `factor`; worst ratio 0.86 (table-bounds worst, WebKit, edit, 86 against 100). With `ASKBOARD_PERF_RUNNER=Linux`: same counts and all 1,122 lines end `factor 2 bound …`. Refs #196.
+- [x] 1.4 Review checkpoint: spec review of group 1's range (askboard-spec-reviewer). No security review: the group touches only the test harness. Verify: every finding is fixed as a task, tests first, or recorded with its reason, and the review's range and verdict are in the note.
+  - Done: spec review found S-1 (M, fixed waits capping the scaled Document review bounds), fixed in 1.5; no H or M finding open. The pre-PR review covers 1.5 again. Refs #196.
+- [x] 1.5 Fix review finding S-1 (M): a fixed wait around a timed sample caps the scaled bound per run. Tests first: `perf-files.test.ts` (no perf file gives `eventually` a literal wait; the LaTeX frame's parent wait, the field-error wait and the Document review's test timeouts go through `perfScaled`). Verify: the test fails before the fix and passes after; the perf set passes in Chromium.
+  - Note: `document-review-cost` (three `eventually(…, 30_000)` and both test timeouts), `latex-bounds` (the ten-items 30 s wait, `hasError`'s default 5 s against a 2 s gate) and `latex-frame.ts` (`PARENT_ANSWER_MS` sleep, the same value as its gate) now go through `perfScaled`; no gate changed. `table-bounds` waits are already scaled; markdown-total's `readyIn` and the LaTeX render timeout were not, and are scaled in 4.7 (this note said "setup waits" wrongly: `readyIn` is the timed interval). perf-files.test.ts 47 pass with perf.test.ts. Perf set, Chromium, no variable: 91 pass, 0 fail, 162 s. `timeout-minutes: 45` stays: a passing run waits only as long as its samples (about 3 s a sample at 3 times the local figures, whole job observed at 6 min on macOS in run 43664045953), and a wait that reaches its cap fails its test at once (at most 90 s on macOS), so scaling adds minutes only to failing tests, not 18 per test. Refs #196.
+
+## 2. Reopen-session case (g) (#198)
+
+- [x] 2.1 Reproduce case (g) and find its root cause (decision 8; `openspec/specs/view-and-widgets/spec.md`, scenario "A closed ask after a reload"). Tests: none (probe). Any instrumentation is a temporary edit and is not committed.
+  - Run case (g) alone in Chromium with `--rerun-each 10`.
+  - Then add load until it fails: a browser run of the whole set with `--engines chromium`, three times; then Chromium's CPU throttling (CDP `Emulation.setCPUThrottlingRate`, 4) on case (g)'s page.
+  - On a failing run, log with timestamps:
+    - the board states the page received;
+    - each draft record `board-host` received (`sentDrafts`), against the done of the close;
+    - the record restored after the reload;
+    - the Timeline before the reload.
+  - Verify:
+    - the note gives the failure rate alone and under each load;
+    - it names H1, H2, H3 or another cause, quoting the log lines that show it;
+    - #198 has a comment with the cause, the evidence and the corrected Expected (design.md, Open Questions). For H3, the comment also moves #198 from `sev:M` to `sev:L`.
+  - If nothing fails locally, dispatch the browser workflow on the branch for Chromium with the logging (design.md, Risks).
+  - If the cause needs a spec change, stop for `/opsx:update`.
+  - Note (Refs #198): the cause is H3, the test; no spec change. Chromium, `--rerun-each 10`, alone on `main` at 16c6d23f: 4 of 10 failed in the first run (the sibling session's timed runs shared the machine), then about 110 runs alone, under 6 parallel runs with CPU hogs, and with CDP throttling 4 and 20, all passed (so no load failed again). A temporary 600 ms pause between the move and Answer fails 3 of 3. Frame log (temporary, not committed): the move's record (`plan`, rev 1) is mirrored 300 ms after the move and before the Answer; the empty record that replaces it goes out 300 ms after the answer; the reopen and the close come within about 110 ms of the answer, before that record, and a closed ask's board page mirrors nothing more (the mirror sends only while the board is live), so the empty record never leaves and `board-host` restores the stale record after the reload (`received draft {"plan":{"rev":1,...mobile 2026-01-12}}`). The session process sends one `state` for reopen and close together (`ask: "closed"`), so H1 and H2 cannot occur here: the prefill gate never sees an open ask. `promptArmed` is the view's state, not `board-host`'s record. Not run: the whole-set browser runs and the dispatch, since a deterministic repro of the cause was found. #198 has the comment with cause, evidence and the corrected Expected, and moved from `sev:M` to `sev:L`.
+- [x] 2.2 Fix the cause, tests first (decision 8; NFR-10, AD-10).
+  - Product cause: a unit test in the package that holds the cause (for example `shell/reopen-prefill.test.ts`, the draft mirror's test, or `board-host`'s draft-record test). It reproduces 2.1's ordering with no browser or timer, and it fails before the fix. Then the fix: a closed ask is never filled, and its late records are refused.
+  - Test cause: case (g) establishes its premise deterministically and keeps every assertion.
+  - Verify:
+    - the unit test fails before the fix and passes after (product cause);
+    - case (g) passes with `--rerun-each 20` alone, and in three runs under the load that failed in 2.1;
+    - `reopen-session.browser.ts` passes in a browser run with `--engines chromium,firefox,webkit`, and any other failure is mapped to #145;
+    - `git diff` adds no `quiet` call or fixed wait and removes no assertion;
+    - the check passes.
+  - Note (Refs #198): test cause, so no unit test; case (g) now waits, before the reopen and the close, for the last draft record the page sent to hold no work for the question (`eventually` over `sentDrafts`), which establishes "board-host holds no record" and keeps every assertion; no `quiet` or fixed wait added. The fix is in `packages/view/test/browser/reopen-session.browser.ts` only; no product code changed. Before the fix, with the 600 ms pause probe: 3 of 3 fail; after: 10 of 10 pass, and 3 concurrent runs of 8 under the same pause plus 6 CPU hogs pass (24 of 24); alone `--rerun-each 20`: 20 of 20. `reopen-session.browser.ts` in a browser run on chromium, firefox and webkit: 10 of 10 on each (no #145 failure); the whole-suite run of the three engines showed 37 other failures, unrelated to this file (not mapped here). The check passes: 14677 pass, 3 skip, 0 fail.
+- [x] 2.3 Review checkpoint: spec review of group 2's range (askboard-spec-reviewer). Add a security review (askboard-security-reviewer) when the range touches `packages/view/src` or `packages/server/src`; otherwise the note says the range is test-only. Verify: every finding is fixed as a task, tests first, or recorded with its reason, and each review's range and verdict are in the note.
+  - Note (Refs #198): spec review: S-1 (L) fixed in 2.4; the related product case filed as #202; no H or M.
+- [x] 2.4 Fix S-1 (L) of the spec review (Refs #198): the trigger is the close, not the reload. Reworded the comment in `packages/view/test/browser/reopen-session.browser.ts` before the empty-record wait, task 2.1's note and the matching sentence in `docs/as-built/ci-e2e-gates.md`; a comment on #198 corrects the mechanism and names #202. Test-only and documents; no new test. Verify: `bun run lint` and the unit tests pass.
+  - Note (Refs #198): wording only, no assertion or code changed; lint and the guard tests (`probes.test.ts`, `perf-files.test.ts`) pass.
+
+## 3. The workflow and the records (#196, #197, #198)
+
+- [x] 3.1 `browser.yml` (decisions 2 and 5, D4 as the PO chose it; requirements Timed bounds on a hosted runner and Keyboard cases with the platform's keyboard navigation).
+  - Tests first, in `tools/ci/e2e-workflows.test.ts`, under the `browser.yml` describe:
+    - The step "Browser tests against the built session process" sets `ASKBOARD_PERF_RUNNER: ${{ runner.os }}` in its `env`, and no other step or workflow under `.github/workflows/` names the variable.
+    - A step "Keyboard navigation on (macOS)" has `if: inputs.code && runner.os == 'macOS'`. It comes after "Install the engine with its system dependencies" and before the browser tests. Its `run` writes `defaults write -g AppleKeyboardUIMode -int 2`, reads the value back and exits non-zero unless it is 2, and holds no `${{ }}`.
+    - No other workflow writes a `defaults` key.
+    - The step's script, run through `sh` with a stub `defaults` on `PATH`, exits 0 when the read-back is 2 and non-zero otherwise.
+  - Then edit `browser.yml`.
+  - Verify: the new cases fail before the edit and pass after, the whole file passes, `tools/release/workflow.test.ts` still passes, and `actionlint` is clean if installed (else say so).
+  - Note: 4 new cases in `tools/ci/e2e-workflows.test.ts` (the variable only on the test step and only in `browser.yml`; the macOS step, its order and no `${{ }}`; no other `defaults write`; the script run through `sh` with a stub `defaults`), failing before the edit (4 fail) and passing after; the whole file and `release/workflow.test.ts` pass (84 pass, 0 fail); actionlint clean. Refs #196, #197, #198 unaffected.
+- [x] 3.2 Records (decision 6). After groups 1 and 2. Tests: none (documents), except that `bun run check` stays green, since `tools/` tests read `CLAUDE.md` and the spine.
+  - `CLAUDE.md`, CI section: remove the sentence "Known: `browser.yml` WebKit fails on …". Add the factor and variable sentence, and the macOS step with the local Keyboard navigation setting.
+  - The spine's Tests row: one clause on the hosted runners' factor.
+  - `.claude/skills/askboard-implementation/references/test-harness-patterns.md`: the timed-checks rule names `PERF_FACTOR`, `perfScaled` and the variable.
+  - `docs/as-built/ci-e2e-gates.md`: where the code lives; the names `PERF_RUNNER_FACTORS`, `perfFactor`, `PERF_FACTOR`, `perfScaled`, `ASKBOARD_PERF_RUNNER` and the macOS step; D1 to D3 as defaults and D4 as the PO's answer to Q1; #198's cause, its evidence and its fix (task 2.1's note); no versions bound.
+  - Verify:
+    - `grep -n "never reached Answer" CLAUDE.md` finds nothing;
+    - each named file carries its sentence;
+    - `./setup.sh --check` reports whether the Codex files are stale, and `./setup.sh --codex-only` refreshes them if so;
+    - the check passes.
+  - Note: `CLAUDE.md` (CI, Triggers: the "Known: ... never reached Answer" sentence replaced by the factor, the variable and the macOS step with the local setting), the spine Tests row (factor clause), `test-harness-patterns.md` (timed-checks rule names `PERF_FACTOR`, `perfScaled`, the variable; the keyboard bullet no longer calls the WebKit failure a known CI one), and `docs/as-built/ci-e2e-gates.md` (names, 1.5 waits, D1 to D3, D4 as Q1, #198 cause and fix, no status, no versions). `grep "never reached Answer" CLAUDE.md` finds nothing; `./setup.sh --check`: Codex files up to date. The check passes at the end of group 4 (task 4.8 records it). Refs #196, #197, #198.
+- [ ] 3.3 Review checkpoint: spec review of group 3's range, plus a security review (askboard-security-reviewer), because the group changes a workflow of a public repository that the release gate calls. Verify: every finding is fixed as a task, tests first, or recorded with its reason, and both reviews' ranges and verdicts are in the note.
+
+## 4. On the runners, then the pull request
+
+- [x] 4.1 Probes P1 and P2, and #198's fix on the hosted runners. Push the branch, then run `gh workflow run e2e.yml --ref worktree-fix-ci-e2e-gates -f cadence=weekly` and the same with `-f cadence=nightly`. Tests: the runs themselves. Verify:
+  - every `perf` job is green on both runners, and the note records each runner's worst median against its scaled bound;
+  - on macOS, the 17 WebKit cases #197 lists pass;
+  - case (g) passes in Chromium on both runners, and in Firefox on Linux;
+  - any other failure is mapped to an open Issue (#174, #145, #191, #199 to #201), or filed as a new one (`source:e2e`, with its area), including the dense Markdown case if it is still not ready (design.md, Risks).
+  - Record both run IDs.
+  - Done: dispatched on 2ea4cecc (before the 4.4-4.8 fixes): weekly macOS run 43692312800 and nightly Linux run 43692310919. P1 holds: no WebKit keyboard case failed on macOS (#197). #198: reopen-session passed in every engine on both runners. #196: perf passes in Chromium and Firefox on both runners and in WebKit on Linux; on macOS WebKit the dense Markdown case did not become ready within the scaled 360 s (D3: possible real hang) and the Table worst form missed at factor 3: filed as their own Issues. Conformance failed in 3 of 6 jobs on #120 (raised). The remaining browser failures are the known Firefox set and WebKit races, filed or commented by the coordinator. Refs #196, #197, #198.
+- [x] 4.2 Rebase onto `origin/main` and re-check every borrowed name (askboard-contract-versioning; no set is widened, so nothing is bound). Verify:
+  - `git grep` finds each name on the rebased head;
+  - the check and `npx --yes @fission-ai/openspec@1.15.0 validate --all --strict --no-interactive` pass;
+  - the note records main's SHA.
+  - Done: origin/main e2cc5fd3 (Biome and ws bumps) merged in 54f0111a; no borrowed name changed; check green after a rebuild. Refs #196.
+- [x] 4.3 Pre-PR review: spec review and security review of the whole range, plus the kaizen step (askboard-delivery). The pull request body says:
+  - `Closes #196`;
+  - `Closes #197` if task 4.1 showed the 17 cases green, `Refs #197` otherwise;
+  - `Closes #198` if task 4.1 showed case (g) green on both runners; otherwise `Refs #198`, and the plan goes back through `/opsx:update`;
+  - D1 to D3 as defaults, D4 as the PO's answer to Q1, and #198's cause.
+  - Done: pre-PR spec review (L 4) and security review (L 1), folded in 4.4 to 4.8. Kaizen: nothing beyond the reviewers' memory notes. Refs #196.
+
+  Verify: both reviews' verdicts and the pull request number are in the note.
+
+- [x] 4.4 Fix X-1 (L) of the security review: a relative gate scales only its constant. Tests first: `harness/perf.test.ts` (a check with `factor: 1` at run factor 3, alone 30 / busy 300, fails; 290 passes) and `perf-files.test.ts` (the Document review's check is `median(aloneSamples) * 4 + perfScaled(60)` with `factor: 1`). Verify: both fail before and pass after.
+  - Note: `PerfCheck` gains an optional `factor` that `judgeMedians` honours and prints; `document-review-cost` judges its per-key check at factor 1 with the 60 ms through `perfScaled`. Rule recorded in design.md decision 2 and in the as-built note. perf.test.ts and perf-files.test.ts 50 pass. Refs #196.
+- [x] 4.5 Fix S-1 (L) of the spec review: task 4.3 names task 4.1, not 3.1, for `Closes #197`. Documents only. Refs #197.
+  - Note: done in 4.3's second bullet.
+- [x] 4.6 Fix S-2 (L) and S-3 (L): task 3.2's note records the check; CLAUDE.md keeps only the System Settings instruction (Keyboard navigation), without the `defaults write org.webkit.Playwright` hint (decision 5 turned that bundle id down as undocumented). Documents only. Refs #197.
+  - Note: the check (`bun run build`, then `GITHUB_TOKEN=$(gh auth token) bun run check`, after the merge of e2cc5fd3) passes: 14,702 pass, 0 fail; a first run without a rebuild failed only `notices.test.ts` ("in-memory build equals dist"), stale `dist/` after the ws bump.
+- [x] 4.7 Fix S-4 (L): scale markdown-total's `readyIn` and latex-frame's render timeout. Tests first: `perf-files.test.ts` (every `readyIn` in markdown-total takes `perfScaled(...)`; the frame's default is `perfScaled(RENDER_TIMEOUT_MS)`). Verify: fails before, passes after; perf set in Chromium.
+  - Note: `readyIn(run, timeoutMs = LOAD_TIMEOUT_MS)`; the three calls in markdown-total pass `perfScaled(LOAD_TIMEOUT_MS)`; `rendering` defaults to `perfScaled(RENDER_TIMEOUT_MS)`. Task 1.5's note corrected. Perf set, Chromium, no variable: 91 pass, 0 fail. Refs #196.
+- [x] 4.8 Final local verification of the fixes. Verify: check green, actionlint clean, `openspec validate ci-e2e-gates --strict` valid.
+  - Note: merged origin/main (e2cc5fd3, Biome 2.6.7 and ws 8.22.2) and ran `bun install`; check green (no new Biome finding to fix), actionlint clean, validate valid. Refs #196, #197, #198.

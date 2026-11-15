@@ -7,7 +7,7 @@
 // the end of a forced layout.
 //
 // A crash ("Target crashed"), 10 seconds without an answer or a parent page that does not answer
-// an `evaluate` within 2 seconds is a failure; the engine is then discarded and the next render
+// an `evaluate` within 2 seconds (times the perf runner's factor) is a failure; the engine is then discarded and the next render
 // starts a new one, so a hung renderer cannot hang the run.
 
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
@@ -17,6 +17,7 @@ import type { Browser, BrowserContext, Frame, Page } from "playwright";
 import { launchEngine } from "./browser.ts";
 import type { Engine } from "./engines.ts";
 import { LATEX_SOURCES } from "./latex-sources.ts";
+import { perfScaled } from "./perf.ts";
 
 const WIDGETS = LATEX_SOURCES.widgets;
 
@@ -166,7 +167,7 @@ export class LatexFrame {
    */
   async rendering(
     expression: string,
-    timeoutMs = RENDER_TIMEOUT_MS,
+    timeoutMs = perfScaled(RENDER_TIMEOUT_MS),
   ): Promise<({ readonly ok: true; readonly parentMs: number } & Rendering) | Failure> {
     const result = await this.#call<Rendering>(
       `window.__drawn(${JSON.stringify(expression)})`,
@@ -208,14 +209,14 @@ export class LatexFrame {
     const asked = Date.now();
     const answer = await Promise.race([
       page.evaluate("1").then(() => "answered" as const),
-      sleep(PARENT_ANSWER_MS).then(() => "slow" as const),
+      sleep(perfScaled(PARENT_ANSWER_MS)).then(() => "slow" as const),
     ]);
     if (answer === "slow") {
       await this.close();
       return {
         ok: false,
         reason: "parent",
-        message: `the parent page did not answer in ${PARENT_ANSWER_MS} ms`,
+        message: `the parent page did not answer in ${perfScaled(PARENT_ANSWER_MS)} ms`,
       };
     }
     return { ok: true, value: first.value, parentMs: Date.now() - asked };

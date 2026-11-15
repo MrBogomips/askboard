@@ -16,7 +16,7 @@ import { describe, expect, test } from "bun:test";
 import { atomDocument } from "./fixtures/atom-documents.ts";
 import { reviewDocument, reviewItem } from "./fixtures/document-review-documents.ts";
 import { eventually, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
-import { judgeMedians, median, PERF_RUNS } from "./harness/perf.ts";
+import { judgeMedians, median, PERF_RUNS, perfScaled } from "./harness/perf.ts";
 import { card, commentOn, marks, restoreAnnotations } from "./harness/review-steps.ts";
 import { enginesFor } from "./harness/suites.ts";
 import { readyIn } from "./harness/tree-steps.ts";
@@ -76,7 +76,7 @@ for (const engine of enginesFor(import.meta.path)) {
           await eventually(
             async () => (await detachedList(only).count()) === 1,
             "100 detached",
-            30_000,
+            perfScaled(30_000),
           );
           const placed = Date.now() - began;
           // 99 of them beside one held annotation: a key in its card costs what it does alone.
@@ -89,7 +89,7 @@ for (const engine of enginesFor(import.meta.path)) {
           await eventually(
             async () => (await detachedList(many).count()) === 1,
             "99 detached",
-            30_000,
+            perfScaled(30_000),
           );
           const busy = await typing(many, "review", true);
           console.log(
@@ -105,12 +105,13 @@ for (const engine of enginesFor(import.meta.path)) {
           {
             label: `${label} key beside 99 quotes against four times a key alone plus 60`,
             samples: busySamples,
-            gate: median(aloneSamples) * 4 + 60,
+            gate: median(aloneSamples) * 4 + perfScaled(60),
             below: true,
+            factor: 1,
           },
         ]);
       },
-      PERF_RUNS * TEST_TIMEOUT_MS * 2,
+      perfScaled(PERF_RUNS * TEST_TIMEOUT_MS * 2),
     );
 
     test(
@@ -148,7 +149,7 @@ for (const engine of enginesFor(import.meta.path)) {
           await eventually(
             async () => (await run.board.view.locator("[data-review-mark]").count()) === 32,
             "32 marks",
-            30_000,
+            perfScaled(30_000),
           );
           const shown = Date.now() - began;
           const perKey = await typing(run, "r7", false);
@@ -165,7 +166,7 @@ for (const engine of enginesFor(import.meta.path)) {
           { label: `${label} shown`, samples: shownSamples, gate: 20_000, below: true },
         ]);
       },
-      PERF_RUNS * TEST_TIMEOUT_MS * 2,
+      perfScaled(PERF_RUNS * TEST_TIMEOUT_MS * 2),
     );
   });
 }

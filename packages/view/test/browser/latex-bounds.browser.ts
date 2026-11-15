@@ -25,7 +25,7 @@ import {
   latexItem,
   latexItemsDocument,
 } from "./fixtures/latex-documents.ts";
-import { eventually } from "./harness/board-test.ts";
+import { eventually, STEP_TIMEOUT_MS } from "./harness/board-test.ts";
 import type { Board } from "./harness/dom.ts";
 import { type Engine, enginesFrom } from "./harness/engines.ts";
 import {
@@ -51,7 +51,7 @@ import {
 import { EXTRA_CONSTRUCTS } from "./harness/latex-forms.ts";
 import { LatexFrame, PARENT_ANSWER_MS } from "./harness/latex-frame.ts";
 import { unparsed } from "./harness/latex-parse.ts";
-import { type Gate, PERF_RUNS, perfRuns } from "./harness/perf.ts";
+import { type Gate, PERF_RUNS, perfRuns, perfScaled } from "./harness/perf.ts";
 import { viewSettled } from "./harness/probes.ts";
 import { readyIn } from "./harness/tree-steps.ts";
 import { openStateOf, readViewBuild } from "./harness/view-build.ts";
@@ -297,6 +297,7 @@ const hasError = (board: Board, start: string) =>
   eventually(
     async () => ((await shownAt(board, 0)).error ?? "").startsWith(start),
     `the field error ${start}`,
+    perfScaled(STEP_TIMEOUT_MS),
   );
 
 const draftHolds = (run: WidgetHostRun, expression: string) =>
@@ -638,7 +639,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
               );
             },
             "the nine slow previews and the edit's",
-            30_000,
+            perfScaled(30_000),
           );
           const lag = await lagOf(board);
           const log = await drawLog(board);

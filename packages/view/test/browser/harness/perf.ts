@@ -8,6 +8,10 @@
 // limit. `expectMedianWithin` and `judgeMedians` judge samples a file collected itself, such as a
 // gate whose limit is itself a median. Every judgement prints a line,
 // `perf <label> [a, b, c] median m gate g`, with the engine in the label, for the task's note.
+//
+// On a hosted runner the bounds are judged at their value times the runner's factor (ci-e2e-gates,
+// decision 2): `browser.yml` names the runner in `ASKBOARD_PERF_RUNNER`, and a developer's machine
+// names none, so its factor is 1 and its lines are unchanged.
 
 import { expect } from "bun:test";
 
@@ -26,29 +30,61 @@ export const median = (samples: readonly number[]): number => {
   return sorted.length % 2 === 1 ? high : ((sorted[middle - 1] as number) + high) / 2;
 };
 
+/** The factor of each hosted runner's OS (`runner.os`), from the worst measured ratio plus headroom. */
+export const PERF_RUNNER_FACTORS: Readonly<Record<string, number>> = { Linux: 2, macOS: 3 };
+
+/** The factor of a runner: 1 when none is named, its entry in the table, and an error otherwise. */
+export const perfFactor = (value: string | undefined): number => {
+  if (value === undefined) return 1;
+  const factor = Object.hasOwn(PERF_RUNNER_FACTORS, value) ? PERF_RUNNER_FACTORS[value] : undefined;
+  if (factor === undefined) {
+    throw new Error(
+      `ASKBOARD_PERF_RUNNER is "${value}", not one of ${Object.keys(PERF_RUNNER_FACTORS)
+        .map((key) => `"${key}"`)
+        .join(", ")}`,
+    );
+  }
+  return factor;
+};
+
+/** This process's factor, read at load: a perf file on an unknown runner fails at import. */
+export const PERF_FACTOR: number = perfFactor(process.env.ASKBOARD_PERF_RUNNER);
+
+/** A wait or timeout, scaled by this process's factor. */
+export const perfScaled = (ms: number): number => ms * PERF_FACTOR;
+
 const figure = (value: number): string =>
   Number.isInteger(value) ? String(value) : value.toFixed(1);
 
 /** The line a judgement prints. */
-export const perfLine = (label: string, samples: readonly number[], gate: number): string =>
-  `perf ${label} [${samples.map(figure).join(", ")}] median ${figure(median(samples))} gate ${figure(gate)}`;
+export const perfLine = (
+  label: string,
+  samples: readonly number[],
+  gate: number,
+  factor = 1,
+): string =>
+  `perf ${label} [${samples.map(figure).join(", ")}] median ${figure(median(samples))} gate ${figure(gate)}${
+    factor === 1 ? "" : ` factor ${figure(factor)} bound ${figure(gate * factor)}`
+  }`;
 
 /**
- * Prints the line, then asserts the median is at most `gate`, or under it when `below` is set, so
- * a gate written with `toBeLessThan` keeps its strictness.
+ * Prints the line, then asserts the median is at most `gate` times `factor`, or under it when
+ * `below` is set, so a gate written with `toBeLessThan` keeps its strictness.
  */
 export const expectMedianWithin = (
   label: string,
   samples: readonly number[],
   gate: number,
   below = false,
+  factor = PERF_FACTOR,
 ): void => {
-  const line = perfLine(label, samples, gate);
+  const line = perfLine(label, samples, gate, factor);
   process.stdout.write(`${line}\n`);
   const middle = median(samples);
-  const message = `${label}: the median of [${samples.join(", ")}] is ${middle}, ${below ? "not under" : "over"} the gate ${gate}`;
-  if (below) expect(middle, message).toBeLessThan(gate);
-  else expect(middle, message).toBeLessThanOrEqual(gate);
+  const bound = gate * factor;
+  const message = `${label}: the median of [${samples.join(", ")}] is ${middle}, ${below ? "not under" : "over"} the ${factor === 1 ? "gate" : "bound"} ${bound}`;
+  if (below) expect(middle, message).toBeLessThan(bound);
+  else expect(middle, message).toBeLessThanOrEqual(bound);
 };
 
 export type PerfCheck = {
@@ -56,14 +92,20 @@ export type PerfCheck = {
   readonly samples: readonly number[];
   readonly gate: number;
   readonly below?: boolean;
+  /**
+   * Overrides the run's factor for this check. A gate built from a baseline measured in the same run
+   * (`k x alone + c`) already carries the runner's slowness, so it sets 1 and scales only `c`
+   * through `perfScaled` (ci-e2e-gates, decision 2).
+   */
+  readonly factor?: number;
 };
 
 /** Judges every check, printing a line for each, and fails once naming each that did not hold. */
-export const judgeMedians = (checks: readonly PerfCheck[]): void => {
+export const judgeMedians = (checks: readonly PerfCheck[], factor = PERF_FACTOR): void => {
   const failures: string[] = [];
-  for (const { label, samples, gate, below } of checks) {
+  for (const { label, samples, gate, below, factor: own } of checks) {
     try {
-      expectMedianWithin(label, samples, gate, below ?? false);
+      expectMedianWithin(label, samples, gate, below ?? false, own ?? factor);
     } catch (error) {
       failures.push(error instanceof Error ? error.message : String(error));
     }
@@ -84,6 +126,7 @@ type Gathered = { samples: number[]; gate: number; below: boolean };
 export const perfRuns = async (
   name: string,
   body: (run: number, gate: Gate) => Promise<void>,
+  factor = PERF_FACTOR,
 ): Promise<void> => {
   const gathered = new Map<string, Gathered>();
   for (let run = 0; run < PERF_RUNS; run += 1) {
@@ -111,5 +154,6 @@ export const perfRuns = async (
       gate,
       below,
     })),
+    factor,
   );
 };

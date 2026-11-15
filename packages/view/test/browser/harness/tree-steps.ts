@@ -54,8 +54,8 @@ export const TOOLS = [
 export const TOOL_LABELS = TOOLS.map(([label]) => label);
 
 /** Waits for the question's first view message, which must be its `ready`. */
-export const readyIn = async (run: WidgetHostRun): Promise<void> => {
-  await eventually(() => run.messages.length > 0, "the question's ready message", LOAD_TIMEOUT_MS);
+export const readyIn = async (run: WidgetHostRun, timeoutMs = LOAD_TIMEOUT_MS): Promise<void> => {
+  await eventually(() => run.messages.length > 0, "the question's ready message", timeoutMs);
   expect(run.messages[0]).toEqual({ type: "ready", itemId: plan.id });
 };
 

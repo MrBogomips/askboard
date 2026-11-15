@@ -15,8 +15,8 @@ import { describe, expect, test } from "bun:test";
 import { MARKDOWN_HTML_MAX_CHARS, markdownHtml } from "../../src/markdown/markdown.ts";
 import { atomDocument } from "./fixtures/atom-documents.ts";
 import { DENSE_TABLE } from "./fixtures/dense-markdown.ts";
-import { eventually, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
-import { PERF_RUNS, perfRuns } from "./harness/perf.ts";
+import { eventually, LOAD_TIMEOUT_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
+import { PERF_RUNS, perfRuns, perfScaled } from "./harness/perf.ts";
 import { enginesFor } from "./harness/suites.ts";
 import { readyIn } from "./harness/tree-steps.ts";
 import { readViewBuild } from "./harness/view-build.ts";
@@ -26,9 +26,9 @@ const dist = await readViewBuild();
 
 const TEXTS = 200;
 const BOUND_MS = 2_000;
-/** The dense board's generous wait and the test's timeout around it (5.16). */
-const DENSE_WAIT_MS = 120_000;
-const DENSE_TEST_TIMEOUT_MS = 240_000;
+/** The dense board's generous wait and the test's timeout around it (5.16), scaled by the runner. */
+const DENSE_WAIT_MS = perfScaled(120_000);
+const DENSE_TEST_TIMEOUT_MS = perfScaled(240_000);
 
 // One reference definition of a 500-character URL and as many links to it as keep the HTML just
 // under the cap: the largest output one Text gives that is still Markdown.
@@ -65,12 +65,12 @@ for (const engine of enginesFor(import.meta.path)) {
         await perfRuns(`markdown-total ${engine}`, async (_run, gate) => {
           const plainStarted = performance.now();
           const plain = await host(dist, atomDocument(texts("plain text")));
-          await readyIn(plain);
+          await readyIn(plain, perfScaled(LOAD_TIMEOUT_MS));
           const plainMs = performance.now() - plainStarted;
 
           const started = performance.now();
           const run = await host(dist, atomDocument(texts(NEAR_CAP, true)));
-          await readyIn(run);
+          await readyIn(run, perfScaled(LOAD_TIMEOUT_MS));
           const heavyMs = performance.now() - started;
           const extra = heavyMs - plainMs;
           console.error(
@@ -99,7 +99,7 @@ for (const engine of enginesFor(import.meta.path)) {
         );
         const plainStarted = performance.now();
         const plain = await host(dist, atomDocument(texts("plain text")));
-        await readyIn(plain);
+        await readyIn(plain, perfScaled(LOAD_TIMEOUT_MS));
         const plainMs = performance.now() - plainStarted;
 
         const started = performance.now();

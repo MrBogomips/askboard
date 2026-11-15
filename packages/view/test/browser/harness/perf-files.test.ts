@@ -283,3 +283,93 @@ describe("no bound on a measured time outside the perf files", () => {
     expect(timedBounds(all["latex.browser.ts"] ?? "")).toEqual([]);
   });
 });
+
+/** The text of each `eventually(...)` call of a source: its arguments, up to the closing bracket. */
+export const eventuallyCalls = (source: string): string[] => {
+  const text = masked(source);
+  const calls: string[] = [];
+  for (const call of text.matchAll(/(?<![.\w$])eventually\(/g)) {
+    const open = (call.index ?? 0) + call[0].length - 1;
+    const end = closing(text, open);
+    if (end >= 0) calls.push(source.slice(open + 1, end));
+  }
+  return calls;
+};
+
+/** The third argument of a call's arguments, when there is one. */
+const waitArgument = (args: string): string | undefined => {
+  const parts: string[] = [];
+  let depth = 0;
+  let from = 0;
+  const text = masked(args);
+  for (let at = 0; at < text.length; at += 1) {
+    const char = text[at] as string;
+    if ("([{".includes(char)) depth += 1;
+    else if (")]}".includes(char)) depth -= 1;
+    else if (char === "," && depth === 0) {
+      parts.push(args.slice(from, at));
+      from = at + 1;
+    }
+  }
+  parts.push(args.slice(from));
+  const wait = parts.length > 2 ? parts[2]?.trim() : undefined;
+  return wait === "" ? undefined : wait;
+};
+
+describe("eventuallyCalls", () => {
+  test("finds the wait argument of a call, over several lines", () => {
+    const calls = eventuallyCalls(
+      'await eventually(\n async () => (await n()) === 1,\n "a, b",\n 30_000,\n);\nx.eventually(1)',
+    );
+    expect(calls.map(waitArgument)).toEqual(["30_000"]);
+  });
+});
+
+describe("a wait around a timed sample (ci-e2e-gates, review S-1)", () => {
+  const perf = Object.entries(browserFiles()).filter(([name]) => BROWSER_FILES[name]?.perf);
+
+  test("no perf file gives eventually a literal number of milliseconds: it goes through perfScaled", () => {
+    const fixed: string[] = [];
+    for (const [name, text] of perf) {
+      for (const args of eventuallyCalls(text)) {
+        const wait = waitArgument(args);
+        if (wait !== undefined && /^[\d_.]+$/.test(wait)) fixed.push(`${name}: ${wait}`);
+      }
+    }
+    expect(fixed).toEqual([]);
+  });
+
+  test("the LaTeX frame's wait for the parent page goes through perfScaled", () => {
+    const text = readFileSync(join(import.meta.dir, "latex-frame.ts"), "utf8");
+    expect(text).not.toMatch(/sleep\(PARENT_ANSWER_MS\)/);
+    expect(text).toMatch(/sleep\(perfScaled\(PARENT_ANSWER_MS\)\)/);
+  });
+
+  test("the Document review's test timeouts grow with its scaled waits", () => {
+    const text = readFileSync(join(BROWSER_DIR, "document-review-cost.browser.ts"), "utf8");
+    expect(text).not.toMatch(/^\s*PERF_RUNS \* TEST_TIMEOUT_MS \* 2,/m);
+    expect(text.match(/perfScaled\(PERF_RUNS \* TEST_TIMEOUT_MS \* 2\)/g)).toHaveLength(2);
+  });
+
+  test("the field-error wait of the LaTeX bounds goes through perfScaled", () => {
+    const text = readFileSync(join(BROWSER_DIR, "latex-bounds.browser.ts"), "utf8");
+    const helper = /const hasError = [\s\S]*?\n {2}\);/.exec(text)?.[0] ?? "";
+    expect(helper).toMatch(/perfScaled\(/);
+  });
+
+  test("the Markdown total's two readiness waits and the LaTeX frame's render wait are scaled (review S-4)", () => {
+    const markdown = readFileSync(join(BROWSER_DIR, "markdown-total.browser.ts"), "utf8");
+    expect(markdown.match(/readyIn\([^)]*\)/g)?.every((call) => /perfScaled\(/.test(call))).toBe(
+      true,
+    );
+    const frame = readFileSync(join(import.meta.dir, "latex-frame.ts"), "utf8");
+    expect(frame).toMatch(/timeoutMs = perfScaled\(RENDER_TIMEOUT_MS\)/);
+  });
+
+  test("the Document review's relative key check scales only its constant (review X-1)", () => {
+    const text = readFileSync(join(BROWSER_DIR, "document-review-cost.browser.ts"), "utf8");
+    expect(text).toMatch(
+      /gate: median\(aloneSamples\) \* 4 \+ perfScaled\(60\),\s*below: true,\s*factor: 1,/,
+    );
+  });
+});
