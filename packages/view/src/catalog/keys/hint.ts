@@ -62,10 +62,11 @@ export const opensKeysPanel = (press: KeyPress, entry: KeyEntry = KEYS_OPEN_ENTR
   keyActionOf([entry], entry.part, press, false) !== undefined;
 
 /** The groups of the panel, in order. */
-export const PANEL_GROUPS = ["cursor", "selection", "move", "edit", "other"] as const;
+export const PANEL_GROUPS = ["board", "cursor", "selection", "move", "edit", "other"] as const;
 export type PanelGroup = (typeof PANEL_GROUPS)[number];
 
 const GROUP_TITLES: Readonly<Record<PanelGroup, StringKey>> = {
+  board: "keys.group.board",
   cursor: "keys.group.cursor",
   selection: "keys.group.selection",
   move: "keys.group.move",
@@ -78,6 +79,7 @@ const EDIT_FAMILIES: ReadonlySet<string> = new Set(["edit", "add", "delete", "un
 /** The group an action belongs to, by its family: the type's own actions are `other`. */
 export const groupOf = (action: string): PanelGroup => {
   const family = action.split(".")[0] ?? "";
+  if (family === "board") return "board";
   if (family === "cursor" || family === "toolbar") return "cursor";
   if (family === "select") return "selection";
   if (family === "move") return "move";

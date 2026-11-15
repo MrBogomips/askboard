@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { KEY_VOCABULARY, vocabularyLabel, WIDGET_TYPES } from "@askboard/contract";
+import { BOARD_KEYS, KEY_VOCABULARY, vocabularyLabel, WIDGET_TYPES } from "@askboard/contract";
 import { STRINGS, t } from "./index.ts";
 import { STRING_KEYS } from "./keys.ts";
 
@@ -92,5 +92,51 @@ describe("the other key strings", () => {
     expect(t("it-IT", "ranking.selected", { count: 1 })).toBe("1 selezionata");
     expect(t("it-IT", "ranking.selected", { count: 3 })).toBe("3 selezionate");
     expect(t("it-IT", "key.enter")).toBe("Invio");
+  });
+});
+
+describe("the board's key strings (board-keys, design decisions 1, 5 and 8)", () => {
+  const NEW = [
+    "keys.action.board.previousOpen",
+    "keys.action.board.answer",
+    "keys.action.board.sendFollowUp",
+    "keys.group.board",
+    "keys.panel.boardTitle",
+    "keys.panel.boardNote",
+    "status.answerBlocked",
+    "status.answerEmpty",
+    "status.answerChangePending",
+  ] as const;
+
+  test("every label of the board's table is a string key in both catalogues", () => {
+    for (const entry of BOARD_KEYS) {
+      expect(KEYS).toContain(entry.label);
+      expect(Object.hasOwn(STRINGS["en-US"], entry.label)).toBe(true);
+      expect(Object.hasOwn(STRINGS["it-IT"], entry.label)).toBe(true);
+    }
+  });
+
+  test("the new keys are in both catalogues, with plural-free values", () => {
+    for (const key of NEW) {
+      expect(KEYS).toContain(key);
+      expect(typeof STRINGS["en-US"][key]).toBe("string");
+      expect(typeof STRINGS["it-IT"][key]).toBe("string");
+    }
+  });
+
+  test("{reason} is the one slot of status.answerBlocked, and the others have none", () => {
+    expect(t("en-US", "status.answerBlocked", { reason: "Correct Code first." })).toBe(
+      "Not answered. Correct Code first.",
+    );
+    expect(t("it-IT", "status.answerBlocked", { reason: "Correggi Codice." })).toBe(
+      "Nessuna risposta. Correggi Codice.",
+    );
+    for (const key of NEW.filter((key) => key !== "status.answerBlocked")) {
+      expect(String(STRINGS["en-US"][key])).not.toContain("{");
+      expect(String(STRINGS["it-IT"][key])).not.toContain("{");
+    }
+    expect(String(STRINGS["en-US"]["status.answerBlocked"]).match(/\{\w+\}/g)).toEqual([
+      "{reason}",
+    ]);
   });
 });

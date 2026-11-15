@@ -53,21 +53,21 @@ Terms used below:
 
 ## 2. View: pure parts and strings
 
-- [ ] 2.1 Tests first, the strings and the panel groups (D5, D8). In `packages/view/src/strings/keys-strings.test.ts`, every label of `BOARD_KEYS` is a string key in en-US and it-IT, and D8's keys exist in both languages with plural-free values and `{reason}` the only slot of `status.answerBlocked`. In `catalog/keys/hint.test.ts`:
+- [x] 2.1 Tests first, the strings and the panel groups (D5, D8). In `packages/view/src/strings/keys-strings.test.ts`, every label of `BOARD_KEYS` is a string key in en-US and it-IT, and D8's keys exist in both languages with plural-free values and `{reason}` the only slot of `status.answerBlocked`. In `catalog/keys/hint.test.ts`: Done 2026-11-15. `keys-strings.test.ts` +3 tests (labels of `BOARD_KEYS`, the nine new keys plural-free in both catalogues, `{reason}` the only slot); `hint.test.ts` +4 (group `board` first, Questions order, no-edits list, Ranking unchanged). The keys panel entry reads "Show the keys" (the vocabulary label), not "Keys".
   - `groupOf("board.nextOpen")` is `board`, and `PANEL_GROUPS` starts with `board`.
   - `panelGroups(BOARD_KEYS, true, …)` gives "Questions" with next open, previous open, answer and send the follow-up in that order, then "Other" with the keys panel.
   - With `takesEdits` false it lists next open, previous open and the keys panel only.
   - The Ranking's groups are unchanged.
 
   Verify: the tests fail first, then pass after 2.5.
-- [ ] 2.2 Tests first, the scope (D2). In a new `shell/board-key-scope.test.ts`, with element stand-ins, `boardKeyScopeOf` gives:
+- [x] 2.2 Tests first, the scope (D2). In a new `shell/board-key-scope.test.ts`, with element stand-ins, `boardKeyScopeOf` gives: Done 2026-11-15. `board-key-scope.test.ts`, 16 tests over a stand-in tree with a small selector matcher; 100% of `board-key-scope.ts`. A link in a widget item stays `none` (item rule first); `a` with no `href` is no link.
   - `none`: a text input, a textarea, a `role="textbox"` element; an element inside `[role=menu]`, `[role=listbox]`, `[role=combobox]`, `[role=dialog]`, `[role=alertdialog]` or a `select`; an element inside a widget item of a card (a nearest `[data-askboard-item]` whose id differs from the question's); an element inside an item frame outside any card.
   - `{card: "q1"}`: an option inside `[data-askboard-item="q1"]` within `[data-askboard-question="q1"]`; the card's heading; its "Postpone".
   - `board`: a link inside a card, an element inside a card's `[data-askboard-thread]`, `<body>` and the header's buttons.
   - `null` gives `none`.
 
   Verify: every case fails first, then passes after 2.5; 100% line coverage of `board-key-scope.ts`.
-- [ ] 2.3 Tests first, the answer verdict and the previous open question (D3, D4). In a new `shell/answer-key.test.ts`:
+- [x] 2.3 Tests first, the answer verdict and the previous open question (D3, D4). In a new `shell/answer-key.test.ts`: Done 2026-11-15. `answer-key.test.ts` (8 tests) and 6 `previousOpenFrom` tests in `board-view.test.ts`. `answerable` false covers loading, in flight and an answered card not being revised; `answerKeyOf` returns `{verdict, message, reason?}`.
   - `answerKeyOf` gives `press` when the primary button is enabled.
   - It gives `announce` with `status.answerChangePending` when a change is pending, with a field to fix as well.
   - It gives `announce` with `status.answerBlocked` and `{reason}` for a field to fix.
@@ -82,8 +82,8 @@ Terms used below:
   - ignores unseen questions' priority.
 
   Verify: the tests fail first, then pass after 2.5; 100% line coverage of `answer-key.ts` and of `previousOpenFrom`.
-- [ ] 2.4 Tests first, the options' Enter (D4; Answer by key, "A multiple choice's box"). In `catalog/fields/roving.test.ts`, `checkboxKeyOf` with Enter and Ctrl, Cmd, Shift or Alt held gives undefined, and plain Enter still gives `flip`. The cases of `optionMoveOf` are unchanged. Verify: the new cases fail first, then pass after 2.5.
-- [ ] 2.5 Implement:
+- [x] 2.4 Tests first, the options' Enter (D4; Answer by key, "A multiple choice's box"). In `catalog/fields/roving.test.ts`, `checkboxKeyOf` with Enter and Ctrl, Cmd, Shift or Alt held gives undefined, and plain Enter still gives `flip`. The cases of `optionMoveOf` are unchanged. Verify: the new cases fail first, then pass after 2.5. Done 2026-11-15. `roving.test.ts`: Enter with Alt, Shift, Ctrl, Cmd or Alt+Shift gives undefined; plain Enter still flips.
+- [x] 2.5 Implement: Done 2026-11-15. D8 strings appended in `keys.ts`, `en-US.ts`, `it-IT.ts` (Italian marked to review); `board` group first in `hint.ts`; new `shell/board-key-scope.ts`, `shell/answer-key.ts`; `previousOpenFrom` in `board-view.ts`; modifier rule in `roving.ts`. The check is green.
   - D8's strings in `strings/en-US.ts`, `it-IT.ts` and `keys.ts`, appended.
   - The `board` group in `catalog/keys/hint.ts`.
   - `shell/board-key-scope.ts` and `shell/answer-key.ts`.

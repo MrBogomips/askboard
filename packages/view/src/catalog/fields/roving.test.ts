@@ -209,6 +209,13 @@ describe("checkboxKeyOf (the multiple choice's keys)", () => {
     },
   );
 
+  test.each(HOLDS.filter(([hold]) => hold !== "none"))(
+    "Enter with %s is the browser's, not a flip (board-keys, design decision 4)",
+    (_hold, held) => {
+      expect(checkboxKeyOf(key("Enter", held), 1, 3)).toBeUndefined();
+    },
+  );
+
   test("any other key is left alone", () => {
     expect(checkboxKeyOf(key("a"), 1, 3)).toBeUndefined();
     expect(checkboxKeyOf(key(" "), 1, 3)).toBeUndefined();

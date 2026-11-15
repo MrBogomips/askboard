@@ -573,6 +573,10 @@ export const IT_IT = {
   "keys.action.gantt.fit": "Adatta la colonna al contenuto",
   "keys.action.gantt.togglePredecessor": "Attiva o disattiva un predecessore",
   "keys.action.chart.highlight": "Evidenzia il punto",
+  // The board's keys: texts to review (board-keys, task 2.5).
+  "keys.action.board.previousOpen": "Precedente aperta",
+  "keys.action.board.answer": "Rispondi alla domanda attiva",
+  "keys.action.board.sendFollowUp": "Invia il chiarimento",
   "key.enter": "Invio",
   "key.escape": "Esc",
   "key.home": "Home",
@@ -593,6 +597,10 @@ export const IT_IT = {
   "keys.group.move": "Spostare gli elementi",
   "keys.group.edit": "Modificare",
   "keys.group.other": "Altro",
+  "keys.group.board": "Domande",
+  "keys.panel.boardTitle": "Tasti della board",
+  "keys.panel.boardNote":
+    "Questi tasti non agiscono in un campo di testo né dentro un widget, tranne l'invio di un chiarimento. L'invio di tutte le risposte in attesa non ha tasto.",
   "ranking.toTop": "In cima",
   "ranking.toBottom": "In fondo",
   "ranking.selectNone": "Deseleziona tutto",
@@ -616,4 +624,9 @@ export const IT_IT = {
     one: "L'agente ha aggiunto {count} domanda: {title}.",
     other: "L'agente ha aggiunto {count} domande.",
   },
+  // To review (board-keys, task 2.5).
+  "status.answerBlocked": "Nessuna risposta. {reason}",
+  "status.answerEmpty": "Nessuna risposta. Prima scegli una risposta o scrivi una nota.",
+  "status.answerChangePending":
+    "Nessuna risposta. Prima scegli cosa fare con l'aggiornamento dell'agente.",
 } as const satisfies StringTable;
