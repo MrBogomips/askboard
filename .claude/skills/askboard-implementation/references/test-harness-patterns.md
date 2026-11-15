@@ -37,7 +37,7 @@ New UI keeps breaking other changes' tests. Scope to what you mean:
 - A control that is always rendered can cover a target: the Snapshot control made the single-question bottom bar always render and sticky, and the Gantt helper clicked under it (#29). Scroll the target into view, clear of the sticky bar, in the shared helper, not in one test.
 - Prefer role and accessible name over text or position. Agent content is data: do not key a locator to a string the agent chose unless the test wrote it.
 - After adding UI, run the browser files of the neighbouring features (header, lifecycle, snapshot, widgets), not only yours. #32 merged with two known failures per engine (Snapshot on the Closed banner; Snapshot without `CLAUDE_PROJECT_DIR`) that E8 caused and #33 fixed.
-- Keyboard tests (`board.browser.ts`, `gantt-plan.browser.ts`, `tree-uj2.browser.ts`) press Tab up to ten times to reach a target. Cocoa WebKit tabs to buttons only with keyboard navigation on: `browser.yml` sets it on macOS, and a Mac with it off fails these on WebKit with "ten presses of Tab never reached Answer" (CLAUDE.md, CI). Do not widen the loop or drop the test; report it if you touch focus order.
+- Keyboard tests (`board.browser.ts`, `gantt-plan.browser.ts`, `tree-uj2.browser.ts`) press Tab up to ten times to reach a target. Cocoa WebKit tabs to buttons only with keyboard navigation on: `browser.yml` sets it on macOS, and a Mac with it off fails these on WebKit with "ten presses of Tab never reached Answer" (`.github/AGENTS.md`, CI). Do not widen the loop or drop the test; report it if you touch focus order.
 
 ## Cross-engine notes (found, not designed)
 
@@ -61,7 +61,7 @@ Run with `bun packages/server/test/conformance/run.ts` (`--runtime node` for Nod
 
 ## When only CI can run an engine
 
-Firefox cannot launch in the local sandbox (#27, #28, #31) and Linux is not covered locally. `e2e.yml` runs them in CI: the smoke set in Chromium and conformance on Bun on every pull request, every file in all three engines every night (Linux) and every Saturday and before a release (macOS; the release gate leaves Firefox out until #174 and #145 close, and runs Firefox's smoke set on Linux). The e2e statuses are not required checks (CLAUDE.md, CI section). So:
+Firefox cannot launch in the local sandbox (#27, #28, #31) and Linux is not covered locally. `e2e.yml` runs them in CI: the smoke set in Chromium and conformance on Bun on every pull request, every file in all three engines every night (Linux) and every Saturday and before a release (macOS; the release gate leaves Firefox out until #174 and #145 close, and runs Firefox's smoke set on Linux). The e2e statuses are not required checks (`AGENTS.md`, CI). So:
 1. Run Chromium and WebKit locally and report the counts.
 2. Write Firefox-sensitive tests (focus order, image URLs, frame loss, huge SVG layout, first-request timing) by the notes above, without a local run.
 3. In the report, under "only CI can verify", list each browser file you touched or added, the engines not run, and the specific Firefox risk you see. The caller ticks the "CI green" task after the run; you do not.

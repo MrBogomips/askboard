@@ -51,6 +51,8 @@ const REFUSED_NAMES = new Set([
   "npm-shrinkwrap.json",
   "yarn.lock",
   "pnpm-lock.yaml",
+  // Instruction files for coding agents: the repository's, never the plugin's.
+  "AGENTS.md",
   "CLAUDE.md",
 ]);
 const REFUSED_FOLDERS = new Set(["bin", "agents"]);

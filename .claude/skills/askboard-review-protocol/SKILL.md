@@ -57,7 +57,7 @@ A fix re-review reports each finding as closed or still open, plus anything the 
 
 A range that touches a widget's keys also checks that the key table (`KEY_VOCABULARY`, `keyTableProblems`), the handler (`keyActionOf` over `useKeyTable`), the tooltips (`KeyHint`), the keys panel (`KeysButton`, `KeysPanelBody`), the references and `askboard-help` agree, and that a key outside the vocabulary carries the PO's recorded approval; a disagreement is an M finding citing decision 15 of `keyboard-shortcuts-help`.
 
-The pre-PR spec review also checks the backlog links (`CLAUDE.md`, The backlog): the proposal cites
+The pre-PR spec review also checks the backlog links (the `askboard-backlog` skill): the proposal cites
 `Issue: #n` for each Issue the change resolves, each one open (`gh issue view <n>`), and the
 pull request body the coordinator will write says `Closes #n`, or `Refs #n` when the Issue spans
 several changes and this is not the last. A missing or wrong link is an L finding citing that rule.
@@ -71,10 +71,10 @@ several changes and this is not the last. A missing or wrong link is an L findin
 - Items an Issue already holds: search before reporting
   (`gh issue list --repo MrBogomips/askboard --state all --search "<key words> in:title,body"`),
   and list the open Issues of the areas the range touches
-  (`gh issue list --repo MrBogomips/askboard --label area:<name>`; the map is in CLAUDE.md, Labels).
+  (`gh issue list --repo MrBogomips/askboard --label area:<name>`; the map is in the `askboard-backlog` skill).
   Report one again only when the range makes it worse, and name the Issue.
 - Taste. Every finding cites the rule it breaks: a requirement or scenario, a design decision, an
-  FR, NFR or AD ID, an invariant, a UX section, or a convention in CLAUDE.md.
+  FR, NFR or AD ID, an invariant, a UX section, or a convention in an AGENTS.md (the root one or a nested one).
 
 ## 4. Verify each finding before reporting it
 
@@ -129,7 +129,7 @@ review:
   "Fixes from review" group, with the finding IDs in the task text (E4 did this with M1 to M7);
 - folds each L finding, or defers it: records it in `tasks.md` with a reason and opens an Issue for
   it (`type:defect`, the finding's severity, `source:review`, its areas; the finding ID, the change and the
-  range in its Origin; `CLAUDE.md`, The backlog), so it outlives the archived change. A finding the PO
+  range in its Origin; the `askboard-backlog` skill), so it outlives the archived change. A finding the PO
   accepts as deferred, at any severity, becomes an Issue the same way;
 - when two reviews disagree, keeps both views with their source and decides by the rule they cite, or
   asks the PO; it never drops a finding silently;

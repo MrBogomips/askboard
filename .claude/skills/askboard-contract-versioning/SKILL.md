@@ -5,7 +5,7 @@ description: Keeps concurrent AskBoard OpenSpec changes from colliding on the ve
 
 # Contract versions and seams across concurrent changes
 
-AskBoard designs and builds several OpenSpec changes at once, in separate worktrees, and most of them widen the same schema sets in `packages/contract` and extend the same dispatch points. Every collision so far cost a relabel, an `/openspec-update-change` or a rebase with dozens of conflicting hunks. This skill says where a version number may be written, when it is bound, what moves with it, and how borrowed names stay valid until the merge. CLAUDE.md holds the commands and the working documents; `askboard-implementation` holds the Biome rule for appended export blocks; `askboard-review-protocol` holds the finding format.
+AskBoard designs and builds several OpenSpec changes at once, in separate worktrees, and most of them widen the same schema sets in `packages/contract` and extend the same dispatch points. Every collision so far cost a relabel, an `/openspec-update-change` or a rebase with dozens of conflicting hunks. This skill says where a version number may be written, when it is bound, what moves with it, and how borrowed names stay valid until the merge. AGENTS.md holds the commands and the working documents; `askboard-implementation` holds the Biome rule for appended export blocks; `askboard-review-protocol` holds the finding format.
 
 ## When it applies
 
@@ -126,14 +126,14 @@ Last group, before the pull request:
    - For `packages/view/chunk-sizes.json`, follow `askboard-implementation`.
    - Search for leftovers: `grep -rn '^<<<<<<<\|^>>>>>>>' packages tools`.
 6. Bind the labels and move the pins (Rules 1 and 2). Re-check every borrowed name on the rebased head; a difference stops the work for `/openspec-update-change`.
-7. Run `bun install --frozen-lockfile`, `bun run check`, `bun run build` and `openspec validate --all --strict --no-interactive`, plus `bun run test:e2e:smoke` when the view, the server or the conformance suite changed, and `bun run test:e2e` when the harness, the runner or a widget's rendering changed (CLAUDE.md, CI section, Triggers).
+7. Run `bun install --frozen-lockfile`, `bun run check`, `bun run build` and `openspec validate --all --strict --no-interactive`, plus `bun run test:e2e:smoke` when the view, the server or the conformance suite changed, and `bun run test:e2e` when the harness, the runner or a widget's rendering changed (AGENTS.md, CI).
 8. Record the rebase task's note, the PR body and the as-built note. If another change merges first, repeat from step 1.
 
 ## What the spec reviewer checks
 
 - Each set the diff widens moved exactly one minor past main's (`git show origin/main:packages/contract/src/<module>`); every other set equals main's.
 - Each edit is minor-compatible (see Minor or major). Anything else is a finding unless a design decision cites AD-7 and records the PO's approval.
-- Before the rebase task: the change's artifacts, comments, schema descriptions and test titles carry labels or change names, not numbers. After it: the bound number is the same in the constant, the version test, the design binding line, the task note, the PR body and CLAUDE.md.
+- Before the rebase task: the change's artifacts, comments, schema descriptions and test titles carry labels or change names, not numbers. After it: the bound number is the same in the constant, the version test, the design binding line, the task note, the PR body and the as-built note.
 - No number or name is taken from an unmerged change. Every borrowed name is in design.md's Merge points, and the group 0 note gives its file and line on `main`.
 - Added lines carry no stale number. Read each hit of `git diff -U0 origin/main...HEAD -- packages tools openspec | grep -E '^\+[^+].*\b1\.[0-9]+\b'`.
 - Registries and export blocks changed by appended lines only (plus the constant line). There is one header comment per block and no conflict residue.

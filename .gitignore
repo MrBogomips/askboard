@@ -14,8 +14,8 @@ hooks/askboard-mod.js
 coverage/
 *.tsbuildinfo
 
-# Codex interop: generated from CLAUDE.md and .claude/ by setup.sh (codex-port, rulesync); never edited
-/AGENTS.md
+# Codex interop: generated from .claude/ and .mcp.json by setup.sh (codex-port, rulesync); never edited.
+# AGENTS.md (every one), the CLAUDE.md links to it and .claude/CLAUDE.md are sources: committed.
 /.codex/
 # .agents/ too, except OpenSpec's shared skills and their tool list, which `openspec update` writes
 # and .claude/skills/openspec-* link to: they are committed

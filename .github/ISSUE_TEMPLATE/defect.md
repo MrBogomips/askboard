@@ -8,7 +8,7 @@ labels: ["type:defect", "source:po"]
 <!--
 Search open and closed Issues for a duplicate first. Add one severity label: sev:H (a wrong or lost
 answer, security, data loss), sev:M (a requirement or scenario not met), sev:L (wording, records,
-minor gaps), and one area label or more: area:<name>, the function or module (CLAUDE.md, Labels).
+minor gaps), and one area label or more: area:<name>, the function or module (the askboard-backlog skill).
 Change source:po when the defect comes from an end-to-end test (source:e2e) or a review
 (source:review). Keep the Issue self-contained: the steps, the expected and observed behaviour and
 the evidence written here (quote what a local file holds), images attached or linked from the

@@ -63,7 +63,9 @@ const COPIED: Record<string, string> = {
 const NOISE: Record<string, string> = {
   "package.json": '{"name":"askboard","version":"0.1.0"}\n',
   "bun.lock": "{}\n",
+  "AGENTS.md": "# guide\n",
   "CLAUDE.md": "# guide\n",
+  ".claude/CLAUDE.md": "# Claude Code only\n",
   "packages/a/src/index.ts": "export {};\n",
   "dist/other.js": "// not the view\n",
   "hooks/notes.md": "x\n",
@@ -135,7 +137,9 @@ describe("assemble", () => {
     const names = filesUnder(out).map((path) => path.split("/").pop());
     expect(names).not.toContain("package.json");
     expect(names).not.toContain("bun.lock");
+    expect(names).not.toContain("AGENTS.md");
     expect(names).not.toContain("CLAUDE.md");
+    expect(existsSync(join(out, ".claude"))).toBe(false);
     expect(existsSync(join(out, "bin"))).toBe(false);
     expect(existsSync(join(out, "agents"))).toBe(false);
   });
@@ -222,6 +226,7 @@ describe("assemble refuses and leaves no tree", () => {
       ["skills/askboard/package.json", /skills\/askboard\/package\.json/],
       ["dist/view/bun.lock", /dist\/view\/bun\.lock/],
       ["dist/view/CLAUDE.md", /dist\/view\/CLAUDE\.md/],
+      ["skills/askboard/AGENTS.md", /skills\/askboard\/AGENTS\.md/],
       ["dist/view/.DS_Store", /dist\/view\/\.DS_Store/],
       ["dist/view/bin/tool", /dist\/view\/bin\/tool/],
       ["skills/askboard/agents/a.md", /skills\/askboard\/agents\/a\.md/],

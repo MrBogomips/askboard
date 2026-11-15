@@ -17,8 +17,10 @@ jobs:
         with:
           fetch-depth: 2
           persist-credentials: false
-      # Only when CLAUDE.md, .claude/, .mcp.json or setup.sh changed, and nightly: a source rulesync
-      # cannot convert fails here (CLAUDE.md, Codex interop). Nothing in `bun run check` reads the files.
+      # Only when an instruction file (AGENTS.md or its CLAUDE.md link, at the root or nested),
+      # .claude/, .mcp.json or setup.sh changed, and nightly: instruction files out of order or a
+      # source rulesync cannot convert fail here (AGENTS.md, Codex interop). Nothing in
+      # `bun run check` reads the generated files.
       - id: paths
         run: sh tools/ci/changed-paths.sh >> "$GITHUB_OUTPUT"
       - name: No Codex source changed

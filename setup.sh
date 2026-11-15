@@ -1,10 +1,10 @@
 #!/bin/sh
-# Sets up an AskBoard checkout or worktree, locally and on CI (CLAUDE.md, Development commands).
+# Sets up an AskBoard checkout or worktree, locally and on CI (AGENTS.md, Development commands).
 #
 #   ./setup.sh [--ci] [--no-codex] [--codex-only] [--dry-run | --check] [--force]
 #   --ci          as CI runs it, also when CI is set: bun install --frozen-lockfile
 #   --no-codex    the toolchain check and the install only, no Codex files (the CI jobs that read none)
-#   --codex-only  only regenerate the Codex files (CLAUDE.md, Codex interop)
+#   --codex-only  only regenerate the Codex files (AGENTS.md, Codex interop)
 #   --dry-run, --check, --force
 #                 passed to codex_port (see its block); they imply --codex-only
 #
@@ -37,22 +37,30 @@ check_toolchain() {
 }
 
 # >>> codex-port >>>
-# Managed by the codex-port skill; a later run replaces this block. Edit the Claude Code
-# sources (CLAUDE.md, .claude/, .mcp.json), never the generated Codex files.
+# Managed by the codex-port skill; a later run replaces this block. AGENTS.md is the shared
+# instruction file, written by hand; CLAUDE.md is a symlink to it, and Claude Code's own lines
+# live in .claude/CLAUDE.md. This block never writes them. Edit the Claude Code sources
+# (.claude/, .mcp.json), never the generated Codex files.
 #
 # codex_port [--dry-run | --check] [--force]
-#   Regenerates the Codex files (AGENTS.md, .agents/skills/, .codex/) from the Claude Code
-#   sources with the latest rulesync. It converts a copy of the sources in a temporary folder
-#   and checks the result there, so a failed or surprising conversion leaves the files as they
-#   were. It records what it wrote in .codex/codex-port.manifest and removes what an earlier
-#   run wrote for a source that is gone. A skill .claude/skills/<name> that is a symbolic link
-#   to ../../.agents/skills/<name> (OpenSpec 2 links its skills there from .agents/skills/,
-#   which Codex reads) is its owner's: it ports none and never removes or overwrites its files.
+#   Checks the instruction files (CLAUDE.md links to AGENTS.md; AGENTS.md holds no @import,
+#   which Codex does not resolve), then regenerates the Codex files (.agents/skills/, .codex/)
+#   from .claude/ and .mcp.json with the latest rulesync. It converts a copy of the sources in
+#   a temporary folder and checks the result there, so a failed or surprising conversion leaves
+#   the files as they were. It records what it wrote in .codex/codex-port.manifest and removes
+#   what an earlier run wrote for a source that is gone.
 #   --dry-run  list what it would write; change nothing
-#   --check    check the files against the sources, without the network: every skill and
-#              agent has its Codex file, and AGENTS.md matches CLAUDE.md
+#   --check    check the files against the sources, without the network: the instruction
+#              files, and every skill and agent has its Codex file
 #   --force    overwrite a file of the same name that codex-port did not write
 #   Call it as a plain command, never as `codex_port || ...`, which turns off its error checks.
+#
+# Local amendment (AskBoard, OpenSpec 2.0; not in the port-to-codex 1.0.1 template, so re-apply
+# it when a later run replaces this block; tools/codex-port.test.ts fails without it): a skill
+# .claude/skills/<name> that is a symbolic link to ../../.agents/skills/<name> (OpenSpec 2
+# writes its skills to .agents/skills/, which Codex reads, commits them and links them there)
+# is its owner's: the block ports none, checks none, and never removes or overwrites its files.
+# The amended lines carry "local amendment" in a comment.
 codex_port() (
   set -eu
   cp_dry=0 cp_check=0 cp_force=0
@@ -66,31 +74,63 @@ codex_port() (
   done
   cd "$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
   cp_manifest=.codex/codex-port.manifest
-  cp_marker='<!-- Generated from CLAUDE.md by codex-port'
-  if [ -L AGENTS.md ] || [ -L .agents ] || [ -L .codex ]; then
-    echo "codex-port: AGENTS.md, .agents or .codex is a symbolic link; it writes through none" >&2
+  cp_version=
+  if [ -L .agents ] || [ -L .codex ]; then
+    echo "codex-port: .agents or .codex is a symbolic link; it writes through neither" >&2
     return 1
   fi
-  # cp_linked <skill>: the skill is a link in .claude/skills/ to its files in .agents/skills/.
+  # cp_linked <skill>: the skill is a link in .claude/skills/ to its files in .agents/skills/
+  # (local amendment).
   cp_linked() {
     [ -L ".claude/skills/$1" ] && [ "$(readlink ".claude/skills/$1")" = "../../.agents/skills/$1" ]
   }
 
-  # cp_checks <root>: the Codex files under <root> cover every source of this project.
-  cp_checks() {
-    cp_fail=0 cp_skills=0 cp_agents=0
-    if [ -f CLAUDE.md ] || [ -f .claude/CLAUDE.md ]; then
-      if [ ! -f "$1/AGENTS.md" ]; then
-        echo "codex-port: AGENTS.md is missing" >&2; cp_fail=1
-      elif grep -q '^@[^[:space:]]' "$1/AGENTS.md"; then
-        echo "codex-port: AGENTS.md has an @import line, which Codex does not resolve: inline it in CLAUDE.md" >&2
-        cp_fail=1
-      fi
+  # cp_instructions: AGENTS.md is the real file, CLAUDE.md a symlink to it.
+  cp_instructions() {
+    cp_fail=0
+    if [ ! -e AGENTS.md ] && [ ! -e CLAUDE.md ] && [ ! -L CLAUDE.md ] && [ ! -e .claude/CLAUDE.md ]; then return 0; fi
+    if [ -L AGENTS.md ]; then
+      echo "codex-port: AGENTS.md is a symlink: it must be the real file, and CLAUDE.md the link to it" >&2
+      return 1
     fi
+    if [ ! -f AGENTS.md ]; then
+      echo "codex-port: AGENTS.md is missing: git mv CLAUDE.md AGENTS.md, move Claude Code's own lines to .claude/CLAUDE.md, then ln -s AGENTS.md CLAUDE.md" >&2
+      return 1
+    fi
+    if head -n 1 AGENTS.md | grep -qF '<!-- Generated from CLAUDE.md by codex-port'; then
+      echo "codex-port: AGENTS.md is the output of an earlier codex-port: make it the shared file" >&2
+      return 1
+    fi
+    if [ -L CLAUDE.md ]; then
+      if [ "$(readlink CLAUDE.md)" != AGENTS.md ]; then
+        echo "codex-port: CLAUDE.md links to '$(readlink CLAUDE.md)', not to AGENTS.md: ln -sf AGENTS.md CLAUDE.md" >&2; cp_fail=1
+      fi
+    elif [ -f CLAUDE.md ] && [ "$(cat CLAUDE.md)" = AGENTS.md ]; then
+      echo "codex-port: CLAUDE.md is a symlink checked out as a text file: turn on core.symlinks (Windows: Developer Mode) and check it out again" >&2; cp_fail=1
+    elif [ -f CLAUDE.md ]; then
+      echo "codex-port: CLAUDE.md is a regular file: move Claude Code's own lines to .claude/CLAUDE.md, the rest to AGENTS.md, then ln -sf AGENTS.md CLAUDE.md" >&2; cp_fail=1
+    else
+      echo "codex-port: CLAUDE.md is missing: ln -s AGENTS.md CLAUDE.md" >&2; cp_fail=1
+    fi
+    if [ -f .claude/CLAUDE.md ] && grep -qE '^@(\.\./)?AGENTS\.md[[:space:]]*$' .claude/CLAUDE.md; then
+      echo "codex-port: .claude/CLAUDE.md imports AGENTS.md, which CLAUDE.md already is: remove the import" >&2; cp_fail=1
+    fi
+    if grep -q '^@[^[:space:]]' AGENTS.md; then
+      echo "codex-port: AGENTS.md has an @import line, which Codex does not resolve: inline it" >&2; cp_fail=1
+    fi
+    if [ "$(wc -c <AGENTS.md)" -gt 32768 ]; then
+      echo "codex-port: warning: AGENTS.md is over 32 KiB, Codex's default project_doc_max_bytes" >&2
+    fi
+    return $cp_fail
+  }
+
+  # cp_outputs <root>: the Codex files under <root> cover every skill and agent of this project.
+  cp_outputs() {
+    cp_fail=0 cp_skills=0 cp_agents=0
     for cp_src in .claude/skills/*/SKILL.md; do
       [ -f "$cp_src" ] || continue
       cp_name=$(basename "$(dirname "$cp_src")")
-      if cp_linked "$cp_name"; then continue; fi
+      if cp_linked "$cp_name"; then continue; fi # local amendment
       cp_skills=$((cp_skills + 1))
       [ -f "$1/.agents/skills/$cp_name/SKILL.md" ] ||
         { echo "codex-port: skill '$cp_name' is not ported" >&2; cp_fail=1; }
@@ -106,81 +146,79 @@ codex_port() (
   }
 
   if [ "$cp_check" = 1 ]; then
-    cp_checks .
-    if [ -f CLAUDE.md ] && ! tail -n +3 AGENTS.md | cmp -s - CLAUDE.md; then
-      echo "codex-port: AGENTS.md is older than CLAUDE.md: regenerate the Codex files" >&2
-      return 1
-    fi
-    echo "codex-port: the Codex files are up to date ($cp_skills skills, $cp_agents agents)"
+    cp_bad=0
+    cp_instructions || cp_bad=1
+    cp_outputs . || cp_bad=1
+    if [ "$cp_bad" = 1 ]; then return 1; fi
+    echo "codex-port: the instruction files and the Codex files are up to date ($cp_skills skills, $cp_agents agents)"
     return 0
   fi
+  cp_instructions
 
   # Only the features the sources have: rulesync writes a Codex approval policy into
-  # .codex/config.toml for permissions it was never given.
+  # .codex/config.toml for permissions it was never given. Never `rules`: it would overwrite
+  # AGENTS.md with a copy of CLAUDE.md.
   cp_features=
   cp_feature() { cp_features=${cp_features:+$cp_features,}$1; }
-  if [ -f CLAUDE.md ] || [ -f .claude/CLAUDE.md ] || [ -d .claude/rules ]; then cp_feature rules; fi
   if ls .claude/skills/*/SKILL.md >/dev/null 2>&1; then cp_feature skills; fi
   if ls .claude/agents/*.md >/dev/null 2>&1; then cp_feature subagents; fi
   if [ -f .mcp.json ]; then cp_feature mcp; fi
   if grep -qs '"hooks"' .claude/settings.json; then cp_feature hooks; fi
   if grep -qs '"permissions"' .claude/settings.json; then cp_feature permissions; fi
-  if [ -z "$cp_features" ]; then
-    echo "codex-port: no Claude Code sources to port"
-    return 0
-  fi
 
-  # Convert a copy of the sources: personal files and harness worktrees stay out.
-  cp_tmp=$(mktemp -d "${TMPDIR:-/tmp}/codex-port.XXXXXX")
-  trap 'rm -rf "$cp_tmp"' EXIT
-  for cp_src in CLAUDE.md .mcp.json; do
-    if [ -f "$cp_src" ]; then cp "$cp_src" "$cp_tmp/"; fi
-  done
-  if [ -d .claude ]; then
-    mkdir "$cp_tmp/.claude"
-    for cp_src in .claude/* .claude/.[!.]*; do
-      [ -e "$cp_src" ] || continue
-      case ${cp_src#.claude/} in worktrees | settings.local.json | CLAUDE.local.md) continue ;; esac
-      cp -R "$cp_src" "$cp_tmp/.claude/"
-    done
-    for cp_src in .claude/skills/*; do
-      if cp_linked "${cp_src#.claude/skills/}"; then rm -f "$cp_tmp/$cp_src"; fi
-    done
-  fi
-  # Package install scripts never run (npm_config_ignore_scripts).
-  cp_version=$(cd "$cp_tmp" && npm_config_ignore_scripts=true npx --yes rulesync@latest --version) || cp_version=
-  cp_version=$(printf '%s\n' "$cp_version" | tail -n 1)
-  case $cp_version in
-    [0-9]*.[0-9]*.[0-9]*) ;;
-    *) echo "codex-port: cannot run rulesync from npm (offline?); the Codex files are unchanged" >&2; return 1 ;;
-  esac
-  (cd "$cp_tmp" && npm_config_ignore_scripts=true npx --yes "rulesync@$cp_version" convert \
-    --from claudecode --to codexcli --features "$cp_features" --silent)
-  # rulesync drops disable-model-invocation; Codex reads the same intent from agents/openai.yaml.
-  for cp_src in .claude/skills/*/SKILL.md; do
-    [ -f "$cp_src" ] || continue
-    sed -n '2,/^---$/p' "$cp_src" | grep -q '^disable-model-invocation: *true' || continue
-    cp_policy="$cp_tmp/.agents/skills/$(basename "$(dirname "$cp_src")")/agents/openai.yaml"
-    if [ -d "$(dirname "$(dirname "$cp_policy")")" ] && [ ! -f "$cp_policy" ]; then
-      mkdir -p "$(dirname "$cp_policy")"
-      printf 'policy:\n  allow_implicit_invocation: false\n' >"$cp_policy"
+  cp_list=
+  if [ -n "$cp_features" ]; then
+    # Convert a copy of the sources: personal files and harness worktrees stay out.
+    cp_tmp=$(mktemp -d "${TMPDIR:-/tmp}/codex-port.XXXXXX")
+    trap 'rm -rf "$cp_tmp"' EXIT
+    if [ -f .mcp.json ]; then cp .mcp.json "$cp_tmp/"; fi
+    if [ -d .claude ]; then
+      mkdir "$cp_tmp/.claude"
+      for cp_src in .claude/* .claude/.[!.]*; do
+        [ -e "$cp_src" ] || continue
+        case ${cp_src#.claude/} in worktrees | settings.local.json | CLAUDE.local.md | CLAUDE.md | rules) continue ;; esac
+        cp -R "$cp_src" "$cp_tmp/.claude/"
+      done
+      for cp_src in .claude/skills/*; do # local amendment: linked skills stay out
+        if cp_linked "${cp_src#.claude/skills/}"; then rm -f "$cp_tmp/$cp_src"; fi
+      done
     fi
-  done
-  if [ -f "$cp_tmp/AGENTS.md" ]; then
-    { echo "$cp_marker with rulesync $cp_version; edit CLAUDE.md, not this file. -->"; echo; cat "$cp_tmp/AGENTS.md"; } >"$cp_tmp/AGENTS.md.new"
-    mv "$cp_tmp/AGENTS.md.new" "$cp_tmp/AGENTS.md"
+    # Package install scripts never run (npm_config_ignore_scripts).
+    cp_version=$(cd "$cp_tmp" && npm_config_ignore_scripts=true npx --yes rulesync@latest --version) || cp_version=
+    cp_version=$(printf '%s\n' "$cp_version" | tail -n 1)
+    case $cp_version in
+      [0-9]*.[0-9]*.[0-9]*) ;;
+      *) echo "codex-port: cannot run rulesync from npm (offline?); the Codex files are unchanged" >&2; return 1 ;;
+    esac
+    (cd "$cp_tmp" && npm_config_ignore_scripts=true npx --yes "rulesync@$cp_version" convert \
+      --from claudecode --to codexcli --features "$cp_features" --silent)
+    # rulesync drops disable-model-invocation; Codex reads the same intent from agents/openai.yaml.
+    for cp_src in .claude/skills/*/SKILL.md; do
+      [ -f "$cp_src" ] || continue
+      sed -n '2,/^---$/p' "$cp_src" | grep -q '^disable-model-invocation: *true' || continue
+      cp_policy="$cp_tmp/.agents/skills/$(basename "$(dirname "$cp_src")")/agents/openai.yaml"
+      if [ -d "$(dirname "$(dirname "$cp_policy")")" ] && [ ! -f "$cp_policy" ]; then
+        mkdir -p "$(dirname "$cp_policy")"
+        printf 'policy:\n  allow_implicit_invocation: false\n' >"$cp_policy"
+      fi
+    done
+    if ! cp_outputs "$cp_tmp"; then
+      echo "codex-port: rulesync $cp_version did not produce the expected files; the Codex files are unchanged" >&2
+      return 1
+    fi
+    # Only .agents and .codex are taken: AGENTS.md is a source, never output.
+    cp_list=$(cd "$cp_tmp" && for cp_out in .agents .codex; do
+      if [ -e "$cp_out" ]; then find "$cp_out" -type f; fi
+    done | sort)
   fi
-  if ! cp_checks "$cp_tmp"; then
-    echo "codex-port: rulesync $cp_version did not produce the expected files; the Codex files are unchanged" >&2
-    return 1
-  fi
-  cp_list=$(cd "$cp_tmp" && for cp_out in AGENTS.md .agents .codex; do
-    if [ -e "$cp_out" ]; then find "$cp_out" -type f; fi
-  done | sort)
 
   if [ "$cp_dry" = 1 ]; then
-    echo "codex-port: rulesync $cp_version would write:"
-    printf '%s\n' "$cp_list"
+    if [ -n "$cp_list" ]; then
+      echo "codex-port: rulesync $cp_version would write:"
+      printf '%s\n' "$cp_list"
+    else
+      echo "codex-port: nothing to convert in .claude/ or .mcp.json; the instruction files are in order"
+    fi
     return 0
   fi
 
@@ -188,37 +226,40 @@ codex_port() (
   printf '%s\n' "$cp_list" | while IFS= read -r cp_path; do
     [ -n "$cp_path" ] && [ -f "$cp_path" ] || continue
     if [ -f "$cp_manifest" ] && grep -qxF "$cp_path" "$cp_manifest"; then continue; fi
-    if [ "$cp_path" = AGENTS.md ] && head -n 1 AGENTS.md | grep -qF "$cp_marker"; then continue; fi
     if [ "$cp_force" = 0 ]; then
       echo "codex-port: $cp_path was not written by codex-port; fold what it holds into the Claude Code sources, then remove it or pass --force" >&2
       exit 1
     fi
   done
 
-  # Remove what the previous run wrote, so outputs whose source is gone disappear.
+  # Remove what the previous run wrote, so outputs whose source is gone disappear. An older
+  # manifest may list AGENTS.md: it is a source now, and stays.
   if [ -f "$cp_manifest" ]; then
     while IFS= read -r cp_path; do
       case $cp_path in
         *..*) ;;
-        .agents/skills/*/*)
+        .agents/skills/*/*) # local amendment: a linked skill's files are its owner's
           cp_name=${cp_path#.agents/skills/}
           cp_linked "${cp_name%%/*}" || rm -f "$cp_path" ;;
-        AGENTS.md | .agents/* | .codex/*) rm -f "$cp_path" ;;
+        .agents/* | .codex/*) rm -f "$cp_path" ;;
       esac
     done <"$cp_manifest"
     find .agents .codex -type d -empty -delete 2>/dev/null || true
   fi
+  if [ -z "$cp_list" ]; then
+    echo "codex-port: nothing to convert in .claude/ or .mcp.json; the instruction files are in order"
+    return 0
+  fi
   printf '%s\n' "$cp_list" | while IFS= read -r cp_path; do
-    [ -n "$cp_path" ] || continue
     mkdir -p "$(dirname "$cp_path")"
     cp "$cp_tmp/$cp_path" "$cp_path"
   done
-  { echo "$cp_list"; echo "$cp_manifest"; } | sort >"$cp_tmp/manifest"
+  { echo "# codex-port: rulesync $cp_version"; { echo "$cp_list"; echo "$cp_manifest"; } | sort; } >"$cp_tmp/manifest"
   mkdir -p .codex
   cp "$cp_tmp/manifest" "$cp_manifest"
 
-  cp_checks .
-  echo "codex-port: rulesync $cp_version wrote AGENTS.md, $cp_skills skills and $cp_agents agents ($(wc -l <"$cp_manifest" | tr -d ' ') files, listed in $cp_manifest)"
+  cp_outputs .
+  echo "codex-port: rulesync $cp_version wrote $cp_skills skills and $cp_agents agents ($(grep -vc '^#' "$cp_manifest") files, listed in $cp_manifest)"
 )
 # <<< codex-port <<<
 
