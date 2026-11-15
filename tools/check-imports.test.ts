@@ -351,47 +351,57 @@ describe("the icon set's import rule (icon-set, design decision 5)", () => {
   });
 });
 
-// icon-set design decision 10: `lucide` (vanilla) enters only as its createElement module and one
-// icon module by path, in the board page's icon file; the main entry (createIcons scans the DOM)
-// and `@lucide/*` fail everywhere. `lucide` has no exports map, so the paths are its files.
+// icon-set design decision 10: `lucide` (the DOM package) enters only through its documented main
+// entry, as a static named import of `createElement` and PascalCase icons, in the board page's icon
+// file or a test. `createIcons` scans the DOM, so it, `icons`, namespace and default imports,
+// re-exports, subpaths, `lucide-*` and `@lucide/*` fail everywhere.
 describe("the board page's Lucide import rule (icon-set, design decision 10)", () => {
   const BOARD_ICONS = "packages/view/src/board-page/icons.ts";
+  const from = (file: string, source: string) => checkSource(file, source);
 
   test.each([
-    ["packages/view/src/board-page/reading-panel.ts", "lucide/dist/esm/icons/x.mjs"],
-    ["packages/view/src/icons/index.ts", "lucide/dist/esm/icons/x.mjs"],
-    ["packages/widgets/src/a.tsx", "lucide/dist/esm/createElement.mjs"],
-    [BOARD_ICONS, "lucide"],
-    [BOARD_ICONS, "lucide/dist/esm/lucide.mjs"],
-    [BOARD_ICONS, "lucide/dist/esm/replaceElement.mjs"],
-    [BOARD_ICONS, "lucide/dist/esm/iconsAndAliases.mjs"],
-    [BOARD_ICONS, "lucide/dist/cjs/lucide.js"],
-    [BOARD_ICONS, "lucide/dist/umd/lucide.js"],
-    [BOARD_ICONS, "lucide/dist/esm/icons/X.mjs"],
-    [BOARD_ICONS, "lucide/dist/esm/icons/x.js"],
-    [BOARD_ICONS, "lucide/dist/esm/icons/a/b.mjs"],
-    [BOARD_ICONS, "Lucide/dist/esm/icons/x.mjs"],
-    [BOARD_ICONS, "LUCIDE"],
-    [BOARD_ICONS, "@lucide/lab"],
-    [BOARD_ICONS, "@lucide/icons"],
-    [BOARD_ICONS, "@Lucide/lab"],
-    [BOARD_ICONS, "lucide-react/icons/x"],
-    [BOARD_ICONS, "lucide-static"],
-  ])("%s may not import %s", (file, specifier) => {
-    const violations = checkSource(file, importOf(specifier));
-    expect(violations).toHaveLength(1);
-    expect(violations[0]).toMatchObject({ file, specifier });
+    [BOARD_ICONS, 'import { createIcons } from "lucide";'],
+    [BOARD_ICONS, 'import { createElement, createIcons } from "lucide";'],
+    [BOARD_ICONS, 'import { icons } from "lucide";'],
+    [BOARD_ICONS, 'import { replaceElement } from "lucide";'],
+    [BOARD_ICONS, 'import * as L from "lucide";'],
+    [BOARD_ICONS, 'import L from "lucide";'],
+    [BOARD_ICONS, 'import L, { X } from "lucide";'],
+    [BOARD_ICONS, 'import "lucide";'],
+    [BOARD_ICONS, 'import { type X } from "lucide";'],
+    [BOARD_ICONS, 'export { X } from "lucide";'],
+    [BOARD_ICONS, 'export * from "lucide";'],
+    [BOARD_ICONS, 'const L = await import("lucide");'],
+    [BOARD_ICONS, 'import("lucide").then(() => 1);'],
+    [BOARD_ICONS, 'import { X } from "lucide"; import { createIcons } from "lucide";'],
+    [BOARD_ICONS, 'import X from "lucide/dist/esm/icons/x.mjs";'],
+    [BOARD_ICONS, 'import "lucide/dist/esm/icons/x.mjs";'],
+    [BOARD_ICONS, 'import createElement from "lucide/dist/esm/createElement.mjs";'],
+    [BOARD_ICONS, 'import { X } from "lucide/dist/lucide.js";'],
+    [BOARD_ICONS, 'import { X } from "Lucide";'],
+    [BOARD_ICONS, 'import { X } from "LUCIDE";'],
+    [BOARD_ICONS, 'import { X } from "@lucide/lab";'],
+    [BOARD_ICONS, 'import { X } from "@Lucide/lab";'],
+    [BOARD_ICONS, 'import { X } from "lucide-static";'],
+    [BOARD_ICONS, 'import { X } from "lucide-react";'],
+    ["packages/view/src/board-page/reading-panel.ts", 'import { X } from "lucide";'],
+    ["packages/view/src/icons/index.ts", 'import { X } from "lucide";'],
+    ["packages/widgets/src/a.tsx", 'import { createElement } from "lucide";'],
+  ])("%s may not hold %s", (file, source) => {
+    const violations = from(file, source);
+    expect(violations.length).toBeGreaterThan(0);
     expect(violations[0]?.rule).toContain("lucide");
   });
 
   test.each([
-    [BOARD_ICONS, "lucide/dist/esm/icons/x.mjs"],
-    [BOARD_ICONS, "lucide/dist/esm/icons/message-square-reply.mjs"],
-    [BOARD_ICONS, "lucide/dist/esm/createElement.mjs"],
-    ["packages/view/src/board-page/icons.test.ts", "lucide/dist/esm/icons/x.mjs"],
-    ["packages/view/test/browser/a.ts", "lucide/dist/esm/createElement.mjs"],
-  ])("%s may import %s", (file, specifier) => {
-    expect(checkSource(file, importOf(specifier))).toEqual([]);
+    [BOARD_ICONS, 'import { createElement, X } from "lucide";'],
+    [BOARD_ICONS, 'import { createElement, X as Cross } from "lucide";'],
+    [BOARD_ICONS, "import {\n  createElement,\n  MessageSquareReply,\n} from 'lucide';"],
+    [BOARD_ICONS, 'import { X } from "lucide";\nimport { other } from "./other.ts";'],
+    ["packages/view/src/board-page/icons.test.ts", 'import { createElement, X } from "lucide";'],
+    ["packages/view/test/browser/a.ts", 'import { X } from "lucide";'],
+  ])("%s may hold %s", (file, source) => {
+    expect(from(file, source)).toEqual([]);
   });
 });
 
