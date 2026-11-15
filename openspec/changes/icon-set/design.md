@@ -168,18 +168,18 @@ Lucide released 1.63.0 to 1.73.0 between 2026-10-28 and 2026-11-14, every one a 
 
 ## Merge points
 
-`openspec list` on 2026-11-15 shows only `early-benchmark` (`packages/bench` only, so no overlap). In flight beside it, with no artifacts on a branch yet: `answering-flow-fixes` (worktree `feature-answering-flow-fixes`, Issues #179 to #185, report §8.1 P0-1 to P0-7). Its touch points come from its architect's message of 2026-11-15, and that design records the same rules.
+`openspec list` on 2026-11-15 shows only `early-benchmark` (`packages/bench` only, so no overlap). In flight beside it, with no artifacts on a branch yet: `answering-flow-fixes` (worktree `feature-answering-flow-fixes`, Issues #179 to #185, report §8.1 P0-1 to P0-7). Its touch points come from its architect's message of 2026-11-15, and that design records the same rules (its commit 5d188638).
 
 | File | icon-set | answering-flow-fixes | Rule at the rebase |
 |---|---|---|---|
 | `packages/view/src/shell/navigators.tsx` | the `Badges` component (↩, ↻) and the question navigator's entry badge (:157) | deletes the question navigator's "Next open →" button (#184); outline `aria-current` (#181) | icon-set leaves that button and `navigator.nextOpen` untouched (decision 3). Merge line by line, keeping both sides: the entry badge sits in the same component as the deleted button. |
 | `packages/view/src/shell/board-header.tsx` | the jump's icon | jump wiring (#180, #181); `header.nextOpen` kept as it is | Keep both; the icon follows the label wherever the button goes. |
 | `packages/view/src/strings/{en-US,it-IT}.ts`, `keys.ts` | `header.nextOpen` loses its ↓; a guard test over the catalogue | deletes `navigator.nextOpen`; adds `status.*` and `bar.submittedHelp` | Merge line by line, then re-run the catalogue tests. Once `navigator.nextOpen` is gone, drop its exemption from the guard (task 6.1). |
-| Browser tests: `lifecycle-header`, `languages`, `shown-revision-draft-session`, `lifecycle-acts`, `harness/suites.ts` | "Next open ↓" named "Next open"; a new `icons.browser.ts` | focus, jump and status tests; `lifecycle-presentations` for the deleted button | Whichever lands second names the header's jump "Next open" (without ↓) in any test the other side added. |
+| Browser tests: `lifecycle-header`, `languages`, `shown-revision-draft-session`, `lifecycle-acts`, `harness/suites.ts` | "Next open ↓" named "Next open"; a new `icons.browser.ts` | focus, jump and status tests, matching the jump by `/^Next open/` and `/^Prossima aperta/`; `lifecycle-presentations.browser.ts:136-152` rewritten onto the header's jump | Its tests match either name, so no rename is needed. At the rebase, keep its `lifecycle-presentations` rewrite as it is, since icon-set no longer edits that file. A test either side adds later that names the jump exactly uses "Next open" without ↓. |
 | `packages/view/chunk-sizes.json` | `icons` added; shell and components | shell re-recorded (+3 to 6 KB expected) | Never merge the numbers: rebuild and `--record-sizes` after the rebase (task 6.1). |
 | `docs/ux-askboard-2026-10-27/DESIGN.md` | new Icons section, Open point 2, one Do's row | rows Context header, Next-open jump, Question navigator, Bottom action bar, Answer | Different hunks; keep both. |
 | `docs/ux-askboard-2026-10-27/EXPERIENCE.md` | not edited | Accessibility Floor, Board chrome, Presentations, Voice and Tone rows | None. |
-| `openspec/specs/view-and-widgets/spec.md` (deltas) | ADDED requirements only | MODIFIED "Counts and the next-open jump", "One question per view", "Outline navigator", others | No shared requirement, so both sync. The ADDED requirement "Icons beside their labels" does not draw → as an icon, so the navigator's "Next open →" holds until it is deleted. |
+| `openspec/specs/view-and-widgets/spec.md` (deltas) | ADDED requirements only | MODIFIED "Counts and the next-open jump" (the jump named "Next open", with no arrow), "One question per view", "Outline navigator", others | No shared requirement, so both sync. The ADDED requirement "Icons beside their labels" does not draw → as an icon, so the navigator's "Next open →" holds until it is deleted. |
 
 The other files `answering-flow-fixes` touches (`question-actions.tsx`, `bottom-bar.tsx`, `agent-pill.tsx`, `board.tsx`, `question-card.tsx`) are not touched here.
 
