@@ -54,6 +54,10 @@ While the header shows the next-open jump, `N`, or the keys the user's file give
 - **WHEN** on the single-question board the user selects an option and presses `Mod+Enter` on the heading
 - **THEN** the answer is sent as with the primary button
 
+#### Scenario: A held key
+- **WHEN** the user presses `Mod+Enter` on a question with a choice and holds it, so that the key repeats on the control the focus moved to after the answer
+- **THEN** one answer is sent, and no other question is answered or marked ready
+
 #### Scenario: Inside a widget
 - **WHEN** a Tree has the focus and the user presses `Mod+Shift+Enter`, then `Mod+Enter`
 - **THEN** a child is added, and nothing is sent or marked ready

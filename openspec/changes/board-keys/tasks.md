@@ -160,7 +160,7 @@ Terms used below:
   - A Tree: `Mod+Shift+Enter` adds a child, and `Mod+Enter` sends nothing.
   - A received verdict: the dialog, then Cancel with focus back on the option.
   - A field to fix, nothing chosen, and an agent change waiting: each announces its message, sends nothing and leaves "Keep mine" unchosen.
-  - A held key, sent as repeated `keydown` events: one command, ready not toggled twice.
+  - A held key ("A held key"): a second `keyboard.down` of `Mod+Enter`, which Playwright sends with `repeat: true`, on the heading the focus moved to after the answer, and on the next question's option. Expect one command, ready not toggled twice, and no other question answered or marked ready.
   - The composer: Enter adds a line, then `Mod+Enter` sends the follow-up and answers nothing.
   - A user file giving answer no key.
 
@@ -203,7 +203,7 @@ Terms used below:
 - [ ] 6.5 Integration: the check, `bun run test:e2e` (the header gains a Tab stop and two browser files are added), and `npx --yes @fission-ai/openspec@1.15.0 validate --all --strict --no-interactive`. Tests: the suites. Verify: each passes, and the note records the counts; a test that walked the header's Tab order and now fails is updated to include "Keys", with the file named in the note.
 - [ ] 6.6 Rebase (askboard-contract-versioning) once #212 has merged:
   - `git fetch origin`, a backup branch, then `git rebase --onto origin/main 9eb5f364`.
-  - Resolve per design.md's Merge points (`icon-set`, change 4 if merged). If change 4 merged first: `previousOpenFrom` and the requirement "Next and previous open by key" mirror its `nextOpenFrom` order (test first in `board-view.test.ts`), `keys.action.board.previousOpen` reads "Previous to do" / "Precedente da fare", one `data-askboard-primary` stays on the primary, and `SKILL.md` is re-checked against `HELP_BUDGETS`.
+  - Resolve per design.md's Merge points (`icon-set`, change 4 if merged). If change 4 merged first: `previousOpenFrom` and the requirement "Next and previous open by key" mirror its `nextOpenFrom` order (test first in `board-view.test.ts`), `keys.action.board.previousOpen` reads "Previous to do" / "Precedente da fare", one `data-askboard-primary` stays on the primary, and `SKILL.md` is re-checked against `HELP_BUDGETS`. Add to `answer-key.browser.ts` the held-key case with "Go to the next": `Mod+Enter` held across the move answers the first question only (design.md, Merge points (h)).
   - Re-check every borrowed name with `git grep -n` on the rebased head.
   - Regenerate the skills (`bun run build:skills`) and re-record the chunk sizes.
   - Confirm no contract set moved: compare `git grep -nE '^export const [A-Z_]+_(VERSION|FORMAT) = "' origin/main -- packages/contract/src` with the head.
