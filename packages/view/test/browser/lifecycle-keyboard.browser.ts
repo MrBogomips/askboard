@@ -127,7 +127,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await card(board, "database").getByText("sent", { exact: true }).waitFor();
         await eventually(() => barButton(board, "Submit").isDisabled(), "nothing held");
         // Submit leaves focus on the heading of the question in view (answering-flow-fixes, #179):
-        // the user was last in "audit" (D3: the focused question is the one in view).
+        // at Submit focus is outside every card, so "audit" is the question in view by position:
+        // its card crosses the reading line, a third down the band (D3), and ends the page.
         await eventually(() => focused(headingOf(board, "audit")), "focus on the audit heading");
 
         // The delivery switch: with nothing held, Enter switches at once.

@@ -58,16 +58,18 @@ export const tabStops = (gantt: GanttParts): Promise<number> =>
   );
 
 /**
- * Presses Tab until a grid cell of the Gantt holds the focus, at most ten times; or Shift+Tab when
- * the view already holds the focus, after the grid, as the chart's region after a drag or "Answer"
- * after a click: WebKit loses the focus for good once Tab leaves the view's last stop.
+ * Presses Tab until a grid cell of the Gantt holds the focus, at most ten times. When the view
+ * already holds the focus after the grid (the chart's region after a drag, or "Answer" after a
+ * click in a board where it leaves focus on itself), it presses Shift+Tab instead: WebKit loses
+ * the focus for good once Tab leaves the view's last stop. "Answer" in a single-question board now
+ * leaves the focus on the question's heading, before the grid, so there it presses Tab
+ * (answering-flow-fixes, #179).
  */
 export const tabIntoGrid = async (board: Board): Promise<string> => {
   const view = await board.viewFrame();
-  // A question's heading holds the focus before the grid (after "Answer" in a single-question
-  // board, answering-flow-fixes #179): Tab goes forward into it.
+  // A question's heading (h2, or h3 inside a section) holds the focus before the grid: Tab.
   const key = (await view.evaluate(
-    () => document.hasFocus() && document.activeElement?.tagName !== "H2",
+    () => document.hasFocus() && !document.activeElement?.matches("h2,h3"),
   ))
     ? "Shift+Tab"
     : "Tab";
