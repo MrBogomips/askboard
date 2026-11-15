@@ -86,8 +86,9 @@ The card shows the state as a line in its actions row, where the receipt shows t
 - `primaryLabelOf({single, delivery, ready, noteOnly, revision})`, pure: "Edit" on a ready answer; "Confirm" in "All together"; else "Send the note", "Send the change" or "Send answer". "Edit" is the same button and press (`released`), so focus stays on it and it reads "Confirm" after.
 - Send: `bar.submit` is "Send {count} answers" with {count} the held answer acts (plural forms); with held work but no held answer it reads `bar.submitPlain` "Send" (Q2). The bar renders no Send button in immediate delivery; the base's paths that focus Submit (the replace dialog with nothing sent) fall back to the delivery switch's "One by one" when it is absent.
 - The submitted helper names the button as `bar.submitName` ("Send answers", «Invia le risposte»), not its counted label (Q1).
+- The replace dialog's confirm, where Send asks before it replaces answers the agent has received, reads `revision.confirmSend` ("Send" / "Invia"), as the single revision dialog's confirm does, not the counted `bar.submit`: the dialog lists only the questions whose answers it replaces while the press sends every held act, so a count there would name the wrong number (review finding S-3). Its body's en-US value stops naming Submit ("…Sending replaces them:"), as the Italian «L'invio le sostituisce:» already reads.
 - "Accept recommended" moves to the recommended option's row, after its badge, and renders only while the question is `todo` or `draft` (F-18).
-- **Stable hooks.** The primary carries `data-askboard-primary`, Send `data-askboard-submit`, Postpone `data-askboard-postpone`, Prefill `data-askboard-prefill`, the header jump `data-askboard-next-to-do`, each delivery segment `data-askboard-delivery="immediate|submitted"`. The harness's locators (`harness/dom.ts`) use them, and browser tests find controls through the harness, never by these labels. `board-keys` puts the same `data-askboard-primary` on the same button; the rebase keeps one.
+- **Stable hooks.** The primary carries `data-askboard-primary`, Send `data-askboard-submit`, Postpone `data-askboard-postpone`, Prefill `data-askboard-prefill`, the header jump `data-askboard-next-to-do`, each delivery segment `data-askboard-delivery="immediate|submitted"`, the replace dialog's confirm `data-askboard-confirm`. The harness's locators (`harness/dom.ts`) use them, and browser tests find controls through the harness, never by these labels. `board-keys` puts the same `data-askboard-primary` on the same button; the rebase keeps one.
 
 The strings, by key (EN, IT). "Accepted" is report §4, decision 3; the rest are Italian "(to review)" in EXPERIENCE's Voice and Tone.
 
@@ -99,6 +100,7 @@ The strings, by key (EN, IT). "Accepted" is report §4, decision 3; the rest are
 | `bar.submitName` (new) | Send answers | Invia le risposte | Q1 default |
 | `bar.submit` | Send {count} answer / answers | Invia {count} risposta / risposte | accepted |
 | `bar.submitPlain` (new) | Send | Invia | Q2 default, to review |
+| `revision.submitBody` (en-US value only) | The agent has already received your earlier answers to these questions. Sending replaces them: | unchanged | S-3 |
 | `bar.switchTitle` | Switch to "One by one"? | Passare a «Una alla volta»? | accepted |
 | `question.answer` | Send answer | Invia risposta | accepted |
 | `question.confirm`, `question.edit`, `question.sendNote` (new) | Confirm, Edit, Send the note | Conferma, Modifica, Invia la nota | accepted |
