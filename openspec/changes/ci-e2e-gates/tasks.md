@@ -111,7 +111,7 @@ Task 3.2 follows groups 1 and 2, since it records their names and #198's cause. 
   - Then edit `browser.yml`.
   - Verify: the new cases fail before the edit and pass after, the whole file passes, `tools/release/workflow.test.ts` still passes, and `actionlint` is clean if installed (else say so).
   - Note: 4 new cases in `tools/ci/e2e-workflows.test.ts` (the variable only on the test step and only in `browser.yml`; the macOS step, its order and no `${{ }}`; no other `defaults write`; the script run through `sh` with a stub `defaults`), failing before the edit (4 fail) and passing after; the whole file and `release/workflow.test.ts` pass (84 pass, 0 fail); actionlint clean. Refs #196, #197, #198 unaffected.
-- [ ] 3.2 Records (decision 6). After groups 1 and 2. Tests: none (documents), except that `bun run check` stays green, since `tools/` tests read `CLAUDE.md` and the spine.
+- [x] 3.2 Records (decision 6). After groups 1 and 2. Tests: none (documents), except that `bun run check` stays green, since `tools/` tests read `CLAUDE.md` and the spine.
   - `CLAUDE.md`, CI section: remove the sentence "Known: `browser.yml` WebKit fails on …". Add the factor and variable sentence, and the macOS step with the local Keyboard navigation setting.
   - The spine's Tests row: one clause on the hosted runners' factor.
   - `.claude/skills/askboard-implementation/references/test-harness-patterns.md`: the timed-checks rule names `PERF_FACTOR`, `perfScaled` and the variable.
@@ -121,6 +121,7 @@ Task 3.2 follows groups 1 and 2, since it records their names and #198's cause. 
     - each named file carries its sentence;
     - `./setup.sh --check` reports whether the Codex files are stale, and `./setup.sh --codex-only` refreshes them if so;
     - the check passes.
+  - Note: `CLAUDE.md` (CI, Triggers: the "Known: ... never reached Answer" sentence replaced by the factor, the variable and the macOS step with the local setting), the spine Tests row (factor clause), `test-harness-patterns.md` (timed-checks rule names `PERF_FACTOR`, `perfScaled`, the variable; the keyboard bullet no longer calls the WebKit failure a known CI one), and `docs/as-built/ci-e2e-gates.md` (names, 1.5 waits, D1 to D3, D4 as Q1, #198 cause and fix, no status, no versions). `grep "never reached Answer" CLAUDE.md` finds nothing; `./setup.sh --check`: Codex files up to date. Refs #196, #197, #198.
 - [ ] 3.3 Review checkpoint: spec review of group 3's range, plus a security review (askboard-security-reviewer), because the group changes a workflow of a public repository that the release gate calls. Verify: every finding is fixed as a task, tests first, or recorded with its reason, and both reviews' ranges and verdicts are in the note.
 
 ## 4. On the runners, then the pull request

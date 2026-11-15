@@ -21,7 +21,7 @@ Run with `bun packages/view/test/browser/run.ts` (flags in the file's header; `b
 ### Waits and timed checks (enforced by tests)
 - A new browser file needs an entry in `BROWSER_FILES` (`harness/suites.ts`): its engines (fewer than three only with the requirement that names them, in `why`), `smoke` or `perf`. `harness/suites.test.ts` fails otherwise.
 - Never `Bun.sleep(QUIET_MS)`, a fraction of it or its literal: wait on a probe of `harness/probes.ts` (`viewSettled`, `draftSettled`, `hostSettled`, `timerSettled`), or `quiet(reason)` with a non-empty reason when no probe applies. `harness/probes.test.ts` fails otherwise.
-- A wall-clock bound lives only in a perf file (`perf: true` in the manifest), through `harness/perf.ts` (`perfRuns`, `PERF_RUNS` runs judged on the median); the parallel set holds none. `harness/perf-files.test.ts` fails otherwise.
+- A wall-clock bound lives only in a perf file (`perf: true` in the manifest), through `harness/perf.ts` (`perfRuns`, `PERF_RUNS` runs judged on the median); the parallel set holds none. `harness/perf-files.test.ts` fails otherwise. On a hosted runner the bounds scale by `PERF_FACTOR` (2 on Linux, 3 on macOS, from `ASKBOARD_PERF_RUNNER`, which only `browser.yml`'s test step sets): a gate stays as the spec writes it, and every wait around a timed sample (an `eventually` cap, a test timeout, a parent wait) goes through `perfScaled`, or it caps the scaled bound.
 
 ### Helpers to use
 - Board and locators: `harness/dom.ts` (`boardOf`, `Board`, `VIEW_FRAME`: the view lives in a sandboxed iframe, so every locator goes through it); `harness/lifecycle-test.ts` (`lifecycleScenario`, `openBoard`, `card`, `optionOf`, `answerOf`, `noteOf`, `buttonOf`, `barButton`, `tabTo`, `sentActs`, `actsSent`, `actsDone`); `harness/board-test.ts` (`useEngine`, `waitForQuestion`, `eventually`, `answerWith`, `expectNoCspProblem`, `expectNoReconnect(run, board)`, and the timeouts `STEP_TIMEOUT_MS`, `LOAD_TIMEOUT_MS`, `RECONNECT_TIMEOUT_MS`).
@@ -37,7 +37,7 @@ New UI keeps breaking other changes' tests. Scope to what you mean:
 - A control that is always rendered can cover a target: the Snapshot control made the single-question bottom bar always render and sticky, and the Gantt helper clicked under it (#29). Scroll the target into view, clear of the sticky bar, in the shared helper, not in one test.
 - Prefer role and accessible name over text or position. Agent content is data: do not key a locator to a string the agent chose unless the test wrote it.
 - After adding UI, run the browser files of the neighbouring features (header, lifecycle, snapshot, widgets), not only yours. #32 merged with two known failures per engine (Snapshot on the Closed banner; Snapshot without `CLAUDE_PROJECT_DIR`) that E8 caused and #33 fixed.
-- Keyboard tests (`board.browser.ts`, `gantt-plan.browser.ts`, `tree-uj2.browser.ts`) press Tab up to ten times to reach a target. Known CI failure: WebKit, "ten presses of Tab never reached Answer". Do not widen the loop or drop the test; report it if you touch focus order.
+- Keyboard tests (`board.browser.ts`, `gantt-plan.browser.ts`, `tree-uj2.browser.ts`) press Tab up to ten times to reach a target. Cocoa WebKit tabs to buttons only with keyboard navigation on: `browser.yml` sets it on macOS, and a Mac with it off fails these on WebKit with "ten presses of Tab never reached Answer" (CLAUDE.md, CI). Do not widen the loop or drop the test; report it if you touch focus order.
 
 ## Cross-engine notes (found, not designed)
 
