@@ -103,19 +103,23 @@ The board SHALL not move on after a revision, a note sent or held alone, an undo
 - **THEN** focus stays in question 2's card, which still reads "To do"
 
 ### Requirement: Completion
-When every question of a board of two or more is answered or declined and nothing is held, the board SHALL show a completion panel at the top of its content: "Every question has an answer." and "{s} sent, {d} delivered to the agent.", counted from the questions' receipts only and updated as they change, never from the ask pill. It SHALL never say the agent read anything or that the tab can be closed, and SHALL not show on a locked board or in a Snapshot (NFR-10, AD-3).
+When every question of a board of two or more has a logged answer or decline, a revision in progress included, nothing is held and no act is on its way, the board SHALL show a completion panel at the top of its content: "Every question has an answer." and "Sent: {s}. Delivered to the agent: {d}.", counted from the logged receipts only, never from the ask pill. It SHALL never say the agent read anything or that the tab can be closed, nor show on a locked board or in a Snapshot (NFR-10, AD-3).
 
 #### Scenario: All sent, none collected
 - **WHEN** in "One by one" the user sends the last question to do of nine and the agent has collected none
-- **THEN** the panel reads "Every question has an answer." and "9 sent, 0 delivered to the agent.", and its heading has focus
+- **THEN** the panel reads "Every question has an answer." and "Sent: 9. Delivered to the agent: 0.", and its heading has focus
 
 #### Scenario: Receipts arrive
 - **WHEN** the agent then collects three of the answers
-- **THEN** the panel reads "9 sent, 3 delivered to the agent."
+- **THEN** the panel reads "Sent: 9. Delivered to the agent: 3."
 
 #### Scenario: Independent of the ask pill
 - **WHEN** every receipt reads "Sent" while the ask pill reads "Answered"
-- **THEN** the panel reads "0 delivered to the agent"
+- **THEN** the panel reads "Delivered to the agent: 0."
+
+#### Scenario: A revision keeps the panel
+- **WHEN** the panel shows in "One by one" and the user edits an answered question without sending the change
+- **THEN** the panel stays with the same counts, and the edited question reads "Draft"
 
 #### Scenario: The agent adds a question
 - **WHEN** the panel shows and the agent adds a question
@@ -129,7 +133,7 @@ When the only questions left to do are postponed and nothing is held, the comple
 - **THEN** the panel says that 1 postponed question remains and that closing loses this ask, and does not read "Every question has an answer."
 
 ### Requirement: All ready, nothing sent
-In "All together", when no question is left to do and answers are held, the board SHALL show no completion panel: after the act that left nothing to do, focus SHALL move to "Send {count} answers", beside which a line reads "All ready: nothing has been sent yet." The panel SHALL show after the send (NFR-10).
+In "All together", when no question is left to do and acts are held (answers, declines, postpones, notes or undoes), the board SHALL show no completion panel: after the act that left nothing to do, focus SHALL move to the send button ("Send {count} answers", or "Send" when no answer is held), beside which a line reads "All ready: nothing has been sent yet." The panel SHALL show after the send (NFR-10).
 
 #### Scenario: The last confirm
 - **WHEN** in "All together" the user confirms the last question to do

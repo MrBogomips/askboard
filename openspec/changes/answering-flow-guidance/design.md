@@ -38,10 +38,12 @@ AD IDs relied on: AD-1 (view code stays in `view`; the setting crosses contract,
 
 1. A held act decides first: `answer` is `ready`, `decline` `declined`, `postpone` `postponed`; a held `reopen` or an undo falls through to the content rule.
 2. A flight whose outcome is `queued` is `not-sent-yet`.
-3. A logged `answered` status with draft work on the question (a revision) is `draft`; else `delivered` or `sent` from the logged answer's `receipt`. `declined` is `declined`; `postponed` is `postponed`.
-4. An open question is `draft` when its work holds a choice, "Other…" text, an option note, a note or a widget value, else `todo`.
+3. A logged `answered` or `declined` status is `draft` while the question is revising; else `delivered` or `sent` from the logged answer's `receipt`, or `declined`. `postponed` is `postponed`.
+4. An open question is `draft` while it holds answer work, else `todo`.
 
-`Mark` becomes this union; `markOf` gains the flight and keeps its name, so its callers (`board.tsx`, `navigators.tsx`, `bottom-bar.tsx`) change only where they render. `isOpen` is `todo`, `draft` or `postponed`. A revision reads Draft on the card and in the outline but is not counted as to do and is never a next-question target: the agent holds an answer, and counting it would make an answered board look unfinished (report §3.1 draws "Delivered → Draft"; its "counts as open" column describes a first draft). `ladderCountsOf(document, state, work, flights)` counts each state over the board: the completion panel reads it now, and change 6's ledger later.
+"Answer work" and "revising" are one rule, the base's: `questionRevising` (`revising.ts`), that is `hasAnswerWork` (`board-draft.ts`) on the revision the work was made on: an item's value, result or typed entry, "Other…", an option note or the note. The caller passes it in as `revising`, and `answerStateOf` derives nothing from the content itself, so the card's revision rule and the ladder never disagree (review finding S-3: an answered question holding only an unparsed entry, or only a note, is a revision and reads Draft, never "Delivered"). A note alone still never moves the board (D3).
+
+`Mark` becomes this union; `markOf` gains the flight and keeps its name, so its callers (`board.tsx`, `navigators.tsx`, `bottom-bar.tsx`) change only where they render. `isOpen` is `todo`, `draft` or `postponed`. A revision reads Draft on the card and in the outline but is not counted as to do and is never a next-question target: the agent holds an answer, and counting it would make an answered board look unfinished (report §3.1 draws "Delivered → Draft"; its "counts as open" column describes a first draft). `ladderCountsOf(document, state, work, flightOf, revisingOf)` counts each state over the board, and `revisions`, the `draft` questions whose status is answered or declined, so the count to do is `todo + draft − revisions + postponed` (Counts and the next-open jump): change 6's ledger reads it. `flightOf(questionId)` gives the card's unsettled command (`acts.of(id, CARD_ACTS)`), `revisingOf(question)` the rule above.
 
 The card shows the state as a line in its actions row, where the receipt shows today, text plus shape; the receipt's words become the Sent, Delivered and Not sent yet labels (report §4: unchanged words, now state labels). Icons come in D11.
 
@@ -53,17 +55,23 @@ The card shows the state as a line in its actions row, where the receipt shows t
 
 ### D3. After an answer
 
-`shell/after-answer.ts` exports `afterAnswerOf(input)`, pure. Input: the act (`answer`, `postpone`, `decline`), its result (`AnswerResult`, or "took effect" for postpone and decline), whether it was a revision or an undo, the presentation, the setting, the delivery mode, and what `nextOpenFrom` and `ladderCountsOf` read. Output, one of:
+`shell/after-answer.ts` exports `afterAnswerOf(input)`, pure. Input: the act (`answer`, `postpone`, `decline`), its result (`AnswerResult`, or `took-effect` for a postpone or decline that took effect), whether it was a revision or an undo, `single` (a board of one question), the setting, the delivery mode, and:
+
+- `next`: the target `nextOpenFrom` gives from the acted question when that target is to do or a first draft, else none. A postponed target is left out, so a board with only postponed questions left gives `complete` or `send-all`, never a move;
+- `held`: the acts held for Submit once the act is taken, of any kind (answer, decline, postpone, note, undo);
+- `area`: the acted question's area (id and title), the questions to do it still has, and the target's area.
+
+Output, one of:
 
 | Output | When | The board then |
 |---|---|---|
 | `stay` | revision, note alone (`note-sent`, `note-held`), undo, `released` ("Edit"), blocked, cancelled confirmation, single-question board | focus as the base's D1 (the question's heading, or the control) |
 | `move {target, newFromAgent, areaDone?}` | setting `next`, a question to do remains | reveal and focus the target's heading (D4), arrival mark, tab or view change |
 | `footer {target, newFromAgent, areaDone?}` | setting `stay`, a question to do remains | the card's footer; focus to "Continue" |
-| `complete` | "One by one", nothing to do or held | completion panel; focus to its heading (D6) |
-| `send-all` | "All together", nothing to do, answers held | focus to the send button, the "All ready" line (D6) |
+| `complete` | no `next`, and not `send-all` | completion panel; focus to its heading (D6) |
+| `send-all` | no `next`, "All together", any act held | focus to the send button, the "All ready" line (D6) |
 
-`target` is `nextOpenFrom(current = the acted question)`, `todo`/`draft` first; when only postponed questions remain the output is `complete` (the panel's postponed variant offers "Go to the first"). `areaDone` names the acted question's area when it has no question to do left and the target is in another area.
+`target` is `next`; when only postponed questions remain there is no `next` and the output is `complete` (the panel's postponed variant offers "Go to the first"). `areaDone` names the acted question's area when it has no question to do left and the target is in another area.
 
 - **Where it runs.** At the act, never at the reply (the base's D1 rule): the card calls it from its outcome handling, which `pressAnswer`, "Accept recommended", Postpone and Decline already reach; `board-keys`' `Mod+Enter` calls the same `onAnswer(control)` and so gets it too. There `control` is the element that had focus (an option or the heading), so that a cancelled confirmation returns focus to it: the flow never takes `control` for the primary, and finds the primary as `[data-askboard-primary]` inside the card where it needs it ("Edit" keeping focus, the `stay` output). Decline's move runs after the More menu's close (`onCloseAutoFocus` prevented), so the menu does not give focus back to its trigger.
 - **A held key (NFR-10).** The move happens on the act, while the key that made it may still be down. Until that key's keyup, the board ignores key events with `repeat` set on the moved-to card and on "Continue" (`preventDefault`, before any other handler), so a held or auto-repeated key never selects, answers or continues on the next question. `board-keys`' handlers ignore `repeat` for `Mod+Enter`, `N`, `Shift+N` and `?` (its D3 and D4, merge point (h), 424bc6f0); whichever change lands second adds the "Go to the next" case to `answer-key.browser.ts`.
@@ -112,12 +120,13 @@ The strings, by key (EN, IT). "Accepted" is report §4, decision 3; the rest are
 | `mark.draft` (new) | Draft | Bozza | to review |
 | `receipt.notSentYet`, `receipt.sent`, `receipt.delivered` | Not sent yet, Sent, Delivered to the agent | Non ancora inviata, Inviata, Consegnata all'agente | accepted (§4; "Not sent yet" capitalised as §3.1) |
 | `header.open`, `areas.open` | {count} to do | {count} da fare | accepted |
-| `header.openPostponed` (new) | {count} to do ({p} postponed) | {count} da fare (di cui {p} rimandata / rimandate) | accepted |
+| `header.openPostponed` (new) | {open} to do ({count} postponed) | {open} da fare (di cui {count} rimandata / rimandate) | accepted |
 | `header.nextOpen` | Next to do | Prossima da fare | accepted |
 | `bar.selectRecommended` | Prefill recommended ({count}) | Precompila le consigliate ({count}) | accepted |
 | `bar.undoPrefill` (new) | Undo | Annulla | accepted |
 | `footer.next`, `footer.continue`, `footer.newFromAgent` (new) | Next: {title}, Continue, New from the agent | Prossima: {title}, Continua, Nuova dall'agente | to review (Q3) |
-| `completion.title`, `completion.counts` (new) | Every question has an answer., {s} sent, {d} delivered to the agent. | Tutte le domande hanno una risposta., {s} inviate, {d} consegnate all'agente. | accepted |
+| `completion.title` (new) | Every question has an answer. | Tutte le domande hanno una risposta. | accepted |
+| `completion.counts` (new) | Sent: {s}. Delivered to the agent: {d}. | Inviate: {s}. Consegnate all'agente: {d}. | to review: §4's "{s} inviate, {d} consegnate all'agente" read "1 consegnate", and the catalogue picks forms by `count` only, so no plural form serves two counts (review finding S-2, the coordinator's decision of 2026-11-15) |
 | `completion.postponed`, `completion.goToFirst` (new) | {p} postponed question(s) remain. Closing loses this ask., Go to the first | Restano {p} rimandate. Chiudendo perdi questa richiesta., Vai alla prima | to review |
 | `bar.allReady` (new) | All ready: nothing has been sent yet. | Tutte pronte: niente è stato ancora inviato. | to review |
 | `areas.done` (new, the tab's text for screen readers) | completed | completata | to review |
@@ -128,27 +137,27 @@ The strings, by key (EN, IT). "Accepted" is report §4, decision 3; the rest are
 | `status.delivered` (new) | Delivered to the agent: {d} of {s}. | Consegnate all'agente: {d} di {s}. | to review |
 | `status.prefillUndone` (new) | Prefill undone. | Precompilazione annullata. | to review |
 | `status.areaDone` (new) | {area} completed | {area} completata | accepted |
-| `status.allAnswered` | the two `completion.*` lines | idem | accepted |
-| `status.allReady` | as `bar.allReady` | idem | to review |
 
-{n} of {m} is the target's position among the board's questions; no short question numbers (change 6).
+{n} of {m} is the target's position among the board's questions; no short question numbers (change 6). The messages for every question answered and all ready have no keys of their own: their builders reuse `completion.title`, `completion.counts` and `bar.allReady`. `header.openPostponed` and `completion.postponed` take `count` for the postponed number, which picks the plural form, and `open` for the count to do.
 
 ### D6. Completion
 
-`completionOf(document, state, work, flights, delivery)`, pure, in `shell/completion.ts`:
+`completionOf(document, state, work, flightOf, revisingOf, delivery)`, pure, in `shell/completion.ts`, with D1's inputs:
 
-- `none` while a question is `todo` or `draft`, or any act is in flight.
-- `send-all {count}` in "All together" while answers are held and nothing is to do.
+- `none` while a question is `todo` or a first `draft`, or any act is in flight.
+- `send-all {count}` in "All together" while any act is held and nothing is to do; `count` is the held answers, which Send's label shows (Q2).
 - `postponed {count, first}` while only postponed questions remain to do and nothing is held.
-- `done {sent, delivered}` when every question is `sent`, `delivered` or `declined` and nothing is held: `sent` counts the questions with a receipt (`sent` or `delivered`, a decline included), `delivered` those whose receipt is `delivered`.
+- `done {sent, delivered}` when every question has a logged answer or decline and nothing is held, a revision in progress included: the user is editing an answer the agent already holds, so "Every question has an answer" stays true, and the panel stays (the spec's rule; review finding S-4). In "All together" a confirmed revision is held, which gives `send-all`.
+
+The counts are `receiptCountsOf(document, state)`, pure, in the same module: `sent` is the board's questions whose logged answer or decline has a receipt (`sent` or `delivered`), revisions included, `delivered` those whose receipt is `delivered`. `completionOf` and the delivered messages read it, never `ladderCountsOf`, whose `sent` and `delivered` leave out a question while it is revising.
 
 It reads the questions' receipts only, never `state.ask` or the ask pill, so neither #186's finding nor #213's answer changes anything here. `CompletionPanel` renders at the top of the main content, from the model, with a focusable heading (`tabIndex={-1}`); it takes focus only from an act (D3's `complete`, or after Send), never when it renders at load, after a reload or on a state update, and nothing in this change focuses the view at load (a new board ignores keys until the user clicks or focuses in it, EXPERIENCE's Accessibility Floor); not on a locked board or in an opened Snapshot. `send-all` renders the `bar.allReady` line beside Send instead. The panel never says the tab can be closed (PO, 2026-11-14).
 
-**Delivered messages.** `deliveredGate(now)` (pure, `shell/delivered-messages.ts`) takes the delivered count from each state update and gives at most one `status.delivered` per 5 s, the latest count at the window's end; a count that has not changed says nothing. The base's guard that no message says "delivered" (`answering-flow-status.browser.ts`, `strings/flow-strings.test.ts`) exempts `status.delivered` and `completion.counts` only.
+**Delivered messages.** `createDeliveredGate()` (pure, `shell/delivered-messages.ts`: `observe(counts, now)`, `dueAt()`, `due(now)`) takes `receiptCountsOf` from each state update and gives at most one `status.delivered` per 5 s, the latest counts at the window's end; the first observation is the baseline, and a count that has not changed, or is 0, says nothing. The base's guard that no message says "delivered" (`answering-flow-status.browser.ts`, `strings/flow-strings.test.ts`) exempts `status.delivered` and `completion.counts` only.
 
 ### D7. More status messages
 
-`flow-messages.ts` gains builders for D5's `status.*` keys. `sentMessageOf(via, acts, nextOf?)` appends `status.next` when D3 recorded a target for the acted question at the act (a map in `BoardContext`, read once, then cleared), so "Answer sent: {option}. Next: {title}, {n} of {m}." is said when the board page reports the command sent, never earlier. A held answer (`held`) says `status.ready` plus `status.next` at once, as the base does. Postpone and decline say theirs on `sent` in "One by one" and at the act when held. `status.readyLost` is raised when a field check releases a held answer (`releaseFailed`, `heldWithBlock` in `submit.ts`), with `fieldToFixOf`'s label. `status.allAnswered` and `status.allReady` are raised when `completionOf` turns `done` or `send-all`. Titles go in as text, cut at 80 characters (the base's D4).
+`flow-messages.ts` gains builders for D5's `status.*` keys. `sentMessageOf` keeps its signature and result; `sentMessagesOf(via, acts, {next, revision})` returns the list a sent command says: the answer's (or `status.changeSent` for a revision), then `status.next` when D3 recorded a target for the acted question at the act (a map in `BoardContext`, read once, then cleared). So "Answer sent: {option}." and "Next: {title}, {n} of {m}." are said together when the board page reports the command sent, never earlier. A held answer (`held`) says `status.ready` plus `status.next` at once, as the base does. Postpone and decline say theirs on `sent` in "One by one" and at the act when held. `status.readyLost` is raised when a field check releases a held answer (`releaseFailed`, `heldWithBlock` in `submit.ts`), with `fieldToFixOf`'s label. The all-answered messages (`allAnsweredMessagesOf`, the two `completion.*` lines) and the all-ready one (`allReadyMessageOf`, `bar.allReady`) are raised when `completionOf` turns `done` or `send-all`. Titles go in as text, cut at 80 characters (the base's D4).
 
 ### D8. Prefill recommended
 
