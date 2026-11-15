@@ -18,7 +18,7 @@ The view, its components and the widgets SHALL draw every icon from Lucide throu
 - **THEN** the icons it shows render as inline SVG, no request leaves the page, and no CSP violation is reported
 
 ### Requirement: Icons enter only through the icon module
-`bun run check` SHALL fail on any import of Lucide's React package other than one icon, by its path, in the icon module or in a test: the package's main entry, its `icons` index, its dynamic loaders, or an icon imported anywhere else. A widget SHALL reach icons only through `view`'s icon module (AD-1, AD-9).
+`bun run check` SHALL fail on an import of `lucide-react` other than one icon by its path, in the icon module or a test (its main entry, `icons` index and dynamic loaders fail everywhere); and on an import of `lucide` other than `createElement` and icons by name from its main entry, in `board-page/icons.ts` or a test: no `createIcons`, no subpath, no other casing. A widget SHALL reach icons only through `view`'s icon module (AD-1, AD-9).
 
 #### Scenario: The package's main entry
 - **WHEN** a file under `packages/widgets/src` imports `{ Check }` from `lucide-react`
@@ -31,6 +31,10 @@ The view, its components and the widgets SHALL draw every icon from Lucide throu
 #### Scenario: Through the module
 - **WHEN** the icon module imports `lucide-react/icons/check` and a widget imports `@askboard/view/icons`
 - **THEN** `bun run check:imports` passes
+
+#### Scenario: Lucide's DOM package outside its file
+- **WHEN** a file under `packages/view/src/board-page` other than `icons.ts` imports `{ X }` from `lucide`, or `icons.ts` imports `createIcons`
+- **THEN** `bun run check:imports` fails, naming the file and the rule
 
 ### Requirement: Icons beside their labels
 Each mark the board drew as a glyph or as an inline SVG of its own SHALL be an icon of the icon module, beside its text label where it has one (DESIGN, Icons). A glyph quoted in a label in this specification or in EXPERIENCE.md (↓ ↩ ↻ ↗ ✓ ✕ ×) SHALL be drawn as that icon: it SHALL be neither text of the label nor part of its accessible name. An icon SHALL take the text colour of the element that holds it (NFR-12, FR-34).
