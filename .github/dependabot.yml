@@ -20,7 +20,8 @@ updates:
       interval: weekly
     groups:
       # Every dependency is a development dependency: one pull request a week for the minor and
-      # patch bumps, one CI run; a major gets its own, so a breaking bump never holds the others.
+      # patch bumps, one CI run; a major gets its own, so a breaking bump never holds the others, except
+      # Lucide's two packages, which a major moves together (grouped below).
       bun-dev:
         patterns:
           - "*"

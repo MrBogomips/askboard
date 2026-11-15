@@ -73,12 +73,40 @@ const sources = (): string[] =>
       .map((file) => readFileSync(join(dir, file), "utf8")),
   );
 
+// The names an import of the icon module takes, read from the statements and not from the text:
+// a name in a comment or a string does not count.
+const IMPORT_OF_ICONS =
+  /import\s*(?:type\s*)?\{([^}]*)\}\s*from\s*["'](?:[^"']*\/icons(?:\/index(?:\.ts)?)?|@askboard\/view\/icons)["']/g;
+
+const importedNames = (code: string[]): Set<string> =>
+  new Set(
+    code.flatMap((source) =>
+      [...source.matchAll(IMPORT_OF_ICONS)].flatMap(([, list]) =>
+        (list ?? "")
+          .split(",")
+          .map((part) => (part.trim().split(/\s+as\s+/)[0] ?? "").trim())
+          .filter((name) => name !== ""),
+      ),
+    ),
+  );
+
 describe("every icon is used", () => {
   test("each export of the module is imported by a non-test source", async () => {
-    const code = sources();
-    const unused = Object.keys(await loadIcons()).filter(
-      (name) => !code.some((source) => new RegExp(`\\b${name}\\b`).test(source)),
-    );
+    const imported = importedNames(sources());
+    const unused = Object.keys(await loadIcons()).filter((name) => !imported.has(name));
     expect(unused).toEqual([]);
+  });
+
+  test("a name in a comment or a string, or taken from another module, is no import", () => {
+    const code = [
+      '// IconClose is drawn here\nconst a = "IconClose";\nimport { IconClose } from "./other.ts";',
+      'import { IconSelected as Tick, IconCalendar } from "../../icons/index.ts";',
+      'import { IconDisclosure } from "@askboard/view/icons";',
+    ];
+    expect([...importedNames(code)].sort()).toEqual([
+      "IconCalendar",
+      "IconDisclosure",
+      "IconSelected",
+    ]);
   });
 });
