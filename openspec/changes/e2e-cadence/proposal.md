@@ -9,14 +9,14 @@ The browser and conformance suites run in CI only when dispatched by hand. They 
 
 ## What Changes
 
-The PO's plan item 2 on #171. Plan item 1 merged as #173 (Linux for pull requests, the documents-only gate `tools/ci/changed-paths.sh`, the Playwright cache, parallel unit tests); this change builds on it and repeats none of it. The defaults below were taken in an unattended run and are recorded as defaults (design.md, Defaults D1 to D6, and the coordinator's decisions C1 to C4 after group 0). The PO answered the two open questions on #171 on 2026-11-14: Node 26 joins the nightly and weekly conformance runs (Q1, yes), and the pull-request jobs do not become required checks (Q2, no).
+The PO's plan item 2 on #171. Plan item 1 merged as #173 (Linux for pull requests, the documents-only gate `tools/ci/changed-paths.sh`, the Playwright cache, parallel unit tests); this change builds on it and repeats none of it. The defaults below were taken in an unattended run and are recorded as defaults (design.md, Defaults D1 to D6, and the coordinator's decisions C1 to C6, after group 0 and the reviews). The PO answered the two open questions on #171 on 2026-11-14: Node 26 joins the nightly and weekly conformance runs (Q1, yes), and the pull-request jobs do not become required checks (Q2, no).
 
 - **A cadence for the suites** (NFR-7, AD-1; D1 to D3):
   - Every pull request, on Linux: the Chromium smoke set, plus conformance in AD-1's three configurations on Bun.
   - Nightly on `main`, on Linux: the full browser suite in the three engines, in four shards per engine; the perf pass; conformance on Node 24 and Node 26 (Q1).
   - Weekly, and before every release, on macOS: the same browser set as the nightly run, with conformance on Bun, Node 24 and Node 26.
   - The suites move from `ci.yml`'s dispatch-only jobs to a caller workflow of their own, which uses #173's documents-only gate and always-run jobs. The dist build is made once and shared by the jobs that need it.
-  - A release waits for the macOS run of the suites before it publishes.
+  - A release waits for the macOS run of the suites before it publishes, in Chromium and WebKit until Firefox's open failures (#174, #145) are fixed (C6); it reads its own build by artifact ID and restores no cache.
 - **One manifest of the browser files.** Each file is listed with its engines (all three unless a requirement names fewer), whether it is in the smoke set, and whether it is a perf file. A repository test keeps the manifest and the files in agreement, and checks that the smoke set covers each check the spine names.
 - **The runner runs files in parallel within an engine, one engine at a time** (D4, C2). `packages/view/test/browser/run.ts` gains a smoke, full or perf set, a worker count (all cores by default), and shards balanced by recorded timings. Each worker gives the session processes it starts a short runtime folder of its own, so parallel files never share a session folder (C3). The perf files run in a separate serial pass, one engine at a time, with nothing else running. Locally, `bun run test:e2e` runs the full set in parallel, then the perf pass. A new `bun run test:e2e:smoke` runs what a pull request runs.
 - **Speed gates are judged in the perf pass, on the median of three runs** (D6, #146's proposed default), including the Document review's four Chromium gates on the cost of placing quotes (C1). The gates themselves are unchanged. The functional outcomes in the same scenarios still hold on every run. This is a new requirement in `view-and-widgets`, and it defines "the test machine" that the Markdown bounds name.
@@ -33,7 +33,7 @@ The PO's plan item 2 on #171. Plan item 1 merged as #173 (Linux for pull request
 ### Modified Capabilities
 
 - `view-and-widgets`: a new requirement on how the timed bounds that this spec names, and the browser suite's other wall-clock gates, are judged (in the perf pass, serially, on the median of three runs, gates unchanged). It also defines the "test machine" that the Markdown bounded work requirement names.
-- `packaging`: The release workflow gains a gate: the browser and conformance suites on macOS pass before publishing.
+- `packaging`: The release workflow gains a gate: the browser and conformance suites on macOS pass before publishing, in every engine but one left out while open Issues track its failures (C6); publishing reads its own build's artifact by ID.
 
 ## Impact
 
@@ -46,8 +46,8 @@ The PO's plan item 2 on #171. Plan item 1 merged as #173 (Linux for pull request
   - `package.json` scripts `test:e2e` and `test:e2e:smoke`, plus new tests under `packages/view/test/browser/harness/` and `tools/ci/`; `tools/release/workflow.test.ts` and `tools/codex-interop.test.ts` follow the workflows.
 - **CI:**
   - New `.github/workflows/e2e.yml`.
-  - `browser.yml` and `conformance.yml` gain inputs for the set, engines, shards, workers, runtimes, the shared build and the gate's `code`; `browser.yml` keeps #173's Playwright cache.
-  - `release.yml` gains the macOS suite before `publish`.
+  - `browser.yml` and `conformance.yml` gain inputs for the set, engines, shards, workers, runtimes, the shared build and the gate's `code`; `browser.yml` keeps #173's Playwright cache, except in the release run (`cache` input).
+  - `release.yml` gains the macOS suite before `publish`, and its `smoke-linux` and `publish` download the build by artifact ID.
   - `ci.yml` loses its dispatch-only `browser` and `conformance` jobs, and a dispatch of it runs `openspec`, `check` and `codex`.
 - **Documents:**
   - The spine's Tests row and its frontmatter (`updated`, `sources`).

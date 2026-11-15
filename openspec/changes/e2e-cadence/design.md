@@ -41,7 +41,7 @@ ADs relied on:
 **Goals:**
 
 - Every pull request gets a verdict from the browser and conformance suites on Linux in about 5 min, running beside `check`.
-- Every browser file runs in each of its engines on Linux every night, and on macOS every week and before every release.
+- Every browser file runs in each of its engines on Linux every night, and on macOS every week and before every release (before a release, Firefox only once #174 and #145 close: C6).
 - A local full run takes well under the current hour.
 - No requirement, engine or check loses coverage. The timed bounds keep their values.
 
@@ -69,7 +69,7 @@ Answer (2026-11-14, on #171): the PO answered Q1 (yes) and Q2 (no) and left D1 t
 
 ## Coordinator decisions after group 0 (unattended run, 2026-11-14)
 
-Group 0's record (`drafts/e2e-cadence-group0.md`) raised four findings (C1 to C4); review 2.5 raised a fifth (C5). The coordinator decided them in the unattended run; they are not PO answers, and an answer of the PO on #171 that differs goes through `/opsx:update`.
+Group 0's record (`drafts/e2e-cadence-group0.md`) raised four findings (C1 to C4); review 2.5 raised a fifth (C5) and review 5.5 a sixth (C6). The coordinator decided them in the unattended run; they are not PO answers, and an answer of the PO on #171 that differs goes through `/opsx:update`.
 
 | ID | Finding (task) | Decision | Where |
 |---|---|---|---|
@@ -78,6 +78,7 @@ Group 0's record (`drafts/e2e-cadence-group0.md`) raised four findings (C1 to C4
 | C3 | Every session process of every worker shares `/tmp/askboard-<uid>`; one load flake (`header.browser.ts`, `connect ENOENT /tmp/askboard-501/8031.sock`) came from it (0.3(a)) | Each `bun test` worker gives the session processes it starts a short runtime folder of its own, as `XDG_RUNTIME_DIR` | Decision 5a, task 2.1 |
 | C4 | Two `Bun.sleep(1500)` literals escape the guard (0.5(c)) | The guard also refuses a literal equal to `QUIET_MS` | Decision 7, tasks 4.1 and 4.5 |
 | C5 | Review 2.5 (S-1): `run.ts` refuses `--update-timings` with `--shard`, so the nightly's shard jobs cannot refresh the engine's timings file (task 2.6) | Each shard job writes its timings to a separate per-shard file through a runner option, `--timings-out <file>`, and uploads it as an artifact; a small merge script combines an engine's shard files into its timings file; `--update-timings` stays refused with `--shard` | Decision 5, tasks 5.2 and 5.3 |
+| C6 | Review 5.5 (S-1): the release gate runs the weekly cadence on macOS, where Firefox fails 37 tests (#174, #145, both open; tasks 0.6, 2.3, 4.6), so every release would be blocked | Until #174 and #145 close, the release gate (`release.yml`'s `e2e-macos`, through `e2e.yml`'s `engines` call input) runs Chromium and WebKit only; Firefox keeps running in the nightly and weekly cadences, where its failures show and block nothing. Restoring it is dropping that one input once both Issues close | Decision 1 (Release), Goals, Risks, decision 8's clause, the `packaging` delta, tasks 5.6 and 5.9 |
 
 ## Decisions
 
@@ -104,6 +105,9 @@ A new `.github/workflows/e2e.yml` owns the cadence. Like `ci.yml`, it only compo
 - **Concurrency**, in `ci.yml`'s shape with the cadence added: `group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}-${{ inputs.cadence || github.event.schedule || github.event_name }}`, with `cancel-in-progress` only for `pull_request`. A nightly, a weekly run and a dispatch on the same commit each have their own group, and no scheduled run is cancelled.
 - **The jobs:** `plan`, then `build`, then `browser` (calls `browser.yml`), `perf` (calls `browser.yml` with the perf set) and `conformance` (calls `conformance.yml`). `perf` alone is skipped by `if` on a pull request (the plan's perf output is false): it is never a pull-request status, so the always-run rule does not apply to it.
 - **Release.** `release.yml` gains a job `e2e-macos` that calls `e2e.yml` with `cadence: weekly`. `publish` adds it to its `needs`. This adds a gate to the requirement The release workflow (delta spec `packaging`), and `tools/release/workflow.test.ts` moves with it: the job list and `publish`'s needs.
+  - **Engines (C6).** `e2e.yml` takes a call input `engines` (a JSON list, empty by default), which replaces the cadence's engines. The `plan` step reads it through `env`, refuses a value holding a newline or a carriage return, accepts only a JSON list of `chromium`, `firefox` and `webkit`, and otherwise fails with `::error::`. The release call passes `["chromium","webkit"]` until #174 and #145 close; both files' comments name them. No schedule, dispatch or pull request sets it.
+  - **The release artifact by ID (review 5.5, X-1).** The release run now holds the e2e jobs too, and every job of a run can replace an artifact of that run by name. So `build` exposes its upload's `artifact-id` as a job output; `smoke-linux` and `publish` first stop unless that ID is a non-empty run of digits, then download with `artifact-ids` (not `name`), `merge-multiple: true`, and `digest-mismatch` at its default `error`. A replaced artifact gets a new ID, so the download fails rather than ship it.
+  - **No cache in the release run (X-1).** `browser.yml` and `conformance.yml` take `cache` (boolean, default `true`), which gates their Playwright cache step; `e2e.yml` takes `no-cache` (boolean, default `false`) and passes `cache: ${{ !inputs.no-cache }}`, so a pull request, a schedule or a dispatch, whose `inputs` lack the field, keeps the cache. The release call sets `no-cache: true`: no executables from main's cache scope run beside the release's artifact.
 
 **Alternatives:**
 
@@ -112,7 +116,7 @@ A new `.github/workflows/e2e.yml` owns the cadence. Like `ci.yml`, it only compo
 
 ### 2. Build once per run
 
-A `build` job per runner OS runs `./.github/actions/setup-bun` (which already skips the Codex files) and `bun run build`. It uploads `dist/` and `hooks/askboard-mod.js` as one artifact named `e2e-build-<os>`, with retention of 1 day, using the `upload-artifact` pin from `release.yml`. `browser.yml` and `conformance.yml` gain an input `build-artifact`. When it is set, they download that artifact (the `download-artifact` pin from `release.yml`) in place of their `bun run build` step; when it is empty, they build as today, so a manual call still works. `browser.yml` keeps #173's Playwright cache and install steps as they are, after the build or the download. An artifact is read only by the run that made it: there are no cross-run downloads.
+A `build` job per runner OS runs `./.github/actions/setup-bun` (which already skips the Codex files) and `bun run build`. It uploads `dist/` and `hooks/askboard-mod.js` as one artifact named `e2e-build-<os>`, with retention of 1 day, using the `upload-artifact` pin from `release.yml`. `browser.yml` and `conformance.yml` gain an input `build-artifact`. When it is set, they download that artifact (the `download-artifact` pin from `release.yml`) in place of their `bun run build` step; when it is empty, they build as today, so a manual call still works. `browser.yml` keeps #173's Playwright cache and install steps, after the build or the download; the cache step is skipped when the `cache` input is false (the release run, decision 1). `conformance.yml` installs Chromium the same way, since its real-board tests launch it. An artifact is read only by the run that made it: there are no cross-run downloads.
 
 ### 3. Safe in a public repository
 
@@ -123,7 +127,8 @@ The repository is public, so pull requests from forks run this workflow. To keep
 - No `secrets:` are passed: the suites need none, unlike `check`'s `secrets: inherit`. `release.yml`'s call passes none either.
 - Every checkout uses `persist-credentials: false`.
 - Only first-party `actions/*` are used, pinned by commit SHA with the version as a comment (AD-19).
-- No `${{ }}` expression inside a `run` script: values come through `env`.
+- No `${{ }}` expression inside a `run` script: values come through `env`; a call input that reaches a script (`engines`) is validated as a whole value first.
+- The release run reads its artifact by ID and restores no cache (decision 1, X-1).
 - Each job has a `timeout-minutes`.
 - The `BROWSER` recorder stays job-wide, as in `browser.yml` today (AD-18).
 
@@ -182,7 +187,7 @@ It also includes the lifecycle board page, because it holds NFR-10's discarded a
 - **Isolation.** The browser passes keep Bun's `--parallel` default (each file isolated), unlike `bun run test`'s `--no-isolate`: the harness keeps module state per file (the browser, the engine list), and task 0.3 found `--no-isolate` within 2%. No pass takes `--no-isolate`.
 - `--update-timings`: writes the timings file of each engine run. Refreshing the committed files is a manual commit, and the nightly run uploads its own timings as an artifact for that purpose. It is refused with `--shard` and with the `smoke` and `perf` sets (task 2.6).
 - `--timings-out <file>` (C5): with `--set full`, and with or without `--shard`, the pass writes its per-file timings to `<file>`, in the same format, and never to the committed engine file; with more than one engine, or with `smoke`, `perf` or `all`, it is refused. The runner copies the engine's committed file (or an empty `{"version": 1, "files": {}}`) to `<file>` and gives `bun test` `--timings <file> --update-timings`, so the shard is still balanced by the committed timings. Needs probe (task 5.2): whether Bun, under `--shard`, keeps or drops the entries of files the shard did not run.
-- **Merging shard timings** (C5): `tools/ci/merge-timings.ts <base> <shard file>… --out <file>` takes, for each path, the value of the one shard file that differs from `<base>` (or holds a path `<base>` lacks), else `<base>`'s; two shard files that both differ on a path is an error. It works whichever way the probe answers. The nightly's `timings` job downloads each engine's shard artifacts, merges them and uploads one file per engine; committing them stays manual (Workflow follow-up).
+- **Merging shard timings** (C5): `tools/ci/merge-timings.ts <base> <shard file>… --out <file>` takes, for each path, the value of the one shard file that differs from `<base>` (or holds a path `<base>` lacks), else `<base>`'s; two shard files that both differ on a path is an error. It reads both maps by own key only (`Object.hasOwn`) and builds its output with `Object.fromEntries`, so a path named `__proto__` or `constructor` round-trips (review 5.5, X-2). It works whichever way the probe answers (task 5.2: Bun drops the entries of files the shard did not run). The nightly's `timings` job downloads each engine's shard artifacts, merges them and uploads one file per engine; committing them stays manual (Workflow follow-up).
 
 The perf set never takes `--parallel` or `--shard`. It runs its files one at a time, with the engines in turn, after the other set has finished.
 
@@ -241,9 +246,9 @@ Each `bun test` worker gives the session processes it starts a runtime folder of
 
 Task 6.1 appends this text to the row, after "Node 24 and 26.", and changes nothing else in it:
 
-> **CI cadence:** every pull request that changes more than documents runs, on Linux, the browser smoke set in Chromium (the files that cover the checks above, listed with every browser file's engines in the suite manifest) and the conformance suite in its three configurations on Bun; every night `main` runs, on Linux, every browser file in each engine the manifest gives it, the timed checks in a perf pass of their own (serially, judged on the median of three runs) and the conformance suite on Node 24 and 26; every week and before every release the same runs on macOS, with conformance on Bun, Node 24 and Node 26. A browser file runs in all three engines unless a requirement names fewer, and its manifest entry cites it.
+> **CI cadence:** every pull request that changes more than documents runs, on Linux, the browser smoke set in Chromium (the files that cover the checks above, listed with every browser file's engines in the suite manifest) and the conformance suite in its three configurations on Bun; every night `main` runs, on Linux, every browser file in each engine the manifest gives it, the timed checks in a perf pass of their own (serially, judged on the median of three runs) and the conformance suite on Node 24 and 26; every week and before every release the same runs on macOS, with conformance on Bun, Node 24 and Node 26, except that the release may leave out an engine whose failures open Issues track, naming them. A browser file runs in all three engines unless a requirement names fewer, and its manifest entry cites it.
 
-The clause carries Node 26 by Q1's answer (2026-11-14). The frontmatter's `updated` is set to the task's date, and `sources` gains one line for this change's defaults, after kanban-order's line, which is on `main` (M2).
+The clause carries Node 26 by Q1's answer (2026-11-14), and the release's exception by C6, stated as a rule rather than naming Firefox, so the row stays true once #174 and #145 close. The frontmatter's `updated` is set to the task's date, and `sources` gains one line for this change's defaults, after kanban-order's line, which is on `main` (M2).
 
 ### 9. CLAUDE.md
 
@@ -252,8 +257,9 @@ Task 6.2 edits only these, in the CI section #173 wrote and in Development comma
 - the composition bullet: `ci.yml` composes `openspec.yml`, `check.yml` and `codex.yml`; `e2e.yml` composes `browser.yml` (now with its set, engines, shards, workers, shared build and `code` inputs; its Playwright cache unchanged) and `conformance.yml` (runtimes and the shared build);
 - the `changed-paths.sh` bullet: the e2e jobs read the same `code` output;
 - the Triggers bullet: its sentence "Browser and conformance run only on demand (`workflow_dispatch`): run them locally (…) before a merge that touches the view, the server or the conformance suite" becomes the cadence of decision 1, and the local rule becomes `bun run test:e2e:smoke` before every pull request that touches the view, the server or the conformance suite, and `bun run test:e2e` before one that changes the harness, the runner or a widget's rendering; the "Known: WebKit …" sentence stays unless task 0.6 shows it fixed or filed;
+- the release bullet (Development commands): the release also runs the browser and conformance suites on macOS before `publish` (`e2e-macos`), in Chromium and WebKit until #174 and #145 close (C6);
 - the ruleset bullet: one clause saying that the e2e statuses are not required checks (Q2's answer, 2026-11-14), so a red e2e job does not block a merge;
-- the Development commands lines for `test:e2e`, the new `test:e2e:smoke`, and the runner's `--set`, `--workers`, `--shard` and `--update-timings`; the sentence on `--engines a,b` and `--serial` says that the engines now always run in turn (decision 5).
+- the Development commands lines for `test:e2e`, the new `test:e2e:smoke`, and the runner's `--set`, `--workers`, `--shard`, `--update-timings` and `--timings-out`; the sentence on `--engines a,b` and `--serial` says that the engines now always run in turn (decision 5).
 
 A red scheduled run is filed by whoever sees it, as The backlog says, with `source:e2e`. The workflow writes no Issues, because it holds no write token (decision 3).
 
@@ -302,8 +308,10 @@ None of these is a Claude Code run-time assumption. All concern tools.
 - **[The known WebKit failure]** → CLAUDE.md records that WebKit fails on "ten presses of Tab never reached Answer", and no Issue names it (searched 2026-11-14). The nightly WebKit shards would be red from the first night. Task 0.6 reproduces it and files it under The backlog if it holds.
 - **[Linux has never run these suites]** → The first runs may fail on Linux-only faults: signals (#160 was macOS-only), socket paths, fonts in text measurement, WebKit on Linux. The pull request's own run is the first probe. A fault in the harness is fixed in this change. A product fault becomes an Issue (`source:review`, its area, Origin naming this change and the run), and the PO decides whether it blocks.
 - **[A probe misses a late send]** → Decision 7: timers are named and waited for, each probe is checked by mutation in every engine, and `quiet(reason)` remains for the rest.
-- **[Parallel files contend for the CPU and slow the functional timeouts]** → The timed checks have left the parallel set. `STEP_TIMEOUT_MS` and `LOAD_TIMEOUT_MS` are left as they are. The engines run in turn (C2), which task 0.3 found faster and quieter than three at once. Of its four load-only failures, `header`'s came from the shared session folder (decision 5a); the other three (`uj2-editing-plus`, Firefox's Chart and Approval tests) are watched in task 7.2's runs, and each that recurs becomes an Issue (`source:e2e`).
+- **[Parallel files contend for the CPU and slow the functional timeouts]** → The timed checks have left the parallel set. `STEP_TIMEOUT_MS` and `LOAD_TIMEOUT_MS` are left as they are. The engines run in turn (C2), which task 0.3 found faster and quieter than three at once. Of its four load-only failures, `header`'s came from the shared session folder (decision 5a); the other three (`uj2-editing-plus`, now #191; Firefox's Chart and Approval tests) are watched in task 7.2's runs, and each that recurs becomes an Issue (`source:e2e`). Group 4's runs added WebKit's Chart Keep mine test, which collects after one applied act where two were sent (#192), and one `reopen-session` failure in Chromium that passed alone (task 4.6).
 - **[Engine-specific faults are found a day late]** → Weekly macOS and the release gate catch macOS. The nightly run catches Firefox and WebKit within a day. The smoke set keeps the spine's checks on every pull request.
+- **[Firefox's known failures would block every release]** → C6: the release gate leaves Firefox out until #174 and #145 close. The cost: a Firefox-only regression on macOS can be released; the nightly run (Linux) shows it within a day and the weekly run (macOS) within a week. Whoever closes the second of the two Issues restores Firefox in `release.yml` (one input).
+- **[The release run shares its artifacts and cache with the e2e jobs]** → X-1: `publish` and `smoke-linux` read the release artifact by its numeric ID, and the release's e2e jobs restore no Playwright cache (decision 1). The release's e2e jobs therefore download the engines each time, a few minutes more.
 - **[Shard imbalance]** → Committed timings files. A stale file costs time, not coverage: Bun's `--shard` covers every file.
 - **[Release takes longer]** → The macOS suite adds roughly 15 to 30 min before `publish`, beside `smoke-linux`. The PO dispatches releases by hand and rarely.
 - **[Nightly failures go unseen]** → GitHub notifies the PO about a failing scheduled workflow. Decision 9 puts filing in The backlog's hands.
