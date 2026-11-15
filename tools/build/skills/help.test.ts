@@ -551,14 +551,17 @@ describe("configure-keys.md's rules", () => {
     const open = lineWith("another action of the board takes");
     expect(open).toContain("`keys.open`");
     expect(keyOverridesProblems({ "keys.open": ["n"] })).toMatchObject([
-      { rule: "conflict", action: "keys.open", binding: expect.any(String) },
+      { rule: "conflict", action: "keys.open", with: "board.nextOpen" },
     ]);
-    expect(keyOverridesProblems({ "keys.open": ["n"] })[0]?.binding).toBeDefined();
     const sharing = lineWith("cannot share a key");
     expect(sharing).toMatch(/board/);
-    expect(
-      keyOverridesProblems({ "board.nextOpen": ["Shift+n"] }).map(({ rule }) => rule),
-    ).toContain("conflict");
+    expect(keyOverridesProblems({ "board.nextOpen": ["Shift+n"] })).toContainEqual(
+      expect.objectContaining({
+        rule: "conflict",
+        action: "board.nextOpen",
+        with: "board.previousOpen",
+      }),
+    );
   });
 
   test("says a refused keys leaves the board's own keys and every widget's at their defaults", () => {
