@@ -64,3 +64,14 @@ export const boardKeysAsk = (presentation: Presentation, suffix = "a1"): Ask => 
     area("data", "Data", [ranking, choice("q4", "Is step four needed?")]),
   ],
 });
+
+/** Three plain questions with no areas: the board a test answers down to one open question. */
+export const threeChoicesAsk = (suffix = "c1"): Ask => ({
+  askId: `board-keys-three-${suffix}`,
+  title: "Release steps",
+  items: [
+    choice("q1", "Is step one needed?"),
+    choice("q2", "Is step two needed?"),
+    choice("q3", "Is step three needed?"),
+  ],
+});

@@ -9,7 +9,12 @@
 import { describe, expect, test } from "bun:test";
 import type { Locator } from "playwright";
 import { singleAnsweringAsk } from "./fixtures/answering-flow-asks.ts";
-import { boardKeysAsk, KEYS_QUESTIONS, type Presentation } from "./fixtures/board-keys-asks.ts";
+import {
+  boardKeysAsk,
+  KEYS_QUESTIONS,
+  type Presentation,
+  threeChoicesAsk,
+} from "./fixtures/board-keys-asks.ts";
 import {
   eventually,
   expectNoCspProblem,
@@ -21,12 +26,14 @@ import {
 import type { Board } from "./harness/dom.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import {
+  answerOf,
   card,
   headingOf,
   lifecycleScenario,
   noteOf,
   openBoard,
   optionOf,
+  tabTo,
 } from "./harness/lifecycle-test.ts";
 import { viewSettled } from "./harness/probes.ts";
 import { orderShown, rowOf } from "./harness/ranking-drag.ts";
@@ -34,6 +41,25 @@ import { readViewBuild } from "./harness/view-build.ts";
 
 const dist = await readViewBuild();
 const IDS = [...KEYS_QUESTIONS];
+
+type KeySeen = { readonly key: string; readonly prevented: boolean };
+type Watched = { __keys?: KeySeen[] };
+
+/** Records each `keydown` as the window sees it, after every handler of the view's document. */
+const watchKeys = (board: Board): Promise<void> =>
+  board.view.locator("body").evaluate(() => {
+    const seen: KeySeen[] = [];
+    (window as unknown as Watched).__keys = seen;
+    window.addEventListener("keydown", (event) =>
+      seen.push({ key: event.key, prevented: event.defaultPrevented }),
+    );
+  });
+const lastKeyOf = async (board: Board): Promise<KeySeen | undefined> => {
+  const seen = await board.view
+    .locator("body")
+    .evaluate(() => (window as unknown as Watched).__keys);
+  return seen?.at(-1);
+};
 
 const open = async (
   start: ReturnType<typeof useEngine>["start"],
@@ -45,7 +71,9 @@ const open = async (
     dist,
   );
   const run = await start(config === undefined ? scenario : { ...scenario, config });
-  return { run, board: await openBoard(run, IDS) };
+  const board = await openBoard(run, IDS);
+  await watchKeys(board);
+  return { run, board };
 };
 
 const boardPanel = (board: Board): Locator =>
@@ -82,10 +110,12 @@ const focusOption = async (board: Board, id: string): Promise<Locator> => {
   return option;
 };
 
-/** A key the view must leave alone: pressed, settled, and the focus did not move. */
+/** A key the view must leave alone: pressed, settled, not prevented, and the focus did not move. */
 const expectKeyIgnored = async (board: Board, key: string, held: Locator): Promise<void> => {
   await board.page.keyboard.press(key);
   await viewSettled(board);
+  // Left to the browser: the key reached the window and its default was not prevented.
+  expect((await lastKeyOf(board))?.prevented).toBe(false);
   expect(await isFocused(held)).toBe(true);
   expect(await boardPanel(board).count()).toBe(0);
 };
@@ -123,6 +153,16 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await board.page.keyboard.press("n");
         await expectClearOfBars(board, "q2");
         expect(await card(board, "q2").isVisible()).toBe(true);
+        expect(await card(board, "q1").isVisible()).toBe(false);
+        await viewSettled(board);
+        await board.page.keyboard.press("Shift+N");
+        await expectClearOfBars(board, "q1");
+        expect(await card(board, "q1").isVisible()).toBe(true);
+        expect(await card(board, "q2").isVisible()).toBe(false);
+        await viewSettled(board);
+        await board.page.keyboard.press("Shift+N");
+        await expectClearOfBars(board, "q4");
+        expect(await card(board, "q4").isVisible()).toBe(true);
         expect(await card(board, "q1").isVisible()).toBe(false);
       },
       TEST_TIMEOUT_MS,
@@ -210,6 +250,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       async () => {
         const run = await start(lifecycleScenario(singleAnsweringAsk, dist));
         const board = await openBoard(run, ["only"]);
+        await watchKeys(board);
         const option = await focusOption(board, "only");
         await expectKeyIgnored(board, "n", option);
         await expectKeyIgnored(board, "Shift+N", option);
@@ -282,6 +323,167 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await expectKeyIgnored(board, "n", option);
         await board.page.keyboard.press("j");
         await expectClearOfBars(board, "q2");
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "from an option with a question between them answered: N and Shift+N skip it both ways",
+      async () => {
+        const { board } = await open(start, "sections");
+        await optionOf(board, "q2", "Yes").click();
+        await answerOf(board, "q2").click();
+        await viewSettled(board);
+        await focusOption(board, "q1");
+        await board.page.keyboard.press("n");
+        await expectClearOfBars(board, "rank");
+        await viewSettled(board);
+        await board.page.keyboard.press("Shift+N");
+        await expectClearOfBars(board, "q1");
+        await viewSettled(board);
+        await board.page.keyboard.press("Shift+N");
+        await expectClearOfBars(board, "q4");
+        await viewSettled(board);
+        await board.page.keyboard.press("Shift+N");
+        await expectClearOfBars(board, "rank");
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "one question per view: the header's Next open, pressed first, shows the second question",
+      async () => {
+        const { board } = await open(start, "one-per-view");
+        await board.view
+          .getByRole("banner")
+          .getByRole("button", { name: /^Next open/ })
+          .click();
+        await expectClearOfBars(board, "q2");
+        expect(await card(board, "q2").isVisible()).toBe(true);
+        expect(await card(board, "q1").isVisible()).toBe(false);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "every other question answered: the jump is disabled, and N is left to the browser",
+      async () => {
+        const run = await start(lifecycleScenario(threeChoicesAsk(), dist));
+        const board = await openBoard(run, ["q1", "q2", "q3"]);
+        await watchKeys(board);
+        for (const id of ["q2", "q3"]) {
+          await optionOf(board, id, "Yes").click();
+          await answerOf(board, id).click();
+        }
+        await viewSettled(board);
+        const option = await focusOption(board, "q1");
+        const jump = board.view.getByRole("banner").getByRole("button", { name: /^Next open/ });
+        await eventually(() => jump.isDisabled(), "the jump disabled");
+        await expectKeyIgnored(board, "n", option);
+        await expectKeyIgnored(board, "Shift+N", option);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "an SVG node inside a widget is the widget's: N from it moves nothing and is not prevented",
+      async () => {
+        const { board } = await open(start, "sections");
+        const row = rowOf(board, "c");
+        await row.focus();
+        await viewSettled(board);
+        await row.evaluate((element) => {
+          const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+          svg.id = "probe-svg";
+          element.appendChild(svg);
+          svg.dispatchEvent(new KeyboardEvent("keydown", { key: "n", bubbles: true }));
+        });
+        await viewSettled(board);
+        expect(await isFocused(row)).toBe(true);
+        for (const id of IDS) expect(await isFocused(headingOf(board, id))).toBe(false);
+        expect((await lastKeyOf(board))?.prevented).toBe(false);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "the jump's tooltip, reached by Tab, shows its name with N, and aria-keyshortcuts is N",
+      async () => {
+        const { board } = await open(start, "sections");
+        const jump = board.view.getByRole("banner").getByRole("button", { name: /^Next open/ });
+        await tabTo(board, jump);
+        const tooltip = board.view.getByRole("tooltip");
+        await tooltip.waitFor({ state: "visible", timeout: STEP_TIMEOUT_MS });
+        const text = (await tooltip.textContent()) ?? "";
+        expect(text).toContain("Next open");
+        expect(text).toContain("N");
+        expect(await jump.getAttribute("aria-keyshortcuts")).toBe("N");
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "? lists next open, previous open, answer, send a follow-up and the keys panel with their keys, and the note on text fields and widgets",
+      async () => {
+        const { board } = await open(start, "sections");
+        await focusOption(board, "q1");
+        await board.page.keyboard.press("?");
+        await boardPanel(board).waitFor({ timeout: STEP_TIMEOUT_MS });
+        const rows = boardPanel(board).locator("li");
+        const wanted = [
+          ["Next open", /^N$/],
+          ["Previous open", /^(Shift\+N|⇧N)$/],
+          ["Answer the question in focus", /^(Ctrl\+Enter|⌘↩)$/],
+          ["Send the follow-up", /^(Ctrl\+Enter|⌘↩)$/],
+        ] as const;
+        for (const [name, caps] of wanted) {
+          const row = rows.filter({ hasText: name });
+          expect(await row.count()).toBe(1);
+          const keys = (await row.locator("kbd").allTextContents()).join("");
+          expect(keys).toMatch(caps);
+        }
+        const keysRow = rows.filter({ has: board.view.locator("kbd", { hasText: /^\?$/ }) });
+        expect(await keysRow.count()).toBe(1);
+        expect(await boardPanel(board).textContent()).toContain(
+          "These keys do nothing in a text field or inside a widget",
+        );
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a user file giving next open J: the jump's tooltip shows J, and the panel marks next open customised",
+      async () => {
+        const { board } = await open(start, "sections", {
+          user: { version: "1.0", keys: { "board.nextOpen": ["j"] } },
+        });
+        const jump = board.view.getByRole("banner").getByRole("button", { name: /^Next open/ });
+        await eventually(async () => (await jump.getAttribute("aria-keyshortcuts")) === "J", "J");
+        await tabTo(board, jump);
+        const tooltip = board.view.getByRole("tooltip");
+        await tooltip.waitFor({ state: "visible", timeout: STEP_TIMEOUT_MS });
+        expect(await tooltip.locator("kbd").allTextContents()).toEqual(["J"]);
+        await keysButton(board).click();
+        await boardPanel(board).waitFor({ timeout: STEP_TIMEOUT_MS });
+        const row = boardPanel(board).locator("li").filter({ hasText: "Next open" });
+        expect(await row.textContent()).toContain("customised");
+        expect(await row.locator("kbd").allTextContents()).toEqual(["J"]);
+        const other = boardPanel(board).locator("li").filter({ hasText: "Previous open" });
+        expect(await other.textContent()).not.toContain("customised");
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "an ended board has no Keys button",
+      async () => {
+        const { run, board } = await open(start, "sections");
+        await keysButton(board).waitFor({ timeout: STEP_TIMEOUT_MS });
+        await run.session.update([{ action: "close" }]);
+        await board.header
+          .getByText("Closed", { exact: true })
+          .waitFor({ timeout: STEP_TIMEOUT_MS });
+        expect(await keysButton(board).count()).toBe(0);
       },
       TEST_TIMEOUT_MS,
     );

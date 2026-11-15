@@ -6,7 +6,7 @@
 import type { KeyEntry } from "@askboard/contract";
 import { useEffect, useRef } from "react";
 import { keyPressOf } from "../catalog/keys/press.ts";
-import { boardKeyScopeOf, type ScopeElement } from "./board-key-scope.ts";
+import { boardKeyScopeOf, scopeTargetOf } from "./board-key-scope.ts";
 import { boardKeyActOf } from "./use-board-keys.ts";
 
 /** What each action does; one that is undefined is unavailable. `keysOpen` gets the element that had the focus. */
@@ -16,20 +16,18 @@ export type BoardKeyHandlers = {
   readonly keysOpen: ((from: HTMLElement | null) => void) | undefined;
 };
 
-const elementOf = (target: EventTarget | null): HTMLElement =>
-  target instanceof HTMLElement ? target : document.body;
-
 export const useBoardKeys = (handlers: BoardKeyHandlers, table: readonly KeyEntry[]): void => {
   const latest = useRef({ handlers, table });
   latest.current = { handlers, table };
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const { handlers: now, table: keys } = latest.current;
-      const target = elementOf(event.target);
+      // Any element is the target, an SVG or MathML node inside a widget included (review S-10).
+      const target = scopeTargetOf(event.target, document.body);
       const act = boardKeyActOf(
         keys,
         keyPressOf(event),
-        boardKeyScopeOf(target as ScopeElement),
+        boardKeyScopeOf(target),
         {
           nextOpen: now.nextOpen !== undefined,
           previousOpen: now.previousOpen !== undefined,
@@ -42,7 +40,8 @@ export const useBoardKeys = (handlers: BoardKeyHandlers, table: readonly KeyEntr
       event.preventDefault();
       if (act === "board.nextOpen") now.nextOpen?.();
       else if (act === "board.previousOpen") now.previousOpen?.();
-      else now.keysOpen?.(target === document.body ? null : target);
+      else
+        now.keysOpen?.(target instanceof HTMLElement && target !== document.body ? target : null);
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);

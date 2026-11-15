@@ -34,3 +34,18 @@ export const boardKeyScopeOf = (target: ScopeElement | null | undefined): BoardK
   }
   return { card: questionId };
 };
+
+/**
+ * The element a key press is read from: the event's target when it is an element of any kind (HTML,
+ * SVG or MathML all have `closest`), else the fallback, the body. A focused SVG or MathML node inside
+ * a widget is the widget's, so it is never taken for the body (board-keys, review S-10).
+ */
+export const scopeTargetOf = <Fallback extends ScopeElement>(
+  target: unknown,
+  fallback: Fallback,
+): ScopeElement | Fallback =>
+  typeof target === "object" &&
+  target !== null &&
+  typeof (target as { closest?: unknown }).closest === "function"
+    ? (target as ScopeElement)
+    : fallback;

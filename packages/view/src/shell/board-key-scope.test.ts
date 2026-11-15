@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { type BoardKeyScope, boardKeyScopeOf } from "./board-key-scope.ts";
+import { type BoardKeyScope, boardKeyScopeOf, scopeTargetOf } from "./board-key-scope.ts";
 
 // Where the board's keys act (board-keys, design decision 2), over element stand-ins: a node has a
 // tag, attributes and a parent, and `closest` reads a selector list of the forms the module uses.
@@ -116,5 +116,22 @@ describe("board: everywhere else", () => {
 
   test("an anchor with no href is no link", () => {
     expect(scope(make("a", {}, q1))).toEqual({ card: "q1" });
+  });
+});
+
+describe("scopeTargetOf: the element a key press is read from", () => {
+  test("an element, HTML or not, is its own target: an SVG inside a widget item gives none", () => {
+    const widget = make("div", { "data-askboard-item": "grid-1" }, q1);
+    const svg = make("svg", {}, widget);
+    expect(scopeTargetOf(svg, body)).toBe(svg);
+    expect(scope(scopeTargetOf(svg, body) as Node)).toBe("none");
+    expect(scope(scopeTargetOf(make("math", {}, widget), body) as Node)).toBe("none");
+  });
+
+  test("a target with no `closest` (the document, the window, a text node, nothing) is the body", () => {
+    for (const target of [null, undefined, {}, { nodeType: 9 }, "x"]) {
+      expect(scopeTargetOf(target, body)).toBe(body);
+    }
+    expect(scope(scopeTargetOf(null, body) as Node)).toBe("board");
   });
 });
