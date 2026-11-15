@@ -11,7 +11,6 @@ import type { Locator } from "playwright";
 import { answerKeyAsk } from "./fixtures/answer-key-asks.ts";
 import { singleAnsweringAsk } from "./fixtures/answering-flow-asks.ts";
 import { reviewedAsk } from "./fixtures/approval-asks.ts";
-import { planAsk } from "./fixtures/widget-asks.ts";
 import { decisionOf } from "./harness/approval-board.ts";
 import {
   eventually,
@@ -36,11 +35,11 @@ import {
   sentActs,
 } from "./harness/lifecycle-test.ts";
 import { hostSettled, viewSettled } from "./harness/probes.ts";
-import { treeGridOf } from "./harness/tree-grid.ts";
+import { orderShown, rowOf } from "./harness/ranking-drag.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 
 const dist = await readViewBuild();
-const IDS = ["db", "regions", "cache", "fields"];
+const IDS = ["db", "regions", "cache", "email", "order"];
 const MOD_ENTER = "Control+Enter";
 
 const open = async (
@@ -93,6 +92,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await eventually(() => isFocused(headingOf(board, "db")), "focus on the heading");
         expect(sentText(run)).toContain("PostgreSQL");
         expect(sentText(run)).not.toContain("SQLite");
+        expect(await optionOf(board, "db", "SQLite").isChecked()).toBe(false);
         await expectSent(board, run, 1);
         expectNoCspProblem(run);
       },
@@ -107,6 +107,10 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await board.page.keyboard.press(MOD_ENTER);
         await said(board, "Answer ready, not sent. 1 ready.");
         expect(await primaryOf(board, "db").getAttribute("aria-pressed")).toBe("true");
+        // The ask pill still reads Waiting: nothing reached the agent.
+        await board.header
+          .getByText("Waiting", { exact: true })
+          .waitFor({ timeout: STEP_TIMEOUT_MS });
         await expectSent(board, run, 0);
       },
       TEST_TIMEOUT_MS,
@@ -151,24 +155,32 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await headingOf(board, "only").focus();
         await board.page.keyboard.press(MOD_ENTER);
         await actsSent(run, 1);
+        expect(sentText(run)).toContain("Yes");
         await expectSent(board, run, 1);
       },
       TEST_TIMEOUT_MS,
     );
 
     test(
-      "a Tree: Mod+Enter on a row sends nothing",
+      "a Ranking's row: Enter keeps the order and makes the question answerable, then Mod+Enter sends nothing and marks nothing ready",
       async () => {
-        const run = await start(lifecycleScenario(planAsk, dist));
-        const board = await openBoard(run, ["plan"]);
-        const tree = treeGridOf(board);
-        await tree.grid.waitFor({ timeout: STEP_TIMEOUT_MS });
-        // A press on a row marks it current; the grid keeps the focus.
-        await tree.cell("design", 0).click({ timeout: STEP_TIMEOUT_MS });
+        const { run, board } = await open(start, "submitted");
+        const primary = primaryOf(board, "order");
+        expect(await primary.isEnabled()).toBe(false);
+        const row = rowOf(board, "b");
+        await row.focus();
+        const order = await orderShown(board);
+        await board.page.keyboard.press("Enter");
+        await eventually(() => primary.isEnabled(), "the Ranking's question answerable");
+        expect(await orderShown(board)).toEqual(order);
+        expect(await primary.getAttribute("aria-pressed")).toBe("false");
+        await row.focus();
         await board.page.keyboard.press(MOD_ENTER);
+        await viewSettled(board);
+        expect(await orderShown(board)).toEqual(order);
+        expect(await primary.getAttribute("aria-pressed")).toBe("false");
+        expect(((await board.status.textContent()) ?? "").trim()).toBe("");
         await expectSent(board, run, 0);
-        // The Tree's own Mod+Shift+Enter is not handled by the Tree yet (no handler reads
-        // `add.child`), so only the card's half is checked here.
       },
       TEST_TIMEOUT_MS,
     );
@@ -224,6 +236,51 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
+      "a held key in submitted delivery: a repeat neither takes the ready mark back nor marks the next question ready",
+      async () => {
+        const { run, board } = await open(start, "submitted");
+        await choose(board, "db", "PostgreSQL");
+        await choose(board, "cache", "Yes");
+        await optionOf(board, "db", "SQLite").focus();
+        await board.page.keyboard.down("Control");
+        await board.page.keyboard.down("Enter");
+        await eventually(
+          async () => (await primaryOf(board, "db").getAttribute("aria-pressed")) === "true",
+          "the first question ready",
+        );
+        // Playwright sends a second down of a key already down with `repeat: true`.
+        await board.page.keyboard.down("Enter");
+        await optionOf(board, "cache", "Yes").focus();
+        await board.page.keyboard.down("Enter");
+        await board.page.keyboard.up("Enter");
+        await board.page.keyboard.up("Control");
+        await viewSettled(board);
+        expect(await primaryOf(board, "db").getAttribute("aria-pressed")).toBe("true");
+        expect(await primaryOf(board, "cache").getAttribute("aria-pressed")).toBe("false");
+        await said(board, "Answer ready, not sent. 1 ready.");
+        await expectSent(board, run, 0);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "the primary's tooltip shows its name with the key, and aria-keyshortcuts is Control+Enter Meta+Enter",
+      async () => {
+        const { board } = await open(start);
+        await choose(board, "db", "PostgreSQL");
+        const primary = primaryOf(board, "db");
+        expect(await primary.getAttribute("aria-keyshortcuts")).toBe("Control+Enter Meta+Enter");
+        await primary.hover();
+        const tooltip = board.view.getByRole("tooltip");
+        await tooltip.waitFor({ state: "visible", timeout: STEP_TIMEOUT_MS });
+        expect(await tooltip.textContent()).toContain("Answer the question in focus");
+        const caps = await tooltip.locator("kbd").allTextContents();
+        expect(caps.join("")).toMatch(/^(Ctrl\+Enter|⌘↩)$/);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
       "a user file giving the answer no key: Mod+Enter does nothing",
       async () => {
         const { run, board } = await open(start, "immediate", {
@@ -236,6 +293,20 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         );
         await board.page.keyboard.press(MOD_ENTER);
         await expectSent(board, run, 0);
+        await primaryOf(board, "db").hover();
+        const tooltip = board.view.getByRole("tooltip");
+        await tooltip.waitFor({ state: "visible", timeout: STEP_TIMEOUT_MS });
+        expect(await tooltip.textContent()).toContain("Answer the question in focus");
+        expect(await tooltip.locator("kbd").count()).toBe(0);
+        await board.view
+          .getByRole("banner")
+          .getByRole("button", { name: "Keys", exact: true })
+          .click();
+        const row = board.view
+          .getByRole("dialog", { name: "Board keys" })
+          .locator("li")
+          .filter({ hasText: "Answer the question in focus" });
+        expect(await row.textContent()).toContain("no key");
       },
       TEST_TIMEOUT_MS,
     );
@@ -278,26 +349,40 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await said(board, "Not answered. Choose what to do with the agent's update first.");
         expect(await notice.count()).toBe(1);
         await expectSent(board, run, 0);
+        // On "Keep mine" itself the key is the card's too: the button is not activated.
+        const keep = notice.getByRole("button", { name: "Keep mine", exact: true });
+        await keep.focus();
+        await board.view.locator("body").evaluate(() => {
+          const w = window as unknown as { __prevented?: boolean[] };
+          w.__prevented = [];
+          window.addEventListener("keydown", (event) =>
+            w.__prevented?.push(event.defaultPrevented),
+          );
+        });
+        await board.page.keyboard.press(MOD_ENTER);
+        await viewSettled(board);
+        const prevented = await board.view
+          .locator("body")
+          .evaluate(() => (window as unknown as { __prevented?: boolean[] }).__prevented);
+        expect(prevented?.at(-1)).toBe(true);
+        expect(await isFocused(keep)).toBe(true);
+        expect(await notice.count()).toBe(1);
+        await expectSent(board, run, 0);
       },
       TEST_TIMEOUT_MS,
     );
 
     test(
-      "a field to fix: the region gives its reason, nothing is sent",
+      "a field to fix: the region gives the reason, nothing is sent, the focus stays on the option",
       async () => {
         const { run, board } = await open(start);
-        await card(board, "fields")
-          .getByRole("textbox", { name: /Service name/ })
-          .fill("a");
-        await card(board, "fields")
-          .getByRole("textbox", { name: /Service name/ })
-          .fill("");
-        await headingOf(board, "fields").focus();
+        await card(board, "email").getByRole("textbox", { name: /Email/ }).fill("ab-1234");
+        await choose(board, "email", "Team");
+        const option = optionOf(board, "email", "Team");
+        await option.focus();
         await board.page.keyboard.press(MOD_ENTER);
-        await eventually(
-          async () => ((await board.status.textContent()) ?? "").startsWith("Not answered."),
-          "the blocked message",
-        );
+        await said(board, "Not answered. Correct Email first.");
+        expect(await isFocused(option)).toBe(true);
         await expectSent(board, run, 0);
       },
       TEST_TIMEOUT_MS,
@@ -325,6 +410,22 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const acts = sentActs(run).flatMap((command) => command.acts.map((act) => act.type));
         expect(acts).toEqual(["follow-up"]);
         await expectSent(board, run, 1);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "Mod+Enter on a button of the thread answers nothing: the thread is not the card's",
+      async () => {
+        const { run, board } = await open(start);
+        await choose(board, "db", "PostgreSQL");
+        await buttonOf(board, "db", "Ask a follow-up").click();
+        const collapse = buttonOf(board, "db", "Collapse");
+        await collapse.focus();
+        await board.page.keyboard.press(MOD_ENTER);
+        await viewSettled(board);
+        expect(((await board.status.textContent()) ?? "").trim()).toBe("");
+        await expectSent(board, run, 0);
       },
       TEST_TIMEOUT_MS,
     );

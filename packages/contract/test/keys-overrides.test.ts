@@ -637,7 +637,7 @@ describe("the board's keys in the default tables (board-keys, D6; contract spec:
   });
 
   test("a key a widget also takes passes, since the board's keys never act inside a widget", () => {
-    expect(check({ "board.answer": ["Mod+Shift+Enter"] })).toEqual([]);
+    expect(check({ "board.answer": ["Mod+Shift+ArrowUp"] })).toEqual([]);
   });
 
   test("the composer's send is an editor action: no typing key", () => {
