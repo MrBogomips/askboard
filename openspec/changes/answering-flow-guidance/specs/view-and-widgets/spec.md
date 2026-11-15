@@ -20,14 +20,14 @@ Each question SHALL have one primary button whose label names its act: "Send ans
 - **THEN** the primary reads "Conferma"
 
 ### Requirement: Act names in these requirements
-In the requirements of this capability, "Answer" SHALL name the question's primary button, Submit the board's "Send {count} answers", Postpone "Later", "Select recommended" "Prefill recommended" and "Next open" the header's "Next to do", whatever their labels; immediate delivery SHALL be "One by one" and submitted delivery "All together". The labels are those of EXPERIENCE.md's Voice and Tone (FR-34).
+In the requirements of this capability, "Answer" SHALL name the question's primary button, Submit the board's "Send {count} answers", Postpone "Later", "Select recommended" "Prefill recommended", "Next open" the header's "Next to do" and previous open "Previous to do", whatever their labels; immediate delivery SHALL be "One by one" and submitted delivery "All together". The labels are those of EXPERIENCE.md's Voice and Tone (FR-34).
 
 #### Scenario: A requirement that presses Answer in submitted delivery
 - **WHEN** a scenario says the user presses "Answer" on a question in submitted delivery
 - **THEN** the act is "Confirm" on that question
 
 ### Requirement: The answer state ladder
-Each question SHALL show one state, as a text label with a shape: To do, Draft, Ready not sent, Not sent yet, Sent, Delivered to the agent, Postponed or Declined, the same on its card, its outline entry and its question-navigator marker. A state SHALL show only when it is true: Sent once the board page has sent the act, Delivered to the agent once the receipt says the agent received it (AD-3, AD-10, NFR-10). A revision, a draft no held or sent undo reopens, SHALL not count as to do.
+Each question SHALL show one state, as a text label with its icon: To do, Draft, Ready not sent, Not sent yet, Sent, Delivered to the agent, Postponed or Declined, the same on its card, outline entry and question-navigator marker. A state SHALL show only when it is true: Sent once the board page has sent the act, Delivered to the agent once the receipt says the agent received it (AD-3, AD-10, NFR-10). A revision, a draft no held or sent undo reopens, SHALL not count as to do.
 
 #### Scenario: Ready, not sent
 - **WHEN** in "All together" the user confirms question 1
@@ -56,6 +56,10 @@ Each question SHALL show one state, as a text label with a shape: To do, Draft, 
 #### Scenario: An answer the agent recorded
 - **WHEN** the agent records an answer to question 1 itself
 - **THEN** its card and its outline entry read "Delivered to the agent"
+
+#### Scenario: The state's icon
+- **WHEN** in "All together" the user confirms question 2
+- **THEN** its card's state line and its outline entry show the state's icon beside "Ready, not sent", hidden from assistive technology
 
 ### Requirement: The after-answer setting
 Every board SHALL offer the presentation setting "After answering", "Go to the next" (the default) or "Stay here", in the settings panel. A change SHALL apply at once and be written as the user-level setting, and a value the project file sets SHALL win and show read-only (FR-35, AD-14).
@@ -111,7 +115,7 @@ The board SHALL not move on after a revision, a note sent or held alone, an undo
 - **THEN** focus stays in question 2's card, which still reads "To do"
 
 ### Requirement: Completion
-When every question of a board of two or more has a logged answer or decline, a revision in progress included, nothing is held and no act is on its way, the board SHALL show a completion panel at the top of its content: "Every question has an answer." and "Sent: {s}. Delivered to the agent: {d}.", counted from the logged receipts only, never from the ask pill. It SHALL never say the agent read anything or that the tab can be closed, nor show on a locked board or in a Snapshot (NFR-10, AD-3).
+When every question of a board of two or more has a logged answer or decline, a revision in progress included, nothing is held and no act is on its way, the board SHALL show a completion panel at the top of its content: "Every question has an answer." and "Sent: {s}. Delivered to the agent: {d}.", counted from the logged receipts, never the ask pill. It SHALL never say the agent read anything or that the tab can be closed, nor show on a locked board or in a Snapshot (NFR-10, AD-3).
 
 #### Scenario: All sent, none collected
 - **WHEN** in "One by one" the user sends the last question to do of nine and the agent has collected none
@@ -187,6 +191,17 @@ The board's own motion SHALL be the move to the next question, scrolled smoothly
 #### Scenario: No preference
 - **WHEN** without a reduced-motion preference the user sends a question with "Go to the next"
 - **THEN** the arrival mark shows on the next question's card and is gone after 1.2 seconds
+
+### Requirement: Note sent under the prompt
+After a note goes alone, the question SHALL show "Note sent {time}" under its open prompt once the command that sends it is done (Send's, in "All together"), never at "Confirm" nor while the note is queued, refused or dropped, and SHALL keep it while the page stays open. {time} SHALL be when the user sent the note, the time the agent's event carries, not when its command was done (FR-7, AD-20, NFR-10).
+
+#### Scenario: A note while the connection is lost
+- **WHEN** the user sends only a note at 10:42 while the connection is lost
+- **THEN** no "Note sent" line shows and the question reads "Not sent yet"; once the connection returns at 10:47 and the note's command is done, the line reads "Note sent 10:42"
+
+#### Scenario: A note held for Send
+- **WHEN** in "All together" the user writes only a note and activates "Confirm", then "Send"
+- **THEN** no "Note sent" line shows after "Confirm"; once Send's command is done, "Note sent" shows under the prompt
 
 ## MODIFIED Requirements
 
@@ -273,7 +288,7 @@ With sections or tabs, the board SHALL show the outline navigator: areas and que
 - **THEN** question 2's outline entry reads "Ready, not sent"
 
 ### Requirement: Counts and the next-open jump
-On a board of two or more questions, in every presentation, the header SHALL show the count to do (to do, first-draft and postponed questions, the postponed ones named apart, never a revision) and "Next to do", which reaches unseen questions the agent added first, then those to do or in a first draft after the question in view, then the postponed ones, each in board order wrapping to the start. The ask pill SHALL show only what the agent has received: "Partly answered n/m", or "answered, 1 postponed" (FR-24).
+On a board of two or more questions, in every presentation, the header SHALL show the count to do (to do, first drafts and postponed, the last named apart; never a revision) and "Next to do", which reaches unseen questions the agent added first, then those to do or in a first draft after the question in view, then the postponed, each in board order, wrapping. The ask pill SHALL show only what the agent has received: "Partly answered n/m", or "answered, 1 postponed" (FR-24).
 
 #### Scenario: A ready answer does not move the pill
 - **WHEN** in submitted delivery the user marks two of three questions ready
@@ -296,19 +311,11 @@ On a board of two or more questions, in every presentation, the header SHALL sho
 - **THEN** the header reads "4 to do (1 postponed)", and "4 da fare (di cui 1 rimandata)" in it-IT
 
 ### Requirement: Open prompt
-Every question SHALL show its open prompt, "Note for the agent (optional)", whose text SHALL leave only with the question's answer or decline, or alone through the primary ("Send the note" in "One by one" sends it; in "All together" "Confirm" holds it and Send sends it), leaving the question to do with "Note sent {time}" under the prompt, shown once the command that sends the note is done (Send's, in "All together"; never at "Confirm", never while the note is queued, refused or dropped) and kept while the page stays open, where {time} SHALL be when the user sent the note (the press that sent it, the time the agent's event carries), not when its command was done; never on typing or blur (FR-7, AD-20, NFR-10). While an item's held result requires a reason, as with an Approval's "Approve with changes", the prompt SHALL read "Reason for the changes (required)" (FR-11).
+Every question SHALL show its open prompt, "Note for the agent (optional)". Its text SHALL leave only with the question's answer or decline, or alone through the primary, which sends it as a note or, in "All together", holds it for Send, and leaves the question to do; never on typing or blur (FR-7, AD-20). While an item's held result requires a reason, as an Approval's "Approve with changes" does, the prompt SHALL read "Reason for the changes (required)" (FR-11, F-04).
 
 #### Scenario: A note without an answer
 - **WHEN** the user writes only a note and presses "Send the note"
 - **THEN** a note is sent, the question still reads "To do" and counts as to do, and "Note sent" shows under the prompt
-
-#### Scenario: A note while the connection is lost
-- **WHEN** the user sends only a note at 10:42 while the connection is lost
-- **THEN** no "Note sent" line shows and the question reads "Not sent yet"; once the connection returns at 10:47 and the note's command is done, the line reads "Note sent 10:42"
-
-#### Scenario: A note held for Send
-- **WHEN** in "All together" the user writes only a note and activates "Confirm", then "Send"
-- **THEN** no "Note sent" line shows after "Confirm"; once Send's command is done, "Note sent" shows under the prompt
 
 #### Scenario: The reason's label
 - **WHEN** the user selects "Approve with changes", then "Reject"
@@ -443,11 +450,15 @@ Changing theme or density from the header's quick toggles or the panel, or the c
 - **THEN** the board turns comfortable, and the panel shows an error under Density naming the file's path
 
 ### Requirement: Focus after Answer and Submit
-When an act leaves the pressed control disabled, focus SHALL move as After an answer, Completion and All ready, nothing sent say, else to the question's heading, as after a revision or a note. After Submit sends, it SHALL move to the completion panel's heading when nothing is left to do, else to the next question to do. The move SHALL happen when the act is taken or its confirmation closes, never when its command settles, and focus SHALL never fall to the page (WCAG 2.2 SC 2.4.3; NFR-12).
+When an act leaves the pressed control disabled, focus SHALL move as After an answer, Completion and All ready, nothing sent say, else to the question's heading, as after a revision or a note. After Submit sends, focus SHALL go to the completion panel's heading, or to the next question to do while one is left. The move SHALL happen when the act is taken or its confirmation closes, never when its command settles, and focus SHALL never fall to the page (WCAG 2.2 SC 2.4.3; NFR-12).
 
 #### Scenario: Answer in sections
 - **WHEN** in "One by one" with sections and "Go to the next" the user selects an option of question 1 and activates "Send answer" with the keyboard
 - **THEN** focus is on the next question to do's heading, not on the page
+
+#### Scenario: Answer in tabs and in one question per view
+- **WHEN** in "One by one" with "Go to the next", with tabs and again in one question per view, the user answers the question shown with the keyboard while another question is to do
+- **THEN** focus is on the next question to do's heading, in its active tab or as the question shown, not on the page
 
 #### Scenario: A note alone in tabs and in one question per view
 - **WHEN** in "One by one" with tabs, and again in one question per view, the user sends only a note on the question shown with the keyboard
@@ -472,6 +483,10 @@ When an act leaves the pressed control disabled, focus SHALL move as After an an
 #### Scenario: Send and switch
 - **WHEN** in submitted delivery with a ready answer the user switches to immediate delivery and confirms "Send and switch", directly or after the dialog that asks before replacing a received verdict
 - **THEN** the held work is sent and focus is on the delivery switch's "One by one"
+
+#### Scenario: Marking ready keeps focus
+- **WHEN** in "All together" the user changes the choice of an answered question and activates "Confirm"
+- **THEN** the change is ready, the board has not moved, and focus stays on the primary, which reads "Edit"
 
 #### Scenario: Edit keeps focus
 - **WHEN** in "All together" the user activates "Edit" on a ready answer
@@ -550,3 +565,104 @@ The board SHALL hold one polite status region outside the cards, present from th
 #### Scenario: In Italian
 - **WHEN** the ask's language is it-IT and an answer "PostgreSQL" is reported sent
 - **THEN** the region's text begins "Risposta inviata: PostgreSQL."
+
+### Requirement: Next and previous open by key
+While the header shows the next-to-do jump, `N`, or the keys the user's file gives that action instead, SHALL do what the jump does, and `Shift+N` SHALL focus the heading of the to-do or first-draft question before the question in view, wrapping to the last, else of the postponed one before it, likewise, scrolled clear of the bars. Each SHALL act only with focus in the view outside a text field, a widget item, a menu and a dialog, and not while an input method composes (NFR-12).
+
+#### Scenario: From an option
+- **WHEN** with sections the focus is on an option of question 2, questions 1, 2 and 4 are to do and 3 is answered, and the user presses `N`, then `Shift+N`, then `Shift+N`
+- **THEN** question 4's heading has focus and lies between the header and the bottom bar, then question 2's, then question 1's
+
+#### Scenario: Wrapping back
+- **WHEN** the question in view is the first question to do and the user presses `Shift+N`
+- **THEN** the heading of the last question to do has focus
+
+#### Scenario: One question per view
+- **WHEN** in one question per view question 3 is shown, questions 1 and 5 are to do, and the user presses `N`, then `Shift+N`
+- **THEN** question 5 is shown with its heading focused, then question 1, the question to do before it
+
+#### Scenario: A letter typed in a field
+- **WHEN** the focus is in a question's note field, then in the "Other…" field, and the user presses `N`
+- **THEN** each field holds "n" and the question in view does not change
+
+#### Scenario: Inside a widget
+- **WHEN** a Ranking's row has the focus and the user presses `N`
+- **THEN** the focus stays on the row and the question in view does not change
+
+#### Scenario: A newly opened board
+- **WHEN** a board has just opened and the user presses `N` before clicking or focusing inside it
+- **THEN** nothing in the board moves and nothing has focus in it
+
+#### Scenario: No open question to go to
+- **WHEN** every other question is answered and the user presses `N` with the focus on an option
+- **THEN** the focus stays on the option and the key's default action is not prevented
+
+#### Scenario: A key with another modifier
+- **WHEN** the focus is on an option and the user presses Alt+N, then Ctrl+N on Linux
+- **THEN** the question in view does not change and neither key's default action is prevented
+
+#### Scenario: Postponed questions last
+- **WHEN** the question in view is question 5, question 2 is to do, question 3 is postponed, the others are answered, and the user presses `Shift+N` twice
+- **THEN** question 2's heading has focus, then question 3's
+
+#### Scenario: The action's name
+- **WHEN** the "Board keys" panel is open in en-US, then in it-IT
+- **THEN** it names the action of `Shift+N` "Previous to do", then "Precedente da fare"
+
+### Requirement: Answer by key
+`Mod+Enter` (`Ctrl` on Linux, `Cmd` on macOS), or the user's keys for that action, with focus on a question card's own controls outside a text field, a widget item, a link and the follow-up thread, SHALL act as a press of that question's primary button, the one that answers it, through its gates, confirmations and focus moves. The key SHALL change no choice, SHALL be taken there whether it acts or not, and a held key's repeats SHALL do nothing (NFR-12, NFR-10).
+
+#### Scenario: Immediate delivery
+- **WHEN** in immediate delivery with "Go to the next" the user selects "PostgreSQL" on question 1 while question 2 is to do, moves the focus to another option without selecting it, and presses `Mod+Enter`
+- **THEN** one command carrying "PostgreSQL" reaches `board-host`, the other option is not selected, and focus is on question 2's heading
+
+#### Scenario: Submitted delivery
+- **WHEN** in submitted delivery the user selects an option and presses `Mod+Enter` on it
+- **THEN** the question is ready and not sent, the status region says the answer is ready and not sent, and the ask pill still shows "Waiting"
+
+#### Scenario: A multiple choice's box
+- **WHEN** a question with several choices has one box ticked and the user presses `Mod+Enter` on another, unticked box
+- **THEN** the answer carries only the ticked box, and the other box stays unticked
+
+#### Scenario: The single-question board
+- **WHEN** on the single-question board the user selects an option and presses `Mod+Enter` on the heading
+- **THEN** the answer is sent as with the primary button
+
+#### Scenario: A held key
+- **WHEN** with "Go to the next", and again with "Stay here", the user presses `Mod+Enter` on a question with a choice and holds it, so that the key repeats on the control the focus moved to after the answer
+- **THEN** one answer is sent, no other question is answered or marked ready, and "Continue" is not activated
+
+#### Scenario: Inside a widget
+- **WHEN** a question holds only a Ranking, the user presses Enter on a row, which keeps the order and makes the question answerable, then presses `Mod+Enter` on that row
+- **THEN** the Ranking keeps the order, no command reaches `board-host`, nothing is marked ready, and the status region says nothing
+
+#### Scenario: A received verdict
+- **WHEN** the agent has received a verdict, the user changes it and presses `Mod+Enter` on the card
+- **THEN** the dialog that asks before replacing it opens, and Cancel sends nothing and returns the focus to where it was
+
+### Requirement: Icons beside their labels
+Each mark the board drew as a glyph or as an inline SVG of its own SHALL be an icon of the icon module, beside its text label where it has one (DESIGN, Icons). A glyph quoted in a label in this specification or in EXPERIENCE.md (↓ ↩ ↻ ↗ ✓ ✕ ×) SHALL be drawn as that icon: it SHALL be neither text of the label nor part of its accessible name. An icon SHALL take the text colour of the element that holds it (NFR-12, FR-34).
+
+#### Scenario: The header's next-open jump
+- **WHEN** a board of three questions to do in sections is shown in en-US, then in it-IT
+- **THEN** the header's jump reads "Next to do", then "Prossima da fare", followed by the arrow-right icon, and its accessible name is that text alone
+
+#### Scenario: A reference's hint
+- **WHEN** the context column shows a GITHUB reference and a FILE reference
+- **THEN** the GITHUB reference's hint reads "opens in browser" followed by the external-link icon, and the FILE reference's hint "opens in a reading panel" has no icon
+
+#### Scenario: The Approval's selected decision
+- **WHEN** the user selects "Reject", then presses it again
+- **THEN** "Reject" first shows the check icon before its text with the accessible name "Reject", then shows no check icon
+
+#### Scenario: The widgets' own marks
+- **WHEN** a Tree with a parent node and draggable rows, a Ranking and a date field are shown
+- **THEN** the Tree's chevron, both drag grips and the calendar button each draw an icon of the module, and the chevron points right when its node is closed and down when it is open
+
+#### Scenario: Icons follow the text colour
+- **WHEN** a board showing the header's jump, the outline's marks and a reference's hint is shown in the light theme, then in the dark theme
+- **THEN** each icon's computed stroke equals the computed colour of the element that holds it
+
+#### Scenario: Key names stay text
+- **WHEN** the Ranking's keys panel is open
+- **THEN** every key cap in it is text, its arrows and Enter included, and no key cap holds an icon
