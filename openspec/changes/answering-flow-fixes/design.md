@@ -33,13 +33,15 @@ Constraints: AD-1 (all code stays in `view`, with no new import edge), AD-8 (age
 
 ### D1. Focus after an act follows the act's result (#179)
 
-`answer()` reports what it did, as a new `AnswerResult`: `"sent"` (an answer command started), `"note-sent"`, `"held"` (marked ready), `"released"` (un-marked), `"needs-reason"`, or `undefined` (blocked, nothing done). `AnswerOutcome` and `pressAnswer`'s `onOutcome` carry it. The card acts on the result:
+`answer()` reports what it did, as a new `AnswerResult`: `"sent"` (an answer command started), `"note-sent"`, `"held"` (an answer marked ready), `"released"` (un-marked), `"note-held"` and `"note-released"` (a note alone, held or un-held in submitted delivery; review finding S-2), `"needs-reason"`, or `undefined` (blocked, nothing done). A held note has a value of its own so that no reader can take it for a ready answer (D4). `AnswerOutcome` and `pressAnswer`'s `onOutcome` carry it. The card acts on the result:
 
 - `sent` and `note-sent`: focus goes to the question's heading through D2's helper. This holds at once, and on a confirmation: `settleConfirmation` gives `{to: "heading"}` for a confirmed answer that sent, and the control for one that marked ready.
-- `held` and `released`: focus stays on "Answer", which stays enabled.
+- `held`, `released`, `note-held` and `note-released`: focus stays on "Answer", which stays enabled.
 - "Accept recommended" takes the same path (`onAccept` → `onAnswer`).
 
-Submit: `BottomBar` gains `onSubmitted()`. It runs once `sendActsOf` has sent, from the button and from the replace dialog. The dialog's `onCloseAutoFocus` gives the Submit button back only when nothing was sent. The board wires `onSubmitted` to focus the heading of the question in view (D3), or the first question when none is set. "Send and switch" is unchanged: Radix gives focus back to the switch, which stays enabled.
+Submit: `BottomBar` gains `onSubmitted()`. It runs once `sendActsOf` has sent, from the button and from the replace dialog. The dialog's `onCloseAutoFocus` gives the Submit button back only when nothing was sent. The board wires `onSubmitted` to focus the heading of the question in view (D3), or the first question when none is set.
+
+"Send and switch" is not Submit: the user's act is the switch. Both alert dialogs have no trigger, so Radix restores no focus (task 2.4 saw it fall to `<body>`). The switch dialog's `onCloseAutoFocus` focuses the switch's "Immediate", the control that opened it, as the dialog pattern asks. It leaves focus alone when it has already moved out of the dialog: a refused send that took the board to a question's prompt or heading, or the replace dialog opening. When the send goes through the replace dialog, that dialog's close also gives "Immediate", never Submit, which is disabled in immediate delivery (task 2b.1).
 
 The move happens when the act is taken, or when its dialog closes. It never happens when the command settles, so it cannot take focus the user has moved during the flight.
 
@@ -83,7 +85,7 @@ The outline and the jump read `draft.inView` as today, so the code that reads it
 | Message | Raised where | When |
 |---|---|---|
 | `status.answerSent`, `status.answerSentPlain`, `status.noteSent`, `status.submitted` | `dispatch`'s reply, through a new optional `Senders.status` | Only on outcome `sent`. `queued` and `refused` say nothing here: the connection banner, the "not sent yet" receipt and the size lines speak for them. |
-| `status.ready` | the card, on result `held` | Count: the questions holding a ready answer after the act. |
+| `status.ready` | the card, on result `held` | Count: the questions holding a ready answer after the act, held notes left out. A held note (`note-held`) announces nothing: "Answer ready, not sent" would describe a question with no answer (NFR-10; review finding S-2), and no accepted string names a held note. Change 4 may add one. |
 | `status.prefilled` | `board.tsx`, from `selectRecommended`'s count | Every press, 0 included. |
 | `status.added` | `applyDocumentUpdate` | Questions new to the board in an agent's update. Never the boot document, never a restore. Focus is not touched. |
 | `navigator.removed` (existing) | `onRemoval` | The question in view was deleted, in any presentation. The navigator line still shows only in one question per view. |

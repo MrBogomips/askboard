@@ -27,6 +27,10 @@ When "Answer" or "Accept recommended" sends at once (immediate delivery, the sin
 - **WHEN** in submitted delivery two answers are ready and the user activates Submit
 - **THEN** focus is on the heading of the question in view, not on the page
 
+#### Scenario: Send and switch
+- **WHEN** in submitted delivery with a ready answer the user switches to immediate delivery and confirms "Send and switch", directly or after the dialog that asks before replacing a received verdict
+- **THEN** the held work is sent and focus is on the delivery switch's "Immediate"
+
 #### Scenario: Marking ready keeps focus
 - **WHEN** in submitted delivery the user activates "Answer" on a question with a choice
 - **THEN** the answer is ready and focus stays on "Answer"
@@ -99,6 +103,10 @@ The board SHALL hold one polite status region outside the cards, present from th
 #### Scenario: An answer marked ready
 - **WHEN** in submitted delivery one answer is ready and the user marks a second one ready
 - **THEN** the region reads "Answer ready, not sent. 2 ready."
+
+#### Scenario: A note alone held
+- **WHEN** in submitted delivery the user activates "Answer" on a question that holds only a note
+- **THEN** the note is held, and the region does not read "Answer ready, not sent"
 
 #### Scenario: Submit
 - **WHEN** the user submits two ready answers and a postpone, and the board page reports the command sent

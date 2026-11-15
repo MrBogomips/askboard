@@ -12,7 +12,7 @@ Terms used below:
 - Tests name the header's jump without its glyph, `/^Next open/` in en-US and `/^Prossima aperta/` in it-IT, so they hold before and after `icon-set` removes the glyph (design.md, Merge points).
 - Every new browser file is listed in `packages/view/test/browser/harness/suites.ts` with no `engines` restriction, so it runs in Chromium, Firefox and WebKit. Waits are probes (`eventually`) or `quiet(reason)`, never fixed sleeps, and no time bound is asserted (the harness rules).
 
-**Order.** Group 0 runs first, then group 1. Groups 2, 3, 4 and 5 run in that order, one after the other: they share `board.tsx`, `question-card.tsx`, `bottom-bar.tsx`, `question-actions.tsx` and the browser lock. Group 6 comes last. Within a group, the tasks run in order.
+**Order.** Group 0 runs first, then group 1. Groups 2, 3, 4 and 5 run in that order, one after the other, and the fix tasks 1b.2 and 2b.1 run before group 3: they share `board.tsx`, `question-card.tsx`, `bottom-bar.tsx`, `question-actions.tsx` and the browser lock. Group 6 comes last. Within a group, the tasks run in order.
 
 ## 0. Decisions and base
 
@@ -60,6 +60,7 @@ Terms used below:
   - Note: `AnswerResult` is defined in `revision-confirm.ts` (so that file need not import `card-acts.ts`) and re-exported by `card-acts.ts`; `AnswerOutcome = AnswerResult | undefined`. `toggleHeld` now returns `held` or `released`. `press<R>(needed, run: () => R)` gives a `Waiting<R>` whose `confirm()` returns the run's value, `settle` returns it, and `settleConfirmation(confirmation, confirmed)` reads it (review finding S-1, task 1b.1: it first took a `result?` argument, which was evaluated before the act ran); `pressAnswer`'s run returns its outcome. `fieldToFixOf` returns `{text, itemId}`, `answerHint` is its text. `question-card.tsx` only changed `asking` to take `AnswerOutcome` and act on `needs-reason`; group 2 wires the focus (`outcomeOfPress` for the press that acts at once; a confirmation reads the run's value through `settleConfirmation`). Six existing assertions that `answer()` returned `undefined` for an answer that was sent or marked now expect `sent`, `held` or `released` (`card-acts.test.ts` x5, `shown-revision-gates.test.ts` x1); nothing else of those files changed. 'Red first' was not observed as a separate run.
 - [x] 1b.1 (review finding S-1, M) `settleConfirmation` took the result as an argument evaluated before the act ran, so a confirmed revision got no heading focus. Tests first: `revision-confirm.test.ts` builds the waiting through `press(true, () => result)` and expects `{to: "heading"}` for `sent`/`note-sent` and `{to: "control"}` for `held`/`released` with no result passed, and that `settle` returns the result once; `card-acts.test.ts` does the same through `pressAnswer` in immediate delivery. Then `press<R>`, `Waiting<R>`, `settle` returning the run's value, `settleConfirmation` without its third parameter, `pressAnswer`'s run returning its outcome. Refs #179. Verify: red first (2 failing), then the `revision-confirm`, `card-acts` and `submit` tests pass.
   - As built: see the note of 1.6; the card's local `confirmAnswer` is gone.
+- [ ] 1b.2 (review finding S-2, L) A note alone held in submitted delivery returned `held`, which D4 maps to "Answer ready, not sent" (NFR-10). Tests first: in `card-acts.test.ts`, two presses of "Answer" on a question holding only a note, in submitted delivery, return `note-held` then `note-released`, and an answer still returns `held` then `released`. In `revision-confirm.test.ts`, `settleConfirmation` gives the control for `note-held` and `note-released`. Then `AnswerResult` gains both values (D1), and `toggleHeld` returns them for the note kind. The card's focus code needs no change, since neither value is a sent result. Refs #182. Verify: red first; the `card-acts`, `revision-confirm`, `submit` and `shown-revision-gates` tests pass; the check passes (type check included). Runs before group 3, and in any case before task 4.3.
 - [ ] 1.7 Review checkpoint: spec review of group 1's range (askboard-spec-reviewer), against D1 to D5 and D7 and the requirements cited above. No security review: the group touches no host, hook, mod, validator, sandbox, file system or network. Verify: no open finding of severity H or M; findings fixed tests first, as tasks 1b.n, before group 2.
 
 ## 2. Focus after acts, clear of the sticky bars (#179, #180)
@@ -84,6 +85,11 @@ Terms used below:
 
   Add the clause that every move to a heading or a field first scrolls it clear of the sticky header and bottom bar. Refs #179, #180. Tests: none (documents). Verify: each added sentence stands once (`grep -c -F`); the "Focus moves" list names Answer and Submit.
   - As built: EXPERIENCE.md, Accessibility Floor, Focus: the Answer/Accept, confirmed revision and Submit moves, the ready exception, the not-when-settled clause and the scroll-clear clause; each sentence appears once.
+- [ ] 2b.1 (design review of group 2) "Send and switch" through the replace dialog (D1; scenario "Send and switch"). When switching to immediate delivery asks first to replace a received verdict, `sendActsOf` runs `then` (the switch), `sent` stays false, and the replace dialog's `onCloseAutoFocus` focuses Submit, which is disabled in immediate delivery, so focus is expected to fall to the page. Tests first, in `answering-flow-focus.browser.ts`:
+  - with a ready answer whose received verdict it replaces, confirm "Send and switch", then the replace dialog: focus is on "Immediate";
+  - the direct case (no replace dialog) now asserts focus on "Immediate" exactly, not only that it is not on `<body>`.
+
+  Then the replace dialog's close gives "Immediate" when its send carried the switch, and Submit only when nothing was sent. Amend EXPERIENCE.md, Accessibility Floor, Focus: after "Send and switch", to the switch's "Immediate". Refs #179. Verify: the new case is red first in at least one engine (if it passes before the fix, the note says so and only the stronger assertion and the documents land); the file passes in a File run in the three engines; `lifecycle-delivery.browser.ts` and `lifecycle-keyboard.browser.ts` still pass.
 - [ ] 2.6 Review checkpoint: spec review of group 2's range against D1, D2 and the two requirements, including that each scenario has its test. No security review (focus and scroll in the view only). Verify: no open finding of severity H or M.
 
 ## 3. The question in view (#181)
@@ -111,14 +117,14 @@ Terms used below:
 
 - [ ] 4.1 Browser tests first (Status messages for the answering flow): `packages/view/test/browser/answering-flow-status.browser.ts`, listed in `suites.ts`. One test per scenario:
   - an answer sent; not sent yet (connection lost, as `connection.browser.ts` drops it); an answer with no option; a note alone;
-  - an answer marked ready; Submit; Select recommended;
+  - an answer marked ready; a note alone held (no "Answer ready"); Submit; Select recommended;
   - a question the agent adds (focus unchanged); the question in view removed;
   - the agent pill; in Italian.
 
   Each reads the one `role="status"` region outside the cards, and asserts that no message holds "delivered" or "consegnata". First give the pill `data-askboard-agent-pill` and move the harness's `agentPill` locator (`harness/dom.ts:85`) and `header.browser.ts:294` to it, so `header.browser.ts` keeps passing. Refs #182. Verify: the file fails for the right reason before 4.2 (no such region, or empty), in the three engines; `header.browser.ts` passes.
 - [ ] 4.2 The region and the reply seam (D4). `StatusRegion` renders in `Board` from the first render, with the store in `BoardContext` (`index.tsx`). `Senders.status` is optional, as `notices` is. `dispatch` calls it with `sentMessageOf(via, acts)` on outcome `sent` only. Refs #182. Verify: 4.1's sent, not-sent-yet, no-option, note and Submit tests pass in a File run in the three engines. `oversized-acts-session.browser.ts` and `connection.browser.ts` still pass.
 - [ ] 4.3 The other sources (D4):
-  - the card announces `status.ready` on result `held`, with the count of ready answers;
+  - the card announces `status.ready` on result `held`, with the count of ready answers (held notes left out); `note-held` announces nothing (D4);
   - the board announces `status.prefilled` with `selectRecommended`'s count;
   - `applyDocumentUpdate` announces `status.added` for questions new in an agent's update (never at boot or on a restore), and `navigator.removed` when it removes the question in view;
   - `AgentPill` drops `role="status"` and announces `agent.waiting` on a change to waiting.
