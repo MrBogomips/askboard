@@ -38,9 +38,15 @@ const CASES: readonly Case[] = [
   ["completion.title", {}, "Every question has an answer.", "Tutte le domande hanno una risposta."],
   [
     "completion.counts",
-    { s: 5, d: 3 },
-    "5 sent, 3 delivered to the agent.",
-    "5 inviate, 3 consegnate all'agente.",
+    { s: 1, d: 1 },
+    "Sent: 1. Delivered to the agent: 1.",
+    "Inviate: 1. Consegnate all'agente: 1.",
+  ],
+  [
+    "completion.counts",
+    { s: 9, d: 9 },
+    "Sent: 9. Delivered to the agent: 9.",
+    "Inviate: 9. Consegnate all'agente: 9.",
   ],
   [
     "completion.postponed",

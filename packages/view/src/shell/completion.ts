@@ -5,7 +5,6 @@
 
 import type { LifecycleBoardState, LifecycleQuestionStatus } from "@askboard/contract";
 import { questionsOf, type ViewDocument, type ViewQuestion } from "../view-document.ts";
-import type { AnswerContent } from "../view-protocol.ts";
 import type { Flight } from "./answer-acts.ts";
 import { type AnswerState, answerStateOf } from "./answer-state.ts";
 import type { Delivery, QuestionWork } from "./board-draft.ts";
@@ -25,27 +24,51 @@ const NONE: Completion = { kind: "none" };
 const receiptOf = (status: LifecycleQuestionStatus | undefined) =>
   status?.state === "answered" || status?.state === "declined" ? status.answer.receipt : undefined;
 
+const statusesOf = (state: LifecycleBoardState): Map<string, LifecycleQuestionStatus> => {
+  const statuses = new Map<string, LifecycleQuestionStatus>();
+  for (const status of state.questions)
+    if (!statuses.has(status.itemId)) statuses.set(status.itemId, status);
+  return statuses;
+};
+
+/**
+ * The counts of the receipts the board logged: `sent` is the questions whose logged answer or
+ * decline has a receipt (`sent` or `delivered`), a revision included; `delivered` those whose
+ * receipt is `delivered`. Never `state.ask`, never the ladder, whose counts leave out a question
+ * while it is revising.
+ */
+export const receiptCountsOf = (
+  document: ViewDocument,
+  state: LifecycleBoardState,
+): { readonly sent: number; readonly delivered: number } => {
+  const statuses = statusesOf(state);
+  let sent = 0;
+  let delivered = 0;
+  for (const question of questionsOf(document)) {
+    const receipt = receiptOf(statuses.get(question.id));
+    if (receipt === undefined) continue;
+    sent += 1;
+    if (receipt === "delivered") delivered += 1;
+  }
+  return { sent, delivered };
+};
+
 /** What the completion panel shows, if anything. */
 export const completionOf = (
   document: ViewDocument,
   state: LifecycleBoardState,
   work: ReadonlyMap<string, QuestionWork>,
   flightOf: (questionId: string) => Pick<Flight, "outcome"> | undefined,
-  contentOf: (question: ViewQuestion) => AnswerContent,
+  revisingOf: (question: ViewQuestion) => boolean,
   delivery: Delivery,
 ): Completion => {
   const questions = questionsOf(document);
   if (questions.length < 2) return NONE;
-  const statuses = new Map<string, LifecycleQuestionStatus>();
-  for (const status of state.questions)
-    if (!statuses.has(status.itemId)) statuses.set(status.itemId, status);
+  const statuses = statusesOf(state);
 
   let heldAnswers = 0;
   let heldActs = 0;
-  let sent = 0;
-  let delivered = 0;
   const postponed: string[] = [];
-  let finished = true;
   for (const question of questions) {
     if (flightOf(question.id) !== undefined) return NONE;
     const own = work.get(question.id);
@@ -55,24 +78,24 @@ export const completionOf = (
       held: own?.held?.act,
       undone: own?.undo !== undefined,
       flight: flightOf(question.id),
-      content: contentOf(question),
+      revising: revisingOf(question),
     });
-    if (ladder === "todo" || ladder === "draft") return NONE;
+    // A revision (a draft on a logged answer or decline) keeps the panel: only a first draft or
+    // a question to do holds it back.
+    const revision = status?.state === "answered" || status?.state === "declined";
+    if (ladder === "todo" || (ladder === "draft" && !revision)) return NONE;
     if (own?.held !== undefined) {
       heldActs += 1;
       if (own.held.act === "answer") heldAnswers += 1;
     }
     if (ladder === "postponed" && status?.state === "postponed") postponed.push(question.id);
-    const receipt = receiptOf(status);
-    // Finished: every question has a logged answer or decline with its receipt.
-    if (receipt === undefined) finished = false;
-    else sent += 1;
-    if (receipt === "delivered") delivered += 1;
   }
   if (heldActs > 0) {
     return delivery === "submitted" ? { kind: "send-all", count: heldAnswers } : NONE;
   }
   const [first] = postponed;
   if (first !== undefined) return { kind: "postponed", count: postponed.length, first };
-  return finished ? { kind: "done", sent, delivered } : NONE;
+  // Finished: every question has a logged answer or decline with its receipt.
+  const { sent, delivered } = receiptCountsOf(document, state);
+  return sent === questions.length ? { kind: "done", sent, delivered } : NONE;
 };

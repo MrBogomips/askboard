@@ -640,12 +640,12 @@ export const IT_IT = {
     other: "{open} da fare (di cui {count} rimandate)",
   },
   "completion.title": "Tutte le domande hanno una risposta.",
-  "completion.counts": "{s} inviate, {d} consegnate all'agente.",
   "settings.afterAnswer": "Dopo la risposta",
   "settings.goToNext": "Vai alla prossima",
   "settings.stayHere": "Resta qui",
   "status.areaDone": "{area} completata",
   // The guided flow, to review (Q3 and the strings outside report §4).
+  "completion.counts": "Inviate: {s}. Consegnate all'agente: {d}.",
   "bar.submitPlain": "Invia",
   "question.sendChange": "Invia la modifica",
   "question.noteSentAt": "Nota inviata {time}",

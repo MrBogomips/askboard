@@ -608,7 +608,7 @@ export const EN_US = {
     other: "{open} to do ({count} postponed)",
   },
   "completion.title": "Every question has an answer.",
-  "completion.counts": "{s} sent, {d} delivered to the agent.",
+  "completion.counts": "Sent: {s}. Delivered to the agent: {d}.",
   "settings.afterAnswer": "After answering",
   "settings.goToNext": "Go to the next",
   "settings.stayHere": "Stay here",

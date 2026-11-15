@@ -1,9 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import type { LifecycleBoardState, LifecycleQuestionStatus } from "@askboard/contract";
 import type { ViewDocument, ViewQuestion } from "../view-document.ts";
-import type { AnswerContent } from "../view-protocol.ts";
 import type { QuestionWork } from "./board-draft.ts";
-import { completionOf } from "./completion.ts";
+import { completionOf, receiptCountsOf } from "./completion.ts";
 
 // The completion panel's model (answering-flow-guidance, design decision 6; requirements
 // "Completion", "Completion with postponed questions" and "All ready, nothing sent").
@@ -29,13 +28,13 @@ type Board = {
   readonly specs: readonly Spec[];
   readonly work?: Readonly<Record<string, QuestionWork>>;
   readonly flights?: readonly string[];
-  readonly content?: Readonly<Record<string, AnswerContent>>;
+  readonly revising?: readonly string[];
   readonly ask?: string;
 };
 
 const ID = (n: number) => `q${n + 1}`;
 const completion = (
-  { specs, work = {}, flights = [], content = {}, ask = "partly-answered" }: Board,
+  { specs, work = {}, flights = [], revising = [], ask = "partly-answered" }: Board,
   delivery: "immediate" | "submitted" = "immediate",
 ) => {
   const document = {
@@ -50,7 +49,7 @@ const completion = (
     state,
     new Map(Object.entries(work)),
     (id) => (flights.includes(id) ? { outcome: "sent" } : undefined),
-    (question: ViewQuestion) => content[question.id] ?? {},
+    (question: ViewQuestion) => revising.includes(question.id),
     delivery,
   );
 };
@@ -62,18 +61,9 @@ const held = (act: "answer" | "decline" | "postpone" | "note", order = 1): Quest
 describe("none", () => {
   test("while a question is to do, or a draft", () => {
     expect(completion({ specs: ["answered:sent", "open"] })).toEqual({ kind: "none" });
-    expect(
-      completion({ specs: ["answered:sent", "open"], content: { q2: { choice: ["A"] } } }),
-    ).toEqual({ kind: "none" });
-  });
-
-  test("a revision in progress is a draft", () => {
-    expect(
-      completion({
-        specs: ["answered:sent", "answered:delivered"],
-        content: { q2: { choice: ["B"] } },
-      }),
-    ).toEqual({ kind: "none" });
+    expect(completion({ specs: ["answered:sent", "open"], revising: ["q2"] })).toEqual({
+      kind: "none",
+    });
   });
 
   test("while any act is in flight", () => {
@@ -133,6 +123,59 @@ describe("postponed", () => {
   });
 });
 
+describe("a revision keeps the panel", () => {
+  test("in One by one, a revision in progress keeps done with the logged receipts' counts", () => {
+    expect(
+      completion({
+        specs: ["answered:sent", "answered:delivered", "declined:delivered"],
+        revising: ["q2", "q3"],
+      }),
+    ).toEqual({ kind: "done", sent: 3, delivered: 2 });
+  });
+
+  test("a first draft gives none", () => {
+    expect(completion({ specs: ["answered:sent", "open", "postponed"], revising: ["q2"] })).toEqual(
+      { kind: "none" },
+    );
+  });
+
+  test("a held revision in All together gives send-all", () => {
+    expect(
+      completion(
+        {
+          specs: ["answered:sent", "answered:delivered"],
+          work: { q2: held("answer") },
+          revising: ["q2"],
+        },
+        "submitted",
+      ),
+    ).toEqual({ kind: "send-all", count: 1 });
+  });
+});
+
+describe("receiptCountsOf", () => {
+  const countsOf = (specs: readonly Spec[]) => {
+    const document = {
+      items: specs.map((_, n) => ({ type: "question", id: ID(n), rev: 1, props: { text: "x" } })),
+    } as unknown as ViewDocument;
+    const state = {
+      ask: "answered",
+      questions: specs.map((spec, n) => statusOf(ID(n), spec)),
+    } as unknown as LifecycleBoardState;
+    return receiptCountsOf(document, state);
+  };
+
+  test("counts the logged receipts, declines and revisions included, open ones not", () => {
+    expect(
+      countsOf(["answered:sent", "answered:delivered", "declined:delivered", "open", "postponed"]),
+    ).toEqual({ sent: 3, delivered: 2 });
+  });
+
+  test("a board with nothing logged counts zeros", () => {
+    expect(countsOf(["open", "open"])).toEqual({ sent: 0, delivered: 0 });
+  });
+});
+
 describe("done", () => {
   test("counts sent and delivered from the receipts: delivered ones are sent too", () => {
     expect(
@@ -187,7 +230,7 @@ describe("done", () => {
         state,
         new Map(),
         () => undefined,
-        () => ({}),
+        () => false,
         "immediate",
       ),
     ).toEqual({ kind: "none" });

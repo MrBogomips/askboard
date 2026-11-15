@@ -1,13 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import type { LifecycleBoardState, LifecycleQuestionStatus } from "@askboard/contract";
 import type { ViewDocument, ViewQuestion } from "../view-document.ts";
-import type { AnswerContent } from "../view-protocol.ts";
 import { type AnswerStateInputs, answerStateOf, ladderCountsOf } from "./answer-state.ts";
 import type { QuestionWork } from "./board-draft.ts";
 
 // The answer state ladder (answering-flow-guidance, design decision 1): one state per question,
 // from the held act, the flight, the logged status and the draft work.
-const NOTHING: AnswerContent = {};
 const logged = (
   state: "answered" | "declined",
   receipt: "sent" | "delivered",
@@ -29,7 +27,7 @@ const open = (state: "open" | "postponed", itemId = "q"): LifecycleQuestionStatu
   state,
 });
 const stateOf = (inputs: Partial<AnswerStateInputs> & { status?: LifecycleQuestionStatus }) =>
-  answerStateOf({ status: open("open"), content: NOTHING, ...inputs });
+  answerStateOf({ status: open("open"), revising: false, ...inputs });
 
 describe("a held act decides first", () => {
   test("an answer is ready, a decline declined, a postpone postponed", () => {
@@ -50,14 +48,12 @@ describe("a held act decides first", () => {
     const sent = logged("declined", "sent");
     expect(stateOf({ held: "reopen", status: sent })).toBe("todo");
     expect(stateOf({ undone: true, status: sent })).toBe("todo");
-    expect(stateOf({ undone: true, status: open("postponed"), content: { choice: ["A"] } })).toBe(
-      "draft",
-    );
-    expect(stateOf({ held: "reopen", status: sent, content: { note: "why" } })).toBe("draft");
+    expect(stateOf({ undone: true, status: open("postponed"), revising: true })).toBe("draft");
+    expect(stateOf({ held: "reopen", status: sent, revising: true })).toBe("draft");
   });
 
   test("a held note alone decides nothing", () => {
-    expect(stateOf({ held: "note", content: { note: "x" } })).toBe("draft");
+    expect(stateOf({ held: "note", revising: true })).toBe("draft");
     expect(stateOf({ held: "note", status: open("postponed") })).toBe("postponed");
   });
 });
@@ -77,57 +73,37 @@ describe("the logged status", () => {
     expect(stateOf({ status: logged("answered", "delivered") })).toBe("delivered");
   });
 
-  test("a revision (draft work on an answered question) is a draft", () => {
-    for (const content of [
-      { choice: ["B"] },
-      { other: "x" },
-      { values: { a: 1 } },
-      { results: { a: 1 } },
-      { optionNotes: { B: "n" } },
-    ] satisfies AnswerContent[]) {
-      expect(stateOf({ status: logged("answered", "delivered"), content })).toBe("draft");
-    }
+  test("a revision (the caller's revising) on an answered question is a draft", () => {
+    expect(stateOf({ status: logged("answered", "delivered"), revising: true })).toBe("draft");
+    expect(stateOf({ status: logged("answered", "sent"), revising: true })).toBe("draft");
   });
 
-  test("a note alone is no revision", () => {
-    expect(stateOf({ status: logged("answered", "sent"), content: { note: "n" } })).toBe("sent");
+  test("the ladder reads no content: no revising, no draft", () => {
+    expect(stateOf({ status: logged("answered", "sent"), revising: false })).toBe("sent");
+    expect(stateOf({ status: logged("answered", "delivered"), revising: false })).toBe("delivered");
   });
 
-  test("a decline stays declined, a postponed question postponed, whatever the work", () => {
+  test("a decline without work stays declined, a postponed question postponed, whatever the work", () => {
     expect(stateOf({ status: logged("declined", "sent") })).toBe("declined");
-    expect(stateOf({ status: logged("declined", "delivered"), content: { choice: ["A"] } })).toBe(
-      "declined",
-    );
     expect(stateOf({ status: open("postponed") })).toBe("postponed");
-    expect(stateOf({ status: open("postponed"), content: { choice: ["A"] } })).toBe("postponed");
+    expect(stateOf({ status: open("postponed"), revising: true })).toBe("postponed");
+  });
+});
+
+describe("a declined question", () => {
+  test("with answer work is a draft (a revision)", () => {
+    expect(stateOf({ status: logged("declined", "delivered"), revising: true })).toBe("draft");
   });
 });
 
 describe("an open question", () => {
-  test("is a draft with a choice, Other text, an option note, a note or a widget value", () => {
-    for (const content of [
-      { choice: ["A"] },
-      { other: "x" },
-      { optionNotes: { A: "n" } },
-      { note: "n" },
-      { values: { a: 1 } },
-      { results: { a: 1 } },
-    ] satisfies AnswerContent[]) {
-      expect(stateOf({ content })).toBe("draft");
-    }
-  });
-
-  test("is to do when its work is empty, in any of the ways a field is empty", () => {
+  test("is a draft when the caller says it has work, to do when not", () => {
+    expect(stateOf({ revising: true })).toBe("draft");
     expect(stateOf({})).toBe("todo");
-    expect(
-      stateOf({
-        content: { choice: [], other: "", note: "", optionNotes: {}, values: {}, results: {} },
-      }),
-    ).toBe("todo");
   });
 
   test("a question the state does not hold is to do", () => {
-    expect(answerStateOf({ status: undefined, content: NOTHING })).toBe("todo");
+    expect(answerStateOf({ status: undefined, revising: false })).toBe("todo");
   });
 });
 
@@ -159,9 +135,10 @@ describe("the ladder's counts over a board", () => {
       state,
       work,
       (id) => (id === "queued" ? { key: 1, acts: [], outcome: "queued" } : undefined),
-      (each) => (each.id === "draft" ? { choice: ["A"] } : NOTHING),
+      (each) => each.id === "draft",
     );
     expect(counts).toEqual({
+      revisions: 0,
       todo: 1,
       draft: 1,
       ready: 1,
@@ -180,8 +157,24 @@ describe("the ladder's counts over a board", () => {
       state,
       new Map(),
       () => undefined,
-      () => NOTHING,
+      () => false,
     );
     expect(Object.values(counts).every((n) => n === 0)).toBe(true);
+  });
+
+  test("revisions are the drafts whose status is answered or declined", () => {
+    const counts = ladderCountsOf(
+      document,
+      state,
+      work,
+      () => undefined,
+      (each) => ["todo", "draft", "sent", "delivered", "later", "no"].includes(each.id),
+    );
+    expect(counts.revisions).toBe(3);
+    expect(counts.draft).toBe(5);
+    expect(counts.postponed).toBe(1);
+    expect(counts.declined).toBe(0);
+    expect(counts.sent).toBe(0);
+    expect(counts.delivered).toBe(0);
   });
 });

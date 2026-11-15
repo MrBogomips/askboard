@@ -5,7 +5,6 @@
 
 import type { HeldAct, LifecycleBoardState, LifecycleQuestionStatus } from "@askboard/contract";
 import { questionsOf, type ViewDocument, type ViewQuestion } from "../view-document.ts";
-import type { AnswerContent } from "../view-protocol.ts";
 import type { Flight } from "./answer-acts.ts";
 import type { QuestionWork } from "./board-draft.ts";
 
@@ -31,22 +30,13 @@ export type AnswerStateInputs = {
   readonly undone?: boolean;
   /** The latest command of the card's acts that has not settled. */
   readonly flight?: Pick<Flight, "outcome"> | undefined;
-  /** What the draft holds for the question: `answerContentOf`. */
-  readonly content: AnswerContent;
+  /**
+   * The question holds answer work: the caller's `questionRevising`, the base's one rule (an
+   * item's value, result or typed entry, "Other…", an option note or the note). The ladder
+   * derives nothing from the content itself.
+   */
+  readonly revising: boolean;
 };
-
-const filled = (text: string | undefined): boolean => text !== undefined && text !== "";
-const some = (record: object | undefined): boolean =>
-  record !== undefined && Object.keys(record).length > 0;
-
-// The work that makes an answer: the choice, the "Other…" text, the option notes and the widget
-// values and results; a note alone is no answer (FR-7).
-const answers = ({ choice, other, optionNotes, values, results }: AnswerContent): boolean =>
-  (choice !== undefined && choice.length > 0) ||
-  filled(other) ||
-  some(optionNotes) ||
-  some(values) ||
-  some(results);
 
 /** The question's state on the ladder. */
 export const answerStateOf = ({
@@ -54,7 +44,7 @@ export const answerStateOf = ({
   held,
   undone = false,
   flight,
-  content,
+  revising,
 }: AnswerStateInputs): AnswerState => {
   if (held === "answer") return "ready";
   if (held === "decline") return "declined";
@@ -63,47 +53,52 @@ export const answerStateOf = ({
   if (!reopened) {
     if (flight?.outcome === "queued") return "not-sent-yet";
     if (status?.state === "answered") {
-      if (answers(content)) return "draft";
-      return status.answer.receipt;
+      return revising ? "draft" : status.answer.receipt;
     }
-    if (status?.state === "declined") return "declined";
+    if (status?.state === "declined") return revising ? "draft" : "declined";
     if (status?.state === "postponed") return "postponed";
   }
-  return answers(content) || filled(content.note) ? "draft" : "todo";
+  return revising ? "draft" : "todo";
 };
 
 /** The count of the board's questions in each state. */
-export type LadderCounts = Readonly<Record<AnswerState, number>>;
+export type LadderCounts = Readonly<Record<AnswerState, number>> & {
+  /** The `draft` questions whose status is answered or declined: revisions, not to do. */
+  readonly revisions: number;
+};
 
 /**
  * Each state's count over the board: the completion panel reads it now, and a ledger later. The
- * work and the flights are the board's; `contentOf` is the draft's answer content for a question.
+ * work and the flights are the board's; `revisingOf` is the caller's `questionRevising` for a question.
  */
 export const ladderCountsOf = (
   document: ViewDocument,
   state: LifecycleBoardState,
   work: ReadonlyMap<string, QuestionWork>,
   flightOf: (questionId: string) => Pick<Flight, "outcome"> | undefined,
-  contentOf: (question: ViewQuestion) => AnswerContent,
+  revisingOf: (question: ViewQuestion) => boolean,
 ): LadderCounts => {
   const counts = Object.fromEntries(ANSWER_STATES.map((each) => [each, 0])) as Record<
     AnswerState,
     number
   >;
+  let revisions = 0;
   const statuses = new Map<string, LifecycleQuestionStatus>();
   for (const status of state.questions)
     if (!statuses.has(status.itemId)) statuses.set(status.itemId, status);
   for (const question of questionsOf(document)) {
     const own = work.get(question.id);
-    counts[
-      answerStateOf({
-        status: statuses.get(question.id),
-        held: own?.held?.act,
-        undone: own?.undo !== undefined,
-        flight: flightOf(question.id),
-        content: contentOf(question),
-      })
-    ] += 1;
+    const status = statuses.get(question.id);
+    const ladder = answerStateOf({
+      status,
+      held: own?.held?.act,
+      undone: own?.undo !== undefined,
+      flight: flightOf(question.id),
+      revising: revisingOf(question),
+    });
+    counts[ladder] += 1;
+    if (ladder === "draft" && (status?.state === "answered" || status?.state === "declined"))
+      revisions += 1;
   }
-  return counts;
+  return { ...counts, revisions };
 };
