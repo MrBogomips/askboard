@@ -210,8 +210,10 @@ const specifiersOf = (file: string, source: string): string[] => {
 };
 
 // `lucide-react` and its subpaths: one icon by its path passes, in the icon module or a test; the
-// main entry, its alias `icons`, `dynamic*` and `dist/…` fail everywhere.
-const LUCIDE = /^lucide-react(\/|$)/;
+// main entry, its alias `icons`, `dynamic*` and `dist/…` fail everywhere. The specifier is compared
+// in lower case to find Lucide (a differently cased path resolves on a case-insensitive disk), but
+// only the exact lower-case form of one icon passes.
+const LUCIDE = /^lucide-react(\/|$)/i;
 const LUCIDE_ICON = /^lucide-react\/icons\/[a-z0-9]+(-[a-z0-9]+)*$/;
 const ICON_MODULE = "packages/view/src/icons/index.ts";
 

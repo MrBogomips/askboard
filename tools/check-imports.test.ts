@@ -313,6 +313,14 @@ describe("the icon set's import rule (icon-set, design decision 5)", () => {
     ["packages/view/src/icons/other.ts", "lucide-react/icons/check"],
     ["packages/view/test/browser/a.ts", "lucide-react/dynamic"],
     ["packages/view/src/icons/index.test.ts", "lucide-react/icons"],
+    // Another case resolves on a case-insensitive disk and would bundle Lucide into the shell (X-1).
+    ["packages/view/src/shell/a.tsx", "Lucide-React/icons/x"],
+    [ICON_MODULE, "Lucide-React/icons/x"],
+    [ICON_MODULE, "LUCIDE-REACT"],
+    [ICON_MODULE, "lucide-react/icons/Check"],
+    [ICON_MODULE, "lucide-react/icons/check/"],
+    [ICON_MODULE, "lucide-react/icons/check.js"],
+    [ICON_MODULE, "lucide-react/icons/a/b"],
   ])("%s may not import %s", (file, specifier) => {
     const violations = checkSource(file, importOf(specifier));
     expect(violations).toHaveLength(1);
