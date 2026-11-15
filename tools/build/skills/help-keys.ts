@@ -7,6 +7,7 @@
 import {
   BOARD_KEY_TABLE,
   BOARD_KEYS,
+  BOARD_PART,
   type BoardKeyAction,
   CONFIGURATION_VERSION,
   KEY_COMBINATION_MAX_CHARS,
@@ -18,6 +19,7 @@ import {
   keyOverridesProblems,
   MOD_ALT_KEYS,
   parseKeyCombination,
+  type RegisteredKeyTable,
   type WidgetType,
 } from "@askboard/contract";
 import { contractSchemaResolver, type Resolve } from "./fields.ts";
@@ -157,6 +159,15 @@ const openReserved = (): string =>
     .map((key) => `\`${keyCombinationText({ key, hold: "none" })}\``)
     .join(", ");
 
+// The board's actions that act across a question's controls (the table's entries in the part
+// `board`), as names, in the table's order: the keys a native control takes are reserved on them.
+const boardReservedActions = (board: RegisteredKeyTable): string =>
+  board.keys
+    .filter(({ part }) => part === BOARD_PART)
+    .map(({ action }) => `\`${action}\``)
+    .join(", ")
+    .replace(/, ([^,]*)$/, " and $1");
+
 // The exits an override may not leave with no key, from the contract.
 const exitsText = (widgets: readonly WidgetType[]): string =>
   keyExitActions([BOARD_KEY_TABLE, ...widgets])
@@ -169,6 +180,7 @@ export const configureKeysText = (
   examples: readonly KeyExample[] = KEY_EXAMPLES,
   onBoard: readonly string[] = KEY_TABLES_ON_BOARD,
   rowBound: number = rowWarningsBound(),
+  board: RegisteredKeyTable = BOARD_KEY_TABLE,
 ): string => {
   checked(examples, widgets);
   const where = reach(widgets, onBoard);
@@ -196,15 +208,16 @@ export const configureKeysText = (
     "- Refused, because the browser or the system needs them: `Tab`, `F1`, `F3` to `F12`, `Mod` with any key but Z, A and Enter, `Mod+Shift` with any key but the arrows up and down and Enter, `Alt` alone (no hold has it), and a modifier on `?` or `%`.",
     "- Refused, because the system needs them: `Alt+Shift` with a letter or `Space` (macOS composes a character from it and some Linux desktops switch the keyboard layout on it).",
     "- An action an editor takes (a text field's actions) refuses a key that types a character: a letter or `Space` with no modifier or `Shift`, and a printed character.",
-    `- \`keys.open\` also refuses, with no modifier or Shift, the keys a control inside a question takes: ${openReserved()}; and any key that another action of a widget takes, since it acts across the whole question.`,
-    "- Two actions of one part of a widget cannot share a key once the changes apply, and an exit cannot be left with no key (" +
+    `- ${boardReservedActions(board)} refuse, with no modifier or Shift, the keys a control inside a question takes: ${openReserved()}.`,
+    "- `keys.open` also refuses a key another action of the board takes, and any key that another action of a widget takes, since it acts across the whole question.",
+    "- Two actions of one part of a widget, or of one part of the board, cannot share a key once the changes apply, and an exit cannot be left with no key (" +
       exitsText(widgets) +
       ").",
     "- An action whose keys a control takes by itself (marked in the list) cannot be changed.",
     "",
     "## When it applies",
     "",
-    `- Any problem refuses the whole \`keys\`: every widget keeps its default keys. The session's stderr lists the problems found at its first read of the file, and Settings those found when a board opens (up to ${rowBound}). Fix the file; there is no partial change.`,
+    `- Any problem refuses the whole \`keys\`: the board's own keys and every widget's stay at their defaults. The session's stderr lists the problems found at its first read of the file, and Settings those found when a board opens (up to ${rowBound}). Fix the file; there is no partial change.`,
     where.applies,
   ].join("\n");
 };

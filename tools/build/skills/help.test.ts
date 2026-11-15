@@ -7,6 +7,7 @@ import { join } from "node:path";
 import {
   BOARD_KEY_TABLE,
   BOARD_KEYS,
+  BOARD_PART,
   CONFIGURATION_VERSION,
   KEY_VOCABULARY,
   KEYS_OPEN_RESERVED_KEYS,
@@ -27,7 +28,7 @@ import { MOLECULE_SKILLS, READY_MOLECULES } from "@askboard/molecules";
 import { budgetReport, HELP_BUDGETS, HELP_SKILL, parseFrontmatter } from "./budgets.ts";
 import { contractSchemaResolver } from "./fields.ts";
 import { generateHelpSkill, SESSION_TOOL_PREFIX } from "./help.ts";
-import { KEY_EXAMPLES, rowWarningsBound } from "./help-keys.ts";
+import { configureKeysText, KEY_EXAMPLES, rowWarningsBound } from "./help-keys.ts";
 import { actionName, actionRows, keysText, PANEL_NOTE } from "./keys.ts";
 
 const help = generateHelpSkill();
@@ -510,6 +511,60 @@ describe("configure-keys.md's rules", () => {
     }
     expect(open).toMatch(/no modifier or Shift/);
     expect(lineWith("another action")).toMatch(/takes/);
+  });
+
+  test("names the board's actions that refuse the keys a native control takes, from the board table, and ties them to the check", () => {
+    const line = lineWith("refuse, with no modifier or Shift");
+    const expected = BOARD_KEY_TABLE.keys
+      .filter(({ part }) => part === BOARD_PART)
+      .map(({ action }) => action);
+    expect(expected).toEqual(["board.nextOpen", "board.previousOpen", "board.answer", "keys.open"]);
+    expect(names(line)).toEqual(expected);
+    for (const key of KEYS_OPEN_RESERVED_KEYS) {
+      expect(line).toContain(`\`${key === " " ? "Space" : key}\``);
+    }
+    for (const action of expected) {
+      const reserved = keyOverridesProblems({ [action]: ["Enter"] }).filter(
+        ({ rule }) => rule === "reserved",
+      );
+      expect(reserved).toMatchObject([{ rule: "reserved", action }]);
+    }
+    const nextOpen = keyOverridesProblems({ "board.nextOpen": ["Enter"] });
+    expect(nextOpen.filter(({ rule }) => rule === "reserved")).toMatchObject([
+      { action: "board.nextOpen" },
+    ]);
+    const probeTable = {
+      ...BOARD_KEY_TABLE,
+      keys: [
+        ...BOARD_KEY_TABLE.keys,
+        ownEntry("board.probeAction", BOARD_PART, [keyBinding("p")], "tool", { readOnly: true }),
+      ],
+    };
+    const probed = configureKeysText([], KEY_EXAMPLES.slice(0, 1), [], 8, probeTable);
+    expect(names(lineWith("refuse, with no modifier or Shift", probed))).toEqual([
+      ...expected,
+      "board.probeAction",
+    ]);
+  });
+
+  test("says keys.open refuses a key another board action takes, and the sharing rule holds for the board", () => {
+    const open = lineWith("another action of the board takes");
+    expect(open).toContain("`keys.open`");
+    expect(keyOverridesProblems({ "keys.open": ["n"] })).toMatchObject([
+      { rule: "conflict", action: "keys.open", binding: expect.any(String) },
+    ]);
+    expect(keyOverridesProblems({ "keys.open": ["n"] })[0]?.binding).toBeDefined();
+    const sharing = lineWith("cannot share a key");
+    expect(sharing).toMatch(/board/);
+    expect(
+      keyOverridesProblems({ "board.nextOpen": ["Shift+n"] }).map(({ rule }) => rule),
+    ).toContain("conflict");
+  });
+
+  test("says a refused keys leaves the board's own keys and every widget's at their defaults", () => {
+    const line = lineWith("refuses the whole `keys`");
+    expect(line).toContain("the board's own keys and every widget's");
+    expect(text).not.toContain("every widget keeps its default keys");
   });
 
   test("lists the problems Settings shows, up to the row's bound read from the board protocol schema", () => {
