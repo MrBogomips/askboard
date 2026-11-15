@@ -34,7 +34,7 @@ Terms used below:
 - [x] 1.2 Tests first, the override check (D6; Board keys a native control takes; The override check's default tables). In `keys-overrides.test.ts` and `keys-effective.test.ts`, with no tables given:
   - `{"board.nextOpen": ["Enter"]}` gives a `reserved` problem; so does `Space`, `ArrowDown` or `Shift+Home` on `board.previousOpen`.
   - `{"board.nextOpen": ["Shift+n"]}` gives a conflict with `board.previousOpen`, and `{"board.previousOpen": ["?"]}` a conflict with `keys.open`.
-  - `{"board.answer": ["Mod+Shift+Enter"]}` passes; `{"board.sendFollowUp": ["j"]}` gives a `reserved` problem (an editor's typing key).
+  - `{"board.answer": ["Mod+Shift+Enter"]}` passes (moved to `Mod+Shift+ArrowUp`, a key the Ranking and the Kanban bind, by S-11; task 4.2); `{"board.sendFollowUp": ["j"]}` gives a `reserved` problem (an editor's typing key).
   - `{"board.nextOpen": ["j"], "board.sendFollowUp": []}` passes, and `changedKeyActions` gives both.
   - `keyExitActions()` is unchanged.
   - `{"cursor.up": ["ArrowDown"]}` gives no `reserved` problem: the Kanban's part named `board` is a widget's (D6).
@@ -160,7 +160,7 @@ Terms used below:
   - A multiple choice's box not flipped.
   - `Mod+Enter` on a focused "Postpone": the question is answered and not postponed.
   - The single-question board, from the heading.
-  - A Tree: `Mod+Shift+Enter` adds a child, and `Mod+Enter` sends nothing.
+  - Inside a widget ("Inside a widget"; findings S-11 and S-12 of group 4's review replace the Tree case, done by group 4's fix task). A question holding only a Ranking. Enter on a row keeps its order, and the primary is then enabled, which the test asserts, so the case cannot pass vacuously. Then `Mod+Enter` on that row: no command reaches `board-host`, the primary's `aria-pressed` is unchanged, and the status region is empty. In the same fix, `keys-overrides.test.ts`' case "a key a widget also takes" gives answer `Mod+Shift+ArrowUp`, the Ranking's and the Kanban's to the top, as the contract scenario does.
   - A received verdict: the dialog, then Cancel with focus back on the option.
   - A field to fix, nothing chosen, and an agent change waiting: each announces its message, sends nothing and leaves "Keep mine" unchosen.
   - A held key ("A held key"): a second `keyboard.down` of `Mod+Enter`, which Playwright sends with `repeat: true`, on the heading the focus moved to after the answer, and on the next question's option. Expect one command, ready not toggled twice, and no other question answered or marked ready.
@@ -170,10 +170,10 @@ Terms used below:
   Each case counts the commands `board-host` receives. Tests: the file itself. Verify: the file run passes in Chromium, Firefox and WebKit, and fails on the base head for the key cases.
   Done 2026-11-15. `answer-key.browser.ts` (13 cases, listed in `suites.ts`) with `fixtures/answer-key-asks.ts`: 13 of 13 pass in Chromium, Firefox and WebKit; with the card's `onKeyDown` removed 10 of 13 fail in Chromium. Deviations: (a) the received-verdict case runs on the approval question (the dialog is asked only for widgets that confirm a revision) and the key is pressed on the question's heading, since a widget's own controls keep the key (D2), so Cancel gives focus back to the heading; (b) the Tree case checks `Mod+Enter` sends nothing; `Mod+Shift+Enter` is not tested because no Tree handler reads `add.child` today (the key is only in the vocabulary and the strings); (c) the "pill Waiting" check of the submitted case is the answer button's `aria-pressed` and the status region's `status.ready`, not the agent pill.
 - [x] 4.3 Implement D4, D5 and D6's card and composer parts:
-  - `question-card.tsx`: the section's `onKeyDown`, through `answerKeyOf`, `onAnswer(target)` and `context.status.announce`.
-  - `question-actions.tsx`: `KeyHint` on the primary button, and `data-askboard-primary` on it (D4).
-  - `thread.tsx`: the table match in the composer, `KeyHint` on "Send", and `data-askboard-thread`.
-  - `thread-text.ts`: `isSendKey` removed.
+  - `question-card.tsx`: the section's `onKeyDown`, through `answerKeyHandling` and `answerKeyOf` (`answer-key.ts`), `onAnswer(target)` and `context.status.announce`.
+  - `primary-button.tsx` (`PrimaryButton`, rendered by `question-actions.tsx`): `KeyHint` on the primary button, and `data-askboard-primary` on it (D4, D5).
+  - `thread-composer.tsx` (`Composer`, rendered by `thread.tsx`): the table match in the composer through `sendKeyOf` (`thread-text.ts`), and `KeyHint` on "Send"; `thread.tsx` puts `data-askboard-thread` on the thread's section.
+  - `thread-text.ts`: `isSendKey` removed, `sendKeyOf` added.
   - The `answerable` helper of 4.1 (2b.2), which the card's `onKeyDown` passes to `answerKeyOf`.
 
   Keep `question-card.tsx` under 800 lines. Verify: 4.1 and 4.2 pass; the check passes; `bun run test:e2e:smoke` passes.
@@ -204,7 +204,7 @@ Terms used below:
 
   Tests: none (documents). Verify: `grep -n "Open Items 21" docs/ux-askboard-2026-10-27/EXPERIENCE.md` shows it closed by `board-keys`; no sentence of the floor still says the board's keys or the composer's modifier are not recorded; NFR-12 holds the sentence.
 - [ ] 6.2 Chunk sizes: `bun run build:view --record-sizes`, then commit `packages/view/chunk-sizes.json`. Tests: the view build's size check. Verify: the note records the shell and board-page sizes before and after, and the build passes without the flag.
-- [ ] 6.3 As-built: write `docs/as-built/board-keys.md` (what was built, where, the names and seams added: `BOARD_KEYS`, `BOARD_KEY_TYPE`, `BOARD_PART`, `BOARD_KEY_TABLE`, `ALL_KEY_TABLES`, `boardKeyScopeOf`, `answerKeyOf`, `previousOpenFrom`, `useBoardKeys`, `useBoardKeyTable`, `BoardKeysPanel`, `data-askboard-thread`; no version bound). Correct the sentence of `docs/as-built/keyboard-shortcuts-help.md` that D9 names, and say so in the new note. Tests: none. Verify: `grep -n "ALL_KEY_TABLES" docs/as-built/*.md` finds both notes, and the new note holds no status.
+- [ ] 6.3 As-built: write `docs/as-built/board-keys.md` (what was built, where, the names and seams added: `BOARD_KEYS`, `BOARD_KEY_TYPE`, `BOARD_PART`, `BOARD_KEY_TABLE`, `ALL_KEY_TABLES`, `boardKeyScopeOf`, `answerKeyOf`, `answerableOf`, `answerKeyHandling`, `previousOpenFrom`, `useBoardKeys`, `useBoardKeyTable`, `BoardKeysPanel`, `PrimaryButton` (`primary-button.tsx`), `Composer` (`thread-composer.tsx`), `sendKeyOf`, `data-askboard-primary`, `data-askboard-thread`; no version bound). Name `shell/board-keys-listener.ts` as where `useBoardKeys` lives (it is DOM only; `boardKeyActOf` and `useBoardKeyTable` stay in `shell/use-board-keys.ts`), and `scopeTargetOf` in `shell/board-key-scope.ts`. Correct the sentence of `docs/as-built/keyboard-shortcuts-help.md` that D9 names, and say so in the new note. Tests: none. Verify: `grep -n "ALL_KEY_TABLES" docs/as-built/*.md` finds both notes, and the new note holds no status.
 - [ ] 6.4 By-hand check for the PO: search the Issues for the screen-reader check `answering-flow-fixes` filed (`gh issue list --state all --search "VoiceOver Orca in:title,body"`). If one is open, comment on it with this change's cases. Otherwise open one (`type:chore`, `source:review`, `needs-po`, `area:keyboard`, `area:board`). The cases: `N` in VoiceOver's and Orca's browse and focus modes; `Mod+Enter`'s blocked messages read once. Tests: none. Verify: the note gives the Issue number.
 - [ ] 6.5 Integration: the check, `bun run test:e2e` (the header gains a Tab stop and two browser files are added), and `npx --yes @fission-ai/openspec@1.15.0 validate --all --strict --no-interactive`. Tests: the suites. Verify: each passes, and the note records the counts; a test that walked the header's Tab order and now fails is updated to include "Keys", with the file named in the note.
 - [ ] 6.6 Rebase (askboard-contract-versioning) once #212 has merged:

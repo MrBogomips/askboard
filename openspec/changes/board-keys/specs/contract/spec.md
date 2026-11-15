@@ -35,7 +35,7 @@ The key-override check SHALL refuse giving an action of the board's own key tabl
 - **THEN** the check reports no reserved key for cursor up
 
 #### Scenario: A board key a widget also takes
-- **WHEN** the overrides give answer `Mod+Shift+Enter`, the key of a Tree's add a child
+- **WHEN** the overrides give answer `Mod+Shift+ArrowUp`, the key the Ranking and the Kanban bind to the top
 - **THEN** the check reports no problem, since the board's keys never act inside a widget
 
 ## MODIFIED Requirements

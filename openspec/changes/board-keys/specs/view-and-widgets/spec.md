@@ -59,8 +59,8 @@ While the header shows the next-open jump, `N`, or the keys the user's file give
 - **THEN** one answer is sent, and no other question is answered or marked ready
 
 #### Scenario: Inside a widget
-- **WHEN** a Tree has the focus and the user presses `Mod+Shift+Enter`, then `Mod+Enter`
-- **THEN** a child is added, and nothing is sent or marked ready
+- **WHEN** a question holds only a Ranking, the user presses Enter on a row, which keeps the order and makes the question answerable, then presses `Mod+Enter` on that row
+- **THEN** the Ranking keeps the order, no command reaches `board-host`, nothing is marked ready, and the status region says nothing
 
 #### Scenario: A received verdict
 - **WHEN** the agent has received a verdict, the user changes it and presses `Mod+Enter` on the card
