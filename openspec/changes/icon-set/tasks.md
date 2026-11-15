@@ -224,6 +224,7 @@ Terms used below:
     - the outputs of `tree`, `ranking`, `approval`, `document-review`, `context`, `date-field` and the shell hold no `"lucide"` string, while `icons`' output does;
     - assembling a board with a Tree, a Ranking and a Text inlines `icons` once;
     - with Q1 (a), the built board page holds `x`'s path `M18 6 6 18` and not `check`'s `M20 6 9 17l-5-5`.
+    - the board page's licence notices name `lucide` (ISC, with the text of its `LICENSE`), and no view chunk's notices name `lucide` (review finding S-19 of group 4).
   - Verify: each assertion fails when its condition is broken on purpose (the shell's import of the module removed; a widget importing `lucide-react/icons/check` directly with `check:imports` bypassed; the board page importing `Check`), then passes. Revert each planted change.
 - [ ] 5.2 Every icon used. Tests first, in `packages/view/src/icons/index.test.ts`: each export of the module is imported by at least one non-test file under `packages/view/src` or `packages/widgets/src`. Verify: the test passes after groups 2 to 4, and fails when a planted unused export is added (then removed). It also removes the icon module's exemption (`EXEMPT_MODULES`) from `tools/build/shared-modules.test.ts` (fix 1b.1).
 - [ ] 5.3 Sizes, recorded once. Run `bun run build:view --record-sizes`. Verify:

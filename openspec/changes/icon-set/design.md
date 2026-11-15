@@ -132,25 +132,24 @@ Lucide released 1.63.0 to 1.73.0 between 2026-10-28 and 2026-11-14, every one a 
 - **Why.** Without the rule, Lucide would ride in the weekly `bun-dev` group, so a redrawn icon would ship inside an unrelated bump without review. A change that needs a new icon bumps Lucide by hand, re-reads the adoption evidence, looks at the icons and records the sizes. A major still gets its own pull request.
 - **Risk.** The ignore also holds back security updates for Lucide (Risks).
 
-### 10. The board page's close controls (Q1, answered (a))
+### 10. The board page's close controls (Q1: the PO chose (a), 2026-11-15)
 
-`lucide-react` needs React, which the board page does not load. With the default, `lucide` 1.73.0 (Lucide's DOM package: same repository, licence and release; `sideEffects: false`, no dependencies) is pinned in `packages/view/package.json`, beside `lucide-react`.
+`lucide-react` needs React, which the board page does not load. As the PO chose (#188, comment 6893768848), `lucide` 1.73.0 (Lucide's DOM package: same repository, licence and release; `sideEffects: false`, no dependencies) is pinned in `packages/view/package.json`, beside `lucide-react`.
 
 - **The module.** `packages/view/src/board-page/icons.ts` exports `closeIcon(document)`, built with the package's documented `createElement(X, { "aria-hidden": "true", class: … })`. It imports `{ createElement, X }` from the package's documented main entry, which tree-shakes to 1,135 bytes for the two (measured on 1.73.0), under decision 5's rule. A first version imported two `dist/esm` files by path, which the package does not document; cf895390 replaced it. `reading-panel.ts` and `settings-panel.ts` append it in place of the ✕ text.
 - **Guards.**
   - `tools/workspace.test.ts` fails when the two pins differ.
   - A test of the built board page finds `x`'s path data and no other icon's (`check`'s).
   - The board-page chunk's 10% margin, about 100 KB, would also catch the whole set, 509,795 bytes measured.
-- **With (b).** Task 0.1 removes the requirement "The board page's close icon", decision 10 and group 4 through `/opsx:update`, and files the follow-up Issue.
 
 ### 11. Records and versions
 
 - **The spine**, in group 1, plus group 4's `lucide` row:
   - The Stack row `lucide-react` (the icon set: the view's icon module, each icon by its path) at 1.73.0.
   - AD-1: "`widgets` imports only `contract`, `compute`, `view`'s `CatalogRenderer` port, `view`'s Markdown renderer and `view`'s icon module, each provided at run time by one chunk (AD-9)".
-  - AD-9, Build and assembly: the widget import sentence names the icon module, which the `icons` library chunk provides to the shell and to every chunk that draws an icon. Icons are Lucide's, each imported by its path in the icon module and nowhere else.
+  - AD-9, Build and assembly: the widget import sentence names the icon module, which the `icons` library chunk provides to the shell and to every chunk that draws an icon. Icons are Lucide's: outside the tests, each `lucide-react` icon is imported by its path in the icon module and nowhere else. The one exception is the board page: `lucide`'s main entry (`createElement` and the icon by name) in `board-page/icons.ts` only (decision 10).
   - The Structural Seed's `view/` line adds "icon module".
-  - The Tests row's CI failures add "an import of `lucide-react` other than an icon by its path in the icon module".
+  - The Tests row's CI failures add "an import of `lucide-react` other than an icon by its path in the icon module or in a test, or of `lucide` other than its main entry's `createElement` and icons by name in `board-page/icons.ts` or in a test".
   - The front matter's `updated` and one `sources` line.
 - **DESIGN.md**, in group 1:
   - A new `## Icons` section between Shapes and Components: the set, the source, the table of decision 3 plus the board page's close icon, sizes, stroke and colour, the three naming cases, the reading rule for quoted glyphs, what stays text, and how to add an icon.

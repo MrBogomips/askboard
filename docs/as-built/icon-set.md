@@ -12,7 +12,7 @@ In code since `icon-set` (Issue #188): one icon set, Lucide, drawn through one m
 
 **Names and seams.**
 - The nine exports of the module, named for their role: `IconNextOpen`, `IconReplies`, `IconAgentChanged`, `IconExternal`, `IconSelected`, `IconClose`, `IconCalendar`, `IconDisclosure`, `IconDragHandle`. No wrapper, class or default prop.
-- The `icons` chunk is a library chunk needing `react`, with no styles; its notice carries the package's whole `LICENSE`. The shared-module test lists each icon name as "listed ahead" until the source that draws it lands.
+- The `icons` chunk is a library chunk needing `react`, with no styles; its notice carries the package's whole `LICENSE`. The shared-module test exempts the icon module (`EXEMPT_MODULES`) until task 5.2's `icons/index.test.ts`, which checks that each export is imported.
 - The Lucide rule: Lucide is found in lower case (`Lucide-React/…` and `LUCIDE-REACT` fail, security finding X-1). A specifier `lucide-react/icons/<name>` passes only in the icon module or a test; the main entry, `icons`, `dynamic*` and `dist/…` fail everywhere. For `lucide` (the DOM package), only a static named import of `createElement` and PascalCase icons from its main entry passes, in `packages/view/src/board-page/icons.ts` or a test; `createIcons` (which scans the DOM), `icons`, namespace, default and dynamic imports, re-exports, subpaths, `lucide-*` and `@lucide/*` fail everywhere.
 
 **Correction.** The Issue lists "↑/← widget moves" among the glyphs. The only ↑ and ← on `main` are key names in `catalog/keys/label.ts`, which stay text (DESIGN.md, Icons).

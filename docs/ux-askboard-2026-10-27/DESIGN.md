@@ -907,7 +907,7 @@ shadcn's derived `rounded-sm` (2px) and `rounded-xl` (10px) are not used. The sm
 
 ## Icons
 
-Every icon on the board comes from one set: Lucide (ISC, with Feather's MIT text for the icons derived from it), adopted under the adoption rule and pinned exactly (`lucide-react`, Stack in the spine). The view and the widgets draw an icon only from the icon module, `@askboard/view/icons` (`packages/view/src/icons/index.ts`), which re-exports each icon under the name of its role on the board; nothing else imports Lucide, except the board page's own icon file for `lucide` (below), and `check:imports` fails CI when it does. The module is bundled once, in the `icons` library chunk that the shell and the component chunks share.
+Every icon on the board comes from one set: Lucide (ISC, with Feather's MIT text for the icons derived from it), adopted under the adoption rule and pinned exactly (`lucide-react` and `lucide`, the same version, Stack in the spine). The view and the widgets draw an icon only from the icon module, `@askboard/view/icons` (`packages/view/src/icons/index.ts`), which re-exports each icon under the name of its role on the board; nothing else imports Lucide, except the board page's own icon file for `lucide` (below), and `check:imports` fails CI when it does. The module is bundled once, in the `icons` library chunk that the shell and the component chunks share.
 
 | Export | Lucide icon | Where | Replaces |
 |---|---|---|---|
