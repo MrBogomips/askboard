@@ -43,6 +43,7 @@ import {
 import { markOf } from "./board-view.ts";
 import {
   type AnswerContext,
+  type AnswerOutcome,
   CARD_ACTS,
   decline,
   explain,
@@ -392,8 +393,8 @@ export const QuestionCard = (props: CardProps) => {
   if (reasonAsked && !reasonError) setReasonAsked(false);
   // "Answer" sent nothing for want of the reason: the error shows and focus goes to the prompt.
   const asking = useCallback(
-    (outcome: "needs-reason" | undefined) => {
-      if (outcome === undefined) return;
+    (outcome: AnswerOutcome) => {
+      if (outcome !== "needs-reason") return;
       setReasonAsked(true);
       document.getElementById(noteFieldId(question.id))?.focus();
     },

@@ -204,6 +204,32 @@ describe("a confirmation keeps the control pressed (design decision 6; NFR-12)",
     expect(run).toHaveBeenCalledTimes(1);
   });
 
+  test("confirming an Answer that sent gives the heading; one that marked ready gives the control (answering-flow-fixes, design decision 1)", () => {
+    for (const result of ["sent", "note-sent"] as const) {
+      const { confirmation } = waitingOn("answer", answerButton);
+      expect(settleConfirmation(confirmation, true, result)).toEqual({ to: "heading" });
+    }
+    for (const result of ["held", "released"] as const) {
+      const { confirmation } = waitingOn("answer", answerButton);
+      expect(settleConfirmation(confirmation, true, result)).toEqual({
+        to: "control",
+        control: answerButton,
+      });
+    }
+    const { confirmation } = waitingOn("answer", undefined);
+    expect(settleConfirmation(confirmation, true, "held")).toBeUndefined();
+  });
+
+  test("the result changes nothing on Cancel or for a Decline", () => {
+    const cancelled = waitingOn("answer", answerButton);
+    expect(settleConfirmation(cancelled.confirmation, false, "sent")).toEqual({
+      to: "control",
+      control: answerButton,
+    });
+    const declined = waitingOn("decline", moreButton);
+    expect(settleConfirmation(declined.confirmation, true, "held")).toEqual({ to: "heading" });
+  });
+
   test("confirming a Decline runs it once and gives the heading", () => {
     const { confirmation, run } = waitingOn("decline", moreButton);
     expect(settleConfirmation(confirmation, true)).toEqual({ to: "heading" });

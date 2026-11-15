@@ -160,6 +160,31 @@ describe("what a card's Answer sends (ask-lifecycle, task 6.4; FR-7, FR-22)", ()
   });
 });
 
+describe("what Answer reports (answering-flow-fixes, design decision 1)", () => {
+  test("sent for an answer in immediate delivery, note-sent for a note alone", () => {
+    const { draft, board, context } = setUp();
+    draft.set("payment", ["Stripe"]);
+    expect(answer(payment, context)).toBe("sent");
+    board.edit("database", 1, () => ({ rev: 1, note: "Ask ops." }));
+    expect(answer(database, context)).toBe("note-sent");
+  });
+
+  test("held and then released for two presses in submitted delivery, a note alone included", () => {
+    const { draft, board, context } = setUp("submitted");
+    draft.set("payment", ["Stripe"]);
+    expect(answer(payment, context)).toBe("held");
+    expect(answer(payment, context)).toBe("released");
+    board.edit("database", 1, () => ({ rev: 1, note: "Ask ops." }));
+    expect(answer(database, context)).toBe("held");
+    expect(answer(database, context)).toBe("released");
+  });
+
+  test("undefined when there is nothing to send", () => {
+    const { context } = setUp();
+    expect(answer(database, context)).toBeUndefined();
+  });
+});
+
 describe("Accept recommended (FR-3, AD-10; L186)", () => {
   test("selects the recommended option, clears Other on a single choice, and sends at once", () => {
     const { sent, draft, board, context } = setUp();
@@ -1067,7 +1092,7 @@ describe("a reason the answer requires (approval-scale-ranking, design decision 
 
   test("a note with text sends the answer carrying it, in immediate delivery", () => {
     const { sent, context } = held("immediate", revise, "Cheaper.");
-    expect(answer(asked, context)).toBeUndefined();
+    expect(answer(asked, context)).toBe("sent");
     expect(sent).toEqual([
       expect.objectContaining({
         type: "answer",
@@ -1079,14 +1104,14 @@ describe("a reason the answer requires (approval-scale-ranking, design decision 
 
   test("a note with text marks the answer ready, in submitted delivery", () => {
     const { sent, board, context } = held("submitted", revise, "Cheaper.");
-    expect(answer(asked, context)).toBeUndefined();
+    expect(answer(asked, context)).toBe("held");
     expect(board.work("database")?.held).toEqual({ act: "answer", order: 0 });
     expect(sent).toEqual([]);
   });
 
   test("a result that requires no reason sends with no note", () => {
     const { sent, context } = held("immediate", accept);
-    expect(answer(asked, context)).toBeUndefined();
+    expect(answer(asked, context)).toBe("sent");
     expect(sent).toEqual([
       expect.objectContaining({ type: "answer", results: { verdict: accept } }),
     ]);
@@ -1094,7 +1119,7 @@ describe("a reason the answer requires (approval-scale-ranking, design decision 
 
   test("with no facts for the type, nothing is required", () => {
     const { sent, context } = held("immediate", revise);
-    expect(answer(asked, { ...context, facts: () => undefined })).toBeUndefined();
+    expect(answer(asked, { ...context, facts: () => undefined })).toBe("sent");
     expect(sent).toHaveLength(1);
   });
 
@@ -1111,7 +1136,7 @@ describe("a reason the answer requires (approval-scale-ranking, design decision 
     // State built directly: the answer was marked ready, then the note lost its text.
     board.edit("database", 1, (work) => ({ ...work, rev: 1, held: { act: "answer", order: 0 } }));
     expect(answerNeedsReason(asked, context)).toBe(false);
-    expect(answer(asked, context)).toBeUndefined();
+    expect(answer(asked, context)).toBe("released");
     expect(board.work("database")?.held).toBeUndefined();
     expect(sent).toEqual([]);
   });
@@ -1222,7 +1247,7 @@ describe("Accept recommended takes the path of Answer (approval-scale-ranking, d
     expect(sent).toEqual([
       expect.objectContaining({ type: "answer", choice: ["A"], results: { verdict: reject } }),
     ]);
-    expect(outcomes).toEqual([undefined]);
+    expect(outcomes).toEqual(["sent"]);
   });
 
   test("confirming marks the answer ready in submitted delivery, and sends nothing", () => {

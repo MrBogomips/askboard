@@ -65,7 +65,7 @@ import {
   unchangedOf,
 } from "./question-state.ts";
 import { type FactsOf, reasonOf } from "./reason.ts";
-import { asksFirst, press, type Waiting } from "./revision-confirm.ts";
+import { type AnswerResult, asksFirst, press, type Waiting } from "./revision-confirm.ts";
 import type { SizeNotices } from "./size-notices.ts";
 
 /** Explain's ready-made follow-up (EXPERIENCE.md, Voice and Tone: Question actions). */
@@ -163,8 +163,10 @@ export type AnswerContext = Senders & {
 const shownIn = (question: ViewQuestion, context: Pick<AnswerContext, "shownOf">): ViewQuestion =>
   context.shownOf?.(question) ?? question;
 
-/** What "Answer" gave: nothing to report, or that the answer lacks the reason it requires. */
-export type AnswerOutcome = "needs-reason" | undefined;
+export type { AnswerResult };
+
+/** What "Answer" gave: its result, or none when a field blocks or there is nothing to send. */
+export type AnswerOutcome = AnswerResult | undefined;
 
 /**
  * The answer with the derived values every computing item of the question last reported (widget-
@@ -222,8 +224,13 @@ const OVER_UNDO: ReadonlySet<HeldAct["act"]> = new Set(["answer", "decline", "no
 // Holds the act for Submit, or, when that act is held already, takes it back. An answer, decline
 // or note held over the undo of a sent postpone or decline keeps that undo beneath it, held again
 // when the act is taken back.
-const toggleHeld = (question: ViewQuestion, context: AnswerContext, act: HeldAct["act"]): void => {
+const toggleHeld = (
+  question: ViewQuestion,
+  context: AnswerContext,
+  act: HeldAct["act"],
+): "held" | "released" => {
   const { board } = context;
+  const released = board.work(question.id)?.held?.act === act;
   const order = nextHeldOrder(board);
   board.edit(question.id, question.rev, (current) => {
     if (current.held?.act === act) return releaseHeld(current);
@@ -232,6 +239,7 @@ const toggleHeld = (question: ViewQuestion, context: AnswerContext, act: HeldAct
     const { undo: _, ...rest } = current;
     return { ...rest, ...(undo === undefined ? {} : { undo }), held: { act, order } };
   });
+  return released ? "released" : "held";
 };
 
 // Takes back what is held, if anything is.
@@ -342,25 +350,19 @@ export const answer = (question: ViewQuestion, context: AnswerContext): AnswerOu
     content.other !== undefined;
   if (!answers) {
     if (content.note === undefined) return undefined;
-    if (delivery === "submitted") {
-      toggleHeld(question, context, "note");
-      return undefined;
-    }
+    if (delivery === "submitted") return toggleHeld(question, context, "note");
     sendActs(context, [
       { type: "note", itemId: question.id, rev: question.rev, note: content.note, when: now() },
     ]);
-    return undefined;
+    return "note-sent";
   }
   if (reasonGate(question, context, content) === "needs-reason") return "needs-reason";
-  if (delivery === "submitted") {
-    toggleHeld(question, context, "answer");
-    return undefined;
-  }
+  if (delivery === "submitted") return toggleHeld(question, context, "answer");
   const rev = revisionFor(question, work);
   const message = answerOf({ ...question, rev }, content, new Date());
   const { type: _, ...fields } = message;
   dispatch(context, [{ type: "answer", ...fields }], message);
-  return undefined;
+  return "sent";
 };
 
 /**

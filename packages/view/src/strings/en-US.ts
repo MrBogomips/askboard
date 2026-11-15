@@ -189,6 +189,7 @@ export const EN_US = {
   "bar.immediate": "Immediate",
   "bar.submitted": "Submitted",
   "bar.immediateHelp": "Answers go to the agent as you give them.",
+  "bar.submittedHelp": 'Answers stay here until you press "{submit}".',
   "bar.postponedWarning": {
     one: "You have {count} postponed question: closing loses this ask",
     other: "You have {count} postponed questions: closing loses this ask",
@@ -574,4 +575,17 @@ export const EN_US = {
   "ranking.selectNone": "Select none",
   "ranking.selected": { one: "{count} selected", other: "{count} selected" },
   "ranking.select": "Select {name}",
+  "status.answerSent": "Answer sent: {option}.",
+  "status.answerSentPlain": "Answer sent.",
+  "status.noteSent": "Note sent; the question is still to do.",
+  "status.ready": "Answer ready, not sent. {count} ready.",
+  "status.submitted": { one: "{count} answer sent.", other: "{count} answers sent." },
+  "status.prefilled": {
+    one: "{count} question prefilled. Nothing was sent.",
+    other: "{count} questions prefilled. Nothing was sent.",
+  },
+  "status.added": {
+    one: "The agent added {count} question: {title}.",
+    other: "The agent added {count} questions.",
+  },
 } as const satisfies StringTable;

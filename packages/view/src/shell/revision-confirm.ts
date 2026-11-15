@@ -81,6 +81,13 @@ export type FocusTarget<Control> =
   | { readonly to: "control"; readonly control: Control }
   | { readonly to: "heading" };
 
+/**
+ * What "Answer" did (answering-flow-fixes, design decision 1): `sent` (an answer command started),
+ * `note-sent` (a note alone started), `held` (the answer was marked ready), `released` (the mark
+ * was taken back), or `needs-reason` (nothing was sent or marked for want of the reason).
+ */
+export type AnswerResult = "sent" | "note-sent" | "held" | "released" | "needs-reason";
+
 /** The confirmation a press made, or none when the press acted at once. */
 export const confirmationOf = <Control>(
   act: "answer" | "decline",
@@ -89,18 +96,33 @@ export const confirmationOf = <Control>(
 ): Confirmation<Control> | undefined =>
   waiting === undefined ? undefined : { act, waiting, control };
 
+const confirmedTarget = <Control>(
+  confirmation: Confirmation<Control>,
+  result: AnswerResult | undefined,
+): FocusTarget<Control> | undefined => {
+  if (confirmation.act === "decline") return { to: "heading" };
+  if (result === "sent" || result === "note-sent") return { to: "heading" };
+  if ((result === "held" || result === "released") && confirmation.control !== undefined) {
+    return { to: "control", control: confirmation.control };
+  }
+  return undefined;
+};
+
 /**
  * The user's choice on a confirmation, and where focus goes: Cancel and Escape give back the
  * control pressed (the dialog has no trigger, so Radix restores none); a confirmed Decline gives
- * the heading, as the menu item that made it is gone; a confirmed Answer gives none.
+ * the heading, as the menu item that made it is gone; a confirmed Answer gives the heading when it
+ * sent (`result` is `sent` or `note-sent`) and the control when it marked or unmarked the answer
+ * ready (`held`, `released`), and none when the result is not known.
  */
 export const settleConfirmation = <Control>(
   confirmation: Confirmation<Control> | undefined,
   confirmed: boolean,
+  result?: AnswerResult,
 ): FocusTarget<Control> | undefined => {
   settle(confirmation?.waiting, confirmed);
   if (confirmation === undefined) return undefined;
-  if (confirmed) return confirmation.act === "decline" ? { to: "heading" } : undefined;
+  if (confirmed) return confirmedTarget(confirmation, result);
   return confirmation.control === undefined
     ? undefined
     : { to: "control", control: confirmation.control };

@@ -28,7 +28,7 @@ import { acceptRecommended, answer, keepMine } from "./card-acts.ts";
 import type { ViewChannel } from "./channel.ts";
 import { createDerivedStore } from "./derived-store.ts";
 import { createDraftStore } from "./draft-store.ts";
-import { answerHint, fieldBlock, holdsBlock } from "./field-block.ts";
+import { answerHint, fieldBlock, fieldToFixOf, holdsBlock } from "./field-block.ts";
 import { cardState } from "./question-state.ts";
 import {
   confirmedPress,
@@ -183,6 +183,48 @@ describe("what the disabled Answer is described by (view-and-widgets spec)", () 
     expect(
       answerHint(question, NONE, held(["plan-owner", "ABC"]), "en-US", factsOf),
     ).toBeUndefined();
+  });
+});
+
+describe("the field to fix, for the reason beside Answer (answering-flow-fixes, design decision 7)", () => {
+  const question = questionOf(arranged({ pattern: "^[A-Z]+$", required: true }));
+
+  test("an entry, a failed check and an empty required field give the text and the field", () => {
+    expect(
+      fieldToFixOf(
+        question,
+        held(["plan-hours", "x"]),
+        held(["plan-owner", "AB"]),
+        "en-US",
+        factsOf,
+      ),
+    ).toEqual({
+      text: "Correct Hours first.",
+      itemId: "plan-hours",
+    });
+    expect(fieldToFixOf(question, NONE, held(["plan-owner", "abc"]), "en-US", factsOf)).toEqual({
+      text: "Correct Owner first.",
+      itemId: "plan-owner",
+    });
+    expect(fieldToFixOf(question, NONE, NONE, "it-IT", factsOf)).toEqual({
+      text: "Completa prima Owner.",
+      itemId: "plan-owner",
+    });
+  });
+
+  test("nothing blocking gives none, and answerHint is the text", () => {
+    expect(
+      fieldToFixOf(question, NONE, held(["plan-owner", "ABC"]), "en-US", factsOf),
+    ).toBeUndefined();
+    for (const [entries, results] of [
+      [NONE, NONE],
+      [NONE, held(["plan-owner", "abc"])],
+      [NONE, held(["plan-owner", "ABC"])],
+    ] as const) {
+      expect(answerHint(question, entries, results, "en-US", factsOf)).toBe(
+        fieldToFixOf(question, entries, results, "en-US", factsOf)?.text,
+      );
+    }
   });
 });
 

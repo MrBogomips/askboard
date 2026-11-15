@@ -111,11 +111,35 @@ const detachedHint = (question: ViewQuestion, itemId: string, language: Locale):
     : t(language, "documentReview.hint", { label: title });
 };
 
+/** The reason "Answer" is disabled, and the field that holds it (answering-flow-fixes, decision 7). */
+export type FieldToFix = { readonly text: string; readonly itemId: string };
+
 /**
- * What the disabled "Answer" is described by while a field blocks: "Correct {label} first." for an
- * entry or a value that fails its check, "Complete {label} first." for an empty required field,
- * naming the first field, the label as text; none while no field blocks.
+ * What the disabled "Answer" is described by while a field blocks, with the field to take the user
+ * to: "Correct {label} first." for an entry or a value that fails its check, "Complete {label}
+ * first." for an empty required field, naming the first field, the label as text; none while no
+ * field blocks.
  */
+export const fieldToFixOf = (
+  question: ViewQuestion,
+  entries: ReadonlyMap<string, unknown>,
+  results: ReadonlyMap<string, unknown>,
+  language: Locale,
+  factsOf: CheckFactsOf = componentFacts,
+  readOnly?: ReadonlySet<string>,
+): FieldToFix | undefined => {
+  const block = fieldBlock(question, entries, results, factsOf, readOnly);
+  if (block === undefined) return undefined;
+  const text =
+    block.failure?.code === "detached"
+      ? detachedHint(question, block.itemId, language)
+      : t(language, block.kind === "required" ? "question.requiredHint" : "question.entryHint", {
+          label: block.label,
+        });
+  return { text, itemId: block.itemId };
+};
+
+/** What the disabled "Answer" is described by while a field blocks: the text of `fieldToFixOf`. */
 export const answerHint = (
   question: ViewQuestion,
   entries: ReadonlyMap<string, unknown>,
@@ -123,11 +147,5 @@ export const answerHint = (
   language: Locale,
   factsOf: CheckFactsOf = componentFacts,
   readOnly?: ReadonlySet<string>,
-): string | undefined => {
-  const block = fieldBlock(question, entries, results, factsOf, readOnly);
-  if (block === undefined) return undefined;
-  if (block.failure?.code === "detached") return detachedHint(question, block.itemId, language);
-  return t(language, block.kind === "required" ? "question.requiredHint" : "question.entryHint", {
-    label: block.label,
-  });
-};
+): string | undefined =>
+  fieldToFixOf(question, entries, results, language, factsOf, readOnly)?.text;

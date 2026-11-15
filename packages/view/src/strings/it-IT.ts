@@ -198,6 +198,7 @@ export const IT_IT = {
   "bar.immediate": "Immediata",
   "bar.submitted": "Su invio",
   "bar.immediateHelp": "Le risposte arrivano all'agente man mano che le dai.",
+  "bar.submittedHelp": "Le risposte restano qui finché non premi «{submit}».",
   "bar.postponedWarning": {
     one: "Hai {count} domanda rinviata: chiudendo perdi questa richiesta",
     other: "Hai {count} domande rinviate: chiudendo perdi questa richiesta",
@@ -598,4 +599,22 @@ export const IT_IT = {
   "ranking.selectNone": "Deseleziona tutto",
   "ranking.selected": { one: "{count} selezionata", other: "{count} selezionate" },
   "ranking.select": "Seleziona {name}",
+  // The status messages' texts are to review (answering-flow-fixes, task 1.5), but for
+  // `status.prefilled`, which the UX review accepted (report 1.1.0, §4).
+  "status.answerSent": "Risposta inviata: {option}.",
+  "status.answerSentPlain": "Risposta inviata.",
+  "status.noteSent": "Nota inviata; la domanda resta da fare.",
+  "status.ready": {
+    one: "Risposta pronta, non inviata. {count} pronta.",
+    other: "Risposta pronta, non inviata. {count} pronte.",
+  },
+  "status.submitted": { one: "{count} risposta inviata.", other: "{count} risposte inviate." },
+  "status.prefilled": {
+    one: "{count} domanda precompilata. Niente è stato inviato.",
+    other: "{count} domande precompilate. Niente è stato inviato.",
+  },
+  "status.added": {
+    one: "L'agente ha aggiunto {count} domanda: {title}.",
+    other: "L'agente ha aggiunto {count} domande.",
+  },
 } as const satisfies StringTable;
