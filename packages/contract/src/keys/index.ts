@@ -2,6 +2,13 @@
 
 export { ariaKeyShortcuts } from "./aria.ts";
 export { KEY_TABLES_ON_BOARD } from "./board.ts";
+export {
+  BOARD_KEY_TABLE,
+  BOARD_KEY_TYPE,
+  BOARD_KEYS,
+  BOARD_PART,
+  type BoardKeyAction,
+} from "./board-table.ts";
 export { type KeyTableProblem, keyTableProblems } from "./check.ts";
 export { changedKeyActions, effectiveKeys, sameBindings } from "./effective.ts";
 export { type KeyPress, keyActionOf, type Modifiers, type PressHold, pressHold } from "./match.ts";
@@ -23,6 +30,7 @@ export {
   keyOverridesProblems,
 } from "./overrides.ts";
 export {
+  ALL_KEY_TABLES,
   type KeyTypes,
   REGISTERED_KEY_TABLES,
   type RegisteredKeyTable,

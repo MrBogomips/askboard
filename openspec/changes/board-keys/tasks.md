@@ -23,23 +23,23 @@ Terms used below:
 
 ## 1. Contract: the board's key table and the override check
 
-- [ ] 1.1 Tests first, the table (D1; The board's key table). In a new `packages/contract/test/keys-board-table.test.ts`:
+- [x] 1.1 Tests first, the table (D1; The board's key table). In a new `packages/contract/test/keys-board-table.test.ts`:
   - `keyTableProblems(BOARD_KEY_TYPE, BOARD_KEYS)` is empty.
   - Each entry has the action, part, keys, `shows`, `readOnly` and label of D1's table.
   - `ALL_KEY_TABLES` is the board's table, then exactly `REGISTERED_KEY_TABLES` in order, frozen.
   - A table binding `Mod+Enter` passes the check, one binding `Mod+w` reports a problem naming the type and the key, and `Mod+Shift+Enter` still passes.
   - No registered widget type is named `board`, and a probe registry holding one makes the test's helper name it.
 
-  Any case of `keys-check.test.ts` or `keys-overrides.test.ts` that pins `mod` to Z and A alone now admits Enter too. Verify: the new tests fail before 1.3 and pass after it.
-- [ ] 1.2 Tests first, the override check (D6; Board keys a native control takes; The override check's default tables). In `keys-overrides.test.ts` and `keys-effective.test.ts`, with no tables given:
+  Any case of `keys-check.test.ts` or `keys-overrides.test.ts` that pins `mod` to Z and A alone now admits Enter too. Verify: the new tests fail before 1.3 and pass after it. Done 2026-11-15. New `keys-board-table.test.ts` (8 tests): table check empty, each D1 row, `BOARD_KEY_TABLE`, `ALL_KEY_TABLES` order and frozen, `Mod+Enter` passes, `Mod+w` names type and key, `Mod+Shift+Enter` passes, no widget type named `board` with a probe-registry helper. `keys-check.test.ts`: the `mod` case now admits Enter. Failed first (missing exports), pass now.
+- [x] 1.2 Tests first, the override check (D6; Board keys a native control takes; The override check's default tables). In `keys-overrides.test.ts` and `keys-effective.test.ts`, with no tables given:
   - `{"board.nextOpen": ["Enter"]}` gives a `reserved` problem; so does `Space`, `ArrowDown` or `Shift+Home` on `board.previousOpen`.
   - `{"board.nextOpen": ["Shift+n"]}` gives a conflict with `board.previousOpen`, and `{"board.previousOpen": ["?"]}` a conflict with `keys.open`.
   - `{"board.answer": ["Mod+Shift+Enter"]}` passes; `{"board.sendFollowUp": ["j"]}` gives a `reserved` problem (an editor's typing key).
   - `{"board.nextOpen": ["j"], "board.sendFollowUp": []}` passes, and `changedKeyActions` gives both.
   - `keyExitActions()` is unchanged.
 
-  In `packages/core/test/config-keys-board.test.ts`, a user file with `board.nextOpen: ["j"]` applies with no warning, and one with `["Enter"]` gives one `keys-not-applied` warning naming `board.nextOpen`. Verify: the new cases fail before 1.3 and pass after it, and every existing case of these files passes unchanged.
-- [ ] 1.3 Implement D1 and D6 in `packages/contract/src/keys/`:
+  In `packages/core/test/config-keys-board.test.ts`, a user file with `board.nextOpen: ["j"]` applies with no warning, and one with `["Enter"]` gives one `keys-not-applied` warning naming `board.nextOpen`. Verify: the new cases fail before 1.3 and pass after it, and every existing case of these files passes unchanged. Done 2026-11-15. Added 8 cases to `keys-overrides.test.ts`, 2 to `keys-effective.test.ts` and 2 to `config-keys-board.test.ts` (appended to the existing file; core applies `board.nextOpen: ["j"]` with no warning, and `["Enter"]` gives one `keys-not-applied` with rule reserved). Extra cases: a widget action sharing the part name `board` stays unreserved, prototype names are no action. All existing cases pass unchanged.
+- [x] 1.3 Implement D1 and D6 in `packages/contract/src/keys/`:
   - A new `board-table.ts` with `BOARD_KEYS`, `BOARD_KEY_TYPE`, `BOARD_PART`, `BoardKeyAction` and `BOARD_KEY_TABLE`. Its header comment says what the table is and that it is plain data (AD-1).
   - `tables.ts`: `ALL_KEY_TABLES`.
   - `check.ts`: `MOD_KEYS` gains `Enter`, and its comment says a handler of `Mod+Enter` leaves links alone.
@@ -47,7 +47,7 @@ Terms used below:
   - `effective.ts`: `changedKeyActions` defaults to `ALL_KEY_TABLES`.
   - `keys/index.ts`: the new exports, and one appended export block at the end of `src/index.ts` (askboard-implementation).
 
-  No file under `src/schemas/` changes. Verify: 1.1 and 1.2 pass; the check passes; `git diff --name-only` shows no path under `packages/contract/src/schemas/`.
+  No file under `src/schemas/` changes. Verify: 1.1 and 1.2 pass; the check passes; `git diff --name-only` shows no path under `packages/contract/src/schemas/`. Done 2026-11-15. New `keys/board-table.ts`; `ALL_KEY_TABLES` in `tables.ts`; `MOD_KEYS` gains `Enter`; `overrides.ts`, `effective.ts` default to `ALL_KEY_TABLES`; exports in `keys/index.ts` and one appended block in `src/index.ts`. No path under `src/schemas/` changed. Deviation from D6's wording: the board-part reservation reads the actions of the table of type `board` only, not "any table", because the Kanban's table also names a part `board` (cursor.* and move.* actions); reading every table would have reserved ArrowUp and the like on the Kanban's vocabulary actions, a regression. Check green (14801 pass).
 - [ ] 1.4 Review checkpoint: spec review of group 1's range (askboard-spec-reviewer) against D1, D6, the `contract` delta spec and design.md's Merge points. Add a security review (askboard-security-reviewer): the change widens what the contract's override check admits, so check fail-closed behaviour (NFR-10), prototype keys in action names and that no schema moved. Verify: both reports are recorded in the task note, and each finding is fixed tests first or turned into an Issue (`source:review`).
 
 ## 2. View: pure parts and strings

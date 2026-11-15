@@ -4,10 +4,11 @@
 // bounds the shape of `keys` and this check gives it its meaning (AD-14), and one problem never
 // hides another. A file with any problem applies no `keys` at all (`ask-core`, NFR-10).
 
+import { BOARD_KEY_TYPE, BOARD_PART } from "./board-table.ts";
 import { editorKeyProblem, reads, reservedProblem } from "./check.ts";
 import { bindingsOf, effectiveKeys } from "./effective.ts";
 import { type KeyOverrides, keyCombinationText, parseKeyCombination } from "./notation.ts";
-import { type KeyTypes, REGISTERED_KEY_TABLES } from "./tables.ts";
+import { ALL_KEY_TABLES, type KeyTypes } from "./tables.ts";
 import {
   isVocabularyAction,
   KEY_VOCABULARY,
@@ -64,6 +65,18 @@ export const KEYS_OPEN_RESERVED_KEYS: ReadonlySet<string> = new Set([
 const takenByControls = ({ key, hold }: KeyBinding): boolean =>
   (hold === "none" || hold === "shift") && KEYS_OPEN_RESERVED_KEYS.has(key);
 
+// The actions of the board's own table in the part `board`: they act across buttons, options and
+// links, so a key a native control takes is reserved on them as on `keys.open`. Read by the table's
+// type, since a widget's table may also name a part `board` (the Kanban's) and its cursor keys
+// are the vocabulary's.
+const boardActions = (tables: readonly Registered[]): ReadonlySet<string> =>
+  new Set(
+    tables
+      .filter(({ type }) => type === BOARD_KEY_TYPE)
+      .flatMap(({ table }) => table.filter((entry) => entry.part === BOARD_PART))
+      .map((entry) => entry.action),
+  );
+
 // A registered table's entries that are whole, by type.
 type Registered = { readonly type: string; readonly table: readonly KeyEntry[] };
 
@@ -112,7 +125,7 @@ const escapeActions = (tables: readonly Registered[]): readonly string[] =>
  * keys hold Escape in some registered table, sorted, frozen. The set `keyOverridesProblems` reports
  * an `exit` problem for; the generated key configuration reference reads it (review 5.6, S-36).
  */
-export const keyExitActions = (types: KeyTypes = REGISTERED_KEY_TABLES): readonly string[] =>
+export const keyExitActions = (types: KeyTypes = ALL_KEY_TABLES): readonly string[] =>
   Object.freeze([...new Set(["edit.cancel", ...escapeActions(registered(types))])].sort());
 
 // The problems of one action's override on its own: known, not native, each combination judged,
@@ -123,6 +136,7 @@ const actionProblems = (
   tables: readonly Registered[],
   exits: readonly string[],
   editors: ReadonlySet<string>,
+  acrossBoard: ReadonlySet<string>,
 ): readonly KeyOverrideProblem[] => {
   const entries = tables.flatMap(({ table }) => table.filter((entry) => entry.action === action));
   const known = isVocabularyAction(action) || entries.some((entry) => entry.keys.length > 0);
@@ -141,7 +155,7 @@ const actionProblems = (
     } else if (
       reservedProblem(read.binding) !== undefined ||
       (editors.has(action) && editorKeyProblem(read.binding) !== undefined) ||
-      (action === KEYS_OPEN && takenByControls(read.binding))
+      ((action === KEYS_OPEN || acrossBoard.has(action)) && takenByControls(read.binding))
     ) {
       problems.push({ rule: "reserved", action, binding: shownText(combination) });
     }
@@ -278,14 +292,15 @@ const same = (a: KeyOverrideProblem, b: KeyOverrideProblem): boolean =>
  * for an action that any registered table has in an `editor` part, a key that types a character;
  * a `conflict`, two actions of one part on one key
  * once applied, and `keys.open` against every keyed binding of every part, since it acts across
- * the item; for `keys.open` also a `reserved` key a native control takes (`KEYS_OPEN_RESERVED_KEYS`);
+ * the item; for `keys.open` and each action of the board's own table in its part `board` also a
+ * `reserved` key a native control takes (`KEYS_OPEN_RESERVED_KEYS`);
  * an `exit` left with no key (`edit.cancel`, and each own action whose default keys
  * hold Escape). A vocabulary action no table binds yet passes. Each problem names the action, the
  * combination as written and, for a conflict, the other action. Never throws.
  */
 export const keyOverridesProblems = (
   overrides: KeyOverrides,
-  types: KeyTypes = REGISTERED_KEY_TABLES,
+  types: KeyTypes = ALL_KEY_TABLES,
 ): readonly KeyOverrideProblem[] => {
   if (typeof overrides !== "object" || overrides === null || Array.isArray(overrides)) {
     return [{ rule: "notation", action: "keys", binding: shownText(overrides) }];
@@ -293,9 +308,10 @@ export const keyOverridesProblems = (
   const tables = registered(types);
   const exits = keyExitActions(types);
   const editors = editorActions(tables);
+  const acrossBoard = boardActions(tables);
   const actions = Object.keys(overrides);
   const found = actions.flatMap((action) =>
-    actionProblems(action, overrides[action], tables, exits, editors),
+    actionProblems(action, overrides[action], tables, exits, editors, acrossBoard),
   );
   const written = writtenTexts(overrides, actions);
   const conflicting = [
