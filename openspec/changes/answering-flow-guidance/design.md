@@ -27,7 +27,7 @@ AD IDs relied on: AD-1 (view code stays in `view`; the setting crosses contract,
 **Non-Goals:**
 
 - Board keys (`board-keys`, #187). Direction B's layout: the outbox ledger, the progress strip, the bottom bar's removal (its postponed warning moves with it), "Edit" on a sent card, the visible "The agent added … · Go" notice, short question numbers, compact defaults (change 6). Palettes (#189).
-- The ask pill: unchanged, including its strings' meaning, until #186 (D-6) is settled; only the Italian word "rinviata" becomes "rimandata" in it (D10).
+- The ask pill and its words: unchanged. #186 found that it follows the ask state computed from the log (`askStateOf`, no watermark), so it reads "Answered" while receipts still read "Sent"; what it claims is PO question #213, and its records are change 6's (#213's proposed default).
 - Messages for a follow-up reply or an agent's edit to a question.
 
 ## Decisions
@@ -49,7 +49,7 @@ The card shows the state as a line in its actions row, where the receipt shows t
 
 ### D2. The next question to do
 
-`nextOpenFrom` keeps its name and signature (`board-keys` reads it for `N`) and changes its order: unseen questions the agent added first, then `todo` and `draft` questions after `current` in board order, wrapping; then `postponed` ones after `current`, wrapping (report §3.2: a postponed question is reached last, not skipped). The header button keeps `header.nextOpen` as its key, with the value "Next to do". `board-keys`' "previous to do" mirrors this order in a sibling function (merge point).
+`nextOpenFrom` keeps its name and signature (`board-keys` reads it for `N`; its label `header.nextOpen` reaches `board-keys`' tooltip and keys panel as it is) and changes its order: unseen questions the agent added first, then `todo` and `draft` questions after `current` in board order, wrapping; then `postponed` ones after `current`, wrapping (report §3.2: a postponed question is reached last, not skipped). The header button keeps `header.nextOpen` as its key, with the value "Next to do". `board-keys` adds `previousOpenFrom` beside it (at 89ac61b4: open questions before the question in view, wrapping). Whichever change lands second aligns it in the commit of its order rule: to-do and draft questions before the question in view, wrapping, then postponed ones; and its label `keys.action.board.previousOpen` becomes "Previous to do" / "Precedente da fare".
 
 ### D3. After an answer
 
@@ -65,7 +65,7 @@ The card shows the state as a line in its actions row, where the receipt shows t
 
 `target` is `nextOpenFrom(current = the acted question)`, `todo`/`draft` first; when only postponed questions remain the output is `complete` (the panel's postponed variant offers "Go to the first"). `areaDone` names the acted question's area when it has no question to do left and the target is in another area.
 
-- **Where it runs.** At the act, never at the reply (the base's D1 rule): the card calls it from its outcome handling, which `pressAnswer`, "Accept recommended", Postpone and Decline already reach; `board-keys`' `Mod+Enter` takes the button's path and so gets it too. Decline's move runs after the More menu's close (`onCloseAutoFocus` prevented), so the menu does not give focus back to its trigger.
+- **Where it runs.** At the act, never at the reply (the base's D1 rule): the card calls it from its outcome handling, which `pressAnswer`, "Accept recommended", Postpone and Decline already reach; `board-keys`' `Mod+Enter` calls the same `onAnswer(control)` and so gets it too. There `control` is the element that had focus (an option or the heading), so that a cancelled confirmation returns focus to it: the flow never takes `control` for the primary, and finds the primary as `[data-askboard-primary]` inside the card where it needs it ("Edit" keeping focus, the `stay` output). Decline's move runs after the More menu's close (`onCloseAutoFocus` prevented), so the menu does not give focus back to its trigger.
 - **The footer.** A store in `BoardContext` holds `{from, target}`; the card whose id is `from` renders "{state label} · Next: {title}" (with "New from the agent" or "(area)" when so) and "Continue", which takes focus. "Continue" runs the `move`. The store clears on "Continue", on an edit or act on `from`, on an act on another question, and when the target leaves the board. The title is agent text: rendered as text, with the agent-label truncation and bidi isolation of EXPERIENCE's Agent-written labels (AD-8).
 - **Tabs.** With `move`, the target's tab activates at once; with `footer`, on "Continue". `status.areaDone` is announced at the act in every presentation with areas.
 - **One question per view.** `move` sets the question shown, as the header jump does today.
@@ -86,7 +86,7 @@ The card shows the state as a line in its actions row, where the receipt shows t
 - Send: `bar.submit` is "Send {count} answers" with {count} the held answer acts (plural forms); with held work but no held answer it reads `bar.submitPlain` "Send" (Q2). The bar renders no Send button in immediate delivery; the base's paths that focus Submit (the replace dialog with nothing sent) fall back to the delivery switch's "One by one" when it is absent.
 - The submitted helper names the button as `bar.submitName` ("Send answers", «Invia le risposte»), not its counted label (Q1).
 - "Accept recommended" moves to the recommended option's row, after its badge, and renders only while the question is `todo` or `draft` (F-18).
-- **Stable hooks.** The primary carries `data-askboard-primary`, Send `data-askboard-submit`, Postpone `data-askboard-postpone`, Prefill `data-askboard-prefill`, the header jump `data-askboard-next-to-do`, each delivery segment `data-askboard-delivery="immediate|submitted"`. The harness's locators (`harness/dom.ts`) use them, and browser tests find controls through the harness, never by these labels.
+- **Stable hooks.** The primary carries `data-askboard-primary`, Send `data-askboard-submit`, Postpone `data-askboard-postpone`, Prefill `data-askboard-prefill`, the header jump `data-askboard-next-to-do`, each delivery segment `data-askboard-delivery="immediate|submitted"`. The harness's locators (`harness/dom.ts`) use them, and browser tests find controls through the harness, never by these labels. `board-keys` puts the same `data-askboard-primary` on the same button; the rebase keeps one.
 
 The strings, by key (EN, IT). "Accepted" is report §4, decision 3; the rest are Italian "(to review)" in EXPERIENCE's Voice and Tone.
 
@@ -108,7 +108,6 @@ The strings, by key (EN, IT). "Accepted" is report §4, decision 3; the rest are
 | `mark.unanswered`, `mark.ready`, `mark.postponed` | To do, Ready, not sent, Postponed | Da fare, Pronta, non inviata, Rimandata | accepted |
 | `mark.draft` (new) | Draft | Bozza | to review |
 | `receipt.notSentYet`, `receipt.sent`, `receipt.delivered` | Not sent yet, Sent, Delivered to the agent | Non ancora inviata, Inviata, Consegnata all'agente | accepted (§4; "Not sent yet" capitalised as §3.1) |
-| `state.postponedPart` | unchanged | {count} rimandata / rimandate | accepted (D10) |
 | `header.open`, `areas.open` | {count} to do | {count} da fare | accepted |
 | `header.openPostponed` (new) | {count} to do ({p} postponed) | {count} da fare (di cui {p} rimandata / rimandate) | accepted |
 | `header.nextOpen` | Next to do | Prossima da fare | accepted |
@@ -140,7 +139,7 @@ The strings, by key (EN, IT). "Accepted" is report §4, decision 3; the rest are
 - `postponed {count, first}` while only postponed questions remain to do and nothing is held.
 - `done {sent, delivered}` when every question is `sent`, `delivered` or `declined` and nothing is held: `sent` counts the questions with a receipt (`sent` or `delivered`, a decline included), `delivered` those whose receipt is `delivered`.
 
-It reads the questions' receipts only, never `state.ask` or the ask pill, so #186's outcome changes nothing here; if #186 finds the pill wrong, fixing the pill is a follow-up of its own. `CompletionPanel` renders at the top of the main content, from the model, with a focusable heading (`tabIndex={-1}`); not on a locked board or in an opened Snapshot. `send-all` renders the `bar.allReady` line beside Send instead. The panel never says the tab can be closed (PO, 2026-11-14).
+It reads the questions' receipts only, never `state.ask` or the ask pill, so neither #186's finding nor #213's answer changes anything here. `CompletionPanel` renders at the top of the main content, from the model, with a focusable heading (`tabIndex={-1}`); not on a locked board or in an opened Snapshot. `send-all` renders the `bar.allReady` line beside Send instead. The panel never says the tab can be closed (PO, 2026-11-14).
 
 **Delivered messages.** `deliveredGate(now)` (pure, `shell/delivered-messages.ts`) takes the delivered count from each state update and gives at most one `status.delivered` per 5 s, the latest count at the window's end; a count that has not changed says nothing. The base's guard that no message says "delivered" (`answering-flow-status.browser.ts`, `strings/flow-strings.test.ts`) exempts `status.delivered` and `completion.counts` only.
 
@@ -164,7 +163,7 @@ It reads the questions' receipts only, never `state.ask` or the ask pill, so #18
 
 ### D10. Report conflicts settled here
 
-- §4 renames `state.postponedPart` while its note keeps `state.*` until D-6: only the Italian word changes ("rinviata" to "rimandata", F-21), never the pill's meaning.
+- §4 renames `state.postponedPart` while its note keeps `state.*` until D-6: the pill and its words wait for #213 and change 6 (coordinator, 2026-11-15), so the pill keeps "rinviata" while the marks say "Rimandata".
 - §3.2's flowchart activates the next tab before the setting's branch; with "Stay here" that would hide the card holding the footer, so the tab activates on "Continue" (D3).
 - §3.3.1's "Prossima: {title} {number}" uses change 6's short numbers; here the footer names the title, and the message gives "{n} of {m}".
 - §5.2 (prefill keeps focus) against P1-6 (the button goes at 0): D8.
@@ -194,7 +193,7 @@ No binding is added or changed and no key table is touched: `board-keys` (#187) 
 |---|---|---|
 | `answering-flow-fixes` (#212, base, 9eb5f364) | every seam below; its MODIFIED requirements "Counts and the next-open jump", "One question per view", "Outline navigator", "Delivery mode" and its ADDED "Focus after Answer and Submit", "Focus moves clear the sticky bars", "Status messages for the answering flow", which this delta MODIFIES | After #212 merges: `git rebase --onto origin/main 9eb5f364`; re-check each borrowed name on `origin/main`; re-copy those seven requirements from what merged and re-apply this change's edits; archive this change only after `answering-flow-fixes` is archived (validate already notes "Archive would refuse" until then) |
 | `icon-set` (#210) | `packages/view/src/icons/index.ts`, `IconNextOpen`, `strings/glyphs.test.ts` (no ↓ ↩ ↻ ↗ ✓ ✕ × in a value: no new string holds one), DESIGN.md Icons, `chunk-sizes.json`, strings, browser files naming the jump | Group 9 starts only once `icon-set` is on `origin/main` and this branch is rebased on it; until then no task imports the icon module |
-| `board-keys` (#187, branch `worktree-feature-board-keys`, proposal read 2026-11-15) | `board-view.ts` (its previous-open beside `nextOpenFrom`), `board-header.tsx` (its Keys button and hint on the jump), `question-card.tsx`, `question-actions.tsx` (its hint on the primary), `board.tsx`, strings, `harness/dom.ts`, `harness/suites.ts`, the help template, EXPERIENCE.md (Accessibility Floor, Next-open jump, Voice and Tone), DESIGN.md (Context header, the jump, Answer) | No requirement is modified by both (it ADDs its own and modifies "Follow-up thread"). Its tests find the primary and the jump through the harness locators of task 2.1. Strings, `suites.ts` and documents: keep both sides' lines; the help skill and `chunk-sizes.json` are regenerated, never merged by hand. Whichever lands second re-runs `bun run build:skills` and `--record-sizes` |
+| `board-keys` (#187, branch `worktree-feature-board-keys`, read at 89ac61b4) | `board-view.ts` (its new `previousOpenFrom`; D2), `board-header.tsx` (`KeyHint` around the jump, a Keys button before the quick toggles), `question-card.tsx` (an `onKeyDown` on the section), `question-actions.tsx` (`KeyHint` around the primary, `data-askboard-primary`), `board.tsx` (one hook, previous open, the panel), strings (appended), `harness/suites.ts` (two files), the help template's last line, EXPERIENCE.md (Accessibility Floor, one sentence on the Next-open row, Context header, Voice and Tone, Open Items 21), DESIGN.md (Context header, the hints), `chunk-sizes.json`, the export block at the end of `contract/src/index.ts` (it widens no set). It does not touch `harness/dom.ts`; this change does not touch its `thread.tsx`, `thread-text.ts`, `catalog/fields/roving.ts` or `catalog/keys/hint.ts` | No requirement is modified by both: it ADDs its own and modifies only "Follow-up thread", and names controls by role, not label. Its tests find the primary by `data-askboard-primary` or the harness locator. Strings, `suites.ts`, both export blocks and documents: keep both sides' lines; `previousOpenFrom` and its label as D2 says; `data-askboard-primary` kept once; the help skill (within its budget, task 11.1) and `chunk-sizes.json` are regenerated, never merged by hand |
 | `answering-flow-visual` (change 6, not proposed) | borrows `answerStateOf`, `ladderCountsOf`, `afterAnswerOf`, the footer store, `completionOf` | Only after this change merges |
 | `early-benchmark` | none (`packages/bench`) | none |
 
