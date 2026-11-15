@@ -75,6 +75,7 @@ import { createStatusMessages } from "./status-messages.ts";
 import { createStore } from "./store.ts";
 import { shimStyleElements } from "./style-shim.ts";
 import type { ThreadRequest } from "./thread.tsx";
+import { focusedQuestion } from "./use-question-in-view.ts";
 import { createChunkInstaller } from "./view-chunks.ts";
 import { workRefsOf } from "./work-refs.ts";
 
@@ -100,12 +101,6 @@ const connectToBoardPage = (): ViewChannel => {
     (update) => install(update.chunks ?? []),
   );
 };
-
-// The question whose card holds the focus, if any.
-const focusedQuestion = (): string | undefined =>
-  document.activeElement
-    ?.closest("[data-askboard-question]")
-    ?.getAttribute("data-askboard-question") ?? undefined;
 
 const boot = (): void => {
   shimStyleElements();
@@ -217,7 +212,7 @@ const boot = (): void => {
         attention,
         focus,
         removed,
-        focused: focusedQuestion,
+        focused: () => focusedQuestion(window.document),
         // A restore is no news from the agent: the first update after a reload carries it.
         ...(update.restore !== undefined && update.restore.id > restored ? {} : { status }),
       });

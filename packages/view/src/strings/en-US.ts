@@ -106,7 +106,6 @@ export const EN_US = {
   "navigator.removed": "Question removed by the agent",
   "navigator.previous": "Previous",
   "navigator.next": "Next",
-  "navigator.nextOpen": "Next open →",
   "question.answer": "Answer",
   "question.postpone": "Postpone",
   "question.more": "More",

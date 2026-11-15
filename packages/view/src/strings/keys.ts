@@ -110,7 +110,6 @@ export const STRING_KEYS = [
   "navigator.removed",
   "navigator.previous",
   "navigator.next",
-  "navigator.nextOpen",
   // The question card.
   "question.answer",
   "question.postpone",

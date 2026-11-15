@@ -229,9 +229,11 @@ export const BottomBar = (props: BottomBarProps) => {
           {text("bar.submitted")}
         </button>
       </fieldset>
-      {delivery === "immediate" ? (
-        <span className="text-body text-muted-foreground">{text("bar.immediateHelp")}</span>
-      ) : null}
+      <span className="text-body text-muted-foreground">
+        {delivery === "immediate"
+          ? text("bar.immediateHelp")
+          : text("bar.submittedHelp", { submit: text("bar.submit") })}
+      </span>
       {warning === undefined ? null : <Warning warning={warning} />}
       <span className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-sm">
         {recommendations ? (

@@ -8,11 +8,18 @@
 import { DropdownMenu } from "radix-ui";
 import { useId, useRef } from "react";
 import { useStrings } from "../catalog/port.ts";
+import type { FieldToFix } from "./field-block.ts";
 import { QuestionMarker } from "./markers.tsx";
 import type { CardActions, CardState } from "./question-state.ts";
 import { SizeLines } from "./size-lines.tsx";
 import type { SizeNotice } from "./size-notices.ts";
-import { BUTTON_ANSWER, BUTTON_ANSWER_PRIMARY, BUTTON_SECONDARY, FOCUS_RING } from "./styles.ts";
+import {
+  BUTTON_ANSWER,
+  BUTTON_ANSWER_PRIMARY,
+  BUTTON_LINK_MUTED,
+  BUTTON_SECONDARY,
+  FOCUS_RING,
+} from "./styles.ts";
 
 const MENU =
   "z-20 flex min-w-36 flex-col gap-0.5 rounded-md border border-border bg-popover p-1 text-control text-foreground shadow-md";
@@ -25,10 +32,13 @@ export type ActionsRowProps = {
   readonly card: CardState;
   readonly actions: CardActions;
   /**
-   * While a field holds text it cannot read, what describes the disabled "Answer": "Correct {label}
-   * first." (atoms, design decision 3).
+   * While a field blocks, what describes the disabled "Answer" and the field it names: "Correct
+   * {label} first." (atoms, design decision 3; answering-flow-fixes, decision 7). It shows beside
+   * "Answer" as a `button-link` that leads to the field, and as hidden text on a locked board.
    */
-  readonly answerHint?: string | undefined;
+  readonly fieldToFix?: FieldToFix | undefined;
+  /** Moves focus to the field the reason names. */
+  readonly onFixField: (itemId: string) => void;
   /** What did not go because it was too large: an answer, a Submit or a refused command. */
   readonly sizeNotice?: SizeNotice | undefined;
   /** The board page left this question's work out of the draft it mirrors (oversized-acts). */
@@ -54,7 +64,8 @@ export const ActionsRow = ({
   opened = false,
   card,
   actions,
-  answerHint,
+  fieldToFix,
+  onFixField,
   sizeNotice,
   draftLeftOut = false,
   locked,
@@ -137,10 +148,20 @@ export const ActionsRow = ({
           {card.receipt === undefined ? null : (
             <span className="text-badge text-muted-foreground">{card.receipt}</span>
           )}
+          {fieldToFix === undefined || locked ? null : (
+            <button
+              type="button"
+              id={hintId}
+              className={BUTTON_LINK_MUTED}
+              onClick={() => onFixField(fieldToFix.itemId)}
+            >
+              {fieldToFix.text}
+            </button>
+          )}
           <button
             type="button"
             disabled={!card.canAnswer}
-            aria-describedby={answerHint === undefined ? undefined : hintId}
+            aria-describedby={fieldToFix === undefined ? undefined : hintId}
             onClick={(event) => onAnswer(event.currentTarget)}
             aria-pressed={submitted ? card.ready : undefined}
             className={single ? BUTTON_ANSWER_PRIMARY : BUTTON_ANSWER}
@@ -148,9 +169,9 @@ export const ActionsRow = ({
             {card.ready ? <QuestionMarker mark="ready" /> : null}
             {text("question.answer")}
           </button>
-          {answerHint === undefined ? null : (
+          {fieldToFix === undefined || !locked ? null : (
             <span id={hintId} className="sr-only">
-              {answerHint}
+              {fieldToFix.text}
             </span>
           )}
         </span>

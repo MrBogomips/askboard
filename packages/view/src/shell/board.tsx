@@ -371,7 +371,6 @@ export const Board = ({
               current={at}
               marksOf={marksOf}
               onGo={go}
-              onNextOpen={nextOpen}
               removed={removed}
             />
           }

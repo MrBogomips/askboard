@@ -112,7 +112,6 @@ export const IT_IT = {
   "navigator.removed": "Domanda rimossa dall'agente",
   "navigator.previous": "Precedente",
   "navigator.next": "Successiva",
-  "navigator.nextOpen": "Prossima aperta →",
   "question.answer": "Rispondi",
   "question.postpone": "Rinvia",
   "question.more": "Altre azioni",

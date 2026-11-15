@@ -62,7 +62,8 @@ import { ChangeNotice, ReopenedNotice } from "./change-notice.tsx";
 import type { ViewChannel } from "./channel.ts";
 import { ContextColumn } from "./context-column.tsx";
 import { couldSplit, layoutOf } from "./context-layout.ts";
-import { answerHint, holdsBlock } from "./field-block.ts";
+import { fieldToFixOf, holdsBlock } from "./field-block.ts";
+import { focusField } from "./focus-field.ts";
 import { QuestionMarker } from "./markers.tsx";
 import type { OpenedSnapshot } from "./opened-snapshot.ts";
 import { ActionsRow } from "./question-actions.tsx";
@@ -241,7 +242,7 @@ const useCard = ({ question, state, lock, context }: CardProps) => {
     card,
     blocked,
     actions,
-    answerHint: answerHint(shown, heldEntries, heldResults, language, undefined, readOnlyItems),
+    fieldToFix: fieldToFixOf(shown, heldEntries, heldResults, language, undefined, readOnlyItems),
     followUp,
     choosing,
     placement,
@@ -380,7 +381,7 @@ export const QuestionCard = (props: CardProps) => {
     card,
     blocked,
     actions,
-    answerHint: hint,
+    fieldToFix,
     followUp,
     choosing,
     placement,
@@ -626,7 +627,10 @@ export const QuestionCard = (props: CardProps) => {
             opened={opened}
             card={card}
             actions={actions}
-            answerHint={hint}
+            fieldToFix={fieldToFix}
+            onFixField={(itemId) => {
+              if (section.current !== null) focusField(section.current, itemId);
+            }}
             sizeNotice={sizeNotice}
             draftLeftOut={draftLeftOut}
             locked={lock !== undefined}

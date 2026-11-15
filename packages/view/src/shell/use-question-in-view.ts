@@ -10,7 +10,7 @@ import { measureInset } from "./measure-inset.ts";
 const CARD = "[data-askboard-question]";
 
 // The question whose card holds the focus, if any.
-const focusedQuestion = (doc: Document): string | undefined =>
+export const focusedQuestion = (doc: Document): string | undefined =>
   doc.activeElement?.closest(CARD)?.getAttribute("data-askboard-question") ?? undefined;
 
 // The question in view now, from the cards of the main area, read in one pass.
