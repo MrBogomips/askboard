@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
@@ -55,5 +57,28 @@ describe("the icon module", () => {
     expect(await markup("IconClose", { className: "size-4" })).toMatch(
       /<svg[^>]*class="[^"]*size-4/,
     );
+  });
+});
+
+// Task 5.2: no icon ships unused. Each export is imported by a source (not a test) of the view or
+// the widgets, other than the module itself.
+const SRC_DIRS = [join(import.meta.dir, ".."), join(import.meta.dir, "../../../widgets/src")];
+const isSource = (file: string) =>
+  /\.tsx?$/.test(file) && !/\.test\.tsx?$/.test(file) && !file.endsWith("icons/index.ts");
+
+const sources = (): string[] =>
+  SRC_DIRS.flatMap((dir) =>
+    [...new Bun.Glob("**/*.{ts,tsx}").scanSync(dir)]
+      .filter(isSource)
+      .map((file) => readFileSync(join(dir, file), "utf8")),
+  );
+
+describe("every icon is used", () => {
+  test("each export of the module is imported by a non-test source", async () => {
+    const code = sources();
+    const unused = Object.keys(await loadIcons()).filter(
+      (name) => !code.some((source) => new RegExp(`\\b${name}\\b`).test(source)),
+    );
+    expect(unused).toEqual([]);
   });
 });

@@ -216,18 +216,11 @@ describe("the shared modules and the chunks that provide them", () => {
     expect(around.filter(({ target }) => target !== GRAPH_FILE)).toEqual([]);
   });
 
-  // The icon module is exempt from the "none ships unused" test: its names are listed before the
-  // sources of groups 2 to 4 import them, and `icons/index.test.ts` (icon-set task 5.2) asserts that
-  // each export is imported once they have landed. Task 5.2 removes this exemption.
-  const EXEMPT_MODULES: readonly string[] = [ICONS_MODULE];
-
   test("every name a library chunk lists is imported by a view or widget source, so none ships unused", async () => {
     const imported = await namedImports();
     const unused = Object.values(LIBRARY_CHUNKS).flatMap(({ modules }) =>
       Object.entries(modules).flatMap(([module, names]) =>
-        names === "*" || EXEMPT_MODULES.includes(module)
-          ? []
-          : names.filter((name) => !imported.has(`${module}:${name}`)),
+        names === "*" ? [] : names.filter((name) => !imported.has(`${module}:${name}`)),
       ),
     );
     expect(unused).toEqual([]);

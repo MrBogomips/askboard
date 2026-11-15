@@ -453,6 +453,64 @@ describe("the icons library chunk", () => {
 const packagesIn = (notices: ViewManifest["boardPage"]["licences"]) =>
   notices.map((notice) => notice.package);
 
+// The built chunks (icon-set task 5.1; design decisions 4 and 10).
+describe("the built chunks hold Lucide once", () => {
+  test("the shell needs the icons chunk", () => {
+    expect(chunkNamed("shell").needs).toContain("icons");
+  });
+
+  test("the icons chunk holds Lucide's code, and no component chunk and not the shell does", async () => {
+    expect(await text(chunkNamed("icons").script.path)).toContain("lucide");
+    for (const name of [
+      "tree",
+      "ranking",
+      "approval",
+      "document-review",
+      "context",
+      "date-field",
+      "shell",
+    ]) {
+      expect(await text(chunkNamed(name).script.path), name).not.toContain("lucide");
+    }
+  });
+
+  test("a board with a Tree, a Ranking and a Text inlines the icons chunk once", async () => {
+    const [question] = treeBoardDocument.items;
+    const board = {
+      ...treeBoardDocument,
+      items: [
+        {
+          ...question,
+          props: { ...question.props, items: [RANKING_FIXTURE_ITEM] },
+        },
+        ...treeBoardDocument.items,
+      ],
+    } as unknown as ViewDocument;
+    const built = await assembled(board);
+    expect(built.chunks.filter((name) => name === "icons")).toHaveLength(1);
+    const script = await text(chunkNamed("icons").script.path);
+    expect(built.srcdoc.split(script)).toHaveLength(2);
+  });
+
+  test("the board page draws the close icon only: x's path data, no check, no page scan", async () => {
+    const page = await text(manifest.boardPage.script.path);
+    expect(page).toContain("M18 6 6 18");
+    expect(page).not.toContain("M20 6 9 17l-5-5");
+    expect(page).not.toContain("createIcons");
+    expect(page).not.toContain("replaceElement");
+    expect(page).not.toContain("data-lucide");
+  });
+
+  test("the board page's notices name lucide under ISC with its text, and no chunk's do", async () => {
+    const notice = manifest.boardPage.licences.find((entry) => entry.package === "lucide");
+    expect(notice?.licence).toBe("ISC");
+    expect(await text(notice?.path ?? "")).toContain("ISC License");
+    for (const [name, chunk] of Object.entries(manifest.chunks)) {
+      expect(packagesIn(chunk.licences), name).not.toContain("lucide");
+    }
+  });
+});
+
 // The board state with the document's question open, as the board page first shows it.
 const openState = (document: ViewDocument): BoardState => {
   const [question] = questionsOf(document);

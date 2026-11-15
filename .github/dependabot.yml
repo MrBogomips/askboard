@@ -27,6 +27,14 @@ updates:
         update-types:
           - minor
           - patch
+      # Lucide's two packages are pinned to one version (a test fails if they differ), so a major
+      # of either arrives in one pull request.
+      lucide:
+        patterns:
+          - "lucide"
+          - "lucide-react"
+        update-types:
+          - major
     ignore:
       # Follows the Bun pin in packageManager, which Dependabot does not bump: bump both by hand
       # (tools/workspace.test.ts fails if they differ).
