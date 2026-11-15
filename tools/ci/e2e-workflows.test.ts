@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { chmodSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -686,6 +686,81 @@ describe("browser.yml (decisions 1 to 3, 5; C5)", () => {
     expect(String(upload?.if)).toContain("inputs.set == 'full'");
     expect(String(upload?.if)).toContain("inputs.code");
     expect(JSON.stringify(upload)).not.toContain("timings/");
+  });
+
+  // ci-e2e-gates, decisions 2 and 5 (#196, #197).
+  describe("the runner's factor and keyboard navigation (ci-e2e-gates)", () => {
+    const keyboardStep = (): Step | undefined =>
+      steps().find((step) => step.name === "Keyboard navigation on (macOS)");
+
+    test("only the browser tests' step sets ASKBOARD_PERF_RUNNER, to the runner's OS", () => {
+      expect(testStep()?.env?.ASKBOARD_PERF_RUNNER).toBe("${{ runner.os }}");
+      for (const name of readdirSync(WORKFLOWS).filter((entry) => entry.endsWith(".yml"))) {
+        const text = readFileSync(join(WORKFLOWS, name), "utf8");
+        const count = code(text).split("ASKBOARD_PERF_RUNNER").length - 1;
+        expect({ name, count }).toEqual({ name, count: name === "browser.yml" ? 1 : 0 });
+      }
+      const holders = steps().filter((step) =>
+        JSON.stringify(step).includes("ASKBOARD_PERF_RUNNER"),
+      );
+      expect(holders).toEqual([testStep() as Step]);
+    });
+
+    test("a macOS-only step turns keyboard navigation on after the engine install, before the tests", () => {
+      const list = steps();
+      const step = keyboardStep();
+      expect(step?.if).toBe("inputs.code && runner.os == 'macOS'");
+      const at = list.findIndex((entry) => entry.name === "Keyboard navigation on (macOS)");
+      const install = list.findIndex((entry) =>
+        entry.run?.includes("playwright install --with-deps"),
+      );
+      const tests = list.findIndex((entry) => entry.run?.includes("browser/run.ts"));
+      expect(install).toBeLessThan(at);
+      expect(at).toBeLessThan(tests);
+      const script = step?.run ?? "";
+      expect(script).toContain("defaults write -g AppleKeyboardUIMode -int 2");
+      expect(script).toContain("defaults read -g AppleKeyboardUIMode");
+      expect(script).not.toContain("${{");
+      expect(JSON.stringify(step)).not.toContain("${{ ");
+    });
+
+    test("no other workflow writes a defaults key", () => {
+      for (const name of readdirSync(WORKFLOWS).filter((entry) => entry.endsWith(".yml"))) {
+        const text = readFileSync(join(WORKFLOWS, name), "utf8");
+        const writes = code(text).match(/defaults\s+write[^\n]*/g) ?? [];
+        expect({ name, writes }).toEqual({
+          name,
+          writes: name === "browser.yml" ? ["defaults write -g AppleKeyboardUIMode -int 2"] : [],
+        });
+      }
+    });
+
+    test("the step's script, run with a stub defaults, passes on a read-back of 2 and fails otherwise", () => {
+      const script = keyboardStep()?.run ?? "exit 99";
+      const dir = mkdtempSync(join(tmpdir(), "e2e-defaults-"));
+      try {
+        const stub = join(dir, "defaults");
+        writeFileSync(
+          stub,
+          '#!/bin/sh\nprintf "%s\\n" "$*" >> "$STUB_LOG"\n[ "$1" = read ] && printf "%s\\n" "$STUB_READ"\nexit 0\n',
+        );
+        chmodSync(stub, 0o755);
+        const run = (value: string): { code: number; log: string } => {
+          const log = join(dir, `log-${value}`);
+          const result = Bun.spawnSync(["sh", "-e", "-c", script], {
+            cwd: dir,
+            env: { PATH: `${dir}:${process.env.PATH ?? ""}`, STUB_READ: value, STUB_LOG: log },
+          });
+          return { code: result.exitCode, log: readFileSync(log, "utf8") };
+        };
+        const good = run("2");
+        expect(good.code).toBe(0);
+        expect(good.log).toBe("write -g AppleKeyboardUIMode -int 2\nread -g AppleKeyboardUIMode\n");
+        for (const value of ["0", "1", "3", ""]) expect(run(value).code).not.toBe(0);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
   });
 });
 

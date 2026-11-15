@@ -88,6 +88,18 @@ jobs:
         env:
           ENGINE: ${{ matrix.engine }}
         run: node_modules/.bin/playwright install --with-deps "$ENGINE"
+      # Cocoa WebKit tabs to buttons only with keyboard navigation on (System Settings > Keyboard);
+      # a developer's Mac has it on, a fresh hosted runner does not. The key is read once per WebKit
+      # process, so it is set before any browser starts. Value 2 is bit 1 alone (ci-e2e-gates, D4).
+      - name: Keyboard navigation on (macOS)
+        if: inputs.code && runner.os == 'macOS'
+        run: |
+          defaults write -g AppleKeyboardUIMode -int 2
+          value="$(defaults read -g AppleKeyboardUIMode)"
+          if [ "$value" != "2" ]; then
+            echo "AppleKeyboardUIMode reads '$value', not 2" >&2
+            exit 1
+          fi
       # The full set writes this shard's timings to a file of its own (C5); the `timings` job of
       # e2e.yml merges an engine's shard files. The name has no slash, which artifact names forbid.
       - id: timings
@@ -109,6 +121,8 @@ jobs:
           SET: ${{ inputs.set }}
           WORKERS: ${{ inputs.workers }}
           TIMINGS_FILE: ${{ steps.timings.outputs.file }}
+          # The perf bounds are scaled by the runner's factor (harness/perf.ts, ci-e2e-gates).
+          ASKBOARD_PERF_RUNNER: ${{ runner.os }}
         run: |
           set -- --no-build --target session-process --set "$SET" --engines "$ENGINE"
           # A shard of 1/1 is no shard, which the all and perf sets would refuse.

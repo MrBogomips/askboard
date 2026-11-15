@@ -94,7 +94,7 @@ Task 3.2 follows groups 1 and 2, since it records their names and #198's cause. 
 
 ## 3. The workflow and the records (#196, #197, #198)
 
-- [ ] 3.1 `browser.yml` (decisions 2 and 5, D4 as the PO chose it; requirements Timed bounds on a hosted runner and Keyboard cases with the platform's keyboard navigation).
+- [x] 3.1 `browser.yml` (decisions 2 and 5, D4 as the PO chose it; requirements Timed bounds on a hosted runner and Keyboard cases with the platform's keyboard navigation).
   - Tests first, in `tools/ci/e2e-workflows.test.ts`, under the `browser.yml` describe:
     - The step "Browser tests against the built session process" sets `ASKBOARD_PERF_RUNNER: ${{ runner.os }}` in its `env`, and no other step or workflow under `.github/workflows/` names the variable.
     - A step "Keyboard navigation on (macOS)" has `if: inputs.code && runner.os == 'macOS'`. It comes after "Install the engine with its system dependencies" and before the browser tests. Its `run` writes `defaults write -g AppleKeyboardUIMode -int 2`, reads the value back and exits non-zero unless it is 2, and holds no `${{ }}`.
@@ -102,6 +102,7 @@ Task 3.2 follows groups 1 and 2, since it records their names and #198's cause. 
     - The step's script, run through `sh` with a stub `defaults` on `PATH`, exits 0 when the read-back is 2 and non-zero otherwise.
   - Then edit `browser.yml`.
   - Verify: the new cases fail before the edit and pass after, the whole file passes, `tools/release/workflow.test.ts` still passes, and `actionlint` is clean if installed (else say so).
+  - Note: 4 new cases in `tools/ci/e2e-workflows.test.ts` (the variable only on the test step and only in `browser.yml`; the macOS step, its order and no `${{ }}`; no other `defaults write`; the script run through `sh` with a stub `defaults`), failing before the edit (4 fail) and passing after; the whole file and `release/workflow.test.ts` pass (84 pass, 0 fail); actionlint clean. Refs #196, #197, #198 unaffected.
 - [ ] 3.2 Records (decision 6). After groups 1 and 2. Tests: none (documents), except that `bun run check` stays green, since `tools/` tests read `CLAUDE.md` and the spine.
   - `CLAUDE.md`, CI section: remove the sentence "Known: `browser.yml` WebKit fails on …". Add the factor and variable sentence, and the macOS step with the local Keyboard navigation setting.
   - The spine's Tests row: one clause on the hosted runners' factor.
