@@ -85,7 +85,7 @@ The outline and the jump read `draft.inView` as today, so the code that reads it
 | Message | Raised where | When |
 |---|---|---|
 | `status.answerSent`, `status.answerSentPlain`, `status.noteSent`, `status.submitted` | `dispatch`'s reply, through a new optional `Senders.status` | Only on outcome `sent`. `queued` and `refused` say nothing here: the connection banner, the "not sent yet" receipt and the size lines speak for them. |
-| `status.ready` | the card, on result `held` | Count: the questions holding a ready answer after the act, held notes left out. A held note (`note-held`) announces nothing: "Answer ready, not sent" would describe a question with no answer (NFR-10; review finding S-2), and no accepted string names a held note. Change 4 may add one. |
+| `status.ready` | `answer()` (`card-acts.ts`), on result `held`, for every path to it (press, Accept recommended, confirmed revision) | Count: the questions holding a ready answer after the act, held notes left out. A held note (`note-held`) announces nothing: "Answer ready, not sent" would describe a question with no answer (NFR-10; review finding S-2), and no accepted string names a held note. Change 4 may add one. |
 | `status.prefilled` | `board.tsx`, from `selectRecommended`'s count | Every press, 0 included. |
 | `status.added` | `applyDocumentUpdate` | Questions new to the board in an agent's update. Never the boot document, never a restore. Focus is not touched. |
 | `navigator.removed` (existing) | `onRemoval` | The question in view was deleted, in any presentation. The navigator line still shows only in one question per view. |
