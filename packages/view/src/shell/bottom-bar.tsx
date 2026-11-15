@@ -311,7 +311,7 @@ export const BottomBar = (props: BottomBarProps) => {
           <AlertDialog.Content
             className={DIALOG}
             onCloseAutoFocus={(event) => {
-              // The dialog has no trigger, so Radix restores no focus: it goes back to Submit.
+              // The dialog has no trigger, so Radix restores no focus: the heading after a send, the switch after Send and switch, Submit when nothing was sent (D1).
               event.preventDefault();
               const did = sent.current;
               sent.current = undefined;
