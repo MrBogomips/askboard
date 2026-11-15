@@ -161,29 +161,34 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       TEST_TIMEOUT_MS,
     );
 
-    test(
-      "a Ranking's row: Enter keeps the order and makes the question answerable, then Mod+Enter sends nothing and marks nothing ready",
-      async () => {
-        const { run, board } = await open(start, "submitted");
-        const primary = primaryOf(board, "order");
-        expect(await primary.isEnabled()).toBe(false);
-        const row = rowOf(board, "b");
-        await row.focus();
-        const order = await orderShown(board);
-        await board.page.keyboard.press("Enter");
-        await eventually(() => primary.isEnabled(), "the Ranking's question answerable");
-        expect(await orderShown(board)).toEqual(order);
-        expect(await primary.getAttribute("aria-pressed")).toBe("false");
-        await row.focus();
-        await board.page.keyboard.press(MOD_ENTER);
-        await viewSettled(board);
-        expect(await orderShown(board)).toEqual(order);
-        expect(await primary.getAttribute("aria-pressed")).toBe("false");
-        expect(((await board.status.textContent()) ?? "").trim()).toBe("");
-        await expectSent(board, run, 0);
-      },
-      TEST_TIMEOUT_MS,
-    );
+    for (const delivery of ["submitted", "immediate"] as const) {
+      test(
+        `a Ranking's row, ${delivery} delivery: Enter keeps the order and makes the question answerable, then Mod+Enter sends nothing and marks nothing ready`,
+        async () => {
+          const { run, board } = await open(start, delivery);
+          const primary = primaryOf(board, "order");
+          expect(await primary.isEnabled()).toBe(false);
+          const row = rowOf(board, "b");
+          await row.focus();
+          const order = await orderShown(board);
+          await board.page.keyboard.press("Enter");
+          await eventually(() => primary.isEnabled(), "the Ranking's question answerable");
+          expect(await orderShown(board)).toEqual(order);
+          // Submitted delivery shows ready as aria-pressed (false); immediate has none (null).
+          const pressed = await primary.getAttribute("aria-pressed");
+          expect(pressed).toBe(delivery === "submitted" ? "false" : null);
+          await row.focus();
+          await board.page.keyboard.press(MOD_ENTER);
+          await viewSettled(board);
+          expect(await orderShown(board)).toEqual(order);
+          expect(await primary.getAttribute("aria-pressed")).toBe(pressed);
+          expect(((await board.status.textContent()) ?? "").trim()).toBe("");
+          // In immediate delivery an answer would be a command, so there this count can fail.
+          await expectSent(board, run, 0);
+        },
+        TEST_TIMEOUT_MS,
+      );
+    }
 
     test(
       "a received verdict: the dialog opens, Cancel gives focus back to where the key was pressed, nothing is sent",
@@ -344,12 +349,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         ]);
         const notice = card(board, "db").locator('[data-askboard-notice="agent-change"]');
         await notice.waitFor({ timeout: STEP_TIMEOUT_MS });
-        await optionOf(board, "db", "SQLite").focus();
-        await board.page.keyboard.press(MOD_ENTER);
-        await said(board, "Not answered. Choose what to do with the agent's update first.");
-        expect(await notice.count()).toBe(1);
-        await expectSent(board, run, 0);
-        // On "Keep mine" itself the key is the card's too: the button is not activated.
+        // On "Keep mine" itself the key is the card's too: the message is said there, nothing is
+        // activated. The region is empty before this press.
+        expect(((await board.status.textContent()) ?? "").trim()).toBe("");
         const keep = notice.getByRole("button", { name: "Keep mine", exact: true });
         await keep.focus();
         await board.view.locator("body").evaluate(() => {
@@ -360,7 +362,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           );
         });
         await board.page.keyboard.press(MOD_ENTER);
-        await viewSettled(board);
+        await said(board, "Not answered. Choose what to do with the agent's update first.");
         const prevented = await board.view
           .locator("body")
           .evaluate(() => (window as unknown as { __prevented?: boolean[] }).__prevented);

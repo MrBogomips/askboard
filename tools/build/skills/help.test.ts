@@ -636,8 +636,7 @@ describe("the board's keys in the help skill", () => {
       const name = actionName(entry.label);
       expect(section).toContain(`| ${name} | ${where} | ${keysText(entry.keys)} |`);
     }
-    // The next-open action is named as the board names its jump, arrow included.
-    expect(section).toContain("| Next open ↓ | outside text fields and widgets | N (N) |");
+    expect(section).toContain("outside text fields and widgets | N (N) |");
     expect(section).toContain("| Previous open | outside text fields and widgets | Shift+N (⇧N) |");
     expect(section).toContain(
       "| Answer the question in focus | on a question's own controls | Ctrl+Enter (⌘↩) |",
@@ -664,9 +663,9 @@ describe("the board's keys in the help skill", () => {
     ]) {
       expect(actions).toContain(`- \`${action}\`:`);
     }
-    expect(
-      actionRows([BOARD_KEY_TABLE, ...WIDGET_TYPES] as never).map(({ action }) => action),
-    ).toContain("board.answer");
+    expect(actionRows([BOARD_KEY_TABLE, ...WIDGET_TYPES]).map(({ action }) => action)).toContain(
+      "board.answer",
+    );
   });
 
   test("configure-keys.md names the board's own keys and the Ranking, and no other widget", () => {

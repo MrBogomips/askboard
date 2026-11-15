@@ -114,8 +114,10 @@ const focusOption = async (board: Board, id: string): Promise<Locator> => {
 const expectKeyIgnored = async (board: Board, key: string, held: Locator): Promise<void> => {
   await board.page.keyboard.press(key);
   await viewSettled(board);
-  // Left to the browser: the key reached the window and its default was not prevented.
-  expect((await lastKeyOf(board))?.prevented).toBe(false);
+  // Left to the browser: the key pressed reached the window and its default was not prevented.
+  const last = await lastKeyOf(board);
+  expect(last?.key.toLowerCase()).toBe(key.split("+").at(-1)?.toLowerCase());
+  expect(last?.prevented).toBe(false);
   expect(await isFocused(held)).toBe(true);
   expect(await boardPanel(board).count()).toBe(0);
 };
@@ -328,24 +330,22 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
-      "from an option with a question between them answered: N and Shift+N skip it both ways",
+      "from an option with question 3, the Ranking, answered: N, Shift+N and Shift+N go to 4, 2 and 1, skipping it",
       async () => {
         const { board } = await open(start, "sections");
-        await optionOf(board, "q2", "Yes").click();
-        await answerOf(board, "q2").click();
+        await rowOf(board, "c").focus();
+        await board.page.keyboard.press("Enter");
+        await answerOf(board, "rank").click();
         await viewSettled(board);
-        await focusOption(board, "q1");
+        await focusOption(board, "q2");
         await board.page.keyboard.press("n");
-        await expectClearOfBars(board, "rank");
-        await viewSettled(board);
-        await board.page.keyboard.press("Shift+N");
-        await expectClearOfBars(board, "q1");
-        await viewSettled(board);
-        await board.page.keyboard.press("Shift+N");
         await expectClearOfBars(board, "q4");
         await viewSettled(board);
         await board.page.keyboard.press("Shift+N");
-        await expectClearOfBars(board, "rank");
+        await expectClearOfBars(board, "q2");
+        await viewSettled(board);
+        await board.page.keyboard.press("Shift+N");
+        await expectClearOfBars(board, "q1");
       },
       TEST_TIMEOUT_MS,
     );
@@ -414,9 +414,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await tabTo(board, jump);
         const tooltip = board.view.getByRole("tooltip");
         await tooltip.waitFor({ state: "visible", timeout: STEP_TIMEOUT_MS });
-        const text = (await tooltip.textContent()) ?? "";
-        expect(text).toContain("Next open");
-        expect(text).toContain("N");
+        expect(await tooltip.textContent()).toContain("Next open");
+        expect(await tooltip.locator("kbd").allTextContents()).toEqual(["N"]);
         expect(await jump.getAttribute("aria-keyshortcuts")).toBe("N");
       },
       TEST_TIMEOUT_MS,
