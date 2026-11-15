@@ -208,7 +208,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await hostSettled(board);
         expect(sentActs(run)).toHaveLength(1);
         await submit(board).click();
-        await dialogButton(board, "Submit").click();
+        await board.confirmSend.click();
         const [, command] = await actsDone(run, 2);
         expect(command?.acts).toMatchObject([
           { type: "answer", itemId: PLAN, results: { verdict: { decision: "reject" } } },
@@ -236,7 +236,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(sentActs(run)).toHaveLength(1);
         await board.delivery("immediate").click();
         await dialogButton(board, "Send and switch").click();
-        await dialogButton(board, "Submit").click();
+        await board.confirmSend.click();
         await actsDone(run, 2);
         await eventually(
           async () => (await board.delivery("immediate").getAttribute("aria-pressed")) === "true",
@@ -344,8 +344,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
             props: { text: "Which database should the order service use now?" },
           },
         ]);
-        await eventually(() => dialogButton(board, "Submit").isDisabled(), "its Submit to wait");
-        await dialogButton(board, "Submit").click({ force: true });
+        await eventually(() => board.confirmSend.isDisabled(), "its Submit to wait");
+        await board.confirmSend.click({ force: true });
         await hostSettled(board);
         expect(sentActs(run)).toHaveLength(1);
         await dialogButton(board, "Cancel").click();
@@ -379,8 +379,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         });
         expect(shape).toEqual({ ellipsis: true, oneLine: true, cut: true });
         const viewport = board.page.viewportSize();
-        for (const name of ["Submit", "Cancel"]) {
-          const box = await dialogButton(board, name).boundingBox();
+        for (const button of [board.confirmSend, dialogButton(board, "Cancel")]) {
+          const box = await button.boundingBox();
           expect(box).not.toBeNull();
           expect(box?.x ?? -1).toBeGreaterThanOrEqual(0);
           expect(box?.y ?? -1).toBeGreaterThanOrEqual(0);

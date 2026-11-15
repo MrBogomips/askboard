@@ -122,9 +122,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           await board.view.getByRole("checkbox", { name: "Email", exact: true }).click();
           await board.view.getByRole("checkbox", { name: "Chat", exact: true }).click();
           await board.view.getByRole("switch", { name: "Notify me" }).click();
-          await board.view
-            .locator("[data-askboard-primary]")
-            .click({ timeout: STEP_TIMEOUT_MS });
+          await board.view.locator("[data-askboard-primary]").click({ timeout: STEP_TIMEOUT_MS });
           await actsDone(run, 1);
           const taken = await run.session.snapshot();
           await run.session.exit();

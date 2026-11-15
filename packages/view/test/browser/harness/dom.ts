@@ -16,7 +16,8 @@
 //   `data-askboard-submit` on Submit, `data-askboard-postpone` on Postpone,
 //   `data-askboard-prefill` on "Select recommended", `data-askboard-next-to-do` on the header's
 //   jump, `data-askboard-delivery="immediate|submitted"` on each delivery segment and
-//   `data-askboard-receipt="queued|sent|delivered"` on the receipt. A test that asserts a label's
+//   `data-askboard-receipt="queued|sent|delivered"` on the receipt, and `data-askboard-confirm` on
+//   the replace dialog's confirm. A test that asserts a label's
 //   text names the label itself and is on the guard's allowlist (`locators.test.ts`);
 // - an item that fails shows an `alert` inside its question card;
 // - the board banners render on the board page, outside the view: "Connection lost, retrying",
@@ -50,6 +51,8 @@ export type Board = {
   readonly answer: Locator;
   /** The bottom bar's Submit. */
   readonly submit: Locator;
+  /** The replace dialog's confirm (`data-askboard-confirm`), whatever its label. */
+  readonly confirmSend: Locator;
   /** The cards' Postpone buttons. */
   readonly postpone: Locator;
   /** The bottom bar's "Select recommended". */
@@ -95,6 +98,7 @@ export const boardOf = (page: Page): Board => {
     options: view.locator("[data-askboard-question]").getByRole("radio"),
     answer: view.locator("[data-askboard-primary]"),
     submit: view.locator("[data-askboard-submit]"),
+    confirmSend: view.getByRole("alertdialog").locator("[data-askboard-confirm]"),
     postpone: view.locator("[data-askboard-postpone]"),
     prefill: view.locator("[data-askboard-prefill]"),
     nextToDo: view.locator("[data-askboard-next-to-do]"),

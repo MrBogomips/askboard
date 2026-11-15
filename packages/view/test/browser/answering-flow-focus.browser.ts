@@ -362,9 +362,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await dialog
           .getByText("Send new answers?", { exact: true })
           .waitFor({ timeout: STEP_TIMEOUT_MS });
-        await dialog
-          .getByRole("button", { name: "Submit", exact: true })
-          .click({ timeout: STEP_TIMEOUT_MS });
+        await board.confirmSend.click({ timeout: STEP_TIMEOUT_MS });
         await dialog.waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
         await actsDone(run, 2);
         await eventually(

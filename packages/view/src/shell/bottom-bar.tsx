@@ -338,6 +338,7 @@ export const BottomBar = (props: BottomBarProps) => {
                 {text("bar.cancel")}
               </AlertDialog.Cancel>
               <AlertDialog.Action
+                data-askboard-confirm=""
                 className={BUTTON_PRIMARY}
                 disabled={submit.disabled}
                 onClick={(event) => {

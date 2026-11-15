@@ -37,8 +37,6 @@ const PREFIXES: readonly string[] = ["Next open", "Prossima aperta"];
 /** Files that assert a label's text, and why. */
 export const ALLOWLIST: Readonly<Record<string, string>> = {
   "languages.browser.ts": "asserts the Italian labels Rinvia and Prossima aperta on an it-IT board",
-  "answering-flow-focus.browser.ts": "the confirmation dialog's own Submit button has no hook",
-  "approval-submit.browser.ts": "the confirmation dialog's own Submit button has no hook",
 };
 
 const CALLS: readonly RegExp[] = [
