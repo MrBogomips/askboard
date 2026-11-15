@@ -40,7 +40,13 @@ describe("the presentation an opened Snapshot starts in (snapshot-toolbar, desig
         ...record,
         presentation: { theme: "light", density: "comfortable" },
       }),
-    ).toEqual({ theme: "light", density: "comfortable", contextPlacement: "beside", locked: [] });
+    ).toEqual({
+      theme: "light",
+      density: "comfortable",
+      contextPlacement: "beside",
+      afterAnswer: "next",
+      locked: [],
+    });
   });
 
   test("a record with no presentation gives the defaults", () => {

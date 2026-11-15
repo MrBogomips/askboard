@@ -13,6 +13,7 @@ const inline: ViewPresentation = {
   theme: "system",
   density: "compact",
   contextPlacement: "inline",
+  afterAnswer: "next",
   locked: [],
 };
 

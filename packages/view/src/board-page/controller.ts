@@ -455,7 +455,8 @@ class BoardPageController implements BoardPage {
     );
   }
 
-  #setting(message: ViewSetting): ViewReply {
+  // The view's setting (the keys a view control writes) or the panel's, which writes every key.
+  #setting(message: { readonly type: "setting" } & PresentationSetting): ViewReply {
     const presentation = this.#model.passedOn.presentation;
     if (presentation?.locked.includes(message.key)) {
       return refusal(`${message.key} is set by the project file`);

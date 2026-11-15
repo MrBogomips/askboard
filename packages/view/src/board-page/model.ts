@@ -102,7 +102,6 @@ const afterSettings = (model: BoardModel, message: SettingsMessage): ViewPresent
   const before = model.passedOn.presentation;
   const write = message.write;
   if (before === undefined || write === undefined || write.outcome === "saved") return next;
-  if (write.key === "afterAnswer") return next;
   return { ...next, [write.key]: before[write.key] };
 };
 

@@ -35,6 +35,7 @@ import {
   OPTION_NOTE_MAX_CHARS,
   type OriginMessage,
   OTHER_MAX_CHARS,
+  PRESENTATION_KEYS,
   type PresentationKey,
   type PresentationSetting,
   type ThemePreference,
@@ -165,7 +166,10 @@ export type ViewActivity = { readonly type: "activity" };
  * design decision 10): the board page applies it at once and sends it to `board-host` as a
  * `setting` command, which writes it to the user file.
  */
-export type ViewSetting = { readonly type: "setting" } & PresentationSetting;
+export type ViewPresentationSetting = Exclude<PresentationSetting, { readonly key: "afterAnswer" }>;
+
+/** The view's `setting` message: the keys a view control writes, never `afterAnswer` (decision 9). */
+export type ViewSetting = { readonly type: "setting" } & ViewPresentationSetting;
 
 /** "Settings": the board page opens its settings panel. */
 export type ViewOpenSettings = { readonly type: "open-settings" };
@@ -284,6 +288,7 @@ export type ViewPresentation = {
   readonly theme: ThemePreference;
   readonly density: Density;
   readonly contextPlacement: ContextPlacement;
+  readonly afterAnswer: AfterAnswer;
   readonly locked: readonly PresentationKey[];
 };
 
@@ -579,17 +584,16 @@ const THEMES: readonly unknown[] = ["system", "light", "dark"] satisfies ThemePr
 const DENSITIES: readonly unknown[] = ["compact", "comfortable"] satisfies Density[];
 const PLACEMENTS: readonly unknown[] = ["beside", "inline"] satisfies ContextPlacement[];
 const AFTER_ANSWERS: readonly unknown[] = ["next", "stay"] satisfies AfterAnswer[];
-const PRESENTATION_KEY_NAMES: readonly unknown[] = [
+// Every presentation key, for the presentation's `locked`; and the keys a view control writes, for
+// the `setting` message (least privilege). No view control writes `afterAnswer`: the settings
+// panel is the board page's and writes it itself, so a later change that gives the view one adds it
+// to the second list, and `settingProblems`' value check applies with it (decision 9).
+const PRESENTATION_KEY_NAMES: readonly unknown[] = PRESENTATION_KEYS;
+const VIEW_WRITTEN_KEY_NAMES: readonly unknown[] = [
   "theme",
   "density",
   "contextPlacement",
 ] satisfies PresentationKey[];
-
-/**
- * The presentation keys the view shows and applies: every presentation key but `afterAnswer`, which
- * the board page reads and acts on itself until task 6.5 of answering-flow-guidance passes it on.
- */
-export type ViewPresentationKey = Exclude<PresentationKey, "afterAnswer">;
 
 /** Whether the view can apply this as the presentation. */
 export const isPresentation = (value: unknown): value is ViewPresentation =>
@@ -597,6 +601,7 @@ export const isPresentation = (value: unknown): value is ViewPresentation =>
   THEMES.includes(value.theme) &&
   DENSITIES.includes(value.density) &&
   PLACEMENTS.includes(value.contextPlacement) &&
+  AFTER_ANSWERS.includes(value.afterAnswer) &&
   Array.isArray(value.locked) &&
   value.locked.every((key) => PRESENTATION_KEY_NAMES.includes(key));
 
@@ -609,12 +614,12 @@ const PRESENTATION_VALUES: Readonly<Record<PresentationKey, readonly unknown[]>>
 };
 
 const presentationKey: FieldCheck = (value) =>
-  PRESENTATION_KEY_NAMES.includes(value) ? undefined : "is not a presentation key";
+  VIEW_WRITTEN_KEY_NAMES.includes(value) ? undefined : "is not a presentation key";
 
 // The pair, once each field has passed its own check: the value must be one its key allows.
 const settingProblems = (args: Record<string, unknown>, at = "/arguments"): Problem[] => {
   const { key, value } = args;
-  if (!PRESENTATION_KEY_NAMES.includes(key)) return [];
+  if (!VIEW_WRITTEN_KEY_NAMES.includes(key)) return [];
   const allowed = PRESENTATION_VALUES[key as PresentationKey];
   return allowed.includes(value)
     ? []

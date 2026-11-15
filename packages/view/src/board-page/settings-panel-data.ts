@@ -8,6 +8,7 @@ import {
   type ConfigurationKey,
   type Locale,
   PRESENTATION_KEYS,
+  type PresentationKey,
   type SettingRow,
   type SettingsFileName,
   type SettingsMessage,
@@ -15,7 +16,7 @@ import {
 } from "@askboard/contract";
 import { t } from "../strings/index.ts";
 import type { StringKey } from "../strings/keys.ts";
-import type { ViewPresentation, ViewPresentationKey } from "../view-protocol.ts";
+import type { ViewPresentation } from "../view-protocol.ts";
 import {
   isolated,
   keysRowOf,
@@ -29,7 +30,7 @@ export type PanelSegment = { readonly value: string; readonly label: string };
 
 /** A presentation key's control: its choices, the one in effect and why it is read-only. */
 export type PanelControl = {
-  readonly key: ViewPresentationKey;
+  readonly key: PresentationKey;
   readonly label: string;
   readonly segments: readonly PanelSegment[];
   readonly value: string;
@@ -69,14 +70,10 @@ export type PanelData = {
   readonly warnings: readonly string[];
 };
 
-const VIEW_KEYS = PRESENTATION_KEYS.filter(
-  (key): key is ViewPresentationKey => key !== "afterAnswer",
-);
-
 const USER_PATH = "~/.config/askboard/config.json";
 const PROJECT_PATH = `${ASKBOARD_FOLDER}/config.json`;
 
-const CHOICES: Readonly<Record<ViewPresentationKey, readonly (readonly [string, StringKey])[]>> = {
+const CHOICES: Readonly<Record<PresentationKey, readonly (readonly [string, StringKey])[]>> = {
   theme: [
     ["system", "toggles.system"],
     ["light", "toggles.light"],
@@ -90,20 +87,26 @@ const CHOICES: Readonly<Record<ViewPresentationKey, readonly (readonly [string, 
     ["beside", "settings.beside"],
     ["inline", "settings.inline"],
   ],
+  afterAnswer: [
+    ["next", "settings.goToNext"],
+    ["stay", "settings.stayHere"],
+  ],
 };
 
-const LABELS: Readonly<Record<ViewPresentationKey, StringKey>> = {
+const LABELS: Readonly<Record<PresentationKey, StringKey>> = {
   theme: "toggles.theme",
   density: "toggles.density",
   contextPlacement: "settings.contextPlacement",
+  afterAnswer: "settings.afterAnswer",
 };
 
-const ROWS: readonly (readonly [Exclude<ConfigurationKey, "keys" | "afterAnswer">, StringKey])[] = [
-  ["defaultLanguage", "settings.defaultLanguage"],
-  ["askingRule", "settings.askingRules"],
-  ["snapshotFolder", "settings.snapshotFolder"],
-  ["editor", "settings.editor"],
-];
+const ROWS: readonly (readonly [Exclude<ConfigurationKey, "keys" | PresentationKey>, StringKey])[] =
+  [
+    ["defaultLanguage", "settings.defaultLanguage"],
+    ["askingRule", "settings.askingRules"],
+    ["snapshotFolder", "settings.snapshotFolder"],
+    ["editor", "settings.editor"],
+  ];
 
 const PROBLEMS = {
   unreadable: "settings.problemUnreadable",
@@ -141,7 +144,7 @@ export const languageIndicator = (language: Locale, locale: Locale): string => {
 };
 
 const controlOf = (
-  key: ViewPresentationKey,
+  key: PresentationKey,
   presentation: ViewPresentation,
   language: Locale,
   message: SettingsMessage,
@@ -235,7 +238,7 @@ export const panelData = (
 ): PanelData => ({
   title: t(language, "settings.title"),
   closeLabel: t(language, "settings.close"),
-  controls: VIEW_KEYS.map((key) => controlOf(key, presentation, language, message)),
+  controls: PRESENTATION_KEYS.map((key) => controlOf(key, presentation, language, message)),
   keys: keysRowOf(message, language, pathOf(message, "user"), pathOf(message, "project")),
   languageLabel: t(language, "settings.language"),
   language: languageIndicator(language, locale),

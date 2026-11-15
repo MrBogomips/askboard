@@ -12,6 +12,7 @@ import {
   plainChoiceBoardDocument,
   settingsKeysIgnored,
   settingsKeysNotApplied,
+  settingsWithAfterAnswer,
   settingsWithEveryKey,
   settingsWithKeys,
 } from "@askboard/contract/fixtures";
@@ -638,6 +639,7 @@ describe("the settings in the model (settings-languages, task 8.2)", () => {
       theme: "dark",
       density: "compact",
       contextPlacement: "inline",
+      afterAnswer: "next",
       locked: ["contextPlacement"],
     });
   });
@@ -698,5 +700,44 @@ describe("the user's keys in the model (keyboard-shortcuts-help, task 10.1)", ()
     const data = bootDataOf(model);
     expect(data?.presentation?.theme).toBe("dark");
     expect(data === undefined ? [] : Object.keys(data)).not.toContain("keys");
+  });
+});
+
+describe("a write of the after-answer key that did not save (answering-flow-guidance, task 6.5)", () => {
+  // The user picked Stay here; the file keeps Go to the next; the panel and the board show the pick.
+  const kept = {
+    ...settingsWithAfterAnswer,
+    keys: {
+      ...settingsWithAfterAnswer.keys,
+      afterAnswer: { value: "next", from: "user", writable: true },
+    },
+  } as const;
+  const picked = withHostMessage(EMPTY_MODEL, {
+    ...settingsWithAfterAnswer,
+    keys: {
+      ...settingsWithAfterAnswer.keys,
+      afterAnswer: { value: "stay", from: "user", writable: true },
+    },
+  });
+
+  test("a failed write keeps the pick the user made", () => {
+    const failed = withHostMessage(picked, {
+      ...kept,
+      write: { key: "afterAnswer", outcome: "failed", reason: "EACCES", path: "/home/u/c.json" },
+    });
+    expect(failed.passedOn.presentation?.afterAnswer).toBe("stay");
+  });
+
+  test("a refused write keeps it too, and a saved one takes the file's value", () => {
+    const refused = withHostMessage(picked, {
+      ...kept,
+      write: { key: "afterAnswer", outcome: "refused", reason: "the project file sets it" },
+    });
+    expect(refused.passedOn.presentation?.afterAnswer).toBe("stay");
+    const saved = withHostMessage(picked, {
+      ...kept,
+      write: { key: "afterAnswer", outcome: "saved" },
+    });
+    expect(saved.passedOn.presentation?.afterAnswer).toBe("next");
   });
 });
