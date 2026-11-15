@@ -41,7 +41,7 @@ import {
 import type { ViewChannel } from "./channel.ts";
 import { createDerivedStore } from "./derived-store.ts";
 import { createDraftStore } from "./draft-store.ts";
-import { settle } from "./revision-confirm.ts";
+import { confirmationOf, settle, settleConfirmation } from "./revision-confirm.ts";
 
 const [database] = plainChoiceBoardDocument.items;
 const [scope] = lifecycleBoardDocument.items as unknown as readonly [ViewArea];
@@ -1346,6 +1346,14 @@ describe("a held answer pressed again where the press sends (approval-scale-rank
     expect(sent).toEqual([
       expect.objectContaining({ type: "answer", results: { verdict: reject } }),
     ]);
+  });
+
+  test("confirming reports the result through the settle, and settleConfirmation turns it into the heading (S-1)", () => {
+    const { pressed, outcomes } = marked("immediate", reject);
+    if (pressed.kind !== "waiting") throw new Error(pressed.kind);
+    const confirmation = confirmationOf("answer", pressed.waiting, {});
+    expect(settleConfirmation(confirmation, true)).toEqual({ to: "heading" });
+    expect(outcomes).toEqual(["sent"]);
   });
 
   test("in immediate delivery a marked answer lacking its reason is refused, and nothing is sent", () => {

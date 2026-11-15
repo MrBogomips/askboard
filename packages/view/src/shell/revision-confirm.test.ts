@@ -7,6 +7,7 @@ import type { HeldAct, LifecycleBoardState, LifecycleQuestionStatus } from "@ask
 import type { ComponentFacts } from "../catalog/port.ts";
 import type { ViewDocument, ViewQuestion } from "../view-document.ts";
 import {
+  type AnswerResult,
   asksFirst,
   type Confirmation,
   confirmationOf,
@@ -204,30 +205,49 @@ describe("a confirmation keeps the control pressed (design decision 6; NFR-12)",
     expect(run).toHaveBeenCalledTimes(1);
   });
 
+  // The result comes from the run itself, through the real producer `press` (answering-flow-fixes,
+  // design decision 1; review finding S-1): nothing is passed to `settleConfirmation` by hand.
+  const answering = (result: AnswerResult | undefined, control: object | undefined) =>
+    confirmationOf(
+      "answer",
+      press(true, () => result),
+      control,
+    );
+
   test("confirming an Answer that sent gives the heading; one that marked ready gives the control (answering-flow-fixes, design decision 1)", () => {
     for (const result of ["sent", "note-sent"] as const) {
-      const { confirmation } = waitingOn("answer", answerButton);
-      expect(settleConfirmation(confirmation, true, result)).toEqual({ to: "heading" });
+      expect(settleConfirmation(answering(result, answerButton), true)).toEqual({ to: "heading" });
     }
     for (const result of ["held", "released"] as const) {
-      const { confirmation } = waitingOn("answer", answerButton);
-      expect(settleConfirmation(confirmation, true, result)).toEqual({
+      expect(settleConfirmation(answering(result, answerButton), true)).toEqual({
         to: "control",
         control: answerButton,
       });
     }
-    const { confirmation } = waitingOn("answer", undefined);
-    expect(settleConfirmation(confirmation, true, "held")).toBeUndefined();
+    expect(settleConfirmation(answering("held", undefined), true)).toBeUndefined();
+    expect(settleConfirmation(answering(undefined, answerButton), true)).toBeUndefined();
+    expect(settleConfirmation(answering("needs-reason", answerButton), true)).toBeUndefined();
+  });
+
+  test("the result flows out of the settle and the run happens once", () => {
+    const run = mock((): AnswerResult => "sent");
+    const confirmation = confirmationOf("answer", press(true, run), answerButton);
+    expect(settle(confirmation?.waiting, true)).toBe("sent");
+    expect(settle(confirmation?.waiting, true)).toBeUndefined();
+    expect(run).toHaveBeenCalledTimes(1);
   });
 
   test("the result changes nothing on Cancel or for a Decline", () => {
-    const cancelled = waitingOn("answer", answerButton);
-    expect(settleConfirmation(cancelled.confirmation, false, "sent")).toEqual({
-      to: "control",
-      control: answerButton,
-    });
-    const declined = waitingOn("decline", moreButton);
-    expect(settleConfirmation(declined.confirmation, true, "held")).toEqual({ to: "heading" });
+    const run = mock((): AnswerResult => "sent");
+    const cancelled = confirmationOf("answer", press(true, run), answerButton);
+    expect(settleConfirmation(cancelled, false)).toEqual({ to: "control", control: answerButton });
+    expect(run).not.toHaveBeenCalled();
+    const declined = confirmationOf(
+      "decline",
+      press(true, () => "held" as const),
+      moreButton,
+    );
+    expect(settleConfirmation(declined, true)).toEqual({ to: "heading" });
   });
 
   test("confirming a Decline runs it once and gives the heading", () => {

@@ -709,7 +709,7 @@ export type AnswerPress =
   /** Nothing was sent or marked for want of the reason: the field error and the prompt. */
   | { readonly kind: "needs-reason" }
   /** The act waits for the user's confirmation. */
-  | { readonly kind: "waiting"; readonly waiting: Waiting }
+  | { readonly kind: "waiting"; readonly waiting: Waiting<AnswerOutcome> }
   /** The act ran now. */
   | { readonly kind: "done" };
 
@@ -730,8 +730,10 @@ export const pressAnswer = (
     context.delivery === "submitted" ? context.board.work(question.id)?.held?.act : undefined;
   // The items that ask are those of the revision the card shows and the answer names (Issue #92).
   const shown = shownIn(question, context);
-  const waiting = press(asksFirst("answer", shown, status, held, context.facts), () =>
-    onOutcome(answer(question, context)),
-  );
+  const waiting = press(asksFirst("answer", shown, status, held, context.facts), () => {
+    const outcome = answer(question, context);
+    onOutcome(outcome);
+    return outcome;
+  });
   return waiting === undefined ? { kind: "done" } : { kind: "waiting", waiting };
 };

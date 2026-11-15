@@ -83,7 +83,6 @@ import {
   type Confirmation,
   confirmationOf,
   type FocusTarget,
-  settle,
   settleConfirmation,
 } from "./revision-confirm.ts";
 import type { SizeNotices } from "./size-notices.ts";
@@ -144,16 +143,6 @@ const noteFieldId = (questionId: string) => `${questionId}:note`;
 // An answer, or a note alone, that started a command: focus goes to the question's heading.
 const sentResult = (outcome: AnswerOutcome): boolean =>
   outcome === "sent" || outcome === "note-sent";
-
-// Confirms the waiting act, which reports its result to `outcome` as it runs, then asks for the
-// focus the result names: `settleConfirmation` runs the act first, so its argument would be stale.
-const confirmAnswer = (
-  waiting: Confirmation<HTMLElement> | undefined,
-  outcome: { readonly current: AnswerOutcome },
-): FocusTarget<HTMLElement> | undefined => {
-  settle(waiting?.waiting, true);
-  return settleConfirmation(waiting, true, outcome.current);
-};
 
 const focusHeadingOf = (questionId: string) => () => {
   const heading = document.getElementById(questionTextId(questionId));
@@ -699,7 +688,7 @@ export const QuestionCard = (props: CardProps) => {
                 className={BUTTON_PRIMARY}
                 onClick={() => {
                   chosen.current = true;
-                  afterClose.current = confirmAnswer(waiting, outcomeOfPress);
+                  afterClose.current = settleConfirmation(waiting, true);
                   setWaiting(undefined);
                 }}
               >

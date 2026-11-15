@@ -35,13 +35,17 @@ export const asksFirst = (
 ): boolean => held !== act && confirmsRevisionOf(question, status, factsOf);
 
 /** An act waiting for the user's confirmation; it runs at most once, and never after Cancel. */
-export type Waiting = { readonly confirm: () => void; readonly cancel: () => void };
+export type Waiting<R = unknown> = {
+  /** Runs the act, once, and gives what the run returned; nothing after the first call or Cancel. */
+  readonly confirm: () => R | undefined;
+  readonly cancel: () => void;
+};
 
 /**
  * A press of "Answer" or Decline: when no confirmation is needed the act runs now and nothing
  * waits; when one is, the act waits for `settle`.
  */
-export const press = (needed: boolean, run: () => void): Waiting | undefined => {
+export const press = <R>(needed: boolean, run: () => R): Waiting<R> | undefined => {
   if (!needed) {
     run();
     return undefined;
@@ -49,9 +53,9 @@ export const press = (needed: boolean, run: () => void): Waiting | undefined => 
   let open = true;
   return {
     confirm: () => {
-      if (!open) return;
+      if (!open) return undefined;
       open = false;
-      run();
+      return run();
     },
     cancel: () => {
       open = false;
@@ -59,10 +63,14 @@ export const press = (needed: boolean, run: () => void): Waiting | undefined => 
   };
 };
 
-/** The user's choice: confirming runs the waiting act once; Cancel drops it, the draft as it was. */
-export const settle = (waiting: Waiting | undefined, confirmed: boolean): void => {
-  if (confirmed) waiting?.confirm();
-  else waiting?.cancel();
+/**
+ * The user's choice: confirming runs the waiting act once and gives what the run returned (the
+ * answer's result); Cancel drops it, the draft as it was, and gives nothing.
+ */
+export const settle = <R>(waiting: Waiting<R> | undefined, confirmed: boolean): R | undefined => {
+  if (confirmed) return waiting?.confirm();
+  waiting?.cancel();
+  return undefined;
 };
 
 /**
@@ -98,7 +106,7 @@ export const confirmationOf = <Control>(
 
 const confirmedTarget = <Control>(
   confirmation: Confirmation<Control>,
-  result: AnswerResult | undefined,
+  result: unknown,
 ): FocusTarget<Control> | undefined => {
   if (confirmation.act === "decline") return { to: "heading" };
   if (result === "sent" || result === "note-sent") return { to: "heading" };
@@ -112,15 +120,14 @@ const confirmedTarget = <Control>(
  * The user's choice on a confirmation, and where focus goes: Cancel and Escape give back the
  * control pressed (the dialog has no trigger, so Radix restores none); a confirmed Decline gives
  * the heading, as the menu item that made it is gone; a confirmed Answer gives the heading when it
- * sent (`result` is `sent` or `note-sent`) and the control when it marked or unmarked the answer
- * ready (`held`, `released`), and none when the result is not known.
+ * sent (the run returned `sent` or `note-sent`) and the control when it marked or unmarked the answer
+ * ready (`held`, `released`), and none when the run returned no known result.
  */
 export const settleConfirmation = <Control>(
   confirmation: Confirmation<Control> | undefined,
   confirmed: boolean,
-  result?: AnswerResult,
 ): FocusTarget<Control> | undefined => {
-  settle(confirmation?.waiting, confirmed);
+  const result = settle(confirmation?.waiting, confirmed);
   if (confirmation === undefined) return undefined;
   if (confirmed) return confirmedTarget(confirmation, result);
   return confirmation.control === undefined
