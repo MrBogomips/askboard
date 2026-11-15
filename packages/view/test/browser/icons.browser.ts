@@ -64,6 +64,15 @@ const referenceAsk = (askId: string, language: "en-US" | "it-IT" = "en-US") => (
   ],
 });
 
+/** A question with a GITHUB reference, for a hint beside the outline's marks. */
+const withReference = (question: ReturnType<typeof plainQuestion>) => ({
+  ...question,
+  props: {
+    ...question.props,
+    items: [{ type: "reference", id: "first-pr", props: { url: GITHUB } }],
+  },
+});
+
 /** Six questions in one area and one in another, so that the first can scroll out of view. */
 const longSections = (askId: string, language: "en-US" | "it-IT") => ({
   askId,
@@ -74,7 +83,9 @@ const longSections = (askId: string, language: "en-US" | "it-IT") => ({
       "first-area",
       "First",
       ["first", "second", "third", "fourth", "fifth", "sixth"].map((id) =>
-        plainQuestion(id, `Is the ${id} step needed?`),
+        id === "first"
+          ? withReference(plainQuestion(id, `Is the ${id} step needed?`))
+          : plainQuestion(id, `Is the ${id} step needed?`),
       ),
     ),
     area("second-area", "Second", [plainQuestion("last", "Is the last step needed?")]),
@@ -97,6 +108,39 @@ const reportedInView = (board: Board, id: string, shown: boolean): Promise<void>
   board.view
     .locator(`[data-askboard-question="${id}"][data-askboard-in-view="${shown}"]`)
     .waitFor({ state: "attached", timeout: STEP_TIMEOUT_MS });
+
+/**
+ * Brings "first" to an unread reply and an agent change while it is out of view: the outline then
+ * shows the reply badge and the agent-change flag on its entry.
+ */
+const reachMarks = async (
+  run: Parameters<typeof actsDone>[0],
+  board: Board,
+  language: "en-US" | "it-IT",
+): Promise<void> => {
+  const send = language === "it-IT" ? "Invia" : "Send";
+  const ask = language === "it-IT" ? "Chiedi un chiarimento" : "Ask a follow-up";
+  await optionOf(board, "first", "Yes").click();
+  await buttonOf(board, "first", ask).click();
+  await card(board, "first").getByRole("textbox").last().fill("Is it needed?");
+  await buttonOf(board, "first", send).click();
+  await actsDone(run, 1);
+  await card(board, "last").scrollIntoViewIfNeeded();
+  await reportedInView(board, "first", false);
+  const { events } = await run.session.collect();
+  const followUp = events.findLast(
+    (event) => event.type === "follow-up" && event.itemId === "first",
+  );
+  if (followUp === undefined) throw new Error("no follow-up on first");
+  await run.session.update([
+    { action: "reply", itemId: "first", followUp: followUp.cursor, text: "Yes." },
+    {
+      action: "change",
+      itemId: "first",
+      props: { text: "Is the first step still needed?" },
+    },
+  ]);
+};
 
 const LANGUAGES = [
   {
@@ -145,28 +189,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           );
           const ids = ["first", "second", "third", "fourth", "fifth", "sixth", "last"];
           const board = await openBoard(run, ids);
-          const send = language === "it-IT" ? "Invia" : "Send";
-          const ask = language === "it-IT" ? "Chiedi un chiarimento" : "Ask a follow-up";
-          await optionOf(board, "first", "Yes").click();
-          await buttonOf(board, "first", ask).click();
-          await card(board, "first").getByRole("textbox").last().fill("Is it needed?");
-          await buttonOf(board, "first", send).click();
-          await actsDone(run, 1);
-          await card(board, "last").scrollIntoViewIfNeeded();
-          await reportedInView(board, "first", false);
-          const { events } = await run.session.collect();
-          const followUp = events.findLast(
-            (event) => event.type === "follow-up" && event.itemId === "first",
-          );
-          if (followUp === undefined) throw new Error("no follow-up on first");
-          await run.session.update([
-            { action: "reply", itemId: "first", followUp: followUp.cursor, text: "Yes." },
-            {
-              action: "change",
-              itemId: "first",
-              props: { text: "Is the first step still needed?" },
-            },
-          ]);
+          await reachMarks(run, board, language);
           const entry = board.view.locator('[data-askboard-outline="first"]');
           const badge = entry.getByRole("img", { name: replies, exact: true });
           await badge.waitFor({ timeout: STEP_TIMEOUT_MS });
@@ -231,8 +254,19 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       test(
         `each icon takes the text colour of its element in the ${theme.toLowerCase()} theme`,
         async () => {
-          const run = await start(lifecycleScenario(referenceAsk(`colours-icons-${theme}`), dist));
-          const board = await openBoard(run, ["fix", "export"]);
+          const run = await start(
+            lifecycleScenario(longSections(`colours-icons-${theme}`, "en-US"), dist),
+          );
+          const ids = ["first", "second", "third", "fourth", "fifth", "sixth", "last"];
+          const board = await openBoard(run, ids);
+          await reachMarks(run, board, "en-US");
+          const entry = board.view.locator('[data-askboard-outline="first"]');
+          await entry
+            .getByRole("img", { name: "The agent updated this", exact: true })
+            .waitFor({ timeout: STEP_TIMEOUT_MS });
+          await entry
+            .getByRole("img", { name: "1 new reply", exact: true })
+            .waitFor({ timeout: STEP_TIMEOUT_MS });
           await board.view
             .getByRole("radiogroup", { name: "Theme" })
             .getByRole("radio", { name: theme })
@@ -244,7 +278,14 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           const hint = board.view
             .locator('[data-context-part="hint"]')
             .filter({ hasText: "opens in browser" });
-          for (const holder of [jumpButton, hint]) {
+          const holders = [
+            jumpButton,
+            hint,
+            entry.getByRole("img", { name: "1 new reply", exact: true }),
+            entry.getByRole("img", { name: "The agent updated this", exact: true }),
+          ];
+          expect(holders).toHaveLength(4);
+          for (const holder of holders) {
             const pairs = await strokeFollowsText(holder);
             expect(pairs).toHaveLength(1);
             for (const pair of pairs) {
@@ -294,7 +335,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           expect(await hint.locator("svg").count()).toBe(1);
           const jumpButton = page.getByRole("button", { name: "Next open", exact: true });
           expect(await jumpButton.locator("svg").count()).toBe(1);
-          await eventually(() => requests.length === 0, "no request but the page");
+          await page.waitForLoadState("networkidle");
           expect(requests).toEqual([]);
           expect(violations).toEqual([]);
           await context.close();

@@ -76,7 +76,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           .waitFor({ timeout: STEP_TIMEOUT_MS });
         const outline = board.view.getByRole("navigation", { name: "Outline" });
         await outline.getByText("New", { exact: true }).waitFor({ timeout: STEP_TIMEOUT_MS });
-        await board.header.getByRole("button", { name: "Next open" }).click();
+        await board.header.getByRole("button", { name: "Next open", exact: true }).click();
         await eventually(
           () =>
             isFocused(
@@ -87,7 +87,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await outline
           .getByText("New", { exact: true })
           .waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
-        await board.header.getByRole("button", { name: "Next open" }).click();
+        await board.header.getByRole("button", { name: "Next open", exact: true }).click();
         await eventually(
           () => isFocused(card(board, "two").getByRole("heading", { name: "Question two?" })),
           "focus on the next open question's heading, wrapping",
