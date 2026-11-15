@@ -17,13 +17,19 @@ import { dirname, join } from "node:path";
 const SETUP = join(import.meta.dir, "..", "setup.sh");
 
 // The stub mirrors rulesync's layout: CLAUDE.md -> AGENTS.md, skills -> .agents/skills,
-// agents -> .codex/agents/*.toml. STUB_MODE changes what it does.
+// agents -> .codex/agents/*.toml. STUB_MODE changes what it does. A skill linked into
+// .agents/skills must never reach it: it fails on one.
 const STUB_NPX = `#!/bin/sh
 case "$*" in
   *--version*)
     [ "\${STUB_MODE:-}" = offline ] && { echo "npm error network" >&2; exit 1; }
     echo 9.9.9; exit 0 ;;
 esac
+for s in .claude/skills/*; do
+  case $(readlink "$s" 2>/dev/null) in
+    ../../.agents/skills/*) echo "stub rulesync: linked skill $s reached the conversion" >&2; exit 1 ;;
+  esac
+done
 [ "\${STUB_MODE:-}" = empty ] && exit 0
 [ -f CLAUDE.md ] && cp CLAUDE.md AGENTS.md
 for s in .claude/skills/*/; do
@@ -214,6 +220,18 @@ describe("a skill linked into .agents/skills", () => {
     write(".codex/codex-port.manifest", `${read(".codex/codex-port.manifest")}${SHARED}\n`);
     expect(run(["--codex-only"]).code).toBe(0);
     expect(read(SHARED)).toBe(TEXT);
+  });
+
+  test("only a link to .agents/skills/<same name> counts: a link elsewhere is ported", () => {
+    write(
+      "elsewhere/gamma/SKILL.md",
+      "---\nname: gamma\ndescription: Use when gamma.\n---\nGamma.\n",
+    );
+    symlinkSync(join(repo, "elsewhere/gamma"), join(repo, ".claude/skills/gamma"));
+    const { code, out } = run(["--codex-only"]);
+    expect(out).toContain("rulesync 9.9.9 wrote AGENTS.md, 3 skills and 1 agents");
+    expect(code).toBe(0);
+    expect(read(".agents/skills/gamma/SKILL.md")).toContain("Gamma.");
   });
 });
 

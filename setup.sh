@@ -45,9 +45,9 @@ check_toolchain() {
 #   sources with the latest rulesync. It converts a copy of the sources in a temporary folder
 #   and checks the result there, so a failed or surprising conversion leaves the files as they
 #   were. It records what it wrote in .codex/codex-port.manifest and removes what an earlier
-#   run wrote for a source that is gone. A skill that is a symbolic link in .claude/skills/
-#   (OpenSpec 2 links its skills there from .agents/skills/, which Codex reads) is its owner's:
-#   it ports none and never removes or overwrites its files.
+#   run wrote for a source that is gone. A skill .claude/skills/<name> that is a symbolic link
+#   to ../../.agents/skills/<name> (OpenSpec 2 links its skills there from .agents/skills/,
+#   which Codex reads) is its owner's: it ports none and never removes or overwrites its files.
 #   --dry-run  list what it would write; change nothing
 #   --check    check the files against the sources, without the network: every skill and
 #              agent has its Codex file, and AGENTS.md matches CLAUDE.md
@@ -71,8 +71,10 @@ codex_port() (
     echo "codex-port: AGENTS.md, .agents or .codex is a symbolic link; it writes through none" >&2
     return 1
   fi
-  # cp_linked <skill>: the skill is a link in .claude/skills/, its files already in .agents/skills/.
-  cp_linked() { [ -L ".claude/skills/$1" ]; }
+  # cp_linked <skill>: the skill is a link in .claude/skills/ to its files in .agents/skills/.
+  cp_linked() {
+    [ -L ".claude/skills/$1" ] && [ "$(readlink ".claude/skills/$1")" = "../../.agents/skills/$1" ]
+  }
 
   # cp_checks <root>: the Codex files under <root> cover every source of this project.
   cp_checks() {
@@ -142,7 +144,7 @@ codex_port() (
       cp -R "$cp_src" "$cp_tmp/.claude/"
     done
     for cp_src in .claude/skills/*; do
-      if [ -L "$cp_src" ]; then rm -f "$cp_tmp/$cp_src"; fi
+      if cp_linked "${cp_src#.claude/skills/}"; then rm -f "$cp_tmp/$cp_src"; fi
     done
   fi
   # Package install scripts never run (npm_config_ignore_scripts).
