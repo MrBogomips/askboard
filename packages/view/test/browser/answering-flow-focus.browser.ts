@@ -280,21 +280,30 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           async () => ((await outlineEntry(board, "q2").textContent()) ?? "").includes("Ready"),
           "q2 ready",
         );
+        // Scroll so that question 5 is the question in view (the card crossing the reading line),
+        // with focus on no card: Submit then focuses question 5's heading (#181).
+        await board.view.locator("body").evaluate((body) => {
+          const active = body.ownerDocument.activeElement;
+          if (active instanceof HTMLElement) active.blur();
+        });
+        const header = await boxOf(board.view.getByRole("banner"));
+        const bar = await boxOf(board.view.getByRole("contentinfo"));
+        const line = header.bottom + (bar.top - header.bottom) / 3;
+        const q5 = await boxOf(card(board, "q5"));
+        await board.view
+          .locator("body")
+          .evaluate(
+            (body, by) => body.ownerDocument.defaultView?.scrollBy(0, by),
+            q5.top - (line - 20),
+          );
+        await eventually(
+          async () => (await outlineEntry(board, "q5").getAttribute("aria-current")) === "true",
+          "q5 marked current",
+        );
         await barButton(board, "Submit").focus();
         await board.page.keyboard.press("Enter");
         await actsSent(run, 1);
-        // The heading of the question in view; the first question when none is set.
-        const current = outlineEntry(board, "q1").or(outlineEntry(board, "q2"));
-        const inView =
-          (await current.evaluateAll((entries) =>
-            entries
-              .find((entry) => entry.getAttribute("aria-current") === "true")
-              ?.getAttribute("data-askboard-outline"),
-          )) ?? "q1";
-        await eventually(
-          () => isFocused(headingOf(board, inView)),
-          `focus on the ${inView} heading`,
-        );
+        await eventually(() => isFocused(headingOf(board, "q5")), "focus on the q5 heading");
         expect(await focusOnPage(board)).toBe(false);
       },
       TEST_TIMEOUT_MS,

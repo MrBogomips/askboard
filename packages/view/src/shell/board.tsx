@@ -57,6 +57,7 @@ import { SnapshotTopLine } from "./snapshot-top-line.tsx";
 import type { Store } from "./store.ts";
 import { FOCUS_RING, INFO_BADGE } from "./styles.ts";
 import { hasRecommendation, releaseFailed, selectRecommended, submitStateOf } from "./submit.ts";
+import { useQuestionInView } from "./use-question-in-view.ts";
 
 /** What the board page last told the view, with the latest board document. */
 export type BoardView = {
@@ -337,6 +338,12 @@ export const Board = ({
     changed: changed.has(question.id),
   });
   const single = presentation === "single";
+  // The outline, the jump and Submit's focus read the question in view: scrolling and focus move it.
+  useQuestionInView(
+    !single && presentation !== "one-per-view",
+    () => context.board.get().inView,
+    context.board.setInView,
+  );
   const [first] = questions;
   let body: ReactNode;
   if (single || first === undefined) {
