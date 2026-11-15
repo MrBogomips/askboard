@@ -24,6 +24,8 @@ export const CATALOG_DIR = join(VIEW_SRC, "catalog");
 export const PORT_FILE = join(CATALOG_DIR, "port.ts");
 /** The shared Markdown renderer's entry, the library chunk `markdown` (document-review, design decision 6). */
 export const MARKDOWN_FILE = join(VIEW_SRC, "markdown/index.ts");
+/** The icon module's entry, the library chunk `icons` (icon-set, design decision 4). */
+export const ICONS_FILE = join(VIEW_SRC, "icons/index.ts");
 export const SHARED_MODULES_FILE = join(VIEW_SRC, "shared-modules.ts");
 export const ZOD_JITLESS_FILE = join(VIEW_SRC, "zod-jitless.ts");
 export const VALIDATORS_FILE = join(VIEW_SRC, "board-page/validators.ts");

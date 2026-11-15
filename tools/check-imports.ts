@@ -27,8 +27,9 @@ const SERVER_UNITS = new Set([
 ]);
 
 // What each unit may import, from the spine's Invariants & Rules diagram and AD-1. `view/assemble`
-// (AD-9), `view/catalog` (the CatalogRenderer port) and `view/markdown` (the shared Markdown renderer,
-// document-review design decision 6) are the view entries other units use.
+// (AD-9), `view/catalog` (the CatalogRenderer port), `view/markdown` (the shared Markdown renderer,
+// document-review design decision 6) and `view/icons` (the icon module, icon-set design decision 3)
+// are the view entries other units use.
 // A change to the diagram updates this table in the same OpenSpec change.
 const ALLOWED: Readonly<Record<string, readonly string[]>> = {
   contract: [],
@@ -57,7 +58,7 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
   ],
   molecules: ["contract"],
   view: ["contract", "compute"],
-  widgets: ["contract", "compute", "view/catalog", "view/markdown"],
+  widgets: ["contract", "compute", "view/catalog", "view/markdown", "view/icons"],
   mod: ["contract"],
   hooks: ["contract"],
   bench: ["contract"],
@@ -80,7 +81,7 @@ const PACKAGES = new Set([
 const RUNTIME_NEUTRAL = new Set(["core", "compute", "mod"]);
 // core, compute and mod compile contract's sources too, so its type references would reach them.
 const TYPE_ISOLATED = new Set(["contract", "core", "compute", "mod"]);
-const VIEW_ENTRIES = new Set(["assemble", "catalog", "markdown"]);
+const VIEW_ENTRIES = new Set(["assemble", "catalog", "markdown", "icons"]);
 const SOURCE_FILE = /\.[cm]?[jt]sx?$/;
 const SKIPPED_DIRECTORIES = new Set(["node_modules", "dist", "coverage"]);
 const SCOPE = "@askboard/";
@@ -95,6 +96,8 @@ const RULE_NODE_MODULES =
   "a relative path into node_modules, where the isolated linker links other packages: import @askboard/<unit> or a third-party package by name (AD-1)";
 const RULE_REFERENCE =
   "contract, core, compute and mod reference no type package and no library beyond ECMAScript outside their tests: core, compute and mod compile without DOM, Node or Bun types (AD-1)";
+const RULE_LUCIDE =
+  "lucide-react is imported only as lucide-react/icons/<icon>, in packages/view/src/icons/index.ts or a test: every other file imports the icon module (AD-1, icon-set design decision 5)";
 const RULE_LINK = "a symbolic link under packages/, which the check does not follow (AD-1)";
 
 type Target =
@@ -206,7 +209,19 @@ const specifiersOf = (file: string, source: string): string[] => {
   return [...new Set([...scanned, ...queried])];
 };
 
+// `lucide-react` and its subpaths: one icon by its path passes, in the icon module or a test; the
+// main entry, its alias `icons`, `dynamic*` and `dist/…` fail everywhere.
+const LUCIDE = /^lucide-react(\/|$)/;
+const LUCIDE_ICON = /^lucide-react\/icons\/[a-z0-9]+(-[a-z0-9]+)*$/;
+const ICON_MODULE = "packages/view/src/icons/index.ts";
+
+const lucideViolation = (file: string, specifier: string): Violation | undefined => {
+  if (LUCIDE_ICON.test(specifier) && (file === ICON_MODULE || isTestFile(file))) return undefined;
+  return { file, specifier, target: "lucide-react", rule: RULE_LUCIDE };
+};
+
 const violationOf = (file: string, unit: string, specifier: string): Violation | undefined => {
+  if (LUCIDE.test(specifier)) return lucideViolation(file, specifier);
   const target = targetOf(file, specifier);
   switch (target.kind) {
     case "third-party":

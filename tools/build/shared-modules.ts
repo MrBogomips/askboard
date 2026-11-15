@@ -8,10 +8,12 @@
 // shared modules are files that components import by a relative path, mapped by that path: the
 // port, and the board graph (molecules, design decision 13).
 
+import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import type { BunPlugin } from "bun";
 import {
   GRAPH_FILE,
+  ICONS_FILE,
   MARKDOWN_FILE,
   PORT_FILE,
   resolveFromView,
@@ -33,6 +35,12 @@ export const BOARD_GRAPH = "@askboard/widgets/board-graph";
 export const MARKDOWN_RENDERER = "@askboard/view/markdown";
 
 /**
+ * The name the icon module is shared under, which is also its package export: the view's
+ * components import it by the path to its index, the widgets by this name.
+ */
+export const ICONS_MODULE = "@askboard/view/icons";
+
+/**
  * The shared modules imported by a relative path to their file, with the end of the paths that
  * can name it: components inside `view` import the port by its file name and the Markdown
  * renderer by its folder and file name, the widgets the board graph by its folder and file name.
@@ -41,6 +49,7 @@ const BY_PATH: Readonly<Record<string, { readonly file: string; readonly tail: R
   [CATALOG_PORT]: { file: PORT_FILE, tail: /(^|\/)port\.ts$/ },
   [BOARD_GRAPH]: { file: GRAPH_FILE, tail: /(^|\/)board-graph\/index\.ts$/ },
   [MARKDOWN_RENDERER]: { file: MARKDOWN_FILE, tail: /(^|\/)markdown\/index\.ts$/ },
+  [ICONS_MODULE]: { file: ICONS_FILE, tail: /(^|\/)icons\/index\.ts$/ },
 };
 
 /** `*`: the whole module, as one object; a list: exactly those exports, so another fails the build. */
@@ -53,6 +62,13 @@ type LibraryChunk = {
   /** The package folder its modules resolve from, when the view does not declare them. */
   readonly from?: string;
 };
+
+/**
+ * The names the icon module exports, read from its file without running it, so an icon added to
+ * the module is provided without a second list.
+ */
+const iconExports = (): string[] =>
+  new Bun.Transpiler({ loader: "ts" }).scan(readFileSync(ICONS_FILE, "utf8")).exports;
 
 /** The widgets' package, which declares `compute` and the drag library. */
 const WIDGETS_DIR = dirname(WIDGETS_SRC);
@@ -144,6 +160,11 @@ export const LIBRARY_CHUNKS: Readonly<Record<string, LibraryChunk>> = {
     modules: {
       [MARKDOWN_RENDERER]: ["MARKDOWN", "PLAIN", "markExternal", "mountMarkdown", "renderMarkdown"],
     },
+  },
+  // Lucide's icons through the icon module, loaded by every board and Snapshot whose shell or
+  // components draw one (icon-set, design decision 4). No styles: the callers' classes size them.
+  icons: {
+    modules: { [ICONS_MODULE]: iconExports() },
   },
 };
 

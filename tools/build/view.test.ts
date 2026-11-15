@@ -103,6 +103,9 @@ describe("bun run build:view (design decision 7)", () => {
       "ext-apps": "library",
       gantt: "component",
       group: "component",
+      // The icon module: Lucide's icons by path, in a library chunk of their own (icon-set, design
+      // decision 4).
+      icons: "library",
       kanban: "component",
       latex: "component",
       // The shared Markdown renderer: markdown-it, DOMPurify and the Markdown classes, in a library
@@ -377,6 +380,7 @@ describe("bun run build:view (design decision 7)", () => {
       "ext-apps",
       "gantt",
       "group",
+      "icons",
       "kanban",
       "latex",
       "markdown",
@@ -421,6 +425,28 @@ describe("bun run build:view (design decision 7)", () => {
     expect(problems[0]).toContain(`${shell.toLocaleString("en-US")} bytes`);
     expect(problems[0]).toContain(`${Math.floor(shell / 2).toLocaleString("en-US")} bytes`);
   }, 60_000);
+});
+
+// The icon module's library chunk (icon-set, design decision 4; requirement "One icon set in one
+// chunk").
+describe("the icons library chunk", () => {
+  test("it is a library chunk that needs React", () => {
+    expect(chunkNamed("icons").kind).toBe("library");
+    expect(chunkNamed("icons").needs).toEqual(["react"]);
+  });
+
+  test("only its notices name lucide-react, ISC and Feather's MIT text with them", async () => {
+    const notice = chunkNamed("icons").licences.find((entry) => entry.package === "lucide-react");
+    expect(notice?.licence).toBe("ISC");
+    const licence = await text(notice?.path ?? "");
+    expect(licence).toContain("ISC License");
+    expect(licence).toContain("Cole Bemis");
+    for (const [name, chunk] of Object.entries(manifest.chunks)) {
+      if (name === "icons") continue;
+      expect(packagesIn(chunk.licences), name).not.toContain("lucide-react");
+    }
+    expect(packagesIn(manifest.boardPage.licences)).not.toContain("lucide-react");
+  });
 });
 
 const packagesIn = (notices: ViewManifest["boardPage"]["licences"]) =>
@@ -752,6 +778,7 @@ describe("the Chart's chunk (chart-widget, design decisions 8 and 9; view spec, 
         "@atlaskit/pragmatic-drag-and-drop/element/adapter",
       ],
       markdown: ["@askboard/view/markdown"],
+      icons: ["@askboard/view/icons"],
     });
     expect(Object.keys(manifest.chunks).filter((name) => name.includes("echarts"))).toEqual([]);
     expect(Object.keys(manifest.chunks)).not.toContain("zrender");

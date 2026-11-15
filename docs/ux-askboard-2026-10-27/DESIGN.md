@@ -12,7 +12,7 @@ sources:
   - .working/technical-choices-proposal.md
   - reconcile-prd.md
   - reconcile-research.md
-updated: 2026-11-14
+updated: 2026-11-15
 colors:
   # ---- light (default scheme) ----
   # surfaces
@@ -905,6 +905,31 @@ The radius tokens take Tailwind's names, and shadcn's `--radius` is 6px, so shad
 
 shadcn's derived `rounded-sm` (2px) and `rounded-xl` (10px) are not used. The small radii keep the board reading as a tool. Nothing in the records asks for larger radii.
 
+## Icons
+
+Every icon on the board comes from one set: Lucide (ISC, with Feather's MIT text for the icons derived from it), adopted under the adoption rule and pinned exactly (`lucide-react`, Stack in the spine). The view and the widgets draw an icon only from the icon module, `@askboard/view/icons` (`packages/view/src/icons/index.ts`), which re-exports each icon under the name of its role on the board; nothing else imports Lucide, and `check:imports` fails CI when it does. The module is bundled once, in the `icons` library chunk that the shell and the component chunks share.
+
+| Export | Lucide icon | Where | Replaces |
+|---|---|---|---|
+| `IconNextOpen` | `arrow-down` | the header's next-open jump | ↓ in the label |
+| `IconReplies` | `message-square-reply` | the unread-reply badge, in the outline and the question navigator | ↩ |
+| `IconAgentChanged` | `refresh-cw` | the agent-change flag, in the outline | ↻ |
+| `IconExternal` | `external-link` | a reference's "opens in browser" hint | ↗ |
+| `IconSelected` | `check` | the Approval's selected decision | ✓ |
+| `IconClose` | `x` | the comment card's close control | × |
+| `IconCalendar` | `calendar` | the date field's calendar button | the field's own SVG |
+| `IconDisclosure` | `chevron-right` | the Tree's chevron, turned 90° when open | the row's own SVG |
+| `IconDragHandle` | `grip-vertical` | the Tree's and the Ranking's drag handles | the rows' own SVGs |
+| `closeIcon` (`x`, from `lucide`) | `x` | the reading panel's and the settings panel's close buttons, which are plain DOM and load no React (lands with the board page's group of `icon-set`) | ✕ |
+
+- **Colour.** `currentColor` only: an icon takes the text colour of its element, so it follows the theme. No icon gets a fill or a colour of its own.
+- **Size.** The caller's size utility, never the `size` prop: 16 px (`size-4`) beside control text, 12 px (`size-3`) in badges, hints and widget rows, 14 px (`size-3.5`) for the calendar. Stroke is Lucide's 2 on its 24 grid, never set per icon.
+- **Placement.** Before the text for a state (the selected decision), after it for a direction (the jumps, the external hint).
+- **Names.** An icon beside text that says what it means is decorative and hidden from assistive technology (the library's default). A mark that is only an icon, or an icon and a count, is an image (`role="img"`) named by the string that says what it means. An icon-only control keeps its `aria-label` and hides the icon.
+- **Quoted glyphs.** Where the specs, EXPERIENCE.md and the Components below quote a label with its glyph ("Next open ↓", "opens in browser ↗", "the ✕"), the label is the text and the glyph is the icon of this table: the string holds no glyph.
+- **What stays text.** Key names (⌃ ⌥ ⇧ ⌘ ↩ ⌫ ⌦ ↑ ↓ ← →) in key caps, tooltips and the keys panel; the arrow of a sentence, as in "{from} → {to}"; the ellipsis. The state markers' CSS shapes, the Gantt's duration pin and every chart, timeline or diagram SVG are not icons.
+- **Adding an icon.** One line in the module, named for its role, with its row in this table; a name no source imports fails a test. A bump of Lucide is by hand: re-read the adoption evidence, look at the icons and record the chunk sizes.
+
 ## Components
 
 These are visual specs only; behaviour lives in EXPERIENCE.md, Component Patterns, under the same names and in the same order. Tokens are in the YAML `components` map. Shared controls (`button-*`, the segmented control, the status chip, the focus ring) are under Base controls; Field error and Change highlight are under Changes, values and board states. Every row ends with its mock: "Mock:" names the key-screen mock or earlier artifact that draws it, and "Not mocked" names what no mock draws yet (see Open Items). The seven key-screen mocks are defined in the Citations above. A label marked **provisional** is a string the mocks had to invent, listed for review in EXPERIENCE.md, Voice and Tone (L200).
@@ -1068,6 +1093,7 @@ Several rows correct where the Stitch outputs, [direction-1-pacific-blue](mockup
 | Pair every state with a marker shape or text | Tell two states apart by hue alone, such as the selected delivery mode by its text colour |
 | Keep change marks at 3:1 or more against their surface | Ship a change line under 3:1. golden-1-base's amber line was 2.15:1 |
 | Keep shadows to the sticky bars, floating cards and panels (Elevation & Depth) | Let shadcn's default shadows on cards, inputs or buttons through |
+| Draw an icon from the icon module, beside its label | Put a glyph in a string, or an SVG of a component's own, as an icon; import Lucide anywhere but the icon module |
 | Bundle and inline Inter and JetBrains Mono | Load Google Fonts, an icon font or a CSS CDN at run time. The Stitch HTML does |
 | Turn ligatures off in code views | Let `=>` or `!=` render as ligatures in a diff |
 | Key diagram pins and highlights to element IDs on the annotation overlay, recomputed on every render | Place pins by pixel coordinates on a rendered diagram. Pixel regions are only for Image annotation |
@@ -1089,7 +1115,7 @@ Not blocking. They stay open until the stories close them (L145).
 **Identity and foundations**
 
 1. **Motion.** No motion inventory, durations or reduced-motion behaviour is recorded (L102). The Stitch pulse on "Working" and its button press scale are illustrations.
-2. **Icons** (F-76). No icon set is chosen. It must be bundled under an open licence (L38). Stitch used Material Symbols. The marker shapes and the glyphs (✓ ✕ ↗ ↓ ↩) have no source yet: an icon set, or CSS and inline SVG for the shapes and text for the glyphs.
+2. **Icons** (F-76). Settled by the OpenSpec change `icon-set` (2026-11-15), on the PO's choice of Lucide (2026-11-14): one set, bundled under its open licence (L38), drawn only through the icon module (Icons). The marker shapes stay CSS shapes.
 3. **Product mark.** No logo or product mark exists. The Stitch "A" tile was invented.
 4. **Tabular figures.** The font preview shows tabular figures for numbers, but no decision applies them.
 5. **Width behaviour.** Nothing is recorded below the 1280px floor (EXPERIENCE.md, Open Items) or for a maximum content width above it; golden-1-base capped its content at 1440px with 24px gutters, as an illustration only. Header row 2 is checked with the Italian strings at the 1280px floor by the browser tests of the OpenSpec change `settings-languages` (L169, F-47).

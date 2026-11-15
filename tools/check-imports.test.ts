@@ -37,6 +37,7 @@ const ALLOWED: [string, string][] = [
   ["widgets", "@askboard/compute"],
   ["widgets", "@askboard/view/catalog"],
   ["widgets", "@askboard/view/markdown"],
+  ["widgets", "@askboard/view/icons"],
   ["mod", "@askboard/contract"],
   ["hooks", "@askboard/contract"],
   ["bench", "@askboard/contract"],
@@ -59,6 +60,8 @@ const DISALLOWED: [string, string][] = [
   ["snapshot", "@askboard/view/catalog"],
   ["snapshot", "@askboard/view/markdown"],
   ["core", "@askboard/view/markdown"],
+  ["snapshot", "@askboard/view/icons"],
+  ["core", "@askboard/view/icons"],
   ["molecules", "@askboard/core"],
   ["view", "@askboard/core"],
   ["view", "@askboard/widgets"],
@@ -288,6 +291,55 @@ describe("unit boundaries (AD-1)", () => {
       "widgets may import only contract, compute, view/catalog, view/markdown",
     );
     expect(violation?.rule).toContain("AD-1");
+  });
+});
+
+// icon-set design decision 5: Lucide enters only as `lucide-react/icons/<name>`, in the icon module.
+describe("the icon set's import rule (icon-set, design decision 5)", () => {
+  const ICON_MODULE = "packages/view/src/icons/index.ts";
+
+  test.each([
+    ["packages/widgets/src/a.tsx", "lucide-react"],
+    ["packages/widgets/src/a.tsx", "lucide-react/icons/check"],
+    [ICON_MODULE, "lucide-react"],
+    [ICON_MODULE, "lucide-react/icons"],
+    [ICON_MODULE, "lucide-react/dynamic"],
+    ["packages/view/src/shell/a.tsx", "lucide-react/dynamic"],
+    ["packages/view/src/shell/a.tsx", "lucide-react/dynamicIconImports"],
+    [ICON_MODULE, "lucide-react/dynamicIconImports"],
+    [ICON_MODULE, "lucide-react/dist/esm/icons/x.mjs"],
+    ["packages/view/src/shell/a.tsx", "lucide-react/dist/esm/icons/x.mjs"],
+    ["packages/view/src/shell/x.tsx", "lucide-react/icons/check"],
+    ["packages/view/src/icons/other.ts", "lucide-react/icons/check"],
+    ["packages/view/test/browser/a.ts", "lucide-react/dynamic"],
+    ["packages/view/src/icons/index.test.ts", "lucide-react/icons"],
+  ])("%s may not import %s", (file, specifier) => {
+    const violations = checkSource(file, importOf(specifier));
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toMatchObject({ file, specifier });
+    expect(violations[0]?.rule).toContain("lucide-react");
+  });
+
+  test.each([
+    [ICON_MODULE, "lucide-react/icons/check"],
+    [ICON_MODULE, "lucide-react/icons/message-square-reply"],
+    ["packages/view/src/icons/index.test.ts", "lucide-react/icons/check"],
+    ["packages/view/test/browser/a.ts", "lucide-react/icons/check"],
+    ["packages/widgets/src/a.tsx", "@askboard/view/icons"],
+    ["packages/view/src/shell/a.tsx", "../icons/index.ts"],
+  ])("%s may import %s", (file, specifier) => {
+    expect(checkSource(file, importOf(specifier))).toEqual([]);
+  });
+
+  test("the failure names the file and the rule", () => {
+    const [violation] = checkSource(
+      "packages/view/src/shell/x.tsx",
+      importOf("lucide-react/icons/check"),
+    );
+    expect(formatViolation(violation as NonNullable<typeof violation>)).toContain(
+      "packages/view/src/shell/x.tsx",
+    );
+    expect(violation?.rule).toContain("packages/view/src/icons/index.ts");
   });
 });
 

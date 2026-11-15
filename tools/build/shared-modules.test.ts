@@ -1,9 +1,11 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   GRAPH_FILE,
+  ICONS_FILE,
   MARKDOWN_FILE,
   PORT_FILE,
   ROOT,
@@ -14,6 +16,7 @@ import {
 import {
   BOARD_GRAPH,
   CATALOG_PORT,
+  ICONS_MODULE,
   LIBRARY_CHUNKS,
   libraryEntrySource,
   MARKDOWN_RENDERER,
@@ -31,6 +34,10 @@ const modules: SharedModules = sharedModules(["register", "componentFor"]);
 
 // The names the Text and the Document review take from the shared Markdown renderer.
 const MARKDOWN_NAMES = ["MARKDOWN", "PLAIN", "markExternal", "mountMarkdown", "renderMarkdown"];
+
+// The names the icon module exports, read from its file as the build reads them.
+const iconExports = (): string[] =>
+  new Bun.Transpiler({ loader: "ts" }).scan(readFileSync(ICONS_FILE, "utf8")).exports;
 
 const DRAG_COMBINE = "@atlaskit/pragmatic-drag-and-drop/combine";
 const DRAG_ADAPTER = "@atlaskit/pragmatic-drag-and-drop/element/adapter";
@@ -135,6 +142,14 @@ describe("the shared modules and the chunks that provide them", () => {
     expect(MARKDOWN_FILE).toBe(join(VIEW_SRC, "markdown/index.ts"));
   });
 
+  test("the icon module comes from the icons chunk, under the name widgets import it by, with the names its file exports (icon-set, design decision 4)", () => {
+    expect(ICONS_MODULE).toBe("@askboard/view/icons");
+    expect(ICONS_FILE).toBe(join(VIEW_SRC, "icons/index.ts"));
+    expect(iconExports()).toHaveLength(9);
+    expect(modules.get(ICONS_MODULE)).toEqual({ chunk: "icons", names: iconExports() });
+    expect(LIBRARY_CHUNKS.icons?.modules).toEqual({ [ICONS_MODULE]: iconExports() });
+  });
+
   test("the shell provides the CatalogRenderer port, with the names its module exports", () => {
     expect(modules.get(CATALOG_PORT)).toEqual({
       chunk: "shell",
@@ -142,12 +157,13 @@ describe("the shared modules and the chunks that provide them", () => {
     });
   });
 
-  test("the library chunks are React, Radix, ext-apps, compute, the board graph, the drag library and the Markdown renderer", () => {
+  test("the library chunks are React, Radix, ext-apps, compute, the board graph, the drag library, the icons and the Markdown renderer", () => {
     expect(Object.keys(LIBRARY_CHUNKS).sort()).toEqual([
       "board-graph",
       "compute",
       "dnd",
       "ext-apps",
+      "icons",
       "markdown",
       "radix",
       "react",
@@ -202,7 +218,17 @@ describe("the shared modules and the chunks that provide them", () => {
 
   // Names a chunk lists before the source that imports them lands, each with the task that lands
   // it. An entry the sources already import fails the test, so none outlives its task.
-  const LISTED_AHEAD: Readonly<Record<string, string>> = {};
+  const LISTED_AHEAD: Readonly<Record<string, string>> = {
+    [`${ICONS_MODULE}:IconNextOpen`]: "icon-set 2.3",
+    [`${ICONS_MODULE}:IconReplies`]: "icon-set 2.3",
+    [`${ICONS_MODULE}:IconAgentChanged`]: "icon-set 2.3",
+    [`${ICONS_MODULE}:IconExternal`]: "icon-set 2.4",
+    [`${ICONS_MODULE}:IconCalendar`]: "icon-set 2.4",
+    [`${ICONS_MODULE}:IconSelected`]: "icon-set 3.2",
+    [`${ICONS_MODULE}:IconClose`]: "icon-set 3.2",
+    [`${ICONS_MODULE}:IconDisclosure`]: "icon-set 3.3",
+    [`${ICONS_MODULE}:IconDragHandle`]: "icon-set 3.3",
+  };
 
   test("every name a library chunk lists is imported by a view or widget source, so none ships unused", async () => {
     const imported = await namedImports();
@@ -325,6 +351,25 @@ describe("which chunk an import comes from", () => {
     expect(providerOf(modules, "tree", "../board-graph/board-graph.ts", tree)).toBeUndefined();
   });
 
+  test("a relative import of the icon module's index comes from the icons chunk, unless the chunk is that one (icon-set, design decision 4)", () => {
+    const shell = join(VIEW_SRC, "shell/board-header.tsx");
+    expect(providerOf(modules, "shell", "../icons/index.ts", shell)).toEqual({
+      module: ICONS_MODULE,
+      chunk: "icons",
+    });
+    expect(providerOf(modules, "tree", ICONS_MODULE, join(WIDGETS_SRC, "tree/row.tsx"))).toEqual({
+      module: ICONS_MODULE,
+      chunk: "icons",
+    });
+    expect(providerOf(modules, "icons", "../icons/index.ts", shell)).toBeUndefined();
+    expect(providerOf(modules, "icons", ICONS_MODULE, shell)).toBeUndefined();
+  });
+
+  test("another icons/index.ts is not the icon module", () => {
+    const importer = join(VIEW_SRC, "shell/board-header.tsx");
+    expect(sharedNameOf("../other/icons/index.ts", importer)).toBe("../other/icons/index.ts");
+  });
+
   test("a relative import of the renderer's index comes from the markdown chunk, unless the chunk is that one (document-review, design decision 6)", () => {
     const text = join(VIEW_SRC, "catalog/text/index.tsx");
     expect(providerOf(modules, "text", "../../markdown/index.ts", text)).toEqual({
@@ -386,6 +431,13 @@ describe("shims", () => {
     expect(source).toContain(JSON.stringify(MARKDOWN_FILE));
     expect(source).toContain(`provide("${MARKDOWN_RENDERER}", { MARKDOWN: m0_MARKDOWN`);
     expect(source).toContain("renderMarkdown: m0_renderMarkdown");
+  });
+
+  test("the icons entry imports the module by its file and provides its names", () => {
+    const source = libraryEntrySource("icons");
+    expect(source).toContain(JSON.stringify(ICONS_FILE));
+    expect(source).toContain(`provide("${ICONS_MODULE}", { IconAgentChanged: m0_IconAgentChanged`);
+    expect(source).toContain("IconSelected: m0_IconSelected");
   });
 
   test("an unknown library has no entry", () => {

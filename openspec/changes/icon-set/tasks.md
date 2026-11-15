@@ -40,7 +40,7 @@ Terms used below:
 
 ## 1. The dependency, the icon module and its chunk
 
-- [ ] 1.1 Pin `lucide-react` (decision 1, decision 9; requirement "One icon set in one chunk").
+- [x] 1.1 Pin `lucide-react` (decision 1, decision 9; requirement "One icon set in one chunk").
   - Tests: none new. `tools/workspace.test.ts` already fails on a pin that is not exact; read it and name the case in the note.
   - Add `"lucide-react": "<the version>"` to `packages/view/package.json`'s `dependencies`, then run `bun install`.
   - Add to the bun entry of `.github/dependabot.yml` an `ignore` of `lucide-react` with `update-types: ["version-update:semver-minor", "version-update:semver-patch"]`, with a comment giving decision 9's reason.
@@ -50,7 +50,8 @@ Terms used below:
     - `GITHUB_TOKEN=$(gh auth token) bun run check:licences` passes;
     - `bun -e 'console.log(Bun.YAML.parse(await Bun.file(".github/dependabot.yml").text()).updates[1].ignore)'` lists the entry;
     - `bun run typecheck` passes.
-- [ ] 1.2 The icon module (decision 3; P2, P3; requirement "Accessible names of icons").
+  - Note (2026-11-15): `lucide-react` 1.73.0 pinned in `packages/view/package.json` and `bun.lock`; `tools/workspace.test.ts`'s case "every dependency is pinned exactly" covers it. Dependabot ignore (minor and patch, with decision 9's reason) listed by the `Bun.YAML` probe; Stack row added to the spine; `check:licences` and `typecheck` pass.
+- [x] 1.2 The icon module (decision 3; P2, P3; requirement "Accessible names of icons").
   - Tests first, in `packages/view/src/icons/index.test.ts`:
     - the module's exports equal the nine names of decision 3's table, no more and no fewer;
     - each export is the same object as the default export of `lucide-react/icons/<lucide name>`;
@@ -62,7 +63,8 @@ Terms used below:
     - the tests fail on the missing module, then pass;
     - `bun run typecheck` passes (P2);
     - `bun run lint` passes.
-- [ ] 1.3 The import rule (decision 5; requirement "Icons enter only through the icon module").
+  - Note (2026-11-15): `packages/view/src/icons/index.test.ts`, 13 tests (names, identity of each export with its `lucide-react/icons/<name>` default, hidden and named forms, no `style`, class on the `svg`), failed on the missing module, then passed. Module and `./icons` export written; Biome sorts the re-exports by source path, so the file lists them in that order. `tools/workspace.test.ts`'s export list gained `./icons` (a file group 4 names, edited here because the group-1 export breaks it).
+- [x] 1.3 The import rule (decision 5; requirement "Icons enter only through the icon module").
   - Tests first, in `tools/check-imports.test.ts`. These fail, each naming the file and the rule:
     - `lucide-react` from a widget file;
     - `lucide-react/icons` from the icon module;
@@ -78,7 +80,8 @@ Terms used below:
     - the new cases fail before and pass after;
     - `bun run check:imports` passes on the tree;
     - the spine's two sentences read as decision 11 gives them.
-- [ ] 1.4 The `icons` library chunk (decision 4; P1; requirement "One icon set in one chunk", scenario "The manifest").
+  - Note (2026-11-15): 14 refusals and 6 passes added to `tools/check-imports.test.ts` plus the `view/icons` unit edges; failed before, 204 pass after. `check:imports` clean on the tree. Rule text names the file's allowed place and the spine's AD-1 and Tests row read as decision 11 gives them.
+- [x] 1.4 The `icons` library chunk (decision 4; P1; requirement "One icon set in one chunk", scenario "The manifest").
   - Tests first, in `tools/build/shared-modules.test.ts`:
     - `sharedModules` maps `@askboard/view/icons` to chunk `icons` with the module's exports as its names, read from the file;
     - `providerOf` maps `../icons/index.ts` from a file of `packages/view/src/shell` and `@askboard/view/icons` from a widget to `icons`, and returns nothing when the importer's chunk is `icons`;
@@ -93,7 +96,8 @@ Terms used below:
     - the tests fail before and pass after;
     - `chunk-sizes.json` gains only `icons`, about 6 KB (record the figure);
     - the check passes.
-- [ ] 1.5 Records of group 1 (decision 11). Tests: none (documents).
+  - Note (2026-11-15): tests in `shared-modules.test.ts` (names read from the file, `providerOf`, entry source; all nine icon names sit in `LISTED_AHEAD` with the task that draws them, so each entry must be removed in groups 2 and 3) and `view.test.ts` (kind `icons: library`, needs `react`, notice with "ISC License" and "Cole Bemis" and no other chunk or the board page naming `lucide-react`). `chunk-sizes.json` gains only `icons`: 6,710 bytes (the design's isolated figure was 5,934). The spine's AD-9 bullet and Structural Seed line amended.
+- [x] 1.5 Records of group 1 (decision 11). Tests: none (documents).
   - DESIGN.md:
     - a `## Icons` section between Shapes and Components, as decision 11 lists, with the board page's close icon marked "Q1" until task 0.1;
     - Open point 2 settled by `icon-set`;
@@ -104,6 +108,7 @@ Terms used below:
     - `grep -n "^## Icons" docs/ux-askboard-2026-10-27/DESIGN.md` finds the section;
     - Open point 2 says settled;
     - the check passes (tests read DESIGN.md's front matter and the spine).
+  - Note (2026-11-15): DESIGN.md `## Icons` (table of nine plus the board page's close icon, marked as landing with group 4), Open point 2 settled, one Do's row, `updated` 2026-11-15; spine `sources` line; `docs/as-built/icon-set.md` first version. Full `bun run check` passes (14,739 pass, 0 fail, 8 skip) and `bun run build` passes.
 - [ ] 1.6 Review checkpoint: spec review of group 1's range (askboard-spec-reviewer), plus a security review (askboard-security-reviewer). The group adds a dependency (AD-19, licences and notices), a library chunk that every board's srcdoc will inline under the view's CSP from group 2 on (AD-8, AD-9), and an import check (AD-1). Verify: every finding is fixed as a task, tests first, or recorded with its reason, and both reviews' ranges and verdicts are in the note.
 
 ## 2. The view's icons (shell, context, date field, strings)

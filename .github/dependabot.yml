@@ -31,3 +31,10 @@ updates:
       # Follows the Bun pin in packageManager, which Dependabot does not bump: bump both by hand
       # (tools/workspace.test.ts fails if they differ).
       - dependency-name: "@types/bun"
+      # Lucide ships a minor release every few days, and a redrawn icon would ride in the weekly
+      # group unreviewed: a change that needs an icon bumps it by hand, re-reads the adoption
+      # evidence and records the chunk sizes (icon-set, decision 9). A major still gets a pull request.
+      - dependency-name: "lucide-react"
+        update-types:
+          - "version-update:semver-minor"
+          - "version-update:semver-patch"
