@@ -22,6 +22,7 @@ import {
 import { Popover } from "radix-ui";
 import { useState } from "react";
 import { DayPicker } from "react-day-picker";
+import { IconCalendar } from "../../icons/index.ts";
 import { EntryField } from "../fields/entry-field.tsx";
 import { Field } from "../fields/field.tsx";
 import { checkedProps } from "../fields/props.ts";
@@ -54,22 +55,6 @@ type UncheckedDateFieldItem = {
   readonly id: string;
   readonly props: unknown;
 };
-
-// The calendar's button: a month grid, drawn in the text colour.
-const CalendarIcon = () => (
-  <svg
-    aria-hidden="true"
-    viewBox="0 0 16 16"
-    width="14"
-    height="14"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.5"
-  >
-    <rect x="2" y="3" width="12" height="11" rx="2" />
-    <path d="M2 7h12M5 1.5v3M11 1.5v3" />
-  </svg>
-);
 
 const DateField = ({
   item,
@@ -135,7 +120,7 @@ const DateField = ({
   const calendar = (
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger type="button" className={CALENDAR_BUTTON} aria-label={text("date.choose")}>
-        <CalendarIcon />
+        <IconCalendar className="size-3.5" />
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Content

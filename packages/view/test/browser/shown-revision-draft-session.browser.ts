@@ -111,7 +111,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         );
         expect(await promptArmed(board)).toBe(true);
         // A change on the board: the question in view moves on.
-        await board.header.getByRole("button", { name: "Next open ↓" }).click();
+        await board.header.getByRole("button", { name: "Next open" }).click();
         await draftSettled(board);
         expect(await view.getByLabel("Second", { exact: true }).inputValue()).toBe("Grace Hopper");
         expect(draftHolds(sentDrafts(run), "plan", "b", "Grace Hopper")).toBe(true);

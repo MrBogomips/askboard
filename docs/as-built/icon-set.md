@@ -16,3 +16,10 @@ In code since `icon-set` (Issue #188): one icon set, Lucide, drawn through one m
 - The Lucide rule: a specifier `lucide-react/icons/<name>` passes only in the icon module or a test; the main entry, `icons`, `dynamic*` and `dist/…` fail everywhere.
 
 **Correction.** The Issue lists "↑/← widget moves" among the glyphs. The only ↑ and ← on `main` are key names in `catalog/keys/label.ts`, which stay text (DESIGN.md, Icons).
+
+**The view's icons.**
+- `shell/board-header.tsx` draws `IconNextOpen` after the jump's text; `shell/navigators.tsx` draws the outline's reply badge (`role="img"`, named by `header.newReplies`) and agent-change flag (named by `header.agentUpdated`) with `IconReplies` and `IconAgentChanged`; the question navigator's badge keeps a decorative `IconReplies`. `catalog/context/reference.tsx` draws `IconExternal` in the hint (inside `data-context-part="external"`); `catalog/date-field/index.tsx` draws `IconCalendar` in place of its own SVG.
+- Strings: `header.nextOpen` lost its arrow in en-US and it-IT; `outline.newReplies` is removed (the badge's title uses `header.newReplies`). `strings/glyphs.test.ts` guards the catalogue; it exempts `navigator.nextOpen` and `tree.adjust.example` for the arrow.
+- Because the shell and the date-field and context chunks import the module, their `needs` list `icons`; `tools/build/view.test.ts` states that.
+- `packages/view/test/browser/icons.browser.ts`: the jump, the outline's marks, the hint, the calendar button, the theme colours and a Snapshot offline.
+

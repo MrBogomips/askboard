@@ -7,6 +7,7 @@
 // Agent strings (area titles, chips, question texts) render as text (AD-8).
 
 import { useLanguage, useStrings } from "../catalog/port.ts";
+import { IconAgentChanged, IconReplies } from "../icons/index.ts";
 import type { ViewQuestion } from "../view-document.ts";
 import { type Group, type Mark, markLabel } from "./board-view.ts";
 import { QuestionMarker } from "./markers.tsx";
@@ -26,13 +27,24 @@ const Badges = ({ marks }: { readonly marks: EntryMarks }) => {
     <>
       {marks.isNew ? <span className={INFO_BADGE}>{text("mark.new")}</span> : null}
       {marks.unread === 0 ? null : (
-        <span className={INFO_BADGE} title={text("outline.newReplies", { count: marks.unread })}>
-          {`↩ ${marks.unread}`}
+        <span
+          role="img"
+          aria-label={text("header.newReplies", { count: marks.unread })}
+          title={text("header.newReplies", { count: marks.unread })}
+          className={`${INFO_BADGE} inline-flex items-center gap-0.5`}
+        >
+          <IconReplies className="size-3" />
+          {marks.unread}
         </span>
       )}
       {marks.changed ? (
-        <span className={INFO_BADGE} title={text("header.agentUpdated")}>
-          ↻
+        <span
+          role="img"
+          aria-label={text("header.agentUpdated")}
+          title={text("header.agentUpdated")}
+          className={`${INFO_BADGE} inline-flex items-center`}
+        >
+          <IconAgentChanged className="size-3" />
         </span>
       ) : null}
     </>
@@ -154,7 +166,10 @@ export const QuestionNavigator = ({
               <QuestionMarker mark={marks.mark} />
               {marks.isNew ? <span className={INFO_BADGE}>{text("mark.new")}</span> : null}
               {marks.unread === 0 ? null : (
-                <span className={INFO_BADGE}>{`↩ ${marks.unread}`}</span>
+                <span className={`${INFO_BADGE} inline-flex items-center gap-0.5`}>
+                  <IconReplies className="size-3" />
+                  {marks.unread}
+                </span>
               )}
             </button>
           );

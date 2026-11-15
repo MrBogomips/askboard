@@ -278,15 +278,15 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           ["retry-src", "FILE", "src/retry.ts#L1-L5", "opens in a reading panel"],
           ["readme", "FILE", "Read me", "opens in a reading panel"],
           ["old-src", "FILE", "vendor/old/retry.ts", "opens in a reading panel"],
-          ["pr", "GITHUB", "PR 12", "opens in browser ↗"],
-          ["runbook", "WEB", "https://acme.atlassian.net/wiki/runbook", "opens in browser ↗"],
+          ["pr", "GITHUB", "PR 12", "opens in browser"],
+          ["runbook", "WEB", "https://acme.atlassian.net/wiki/runbook", "opens in browser"],
         ] as const;
         for (const [id, label, path, hint] of expected) {
           const reference = itemOf(run, id);
           expect(await reference.getByRole("button").count()).toBe(1);
           expect(await partOf(reference, "label").textContent()).toBe(label);
           expect(await partOf(reference, "path").textContent()).toBe(path);
-          expect(await partOf(reference, "hint").textContent()).toBe(hint);
+          expect((await partOf(reference, "hint").textContent())?.trim()).toBe(hint);
           expect(await partOf(reference, "external").count()).toBe(label === "FILE" ? 0 : 1);
         }
         expect(await styleOf(partOf(itemOf(run, "pr"), "path"), "color")).toBe(

@@ -150,7 +150,7 @@ describe("bun run build:view (design decision 7)", () => {
     // The DateField's calendar is react-day-picker in Radix's Popover, with date-fns, all in its own
     // chunk (task 5.5; design decision 9).
     expect(manifest.chunks["date-field"]?.components).toEqual(["date-field"]);
-    expect(manifest.chunks["date-field"]?.needs).toEqual(["radix", "react", "shell"]);
+    expect(manifest.chunks["date-field"]?.needs).toEqual(["icons", "radix", "react", "shell"]);
     // The MoneyField's currency control is Radix's Toggle Group (task 5.4).
     expect(manifest.chunks["money-field"]?.components).toEqual(["money-field"]);
     expect(manifest.chunks["money-field"]?.needs).toEqual(["radix", "react", "shell"]);
@@ -507,7 +507,7 @@ describe("ext-apps only with a host (snapshot design decision 5; No view-protoco
     const code = await text(extApps.script.path);
     expect(board.chunks).toContain("ext-apps");
     expect(board.srcdoc).toContain(code);
-    expect(snapshot.chunks).toEqual(["react", "radix", "shell", "choice"]);
+    expect(snapshot.chunks).toEqual(["react", "icons", "radix", "shell", "choice"]);
     expect(snapshot.srcdoc).not.toContain(code);
     expect(snapshot.policy).not.toContain(cspHashSource(extApps.script.sha256));
     const block = /id="askboard-licences">([\s\S]*?)<\/script>/.exec(snapshot.srcdoc)?.[1] ?? "";
@@ -551,6 +551,7 @@ describe("only boards with a Tree load it (view spec, Widget chunks)", () => {
       "dnd",
       "ext-apps",
       "react",
+      "icons",
       "radix",
       "shell",
       "tree",
@@ -895,6 +896,7 @@ describe("the Gantt's chunks (gantt-widget design decisions 7 and 11; view spec,
       "board-graph",
       "ext-apps",
       "react",
+      "icons",
       "radix",
       "shell",
       "gantt",
@@ -913,6 +915,7 @@ describe("the Gantt's chunks (gantt-widget design decisions 7 and 11; view spec,
       "dnd",
       "ext-apps",
       "react",
+      "icons",
       "radix",
       "shell",
       "gantt",
@@ -998,7 +1001,7 @@ describe("molecules reach the view expanded (molecules; view spec, Molecules rea
 describe("the context chunk (excerpts, design decision 6; view spec, Context items)", () => {
   test("it registers excerpt, image and reference, needing React and the shell", () => {
     expect(chunkNamed("context").components).toEqual(["excerpt", "image", "reference"]);
-    expect(chunkNamed("context").needs).toEqual(["react", "shell"]);
+    expect(chunkNamed("context").needs).toEqual(["icons", "react", "shell"]);
   });
 
   test("it holds only AskBoard's own code, no schema, no Ajv and no code made from text", async () => {
@@ -1017,6 +1020,7 @@ describe("the context chunk (excerpts, design decision 6; view spec, Context ite
     expect(names(contextBoardDocument)).toEqual([
       "ext-apps",
       "react",
+      "icons",
       "radix",
       "shell",
       "choice",
