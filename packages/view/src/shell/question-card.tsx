@@ -16,7 +16,15 @@
 
 import { type LifecycleBoardState, NOTE_MAX_CHARS } from "@askboard/contract";
 import { AlertDialog } from "radix-ui";
-import { Fragment, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import {
+  Fragment,
+  type KeyboardEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import type { ChoiceExtras } from "../catalog/choice/props.ts";
 import { type Rendered, renderedOf } from "../catalog/components.ts";
 import { questionTextId, type ReasonStrings, useLanguage, useStrings } from "../catalog/port.ts";
@@ -32,6 +40,7 @@ import {
   workingQuestion,
 } from "./agent-change.ts";
 import type { AnswerActs } from "./answer-acts.ts";
+import { answerableOf, answerKeyHandling } from "./answer-key.ts";
 import { type Attention, useInView } from "./attention.ts";
 import {
   answerContentOf,
@@ -87,6 +96,7 @@ import {
   settleConfirmation,
 } from "./revision-confirm.ts";
 import type { SizeNotices } from "./size-notices.ts";
+import type { StatusMessages } from "./status-messages.ts";
 import type { Store } from "./store.ts";
 import {
   BUTTON_LINK,
@@ -102,6 +112,7 @@ import {
 } from "./styles.ts";
 import { Thread, type ThreadRequests } from "./thread.tsx";
 import { explainPending } from "./thread-text.ts";
+import { useBoardKeyTable } from "./use-board-keys.ts";
 
 export type CardContext = RenderContext & {
   readonly channel: ViewChannel;
@@ -120,6 +131,8 @@ export type CardContext = RenderContext & {
   readonly notices?: SizeNotices;
   /** Set when the page is an opened Snapshot: every card is read-only and offers no act. */
   readonly opened?: OpenedSnapshot | undefined;
+  /** What the board says to a screen reader; the answer key says why it sent nothing. */
+  readonly status?: Pick<StatusMessages, "announce">;
 };
 
 type CardProps = {
@@ -499,6 +512,43 @@ export const QuestionCard = (props: CardProps) => {
   // "Reload, losing my work" stays on a card whose item failed: the agent's revision may replace it.
   const reloadable =
     !opened && status !== undefined && lock === undefined && (usable || load === "failed");
+  // The answer key (board-keys, design decision 4): Mod+Enter on the card's own controls takes the
+  // primary button's path, `onAnswer`, or says why nothing was sent. A repeat does nothing.
+  const answerKeys = useBoardKeyTable();
+  const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+    const { prevent, verdict } = answerKeyHandling(
+      answerKeys,
+      {
+        key: event.key,
+        keyCode: event.keyCode,
+        altKey: event.altKey,
+        ctrlKey: event.ctrlKey,
+        metaKey: event.metaKey,
+        shiftKey: event.shiftKey,
+        nativeEvent: event.nativeEvent,
+        repeat: event.repeat,
+        target: event.target as Element,
+      },
+      question.id,
+      {
+        opened,
+        locked: lock !== undefined,
+        answerable: answerableOf({ card, answered: status?.state === "answered", pending }),
+        canAnswer: card.canAnswer,
+        pending,
+        fieldToFix,
+        empty: !blocked && !card.canAnswer,
+      },
+    );
+    if (prevent) event.preventDefault();
+    if (verdict.verdict === "press") onAnswer(event.target as HTMLElement);
+    else if (verdict.verdict === "announce") {
+      context.status?.announce({
+        key: verdict.message,
+        ...(verdict.reason === undefined ? {} : { params: { reason: verdict.reason } }),
+      });
+    }
+  };
   const reopened = status?.state === "open" || status?.state === "postponed" ? status : undefined;
   const layout = layoutOf(renderedOf(shown));
   const placeable = couldSplit(layout.context);
@@ -561,6 +611,7 @@ export const QuestionCard = (props: CardProps) => {
       aria-busy={load === "loading"}
       aria-labelledby={questionTextId(question.id)}
       className="flex flex-col gap-md rounded-lg border border-border bg-card p-lg"
+      onKeyDown={onKeyDown}
     >
       {pending ? (
         <ChangeNotice

@@ -98,8 +98,7 @@ Terms used below:
   Verify: 2.1 to 2.4 pass, and the check passes.
 - [x] 2.6 Review checkpoint: spec review of group 2's range against D2, D4, D5, D8 and the scenarios they serve. Verify: the report is recorded in the task note; findings are fixed tests first or filed. Done 2026-11-15. Spec review 051fe7bc..06148d11: the `checkboxKeyOf` fix confirmed; two L findings, S-4 (fixed in 2b.1) and S-5 (task bullets added to 4.1 and 4.3, built in group 4).
 - [x] 2b.1 S-4 (L): the "unseen questions get no priority" case of `previousOpenFrom` could not fail, since the function takes no unseen set. It now contrasts `nextOpenFrom` on the same input: with `rollout` unseen, forward from `payment` gives `rollout`, while backward from `rollout` gives `payment` and from `payment` gives `region`. Done 2026-11-15.
-- [ ] 2b.2 S-5 (L): the `answerable` flag that makes `answerKeyOf` give `none` is not tested from card state. Done in group 4: the helper and its tests are bullets of 4.1 and 4.3.
-
+- [x] 2b.2 S-5 (L): the `answerable` flag that makes `answerKeyOf` give `none` is not tested from card state. Done in group 4: the helper and its tests are bullets of 4.1 and 4.3. Done 2026-11-15 in group 4: `answerableOf` in `shell/answer-key.ts` and its tests (see 4.1).
 ## 3. View: next and previous open, and the board's keys panel
 
 - [x] 3.1 Tests first, the key table against the handler and the header (The board's key table matches its handlers; D3). The pure part of `shell/use-board-keys.ts`, `boardKeyActOf(table, press, scope, available, prevented, repeat)`, gives the action to run or none. In a new `use-board-keys.test.ts`: Done 2026-11-15. `use-board-keys.test.ts`, 20 tests over `boardKeyActOf` (each binding in each scope, with Alt, Ctrl, Cmd, Shift added, prevented, repeat, composing, text, unavailable twin, the answer key never run, the user's keys). The two-way check is in `board-header-keys.test.ts`: the header carries exactly `N` and `?`; the primary's side comes with group 4. The `useBoardKeys` listener is in `shell/board-keys-listener.ts`, not in `use-board-keys.ts` (it is DOM only, like `use-question-in-view.ts`, and a file under the per-file coverage floor would fail the test script); `boardKeyActOf` and `useBoardKeyTable` stay in `use-board-keys.ts`.
@@ -147,14 +146,15 @@ Terms used below:
 
 ## 4. View: the answer key and the composer
 
-- [ ] 4.1 Tests first, the card's and the composer's keys against the table (The board's key table matches its handlers; The board's keys are discoverable, the primary and "Send"; D4, D5, D6):
+- [x] 4.1 Tests first, the card's and the composer's keys against the table (The board's key table matches its handlers; The board's keys are discoverable, the primary and "Send"; D4, D5, D6):
   - Server-render tests of `ActionsRow`: the primary button carries `data-askboard-primary`; an enabled primary carries `aria-keyshortcuts="Control+Enter Meta+Enter"`; a blocked one keeps `aria-describedby` pointing at the reason's element; under `{"board.answer": []}` it carries no `aria-keyshortcuts`.
   - A thread test: the composer's "Send" carries the same `aria-keyshortcuts`, and the thread's section carries `data-askboard-thread`.
   - `thread-text.test.ts`'s `isSendKey` cases are replaced by cases of the composer's table match. Ctrl+Enter and Cmd+Enter send. Enter, Shift+Enter, Ctrl+Shift+Enter, Ctrl+Cmd+Enter and an Enter while an input method composes do not. Under `{"board.sendFollowUp": ["Mod+Alt+Enter"]}` only that combination sends.
   - 2b.2 (S-5): a small pure helper over `cardState` or the card's inputs derives `answerable` for `answerKeyOf`. Unit tests: loading, a command in flight and an answered card not being revised each give not answerable; a pending agent change on an answered card gives not answerable, so the key does nothing there and does not announce `status.answerChangePending` (intended, recorded in the note).
 
   Verify: the tests fail first, then pass after 4.3.
-- [ ] 4.2 Browser tests in a new `packages/view/test/browser/answer-key.browser.ts`, listed in `suites.ts`, one case per scenario of "Answer by key", "A blocked answer by key" and "Follow-up thread", finding each primary by `[data-askboard-primary]` inside its card:
+  Done 2026-11-15. `question-actions.tsx` and `thread.tsx` pull `markers.tsx` and the effects into a unit test, which the per-file coverage floor refuses, so the primary is `shell/primary-button.tsx` (`primary-button.test.ts`, 7 tests: `data-askboard-primary`, `aria-keyshortcuts`, `aria-describedby`, no keys, a press) and the composer is `shell/thread-composer.tsx` (`thread-composer.test.ts`, 7 tests: `aria-keyshortcuts` on Send, the send key, a repeat sends nothing). `data-askboard-thread` on the thread's section is checked in the browser file only. `answer-key.test.ts` +9 tests (`answerableOf`, S-5, and `answerKeyHandling`: prevent and verdict, repeats, links, text, another card). `thread-text.test.ts` replaces `isSendKey` with `sendKeyOf` cases. A pending agent change on an answered card gives not answerable, so the key neither acts nor announces there (intended).
+- [x] 4.2 Browser tests in a new `packages/view/test/browser/answer-key.browser.ts`, listed in `suites.ts`, one case per scenario of "Answer by key", "A blocked answer by key" and "Follow-up thread", finding each primary by `[data-askboard-primary]` inside its card:
   - Immediate delivery: "PostgreSQL" is sent, the focused option is not selected, focus is on the heading, and one command reaches `board-host`.
   - Submitted delivery: ready, `status.ready`'s message in the status region, the pill "Waiting".
   - A multiple choice's box not flipped.
@@ -168,7 +168,8 @@ Terms used below:
   - A user file giving answer no key.
 
   Each case counts the commands `board-host` receives. Tests: the file itself. Verify: the file run passes in Chromium, Firefox and WebKit, and fails on the base head for the key cases.
-- [ ] 4.3 Implement D4, D5 and D6's card and composer parts:
+  Done 2026-11-15. `answer-key.browser.ts` (13 cases, listed in `suites.ts`) with `fixtures/answer-key-asks.ts`: 13 of 13 pass in Chromium, Firefox and WebKit; with the card's `onKeyDown` removed 10 of 13 fail in Chromium. Deviations: (a) the received-verdict case runs on the approval question (the dialog is asked only for widgets that confirm a revision) and the key is pressed on the question's heading, since a widget's own controls keep the key (D2), so Cancel gives focus back to the heading; (b) the Tree case checks `Mod+Enter` sends nothing; `Mod+Shift+Enter` is not tested because no Tree handler reads `add.child` today (the key is only in the vocabulary and the strings); (c) the "pill Waiting" check of the submitted case is the answer button's `aria-pressed` and the status region's `status.ready`, not the agent pill.
+- [x] 4.3 Implement D4, D5 and D6's card and composer parts:
   - `question-card.tsx`: the section's `onKeyDown`, through `answerKeyOf`, `onAnswer(target)` and `context.status.announce`.
   - `question-actions.tsx`: `KeyHint` on the primary button, and `data-askboard-primary` on it (D4).
   - `thread.tsx`: the table match in the composer, `KeyHint` on "Send", and `data-askboard-thread`.
@@ -176,6 +177,7 @@ Terms used below:
   - The `answerable` helper of 4.1 (2b.2), which the card's `onKeyDown` passes to `answerKeyOf`.
 
   Keep `question-card.tsx` under 800 lines. Verify: 4.1 and 4.2 pass; the check passes; `bun run test:e2e:smoke` passes.
+  Done 2026-11-15. `question-card.tsx` (+54 lines, 758 in all): the section's `onKeyDown` through `answerKeyHandling`, `onAnswer(event.target)` and `context.status.announce` (`CardContext.status`, optional); `question-actions.tsx` uses `PrimaryButton`; `thread.tsx` uses `Composer` and carries `data-askboard-thread`; `isSendKey` removed. The check is green (14,905 tests); `test:e2e:smoke` passes; lifecycle-keyboard, lifecycle-acts, answering-flow-focus, answering-flow-status and board-keys pass in Chromium.
 - [ ] 4.4 Review checkpoint: spec review of group 4's range against D4 to D6 and the delta spec. Add a security review (askboard-security-reviewer) for NFR-10 and AD-10. A key must never send or mark ready a choice the user did not make. Check every path to `onAnswer` from a key, the options' Enter rule, repeats, and the composer's send. The status messages render agent-written reasons as text only (AD-8). Verify: both reports are recorded in the task note; findings are fixed tests first or filed.
 
 ## 5. The help skill
