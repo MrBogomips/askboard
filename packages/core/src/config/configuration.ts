@@ -86,7 +86,7 @@ export class Configuration {
     const { config, report } = this.#ports;
     if (config === undefined) return { key, outcome: "failed", reason: "no-user-file" };
     const { settings } = await this.#firstRead();
-    if (!settings.rows[key].writable) return { key, outcome: "refused", reason: "set-by-project" };
+    if (!settings.rows[key]?.writable) return { key, outcome: "refused", reason: "set-by-project" };
     try {
       return outcomeOf(key, await config.replaceUserFile(withSetting(setting)), config.paths.user);
     } catch (error) {

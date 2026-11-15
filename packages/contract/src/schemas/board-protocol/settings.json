@@ -68,6 +68,25 @@
           },
           "required": ["value"]
         },
+        "afterAnswer": {
+          "description": "Optional: a row arrives in the minor that adds the key (answering-flow-guidance, design decision 9), and a new required row would be a major.",
+          "type": "object",
+          "$ref": "#/$defs/row",
+          "properties": {
+            "value": {
+              "$ref": "urn:askboard:configuration:config#/properties/afterAnswer"
+            },
+            "other": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "$ref": "urn:askboard:configuration:config#/properties/afterAnswer"
+                }
+              }
+            }
+          },
+          "required": ["value"]
+        },
         "defaultLanguage": {
           "type": "object",
           "$ref": "#/$defs/row",
@@ -244,7 +263,7 @@
       "type": "object",
       "properties": {
         "key": {
-          "enum": ["theme", "density", "contextPlacement"]
+          "enum": ["theme", "density", "contextPlacement", "afterAnswer"]
         },
         "outcome": {
           "enum": ["saved", "refused", "failed"]

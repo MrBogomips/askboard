@@ -117,6 +117,44 @@ describe("writing a presentation key", () => {
     ]);
   });
 
+  test("afterAnswer stay is written beside the user file's other keys, and the row follows", async () => {
+    const user = { version: v, theme: "light", editor: ["code", "{file}"] };
+    const fakes = withConfig({ user });
+    const outcome = await fakes.core.writeSetting({ key: "afterAnswer", value: "stay" });
+    expect(outcome).toEqual({ key: "afterAnswer", outcome: "saved" });
+    expect(fakes.written).toEqual([asJson({ ...user, afterAnswer: "stay" })]);
+    expect((await fakes.core.settingsForBoard()).rows.afterAnswer).toEqual({
+      value: "stay",
+      from: "user",
+      writable: true,
+    });
+  });
+
+  test("a project-set afterAnswer refuses the write and the row is read-only", async () => {
+    const fakes = withConfig({
+      user: { version: v },
+      project: { version: v, afterAnswer: "stay" },
+    });
+    const outcome = await fakes.core.writeSetting({ key: "afterAnswer", value: "next" });
+    expect(outcome).toEqual({ key: "afterAnswer", outcome: "refused", reason: "set-by-project" });
+    expect(fakes.written).toEqual([]);
+    expect((await fakes.core.settingsForBoard()).rows.afterAnswer).toMatchObject({
+      value: "stay",
+      from: "project",
+      writable: false,
+    });
+  });
+
+  test("afterAnswer back is refused as invalid and nothing is written", async () => {
+    const fakes = withConfig({ user: { version: v } });
+    const outcome = await fakes.core.writeSetting({
+      key: "afterAnswer",
+      value: "back",
+    } as unknown as PresentationSetting);
+    expect(outcome).toEqual({ key: "afterAnswer", outcome: "refused", reason: "invalid" });
+    expect(fakes.written).toEqual([]);
+  });
+
   test("changes an existing key in place", async () => {
     const user = { version: v, theme: "light", density: "compact" };
     const { written } = await write({ user }, { key: "theme", value: "dark" });

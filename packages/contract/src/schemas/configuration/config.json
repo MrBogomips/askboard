@@ -22,6 +22,10 @@
       "description": "A presentation key, which a board may write: where a question's context shows by default.",
       "enum": ["beside", "inline"]
     },
+    "afterAnswer": {
+      "description": "A presentation key, which a board may write: where the board goes after an answer, to the next open question or staying on the one just answered (answering-flow-guidance, design decision 9).",
+      "enum": ["next", "stay"]
+    },
     "defaultLanguage": {
       "description": "The language of an ask that names none (FR-34).",
       "enum": ["en-US", "it-IT"]

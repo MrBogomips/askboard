@@ -66,6 +66,7 @@ describe("merging key by key", () => {
       theme: "dark",
       density: "comfortable",
       contextPlacement: "beside",
+      afterAnswer: "next",
       defaultLanguage: "en-US",
       askingRule: "none",
       snapshotFolder: ".askboard/snapshots",
@@ -84,6 +85,27 @@ describe("merging key by key", () => {
     expect(settings.rows.editor).toEqual({ from: "default", writable: false });
     expect(settings.rows.defaultMinimumMargin).toEqual({ from: "default", writable: false });
     expect(Object.keys(settings.rows)).toEqual([...CONFIGURATION_KEYS]);
+  });
+
+  test("afterAnswer is a writable row from the default, the user file or the project file", async () => {
+    const fromDefault = await merged({ version: v }, undefined);
+    expect(fromDefault.rows.afterAnswer).toEqual({
+      value: "next",
+      from: "default",
+      writable: true,
+    });
+    const fromUser = await merged({ version: v, afterAnswer: "stay" }, undefined);
+    expect(fromUser.rows.afterAnswer).toEqual({ value: "stay", from: "user", writable: true });
+    const fromProject = await merged(
+      { version: v, afterAnswer: "next" },
+      { version: v, afterAnswer: "stay" },
+    );
+    expect(fromProject.rows.afterAnswer).toEqual({
+      value: "stay",
+      from: "project",
+      writable: false,
+      other: { file: "user", value: "next" },
+    });
   });
 
   test("a key the user file alone sets has no other value", async () => {
@@ -126,6 +148,7 @@ describe("without the Config port", () => {
       theme: "system",
       density: "compact",
       contextPlacement: "beside",
+      afterAnswer: "next",
       defaultLanguage: "en-US",
       askingRule: "none",
       snapshotFolder: ".askboard/snapshots",

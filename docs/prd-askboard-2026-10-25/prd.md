@@ -567,11 +567,11 @@ The board's interface is available in English (en-US) and Italian (it-IT) from t
 
 #### FR-35: Settings on the board
 
-Every board has a settings panel that shows AskBoard's settings at user level and at project level. The presentation preferences (theme, density and the default placement of a question's context, FR-13) can be changed there: a change applies at once and is saved as the user-level setting, so later boards open the same way. The behavioural settings (the default language, FR-34; the asking rules, FR-30; the Snapshot folder, FR-27; the editor that opens project files, FR-9) are shown read-only, each with the configuration file and key that set it, and a change to them applies from the next Claude Code session. Settings live in AskBoard's configuration files, never in the browser's storage.
+Every board has a settings panel that shows AskBoard's settings at user level and at project level. The presentation preferences (theme, density, the default placement of a question's context, FR-13, and where the board goes after an answer, to the next open question or staying on the one just answered) can be changed there: a change applies at once and is saved as the user-level setting, so later boards open the same way. The behavioural settings (the default language, FR-34; the asking rules, FR-30; the Snapshot folder, FR-27; the editor that opens project files, FR-9) are shown read-only, each with the configuration file and key that set it, and a change to them applies from the next Claude Code session. Settings live in AskBoard's configuration files, never in the browser's storage.
 
 **Consequences (testable):**
 - Every board gives access to a settings panel that shows the user-level and project-level settings.
-- Switching the theme, the density or the default context placement on a board applies it at once and saves it as the user-level setting; a board opened later opens with it.
+- Switching the theme, the density, the default context placement or where the board goes after an answer applies it at once and saves it as the user-level setting; a board opened later opens with it.
 - The default language, the asking rules, the Snapshot folder and the editor show read-only, each with its file and key; a change made in that file applies from the next session.
 - Clearing the browser's storage changes no setting.
 - The user's own keys for a widget's actions are read from the user-level configuration file only, shown read-only in the settings panel, and applied to boards opened afterwards; a project-level file's keys are ignored with a warning, and a board never writes them.

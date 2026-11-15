@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { everyKeyConfiguration } from "../src/fixtures/index.ts";
+import { afterAnswerConfiguration, everyKeyConfiguration } from "../src/fixtures/index.ts";
 import {
   CONFIGURATION_DEFAULTS,
   CONFIGURATION_KEYS,
@@ -36,11 +36,26 @@ const problemsOf = (value: unknown): readonly Problem[] => {
 
 describe("the configuration schema", () => {
   test("a file with every key validates", () => {
-    expect(Object.keys(everyKeyConfiguration)).toEqual(["version", ...CONFIGURATION_KEYS]);
-    expect(validateConfiguration(everyKeyConfiguration)).toEqual({
+    expect(Object.keys(afterAnswerConfiguration)).toEqual(["version", ...CONFIGURATION_KEYS]);
+    expect(Object.keys(afterAnswerConfiguration)).toHaveLength(11);
+    expect(validateConfiguration(afterAnswerConfiguration)).toEqual({
       ok: true,
-      value: everyKeyConfiguration,
+      value: afterAnswerConfiguration,
     });
+  });
+
+  test("a file of the previous minor, without afterAnswer, validates", () => {
+    expect("afterAnswer" in everyKeyConfiguration).toBe(false);
+    expect(validateConfiguration(everyKeyConfiguration).ok).toBe(true);
+  });
+
+  test("afterAnswer accepts next and stay, and refuses back, naming the key", () => {
+    for (const value of ["next", "stay"]) {
+      expect(problemsOf(file({ afterAnswer: value }))).toEqual([]);
+    }
+    const problems = problemsOf(file({ afterAnswer: "back" }));
+    expect(problems.length).toBeGreaterThan(0);
+    for (const problem of problems) expect(problem.path).toBe("/afterAnswer");
   });
 
   test("a file with no key but its version validates", () => {
@@ -52,6 +67,7 @@ describe("the configuration schema", () => {
     ["theme", "Dark"],
     ["density", "cozy"],
     ["contextPlacement", "below"],
+    ["afterAnswer", "back"],
     ["defaultLanguage", "fr-FR"],
     ["defaultLanguage", "it"],
     ["askingRule", "sometimes"],
@@ -71,6 +87,7 @@ describe("the configuration schema", () => {
       theme: ["system", "light", "dark"],
       density: ["compact", "comfortable"],
       contextPlacement: ["beside", "inline"],
+      afterAnswer: ["next", "stay"],
       defaultLanguage: ["en-US", "it-IT"],
       askingRule: ["none", "always", "with-references"],
       snapshotFolder: ["docs/snapshots", "", "s".repeat(1_024)],
@@ -197,15 +214,16 @@ describe("the keys key", () => {
 });
 
 describe("the keys", () => {
-  test("the presentation keys are exactly theme, density and contextPlacement", () => {
-    expect(PRESENTATION_KEYS).toEqual(["theme", "density", "contextPlacement"]);
+  test("the presentation keys are exactly theme, density, contextPlacement and afterAnswer", () => {
+    expect(PRESENTATION_KEYS).toEqual(["theme", "density", "contextPlacement", "afterAnswer"]);
   });
 
-  test("the configuration keys are AD-14's eight and the user's keys, the presentation keys first", () => {
+  test("the configuration keys are AD-14's nine and the user's keys, the presentation keys first", () => {
     expect(CONFIGURATION_KEYS).toEqual([
       "theme",
       "density",
       "contextPlacement",
+      "afterAnswer",
       "defaultLanguage",
       "askingRule",
       "snapshotFolder",
@@ -221,11 +239,13 @@ describe("the keys", () => {
     expect(schema.required).toEqual(["version"]);
   });
 
-  test("the defaults: system, compact, beside, en-US, none, the Snapshot folder, no editor", () => {
+  test("the defaults: system, compact, beside, next, en-US, none, the Snapshot folder, no editor", () => {
+    expect(CONFIGURATION_DEFAULTS.afterAnswer).toBe("next");
     expect(CONFIGURATION_DEFAULTS).toEqual({
       theme: "system",
       density: "compact",
       contextPlacement: "beside",
+      afterAnswer: "next",
       defaultLanguage: "en-US",
       askingRule: "none",
       snapshotFolder: ".askboard/snapshots",

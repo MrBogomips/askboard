@@ -14,6 +14,8 @@
 // Reopen-start-from-answer's minor adds `unchanged` to the board state's answers and `prefilled` to
 // the draft record (design decisions 1 and 4). Keyboard-shortcuts-help's minor adds the user's key
 // overrides to the settings in effect and two warning codes (design decision 19).
+// The minor of answering-flow-guidance adds the presentation key `afterAnswer` to a board's write and,
+// as an optional row, to the settings in effect (design decision 9).
 
 import type { EditorOutcome, SourceStatus } from "../../context/resolution.ts";
 import type { KeyOverrideRule } from "../../keys/overrides.ts";
@@ -50,7 +52,7 @@ import state from "./state.json" with { type: "json" };
 import time from "./time.json" with { type: "json" };
 import version from "./version.json" with { type: "json" };
 
-export const BOARD_PROTOCOL_VERSION = "1.10";
+export const BOARD_PROTOCOL_VERSION = "1.11";
 
 export const boardProtocol: SchemaSet = {
   name: "board-protocol",
@@ -552,11 +554,17 @@ export type SettingRow<T> = {
 
 /**
  * Every key's row; the user's `keys` row is optional and admits no `other`, since a project file's
- * keys never reach a board (keyboard-shortcuts-help, design decision 19).
+ * keys never reach a board (keyboard-shortcuts-help, design decision 19); the `afterAnswer` row is
+ * optional too, since it arrived in a later minor (answering-flow-guidance, design decision 9).
  */
 export type SettingsRows = {
-  readonly [K in Exclude<ConfigurationKey, "keys">]: SettingRow<ConfigurationValues[K]>;
-} & { readonly keys?: Omit<SettingRow<ConfigurationValues["keys"]>, "other"> };
+  readonly [K in Exclude<ConfigurationKey, "keys" | "afterAnswer">]: SettingRow<
+    ConfigurationValues[K]
+  >;
+} & {
+  readonly keys?: Omit<SettingRow<ConfigurationValues["keys"]>, "other">;
+  readonly afterAnswer?: SettingRow<ConfigurationValues["afterAnswer"]>;
+};
 
 export type FileProblemCode = "unreadable" | "not-json" | "version" | "schema";
 

@@ -16,6 +16,7 @@
 
 import {
   ACTION_ID_PATTERN,
+  type AfterAnswer,
   type AgentStatus,
   type ContextPlacement,
   type Density,
@@ -577,11 +578,18 @@ const draftRecord: FieldCheck = (value) =>
 const THEMES: readonly unknown[] = ["system", "light", "dark"] satisfies ThemePreference[];
 const DENSITIES: readonly unknown[] = ["compact", "comfortable"] satisfies Density[];
 const PLACEMENTS: readonly unknown[] = ["beside", "inline"] satisfies ContextPlacement[];
+const AFTER_ANSWERS: readonly unknown[] = ["next", "stay"] satisfies AfterAnswer[];
 const PRESENTATION_KEY_NAMES: readonly unknown[] = [
   "theme",
   "density",
   "contextPlacement",
 ] satisfies PresentationKey[];
+
+/**
+ * The presentation keys the view shows and applies: every presentation key but `afterAnswer`, which
+ * the board page reads and acts on itself until task 6.5 of answering-flow-guidance passes it on.
+ */
+export type ViewPresentationKey = Exclude<PresentationKey, "afterAnswer">;
 
 /** Whether the view can apply this as the presentation. */
 export const isPresentation = (value: unknown): value is ViewPresentation =>
@@ -597,6 +605,7 @@ const PRESENTATION_VALUES: Readonly<Record<PresentationKey, readonly unknown[]>>
   theme: THEMES,
   density: DENSITIES,
   contextPlacement: PLACEMENTS,
+  afterAnswer: AFTER_ANSWERS,
 };
 
 const presentationKey: FieldCheck = (value) =>

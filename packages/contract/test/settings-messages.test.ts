@@ -1,7 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import {
+  afterAnswerSaved,
+  afterAnswerSetting,
   settingsSaved,
   settingsTranscript,
+  settingsWithAfterAnswer,
   settingsWithEveryKey,
   themeSetting,
 } from "../src/fixtures/index.ts";
@@ -50,6 +53,8 @@ describe("setting, from the board page", () => {
     ["density", "comfortable"],
     ["contextPlacement", "beside"],
     ["contextPlacement", "inline"],
+    ["afterAnswer", "next"],
+    ["afterAnswer", "stay"],
   ])("%s %s validates", (key, value) => {
     const message = { version, type: "setting", key, value };
     expect(toHost(message)).toEqual({ ok: true, value: message as never });
@@ -65,6 +70,8 @@ describe("setting, from the board page", () => {
     ["theme", { dark: true }, "/value"],
     ["density", "dark", "/value"],
     ["contextPlacement", "compact", "/value"],
+    ["afterAnswer", "back", "/value"],
+    ["afterAnswer", "beside", "/value"],
   ])("%s %j fails, naming %s", (key, value, path) => {
     const result = toHost({ version, type: "setting", key, value });
     expect(result).toMatchObject({ ok: false, reason: "schema" });
@@ -79,10 +86,35 @@ describe("setting, from the board page", () => {
 
 describe("settings, from board-host", () => {
   test("every key the previous minor defines has its row, in the configuration's order", () => {
-    // The user's keys row is optional and arrives with keyboard-shortcuts-help (settings-keys-messages).
+    // The user's keys row and the after-answer row are optional: each arrived in a later minor.
     expect(Object.keys(settingsWithEveryKey.keys)).toEqual(
-      CONFIGURATION_KEYS.filter((key) => key !== "keys"),
+      CONFIGURATION_KEYS.filter((key) => key !== "keys" && key !== "afterAnswer"),
     );
+  });
+
+  test("an afterAnswer row validates, with the value, the source and the other file's value", () => {
+    expect(afterAnswerSetting).toMatchObject({ key: "afterAnswer", value: "stay" });
+    expect(toHost(afterAnswerSetting).ok).toBe(true);
+    expect(settingsWithAfterAnswer.keys.afterAnswer).toBeDefined();
+    expect(toPage(settingsWithAfterAnswer)).toEqual({
+      ok: true,
+      value: settingsWithAfterAnswer as never,
+    });
+    expect(afterAnswerSaved.write).toEqual({ key: "afterAnswer", outcome: "saved" });
+    expect(toPage(afterAnswerSaved).ok).toBe(true);
+  });
+
+  test("an afterAnswer row of back fails, naming the value; a write outcome naming it passes", () => {
+    const row = { value: "back", from: "user", writable: true };
+    const message = JSON.parse(
+      JSON.stringify({
+        ...settingsWithEveryKey,
+        keys: { ...settingsWithEveryKey.keys, afterAnswer: row },
+      }),
+    );
+    expect(pathsOf(toPage(message))).toContain("/keys/afterAnswer/value");
+    const refused = { ...settingsWithEveryKey, write: { key: "afterAnswer", outcome: "refused" } };
+    expect(toPage(refused).ok).toBe(true);
   });
 
   test.each([
