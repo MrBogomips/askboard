@@ -172,7 +172,7 @@ With sections or tabs, the board SHALL show the outline navigator: areas and que
 - **THEN** question 7's outline entry is marked current, and no other entry is
 
 ### Requirement: Delivery mode
-A board of two or more questions SHALL start in the delivery mode the ask requests, immediate when it requests none, and SHALL let the user switch. In submitted delivery "Answer" SHALL mark the question ready, and an edit to a ready question SHALL make it not ready (FR-22). Beside the switch, the bottom action bar SHALL show the helper text of the mode in force, in the ask's language: in immediate delivery "Answers go to the agent as you give them.", in submitted delivery "Answers stay here until you press "<Submit's label>"." (FR-34).
+A board of two or more questions SHALL start in the delivery mode the ask requests, immediate when it requests none, and SHALL let the user switch. In submitted delivery "Answer" SHALL mark the question ready, and an edit to a ready question SHALL make it not ready (FR-22). Beside the switch, the bottom action bar SHALL show the helper text of the mode in force, in the ask's language; the submitted one names Submit by its label (FR-34).
 
 #### Scenario: Editing a ready question
 - **WHEN** the user marks a question ready, then changes its choice
@@ -184,7 +184,7 @@ A board of two or more questions SHALL start in the delivery mode the ask reques
 
 #### Scenario: Switching mode changes the helper text
 - **WHEN** the user switches from immediate to submitted delivery, then back
-- **THEN** the helper text changes to the submitted one, then back to the immediate one
+- **THEN** the helper text changes from "Answers go to the agent as you give them." to the submitted one, then back
 
 ### Requirement: Answer names the field to fix
 While "Answer" is disabled by a field, its description SHALL name the first such field in document order, by its label shown as text: "Correct {label} first." for an entry or a value that fails a check, "Complete {label} first." for an empty required field (EXPERIENCE, Voice and Tone). The description SHALL show as text beside the disabled "Answer", and activating it SHALL move focus to that field, first selecting the tab of a Tabs layout that holds the field.
