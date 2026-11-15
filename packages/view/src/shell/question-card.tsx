@@ -77,11 +77,13 @@ import {
 import { type ReasonRequests, reasonAskedAfter, reasonOf } from "./reason.ts";
 import { type RenderContext, RenderItem } from "./renderer.tsx";
 import { carriedOf } from "./reopen-prefill.ts";
+import { revealAndFocus } from "./reveal.ts";
 import { questionRevising } from "./revising.ts";
 import {
   type Confirmation,
   confirmationOf,
   type FocusTarget,
+  settle,
   settleConfirmation,
 } from "./revision-confirm.ts";
 import type { SizeNotices } from "./size-notices.ts";
@@ -139,8 +141,24 @@ const NO_RECORD: ReadonlyMap<string, unknown> = new Map();
 
 const noteFieldId = (questionId: string) => `${questionId}:note`;
 
-const focusHeadingOf = (questionId: string) => () =>
-  document.getElementById(questionTextId(questionId))?.focus();
+// An answer, or a note alone, that started a command: focus goes to the question's heading.
+const sentResult = (outcome: AnswerOutcome): boolean =>
+  outcome === "sent" || outcome === "note-sent";
+
+// Confirms the waiting act, which reports its result to `outcome` as it runs, then asks for the
+// focus the result names: `settleConfirmation` runs the act first, so its argument would be stale.
+const confirmAnswer = (
+  waiting: Confirmation<HTMLElement> | undefined,
+  outcome: { readonly current: AnswerOutcome },
+): FocusTarget<HTMLElement> | undefined => {
+  settle(waiting?.waiting, true);
+  return settleConfirmation(waiting, true, outcome.current);
+};
+
+const focusHeadingOf = (questionId: string) => () => {
+  const heading = document.getElementById(questionTextId(questionId));
+  if (heading !== null) revealAndFocus(heading);
+};
 
 // What the card shows, from the stores it follows: its loading, its work, its commands and the
 // agent's changes under the work.
@@ -392,8 +410,10 @@ export const QuestionCard = (props: CardProps) => {
   // does not bring the error back, only a press that asks does.
   if (reasonAsked && !reasonError) setReasonAsked(false);
   // "Answer" sent nothing for want of the reason: the error shows and focus goes to the prompt.
+  const outcomeOfPress = useRef<AnswerOutcome>(undefined);
   const asking = useCallback(
     (outcome: AnswerOutcome) => {
+      outcomeOfPress.current = outcome;
       if (outcome !== "needs-reason") return;
       setReasonAsked(true);
       document.getElementById(noteFieldId(question.id))?.focus();
@@ -435,8 +455,12 @@ export const QuestionCard = (props: CardProps) => {
   // "Answer", and "Accept recommended" once it has selected, take one path: the reason check, then
   // the confirmation, then the act.
   const onAnswer = (control: HTMLElement) => {
+    outcomeOfPress.current = undefined;
     const pressed = pressAnswer(question, acting, status, asking);
     if (pressed.kind === "needs-reason") asking("needs-reason");
+    // An answer sent at once moves focus to the heading when the act is taken, never when its
+    // command settles (answering-flow-fixes, design decision 1); marking ready keeps it on "Answer".
+    if (pressed.kind === "done" && sentResult(outcomeOfPress.current)) focusHeading();
     chosen.current = false;
     setWaiting(
       confirmationOf("answer", pressed.kind === "waiting" ? pressed.waiting : undefined, control),
@@ -675,7 +699,7 @@ export const QuestionCard = (props: CardProps) => {
                 className={BUTTON_PRIMARY}
                 onClick={() => {
                   chosen.current = true;
-                  afterClose.current = settleConfirmation(waiting, true);
+                  afterClose.current = confirmAnswer(waiting, outcomeOfPress);
                   setWaiting(undefined);
                 }}
               >

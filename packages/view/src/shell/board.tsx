@@ -51,6 +51,7 @@ import { type HeadingRequest, requestHeading } from "./heading-request.ts";
 import { type EntryMarks, Outline, QuestionNavigator } from "./navigators.tsx";
 import type { PresentationControls } from "./presentation-controls.ts";
 import { type CardContext, QuestionCard } from "./question-card.tsx";
+import { revealAndFocus } from "./reveal.ts";
 import { type SnapshotControl, snapshotOfferOf } from "./snapshot-control.ts";
 import { SnapshotTopLine } from "./snapshot-top-line.tsx";
 import type { Store } from "./store.ts";
@@ -242,7 +243,8 @@ const useHeadingFocus = (focus: Store<HeadingRequest | undefined>) => {
   const target = useSyncExternalStore(focus.subscribe, focus.get);
   useEffect(() => {
     if (target === undefined) return;
-    document.getElementById(questionTextId(target.id))?.focus();
+    const heading = document.getElementById(questionTextId(target.id));
+    if (heading !== null) revealAndFocus(heading);
   }, [target]);
   return (id: string) => requestHeading(focus, id);
 };
@@ -456,6 +458,11 @@ export const Board = ({
             context.reasons.set({ questionId: id });
           }}
           onJump={go}
+          // The question in view, else the first, takes the focus once Submit has sent.
+          onSubmitted={() => {
+            const id = current ?? questions[0]?.id;
+            if (id !== undefined) focusHeading(id);
+          }}
           snapshot={extras.snapshot}
           snapshotOffer={snapshotOfferOf(lock, connection)}
         />

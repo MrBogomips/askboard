@@ -535,12 +535,14 @@ Visual contrast lives in DESIGN.md, Colors.
 - **Focus.** Keyboard focus is always visible, with `{components.focus-ring}`. Focus moves (F-68, TC §1.6):
   - in one question per view, to the new question's heading on navigation;
   - after Postpone or Decline, to the question's heading;
+  - after "Answer" or "Accept recommended" sends at once, and after a confirmed revision, to the question's heading; marking an answer ready keeps focus on "Answer";
+  - after Submit sends, to the heading of the question in view;
   - after the agent deletes the question that holds focus, to the next question's heading;
   - when the ask closes or is discarded, to the banner;
   - after the reading panel or a comment card closes, back to the reference or the pin (F-03, F-35);
   - after "Answer" is pressed with an empty required reason, to the reason (Approval; L198).
 
-  A notice never takes focus: it stays reachable from the keyboard.
+  A move happens when the act is taken (or when its confirmation closes), never when its command settles, so it never takes focus the user has moved meanwhile. Every move to a heading or a field first scrolls it clear of the sticky header and the bottom action bar. A notice never takes focus: it stays reachable from the keyboard.
 - **State.** No state relies on colour alone: every state pill, status chip and question marker also carries a marker shape (DESIGN.md, Colors).
 - **Theme.** Light and dark, following the system preference by default, with "System", "Light" and "Dark" (L24, F-78).
 - **Gaps.** What this floor does not record is listed in Open Items 22.

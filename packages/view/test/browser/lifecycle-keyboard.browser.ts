@@ -126,9 +126,11 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         ]);
         await card(board, "database").getByText("sent", { exact: true }).waitFor();
         await eventually(() => barButton(board, "Submit").isDisabled(), "nothing held");
+        // Submit leaves focus on the heading of the question in view (answering-flow-fixes, #179).
+        await eventually(() => focused(headingOf(board, "database")), "focus on the first heading");
 
         // The delivery switch: with nothing held, Enter switches at once.
-        await tabTo(board, barButton(board, "Immediate"), { backward: true });
+        await tabTo(board, barButton(board, "Immediate"), { max: 120 });
         await keyboard.press("Enter");
         await eventually(
           async () => (await barButton(board, "Immediate").getAttribute("aria-pressed")) === "true",
