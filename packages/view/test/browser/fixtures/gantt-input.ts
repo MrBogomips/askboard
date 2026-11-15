@@ -64,7 +64,13 @@ export const tabStops = (gantt: GanttParts): Promise<number> =>
  */
 export const tabIntoGrid = async (board: Board): Promise<string> => {
   const view = await board.viewFrame();
-  const key = (await view.evaluate(() => document.hasFocus())) ? "Shift+Tab" : "Tab";
+  // A question's heading holds the focus before the grid (after "Answer" in a single-question
+  // board, answering-flow-fixes #179): Tab goes forward into it.
+  const key = (await view.evaluate(
+    () => document.hasFocus() && document.activeElement?.tagName !== "H2",
+  ))
+    ? "Shift+Tab"
+    : "Tab";
   for (let presses = 0; presses < 10; presses += 1) {
     await board.page.keyboard.press(key);
     const cell = await focusedCell(board);
