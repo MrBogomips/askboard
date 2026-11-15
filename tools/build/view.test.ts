@@ -185,7 +185,7 @@ describe("bun run build:view (design decision 7)", () => {
     expect(manifest.chunks.timeline?.needs).toEqual(["radix", "react", "shell"]);
     // Since the ask lifecycle the shell's tab strip is Radix Tabs (ask-lifecycle, task 6.2). Since
     // the Snapshot it takes ext-apps from the registry only with a host (snapshot task 3.2).
-    expect(manifest.chunks.shell?.needs).toEqual(["radix", "react"]);
+    expect(manifest.chunks.shell?.needs).toEqual(["icons", "radix", "react"]);
     expect(manifest.chunks.choice?.needs).toEqual(["radix", "react", "shell"]);
     // The Tree reads the board graph since the molecules change (design decision 13), and the
     // work breakdown's values need compute's `isFormulaError` and `roundNumber` (decision 14).
