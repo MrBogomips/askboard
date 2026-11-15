@@ -92,9 +92,17 @@ export type FocusTarget<Control> =
 /**
  * What "Answer" did (answering-flow-fixes, design decision 1): `sent` (an answer command started),
  * `note-sent` (a note alone started), `held` (the answer was marked ready), `released` (the mark
- * was taken back), or `needs-reason` (nothing was sent or marked for want of the reason).
+ * was taken back), `note-held` and `note-released` (the same for a note alone, which is no
+ * ready answer), or `needs-reason` (nothing was sent or marked for want of the reason).
  */
-export type AnswerResult = "sent" | "note-sent" | "held" | "released" | "needs-reason";
+export type AnswerResult =
+  | "sent"
+  | "note-sent"
+  | "held"
+  | "released"
+  | "note-held"
+  | "note-released"
+  | "needs-reason";
 
 /** The confirmation a press made, or none when the press acted at once. */
 export const confirmationOf = <Control>(
@@ -110,7 +118,12 @@ const confirmedTarget = <Control>(
 ): FocusTarget<Control> | undefined => {
   if (confirmation.act === "decline") return { to: "heading" };
   if (result === "sent" || result === "note-sent") return { to: "heading" };
-  if ((result === "held" || result === "released") && confirmation.control !== undefined) {
+  const kept =
+    result === "held" ||
+    result === "released" ||
+    result === "note-held" ||
+    result === "note-released";
+  if (kept && confirmation.control !== undefined) {
     return { to: "control", control: confirmation.control };
   }
   return undefined;

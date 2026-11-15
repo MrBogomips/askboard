@@ -228,7 +228,7 @@ const toggleHeld = (
   question: ViewQuestion,
   context: AnswerContext,
   act: HeldAct["act"],
-): "held" | "released" => {
+): "held" | "released" | "note-held" | "note-released" => {
   const { board } = context;
   const released = board.work(question.id)?.held?.act === act;
   const order = nextHeldOrder(board);
@@ -239,6 +239,7 @@ const toggleHeld = (
     const { undo: _, ...rest } = current;
     return { ...rest, ...(undo === undefined ? {} : { undo }), held: { act, order } };
   });
+  if (act === "note") return released ? "note-released" : "note-held";
   return released ? "released" : "held";
 };
 

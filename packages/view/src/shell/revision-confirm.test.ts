@@ -218,7 +218,7 @@ describe("a confirmation keeps the control pressed (design decision 6; NFR-12)",
     for (const result of ["sent", "note-sent"] as const) {
       expect(settleConfirmation(answering(result, answerButton), true)).toEqual({ to: "heading" });
     }
-    for (const result of ["held", "released"] as const) {
+    for (const result of ["held", "released", "note-held", "note-released"] as const) {
       expect(settleConfirmation(answering(result, answerButton), true)).toEqual({
         to: "control",
         control: answerButton,

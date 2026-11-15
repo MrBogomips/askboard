@@ -169,14 +169,14 @@ describe("what Answer reports (answering-flow-fixes, design decision 1)", () => 
     expect(answer(database, context)).toBe("note-sent");
   });
 
-  test("held and then released for two presses in submitted delivery, a note alone included", () => {
+  test("held and then released for two presses in submitted delivery; note-held and note-released for a note alone (S-2)", () => {
     const { draft, board, context } = setUp("submitted");
     draft.set("payment", ["Stripe"]);
     expect(answer(payment, context)).toBe("held");
     expect(answer(payment, context)).toBe("released");
     board.edit("database", 1, () => ({ rev: 1, note: "Ask ops." }));
-    expect(answer(database, context)).toBe("held");
-    expect(answer(database, context)).toBe("released");
+    expect(answer(database, context)).toBe("note-held");
+    expect(answer(database, context)).toBe("note-released");
   });
 
   test("undefined when there is nothing to send", () => {
