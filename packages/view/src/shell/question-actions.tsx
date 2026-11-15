@@ -11,6 +11,7 @@ import { useStrings } from "../catalog/port.ts";
 import type { FieldToFix } from "./field-block.ts";
 import { QuestionMarker } from "./markers.tsx";
 import { PrimaryButton } from "./primary-button.tsx";
+import { primaryLabelOf } from "./primary-label.ts";
 import type { CardActions, CardState } from "./question-state.ts";
 import { SizeLines } from "./size-lines.tsx";
 import type { SizeNotice } from "./size-notices.ts";
@@ -172,7 +173,16 @@ export const ActionsRow = ({
             onAnswer={onAnswer}
           >
             {card.ready ? <QuestionMarker mark="ready" /> : null}
-            {text("question.answer")}
+            {text(
+              primaryLabelOf({
+                single,
+                delivery: submitted ? "submitted" : "immediate",
+                ready: card.ready,
+                noteOnly: card.noteOnly,
+                // An answered or declined question under edit: it holds its logged receipt.
+                revision: card.phase === "open" && card.receiptKind !== undefined,
+              }),
+            )}
           </PrimaryButton>
           {fieldToFix === undefined || !locked ? null : (
             <span id={hintId} className="sr-only">

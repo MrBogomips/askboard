@@ -129,7 +129,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           (record) => record.questions.q2 === undefined && record.inView === "q3",
           "the draft without q2",
         );
-        await board.header.getByText("4 open", { exact: true }).waitFor();
+        await board.header.getByText("4 to do", { exact: true }).waitFor();
       },
       TEST_TIMEOUT_MS,
     );
@@ -271,7 +271,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
             .getByText("You have 1 postponed question: closing loses this ask", { exact: true })
             .count(),
         ).toBe(0);
-        await board.header.getByText("1 open", { exact: true }).waitFor();
+        await board.header.getByText("1 to do", { exact: true }).waitFor();
         await board.header.getByText("Partly answered 1/2", { exact: true }).waitFor();
       },
       TEST_TIMEOUT_MS,

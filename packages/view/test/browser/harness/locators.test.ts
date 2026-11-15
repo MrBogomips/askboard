@@ -29,14 +29,47 @@ const LABELS: readonly string[] = [
   "non ancora inviata",
   "inviata",
   "consegnata all'agente",
+  // Wording (task 4.2): the labels of the hooked controls, kept apart from bare "Send", "Invia",
+  // "Edit" and "Modifica", which the composer, the revision dialog and the annotation cards carry.
+  "Send answer",
+  "Confirm",
+  "Send the note",
+  "Send the change",
+  "Later",
+  "One by one",
+  "All together",
+  "Invia risposta",
+  "Conferma",
+  "Invia la nota",
+  "Invia la modifica",
+  "Più tardi",
+  "Una alla volta",
+  "Tutte insieme",
+  "Not sent yet",
+  "Sent",
+  "Delivered to the agent",
+  "Non ancora inviata",
+  "Inviata",
+  "Consegnata all'agente",
 ];
 
 /** Labels that a name may start with ("Next open ↓", "Prossima aperta ↓"). */
-const PREFIXES: readonly string[] = ["Next open", "Prossima aperta"];
+const PREFIXES: readonly string[] = [
+  "Next open",
+  "Prossima aperta",
+  "Next to do",
+  "Prefill recommended",
+  "Prossima da fare",
+  "Precompila le consigliate",
+];
+
+/** The counted Send: "Send 2 answers", "Invia 1 risposta". */
+const COUNTED_SEND = /^(?:Send|Invia) \d/;
 
 /** Files that assert a label's text, and why. */
 export const ALLOWLIST: Readonly<Record<string, string>> = {
-  "languages.browser.ts": "asserts the Italian labels Rinvia and Prossima aperta on an it-IT board",
+  "languages.browser.ts":
+    "asserts the Italian labels Più tardi and Prossima da fare on an it-IT board",
 };
 
 const CALLS: readonly RegExp[] = [
@@ -52,7 +85,9 @@ const escaped = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, "\
 
 /** Whether a piece of text is a guarded label, or starts with a prefix label. */
 const isLabel = (value: string): boolean =>
-  LABELS.includes(value) || PREFIXES.some((prefix) => value.startsWith(prefix));
+  LABELS.includes(value) ||
+  PREFIXES.some((prefix) => value.startsWith(prefix)) ||
+  COUNTED_SEND.test(value);
 
 /** Whether one of a regex's alternatives is a guarded label, as a whole or as a prefix label. */
 const regexHoldsLabel = (text: string): boolean => {
@@ -129,6 +164,40 @@ describe("the browser tests find the answering flow's controls by hooks, not by 
     expect(offencesOf('view.getByRole("button", { name: "Keep mine" })')).toEqual([]);
     expect(offencesOf('board.receipt("sent")')).toEqual([]);
     expect(offencesOf('view.locator("[data-askboard-primary]")')).toEqual([]);
+    // The new labels (task 4.2), one planted case each; bare Send, Invia, Edit and Modifica pass.
+    for (const label of [
+      "Send answer",
+      "Confirm",
+      "Send the note",
+      "Send the change",
+      "Later",
+      "One by one",
+      "All together",
+      "Next to do ↓",
+      "Prefill recommended (3)",
+      "Invia risposta",
+      "Conferma",
+      "Invia la nota",
+      "Invia la modifica",
+      "Più tardi",
+      "Una alla volta",
+      "Tutte insieme",
+      "Prossima da fare",
+      "Precompila le consigliate (2)",
+      "Send 2 answers",
+      "Invia 1 risposta",
+      "Not sent yet",
+      "Sent",
+      "Delivered to the agent",
+      "Non ancora inviata",
+      "Inviata",
+      "Consegnata all'agente",
+    ]) {
+      expect(offencesOf(`view.getByRole("button", { name: "${label}" })`)).toHaveLength(1);
+    }
+    for (const label of ["Send", "Invia", "Edit", "Modifica"]) {
+      expect(offencesOf(`view.getByRole("button", { name: "${label}", exact: true })`)).toEqual([]);
+    }
   });
 
   test("every allowlisted file exists and still needs its entry", () => {

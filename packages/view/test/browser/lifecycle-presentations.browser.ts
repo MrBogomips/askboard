@@ -86,8 +86,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         ]);
         const scope = board.view.getByRole("tab", { name: /Scope/ });
         const delivery = board.view.getByRole("tab", { name: /Delivery/ });
-        expect(await scope.textContent()).toContain("3 open");
-        expect(await delivery.textContent()).toContain("2 open");
+        expect(await scope.textContent()).toContain("3 to do");
+        expect(await delivery.textContent()).toContain("2 to do");
         // The hidden tab's questions are mounted and ready: not busy, though not visible.
         expect(await card(board, "rollout").getAttribute("aria-busy")).toBe("false");
         expect(await card(board, "rollout").isVisible()).toBe(false);
@@ -100,10 +100,10 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           await receiptOf(board, id, "sent").waitFor({ timeout: STEP_TIMEOUT_MS });
         }
         await eventually(
-          async () => !((await delivery.textContent()) ?? "").includes("open"),
+          async () => !((await delivery.textContent()) ?? "").includes("to do"),
           "the Delivery tab to show no open question",
         );
-        expect(await scope.textContent()).toContain("3 open");
+        expect(await scope.textContent()).toContain("3 to do");
         expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,

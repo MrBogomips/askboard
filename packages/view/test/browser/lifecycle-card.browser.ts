@@ -236,7 +236,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       async () => {
         const run = await start(lifecycleScenario(twoAsk, dist));
         const board = await openBoard(run, ["database", "cache"]);
-        await board.header.getByText("2 open", { exact: true }).waitFor();
+        await board.header.getByText("2 to do", { exact: true }).waitFor();
         expect(await answerOf(board, "database").isDisabled()).toBe(true);
         await noteOf(board, "database").fill("Ask the ops team first.");
         await answerOf(board, "database").click();
@@ -253,7 +253,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
             when: expect.any(String),
           },
         ]);
-        await board.header.getByText("2 open", { exact: true }).waitFor();
+        await board.header.getByText("2 to do", { exact: true }).waitFor();
         expect(await answerOf(board, "database").isDisabled()).toBe(true);
         const { events } = await run.session.collect();
         expect(events.map((event) => event.type)).toEqual(["note"]);

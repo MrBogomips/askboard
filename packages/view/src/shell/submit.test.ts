@@ -296,6 +296,7 @@ describe("whether Submit can go (FR-22, AD-20)", () => {
     const { board } = setUp();
     expect(submitStateOf({ ...base, board: board.get() })).toEqual({
       held: 0,
+      answers: 0,
       blocked: [],
       disabled: true,
     });
@@ -309,6 +310,14 @@ describe("whether Submit can go (FR-22, AD-20)", () => {
     expect(submitStateOf({ ...base, board: board.get(), sending: () => true }).disabled).toBe(true);
   });
 
+  test("Send's count is the held answers: a held postpone, decline or note adds to held and not to answers (Q2)", () => {
+    const { board } = setUp();
+    board.edit("payment", 1, () => ({ rev: 1, held: { act: "postpone", order: 0 } }));
+    expect(submitStateOf({ ...base, board: board.get() })).toMatchObject({ held: 1, answers: 0 });
+    board.edit("region", 1, () => ({ rev: 1, held: { act: "answer", order: 1 } }));
+    expect(submitStateOf({ ...base, board: board.get() })).toMatchObject({ held: 2, answers: 1 });
+  });
+
   test("an agent-change notice on a question with held work blocks it and is counted; one on a question without held work does not", () => {
     const { board } = setUp();
     board.edit("payment", 1, () => ({ rev: 1, held: { act: "answer", order: 0 } }));
@@ -316,6 +325,7 @@ describe("whether Submit can go (FR-22, AD-20)", () => {
     const pending = (id: string) => id === "payment" || id === "region";
     expect(submitStateOf({ ...base, board: board.get(), pending })).toEqual({
       held: 1,
+      answers: 1,
       blocked: ["payment"],
       disabled: true,
     });
@@ -928,6 +938,7 @@ describe("Submit waits for a question that is loading and leaves a failed one ou
     const load = but("payment", "loading");
     expect(submitStateOf({ ...base, board: board.get(), load })).toEqual({
       held: 2,
+      answers: 2,
       blocked: [],
       disabled: true,
     });
@@ -954,6 +965,7 @@ describe("Submit waits for a question that is loading and leaves a failed one ou
     const load = but("payment", "failed");
     expect(submitStateOf({ ...base, board: board.get(), load })).toEqual({
       held: 1,
+      answers: 1,
       blocked: [],
       disabled: false,
     });
@@ -986,6 +998,7 @@ describe("Submit waits for a question that is loading and leaves a failed one ou
     const load = but("payment", "failed");
     expect(submitStateOf({ ...base, board: board.get(), load })).toEqual({
       held: 0,
+      answers: 0,
       blocked: [],
       disabled: true,
     });

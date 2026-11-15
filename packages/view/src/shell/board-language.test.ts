@@ -22,16 +22,16 @@ const rendered = (document: ViewDocument): string => {
 describe("the shell's language", () => {
   test("is the board document's", () => {
     expect(rendered({ ...plainChoiceBoardDocument, language: "it-IT" } as ViewDocument)).toBe(
-      "Rispondi it-IT",
+      "Invia risposta it-IT",
     );
   });
 
   test("gives the document's locale, which may differ from its language (task 7.3)", () => {
     const mixed = { ...plainChoiceBoardDocument, language: "en-US", locale: "it-IT" };
-    expect(rendered(mixed as ViewDocument)).toBe("Answer it-IT");
+    expect(rendered(mixed as ViewDocument)).toBe("Send answer it-IT");
   });
 
   test("is en-US for a document without one", () => {
-    expect(rendered(plainChoiceBoardDocument as ViewDocument)).toBe("Answer en-US");
+    expect(rendered(plainChoiceBoardDocument as ViewDocument)).toBe("Send answer en-US");
   });
 });

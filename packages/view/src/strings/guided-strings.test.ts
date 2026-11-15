@@ -140,9 +140,28 @@ describe("the new strings of the guided flow", () => {
     }
   });
 
-  test("no new key keeps the base's wording of its neighbours: existing values are untouched", () => {
-    expect(t("en-US", "bar.submit")).toBe("Submit");
-    expect(t("en-US", "question.answer")).toBe("Answer");
-    expect(t("en-US", "header.open", { count: 2 })).toBe("2 open");
+  test("the accepted wording of task 4.2 stands (report section 4, character for character)", () => {
+    const en = (key: Parameters<typeof t>[1], count?: number) =>
+      t("en-US", key, count === undefined ? undefined : { count });
+    const it = (key: Parameters<typeof t>[1], count?: number) =>
+      t("it-IT", key, count === undefined ? undefined : { count });
+    expect(en("bar.submit", 1)).toBe("Send 1 answer");
+    expect(en("bar.submit", 3)).toBe("Send 3 answers");
+    expect(it("bar.submit", 1)).toBe("Invia 1 risposta");
+    expect(it("bar.submit", 3)).toBe("Invia 3 risposte");
+    expect(en("question.answer")).toBe("Send answer");
+    expect(en("header.open", 2)).toBe("2 to do");
+    expect(it("header.open", 2)).toBe("2 da fare");
+    expect(it("areas.open", 1)).toBe("1 da fare");
+    expect(en("header.nextOpen")).toBe("Next to do");
+    expect(it("header.nextOpen")).toBe("Prossima da fare");
+    expect(en("question.postpone")).toBe("Later");
+    expect(it("question.postpone")).toBe("Più tardi");
+    expect(it("question.more")).toBe("Altro");
+    expect(en("bar.switchTitle")).toBe('Switch to "One by one"?');
+    expect(it("bar.switchTitle")).toBe("Passare a «Una alla volta»?");
+    expect(en("revision.submitBody")).toBe(
+      "The agent has already received your earlier answers to these questions. Sending replaces them:",
+    );
   });
 });

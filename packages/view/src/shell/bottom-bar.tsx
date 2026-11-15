@@ -234,7 +234,7 @@ export const BottomBar = (props: BottomBarProps) => {
       <span className="text-body text-muted-foreground">
         {delivery === "immediate"
           ? text("bar.immediateHelp")
-          : text("bar.submittedHelp", { submit: text("bar.submit") })}
+          : text("bar.submittedHelp", { submit: text("bar.submitName") })}
       </span>
       {warning === undefined ? null : <Warning warning={warning} />}
       <span className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-sm">
@@ -255,16 +255,20 @@ export const BottomBar = (props: BottomBarProps) => {
             {updatesLabel(submit.blocked.length, language)}
           </button>
         )}
-        <button
-          ref={submitButton}
-          type="button"
-          data-askboard-submit=""
-          className={BUTTON_PRIMARY}
-          disabled={submit.disabled}
-          onClick={() => send()}
-        >
-          {text("bar.submit")}
-        </button>
+        {delivery === "immediate" ? null : (
+          <button
+            ref={submitButton}
+            type="button"
+            data-askboard-submit=""
+            className={BUTTON_PRIMARY}
+            disabled={submit.disabled}
+            onClick={() => send()}
+          >
+            {submit.answers > 0
+              ? text("bar.submit", { count: submit.answers })
+              : text("bar.submitPlain")}
+          </button>
+        )}
       </span>
       {feedback}
       <AlertDialog.Root open={confirming} onOpenChange={setConfirming}>
@@ -323,7 +327,7 @@ export const BottomBar = (props: BottomBarProps) => {
               sent.current = undefined;
               if (did === "submitted") props.onSubmitted?.();
               else if (did === "switched") immediateButton.current?.focus();
-              else submitButton.current?.focus();
+              else (submitButton.current ?? immediateButton.current)?.focus();
             }}
           >
             <AlertDialog.Title className="text-body-lg font-semibold">
@@ -347,7 +351,7 @@ export const BottomBar = (props: BottomBarProps) => {
                   confirmReplacing();
                 }}
               >
-                {text("bar.submit")}
+                {text("revision.confirmSend")}
               </AlertDialog.Action>
             </div>
           </AlertDialog.Content>

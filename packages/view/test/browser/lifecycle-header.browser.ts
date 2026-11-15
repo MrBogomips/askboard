@@ -35,13 +35,13 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       async () => {
         const run = await start(lifecycleScenario(submittedAsk, dist));
         const board = await openBoard(run, ["database", "cache", "audit"]);
-        await board.header.getByText("3 open", { exact: true }).waitFor();
+        await board.header.getByText("3 to do", { exact: true }).waitFor();
         await optionOf(board, "database", "SQLite").click();
         await answerOf(board, "database").click();
         await optionOf(board, "cache", "Yes").click();
         await answerOf(board, "cache").click();
         await board.header
-          .getByText("1 open", { exact: true })
+          .getByText("1 to do", { exact: true })
           .waitFor({ timeout: STEP_TIMEOUT_MS });
         expect(await board.header.getByText("Waiting", { exact: true }).count()).toBe(1);
         const outline = board.view.getByRole("navigation", { name: "Outline" });
@@ -63,7 +63,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await board.header
           .getByText("Partly answered 1/4", { exact: true })
           .waitFor({ timeout: STEP_TIMEOUT_MS });
-        await board.header.getByText("3 open", { exact: true }).waitFor();
+        await board.header.getByText("3 to do", { exact: true }).waitFor();
         await run.session.update([
           {
             action: "add",
@@ -72,7 +72,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           },
         ]);
         await board.header
-          .getByText("4 open", { exact: true })
+          .getByText("4 to do", { exact: true })
           .waitFor({ timeout: STEP_TIMEOUT_MS });
         const outline = board.view.getByRole("navigation", { name: "Outline" });
         await outline.getByText("New", { exact: true }).waitFor({ timeout: STEP_TIMEOUT_MS });

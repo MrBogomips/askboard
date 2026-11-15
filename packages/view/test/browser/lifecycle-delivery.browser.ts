@@ -74,14 +74,14 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const immediate = await start(lifecycleScenario(twoAsk, dist));
         const two = await openBoard(immediate, ["database", "cache"]);
         expect(await mode(two, "immediate").getAttribute("aria-pressed")).toBe("true");
-        await viewText(two, "Answers go to the agent as you give them.").waitFor();
+        await viewText(two, "Each answer goes to the agent as soon as you send it.").waitFor();
         expect(await two.submit.isDisabled()).toBe(true);
         const submitted = await start(lifecycleScenario(submittedAsk, dist));
         const three = await openBoard(submitted, QUESTIONS);
         expect(await mode(three, "submitted").getAttribute("aria-pressed")).toBe("true");
         const single = await start(lifecycleScenario(singleRequestingMoreAsk, dist));
         const one = await openBoard(single, ["database"]);
-        expect(await viewText(one, "Delivery").count()).toBe(0);
+        expect(await viewText(one, "Sending answers").count()).toBe(0);
         expect(await one.submit.count()).toBe(0);
         expect(await one.prefill.count()).toBe(0);
       },
@@ -162,7 +162,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           async () => (await answerOf(board, "audit").getAttribute("aria-pressed")) === "true",
           "the note held",
         );
-        await board.header.getByText("3 open", { exact: true }).waitFor();
+        await board.header.getByText("3 to do", { exact: true }).waitFor();
         expect(sentActs(run)).toEqual([]);
         await board.submit.click();
         const [command] = await actsDone(run, 1);
@@ -287,7 +287,10 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         );
         await run.session.update([{ action: "delete", itemId: "database" }]);
         await card(board, "database").waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
-        await viewText(board, "Delivery").waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
+        await viewText(board, "Sending answers").waitFor({
+          state: "detached",
+          timeout: STEP_TIMEOUT_MS,
+        });
         await buttonOf(board, "cache", "More").click({ timeout: STEP_TIMEOUT_MS });
         expect(await menuItem(board, "Decline").getAttribute("aria-checked")).toBe("true");
         const before = sentDrafts(run).length;

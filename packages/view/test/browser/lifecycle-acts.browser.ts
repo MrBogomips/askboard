@@ -86,7 +86,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         }
         await noteOf(board, "database").waitFor();
         const names = await view.getByRole("button").allTextContents();
-        const order = ["Postpone", "More", "Answer"].map((name) => names.indexOf(name));
+        const order = ["Later", "More", "Send answer"].map((name) => names.indexOf(name));
         expect(order.every((at) => at >= 0)).toBe(true);
         expect([...order].sort((a, b) => a - b)).toEqual(order);
         expect(await buttonOf(board, "database", "More").isDisabled()).toBe(false);
@@ -118,7 +118,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         ]);
         const { events } = await run.session.collect();
         expect(events.map((event) => event.type)).toEqual(["postponed", "reopened"]);
-        await board.header.getByText("2 open", { exact: true }).waitFor();
+        await board.header.getByText("2 to do", { exact: true }).waitFor();
         await eventually(async () => !(await promptArmed(board)), "the prompt disarmed");
         expectNoCspProblem(run);
       },

@@ -174,6 +174,8 @@ export type SubmitInputs = {
 export type SubmitState = {
   /** How many acts are held. */
   readonly held: number;
+  /** How many of them are answers: Send's count (Q2; "Send" alone when none is). */
+  readonly answers: number;
   /** The held questions an agent-change notice sits on, in board order. */
   readonly blocked: readonly string[];
   readonly disabled: boolean;
@@ -282,7 +284,8 @@ export const submitStateOf = (inputs: SubmitInputs): SubmitState => {
       inputs.readOnlyOf,
       inputs.shownOf,
     ) !== undefined;
-  return { held: held.length, blocked, disabled };
+  const answers = held.filter(({ work }) => work.held.act === "answer").length;
+  return { held: held.length, answers, blocked, disabled };
 };
 
 /**

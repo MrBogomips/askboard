@@ -43,12 +43,12 @@ const FIRST_VIEW: Record<Presentation, string[]> = {
 };
 const HELPER: Record<Language, { submitted: string; immediate: string }> = {
   "en-US": {
-    submitted: 'Answers stay here until you press "Submit".',
-    immediate: "Answers go to the agent as you give them.",
+    submitted: 'Answers stay here until you press "Send answers".',
+    immediate: "Each answer goes to the agent as soon as you send it.",
   },
   "it-IT": {
     submitted: "Le risposte restano qui finché non premi «Invia le risposte».",
-    immediate: "Le risposte arrivano all'agente man mano che le dai.",
+    immediate: "Ogni risposta parte appena la invii.",
   },
 };
 

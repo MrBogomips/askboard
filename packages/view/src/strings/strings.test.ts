@@ -95,7 +95,7 @@ describe("the English table is the view's text on main, word for word", () => {
       "state.waiting": "Waiting",
       "state.answered": "Answered",
       "state.discarded": "Discarded",
-      "question.answer": "Answer",
+      "question.answer": "Send answer",
       "question.options": "Options",
       "question.optionsPickOne": "Options · pick one",
       "receipt.notSentYet": "not sent yet",
@@ -122,7 +122,7 @@ describe("the Italian table", () => {
       "state.waiting": "In attesa",
       "state.answered": "Con risposta",
       "state.discarded": "Scartata",
-      "question.answer": "Rispondi",
+      "question.answer": "Invia risposta",
       "question.options": "Opzioni",
       "question.optionsPickOne": "Opzioni · scegline una",
       "receipt.notSentYet": "non ancora inviata",
@@ -136,8 +136,8 @@ describe("the Italian table", () => {
 
 describe("a lookup", () => {
   test("gives the text in the asked language", () => {
-    expect(t("en-US", "question.answer")).toBe("Answer");
-    expect(t("it-IT", "question.answer")).toBe("Rispondi");
+    expect(t("en-US", "question.answer")).toBe("Send answer");
+    expect(t("it-IT", "question.answer")).toBe("Invia risposta");
   });
 
   test("fills slots as text: markup and braces in a slot stay as they are", () => {
