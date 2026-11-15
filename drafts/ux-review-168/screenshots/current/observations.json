@@ -1,0 +1,123 @@
+{
+  "sectionsInitial": {
+    "active": "body \"AgentProgettoprojectCartella—Branch—Worktree—Servizio ordini\"",
+    "scrollY": 0,
+    "liveRegions": [
+      "status: Agente: al lavoro",
+      "status: "
+    ]
+  },
+  "afterAnswerImmediateSections": {
+    "active": "body \"AgentProgettoprojectCartella—Branch—Worktree—Servizio ordini\"",
+    "scrollY": 0,
+    "liveRegions": [
+      "status: Agente: al lavoro",
+      "status: "
+    ]
+  },
+  "afterNextOpenSections": {
+    "active": "h3#cache:text \"Il servizio ordini deve mettere in cache le letture?\"",
+    "scrollY": 0,
+    "liveRegions": [
+      "status: Agente: al lavoro",
+      "status: "
+    ]
+  },
+  "afterPostpone": {
+    "active": "h3#cache:text \"Il servizio ordini deve mettere in cache le letture?\"",
+    "scrollY": 671,
+    "liveRegions": [
+      "status: Agente: al lavoro",
+      "status: "
+    ]
+  },
+  "afterAnswerTabs": {
+    "active": "body \"AgentProgettoprojectCartella—Branch—Worktree—Servizio ordini\"",
+    "scrollY": 0,
+    "liveRegions": [
+      "status: Agente: al lavoro",
+      "status: "
+    ]
+  },
+  "afterAreaCompleteTabs": {
+    "active": "body \"AgentProgettoprojectCartella—Branch—Worktree—Servizio ordini\"",
+    "scrollY": 846,
+    "liveRegions": [
+      "status: Agente: al lavoro",
+      "status: "
+    ]
+  },
+  "afterAnswerOnePerView": {
+    "active": "body \"AgentProgettoprojectCartella—Branch—Worktree—Servizio ordini\"",
+    "scrollY": 0,
+    "liveRegions": [
+      "status: Agente: al lavoro",
+      "status: "
+    ]
+  },
+  "afterNextOpenOnePerView": {
+    "active": "h2#cache:text \"Il servizio ordini deve mettere in cache le letture?\"",
+    "scrollY": 0,
+    "liveRegions": [
+      "status: Agente: al lavoro",
+      "status: "
+    ]
+  },
+  "afterAnswerSubmitted": {
+    "active": "button \"Rispondi\"",
+    "scrollY": 0,
+    "liveRegions": [
+      "status: Agente: al lavoro",
+      "status: "
+    ]
+  },
+  "afterSelectRecommendedSubmitted": {
+    "active": "button \"Seleziona le consigliate\"",
+    "scrollY": 0,
+    "liveRegions": [
+      "status: Agente: al lavoro",
+      "status: "
+    ]
+  },
+  "afterSubmit": {
+    "active": "body \"AgentProgettoprojectCartella—Branch—Worktree—Servizio ordini\"",
+    "scrollY": 1935,
+    "liveRegions": [
+      "status: Agente: al lavoro",
+      "status: "
+    ]
+  },
+  "afterSelectRecommendedImmediate": {
+    "active": "button \"Seleziona le consigliate\"",
+    "scrollY": 0,
+    "liveRegions": [
+      "status: Agente: al lavoro",
+      "status: "
+    ]
+  },
+  "validation": {
+    "active": "input#service-name:field \"\"",
+    "scrollY": 1484,
+    "liveRegions": [
+      "status: Agente: al lavoro",
+      "status: "
+    ]
+  },
+  "validationAnswerDisabled": true,
+  "allAnswered": {
+    "active": "body \"AgentProgettoprojectCartella—Branch—Worktree—Servizio ordini\"",
+    "scrollY": 1484,
+    "liveRegions": [
+      "status: Agente: al lavoro",
+      "status: "
+    ]
+  },
+  "afterAnswerOnePerViewSubmitted": {
+    "active": "button \"Rispondi\"",
+    "scrollY": 0,
+    "liveRegions": [
+      "status: Agente: al lavoro",
+      "status: "
+    ]
+  }
+}
