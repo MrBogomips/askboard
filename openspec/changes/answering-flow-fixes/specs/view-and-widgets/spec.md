@@ -39,7 +39,7 @@ When "Answer" or "Accept recommended" sends at once (immediate delivery, the sin
 Each move of focus to a question's heading, or to a field to fix, SHALL first scroll the view so that the element lies wholly between the context header's bottom edge and the bottom action bar's top edge, or starts just under the header when it is taller than that space. This holds for the next-open, outline, unread-reply and agent-change jumps, the question navigator, tab activation and Focus after Answer and Submit (WCAG 2.2 SC 2.4.11).
 
 #### Scenario: Next open to a heading under the bottom bar
-- **WHEN** at 1280×800 with sections the next open question's heading sits under the bottom action bar and the user activates "Next open ↓"
+- **WHEN** at 1280×800 with sections the next open question's heading sits under the bottom action bar and the user activates the header's "Next open"
 - **THEN** the heading lies wholly between the header's bottom edge and the bar's top edge, and has focus
 
 #### Scenario: A jump that wraps upward
@@ -127,7 +127,7 @@ The board SHALL hold one polite status region outside the cards, present from th
 ## MODIFIED Requirements
 
 ### Requirement: Counts and the next-open jump
-On a board of two or more questions, in every presentation, the header SHALL show the open count (unanswered and postponed questions) and "Next open ↓", which reaches new questions first, then the open questions after the question in view in board order, wrapping to the start. The ask pill SHALL show only what the agent has received: "Partly answered n/m", or "answered, 1 postponed" (FR-24).
+On a board of two or more questions, in every presentation, the header SHALL show the open count (unanswered and postponed questions) and the next-open jump, "Next open", which reaches new questions first, then the open questions after the question in view in board order, wrapping to the start. The ask pill SHALL show only what the agent has received: "Partly answered n/m", or "answered, 1 postponed" (FR-24).
 
 #### Scenario: A ready answer does not move the pill
 - **WHEN** in submitted delivery the user marks two of three questions ready
@@ -135,18 +135,18 @@ On a board of two or more questions, in every presentation, the header SHALL sho
 
 #### Scenario: Next open goes on from where the user is
 - **WHEN** with sections the user jumps to question 2 with the outline, then scrolls to question 5 and answers it, and questions 3, 6 and 7 are open
-- **THEN** "Next open ↓" reaches question 6
+- **THEN** "Next open" reaches question 6
 
 #### Scenario: A question the agent added comes first
 - **WHEN** the agent has added question 9, not yet seen, and the question in view is question 5
-- **THEN** "Next open ↓" reaches question 9 first
+- **THEN** "Next open" reaches question 9 first
 
 ### Requirement: One question per view
 In one question per view, the board SHALL show one question at a time, with its area's title, under the question navigator: "Question n of m", one state marker per question, and Previous and Next, which stop at the ends. The navigator SHALL hold no next-open jump: the header's is the only one (Counts and the next-open jump). Navigating SHALL move focus to the question's heading, and answering SHALL NOT advance (FR-2).
 
 #### Scenario: Moving to the next open question
 - **WHEN** the user is on question 4 of 5 and questions 2 and 5 are open
-- **THEN** the header's "Next open ↓" shows question 5, then question 2
+- **THEN** the header's "Next open" shows question 5, then question 2
 
 #### Scenario: One next-open control
 - **WHEN** a board of five questions opens in one question per view
