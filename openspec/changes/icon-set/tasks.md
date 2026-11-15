@@ -131,6 +131,7 @@ Terms used below:
     - `lifecycle-acts.browser.ts` :365: "↩ 1" becomes the badge named "1 new reply".
   - Verify: in a browser run of these files with `--engines chromium`, the new and the edited cases fail on group 1's code for the reasons the scenarios give (a glyph in a name, no `svg`, no image name).
   - Note (2026-11-15): `icons.browser.ts` (9 cases per engine: jump and outline in en-US and it-IT, hint, calendar, light and dark colours, Snapshot offline), listed in `suites.ts`; the glyph-naming cases of `lifecycle-header`, `shown-revision-draft-session`, `languages`, `context-items` and `lifecycle-acts` updated. Tests were written before the source; the red run was not recorded separately, since group 1 holds no drawing code and the cases name icons and images.
+  - Review S-8 (2026-11-15, `63afe0b5`): the header jump lookups in `lifecycle-header` and `shown-revision-draft-session` and the Italian text in `languages` match exactly, so they fail on "Next open ↓". S-7 and S-9: the colour cases cover the outline's badge and flag too, and the Snapshot case waits for the network to settle.
 - [x] 2.2 The strings (decision 7).
   - Tests first: `packages/view/src/strings/glyphs.test.ts` fails on ↓ ↩ ↻ ↗ ✓ ✕ × in any value of every language, and on → outside `tree.adjust.example` and `navigator.nextOpen` (decision 7). The `key.*` values are exempt.
   - Then remove the glyph from `header.nextOpen` in `en-US.ts` and `it-IT.ts`. Leave `navigator.nextOpen` as it is: `answering-flow-fixes` deletes it (#184).
@@ -159,7 +160,7 @@ Terms used below:
   - both pass, and the build's size check passes without a new record;
   - `grep -rnE '↓|↩|↻|↗' packages/view/src --include='*.tsx'` finds only key-label code and comments;
   - the note records the test counts.
-  - Note (2026-11-15): `test:e2e:smoke` passes (59 pass, 5 skip, 0 fail; conformance in the three configurations); the build size check passes with no new record; the `grep` finds no glyph in `.tsx`. Unit run: 14,739 pass, with 2 failures in `tools/build/view.test.ts` that are group 3's lines (the Approval and the Document review now need `icons`: lines 160 and 1176). `view.test.ts` edited for the shell, date-field and context `needs`.
+  - Note (2026-11-15, restated after review S-6): at `cf895390` (which holds group 3's `682d9a9b`, the S-5 fix `933a849c` and the S-1 fix `82ec183d`) `bun run test` passes: 14,788 pass, 3 skip, 0 fail. `test:e2e:smoke` passed at `d17cee80` (59 pass, 5 skip, 0 fail; conformance in the three configurations; size check without a new record) and is not rerun since only tests changed. The `grep` finds no glyph in `.tsx`. At `d17cee80` itself the unit run had failures in `view.test.ts` and `shared-modules.test.ts` that the later commits fixed.
 - [ ] 2.6 Review checkpoint: spec review of group 2's range (askboard-spec-reviewer). No security review: the group draws AskBoard's own static SVG inside the view and changes neither the sandbox, the page policy, the host nor the network. The note says so, and the spec reviewer may ask for one. Verify: every finding is fixed as a task, tests first, or recorded with its reason, and the range and verdict are in the note.
 
 ## 3. The widgets' icons (Approval, comment card, Tree, Ranking)
