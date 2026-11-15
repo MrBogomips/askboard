@@ -36,6 +36,12 @@ export type DocumentUpdate = {
   readonly attention: Pick<Attention, "documentChanged">;
   readonly focus: Store<HeadingRequest | undefined>;
   readonly removed: Store<boolean>;
+  /**
+   * The question the board shows now: the question in view, and in one question per view the first
+   * question while none is in view yet, since the draft's question in view stays unset until the
+   * user navigates (answering-flow-fixes, decision 3).
+   */
+  readonly shownQuestion: () => string | undefined;
   /** The question whose card holds the focus, if any. */
   readonly focused: () => string | undefined;
   /**
@@ -56,9 +62,9 @@ const onRemoval = (before: ViewDocument, after: ViewDocument, stores: DocumentUp
   for (const question of gone) dropWork(question, stores);
   const ids = earlier.map((question) => question.id);
   const isGone = (id: string | undefined) => gone.some((question) => question.id === id);
-  const inView = stores.board.get().inView;
-  if (inView !== undefined && isGone(inView)) {
-    stores.board.setInView(nextAfterRemoval(ids, now, inView));
+  const shown = stores.shownQuestion();
+  if (shown !== undefined && isGone(shown)) {
+    stores.board.setInView(nextAfterRemoval(ids, now, shown));
     stores.removed.set(true);
     stores.status?.announce({ key: "navigator.removed" });
   }
@@ -76,6 +82,16 @@ const onAddition = (before: ViewDocument, after: ViewDocument, stores: DocumentU
   const message = addedMessageOf(added);
   if (message !== undefined) stores.status.announce(message);
 };
+
+/**
+ * Whether an update carries a restore the view has not applied: a reload or a takeover brings the
+ * draft back with the document as it stands, which is no news from the agent, so the update step
+ * gets no status store for it (answering-flow-fixes, decision 4; review X-1).
+ */
+export const carriesNewRestore = (
+  restore: { readonly id: number } | undefined,
+  restored: number,
+): boolean => restore !== undefined && restore.id > restored;
 
 /**
  * A new board document replaces `before`: remembers each revision, drops what the deleted questions

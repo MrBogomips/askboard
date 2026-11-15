@@ -113,6 +113,7 @@ const build = ({
     focus: createStore<HeadingRequest | undefined>(undefined),
     removed: createStore(false),
     focused: () => undefined,
+    shownQuestion: () => undefined,
   });
   current = rev2;
   const record = () =>

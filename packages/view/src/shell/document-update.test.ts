@@ -10,7 +10,7 @@ import type { ViewDocument, ViewQuestion } from "../view-document.ts";
 import { createRevisions, shownOfBoard } from "./agent-change.ts";
 import { createAttention } from "./attention.ts";
 import { connectDrafts, createBoardDraft, moveMarks } from "./board-draft.ts";
-import { applyDocumentUpdate } from "./document-update.ts";
+import { applyDocumentUpdate, carriesNewRestore } from "./document-update.ts";
 import { createDraftStore } from "./draft-store.ts";
 import type { HeadingRequest } from "./heading-request.ts";
 import { createStatusMessages, type StatusMessage } from "./status-messages.ts";
@@ -60,6 +60,7 @@ const setUp = (before: ViewDocument, focused?: string) => {
     focus,
     removed,
     focused: () => focused,
+    shownQuestion: () => board.get().inView,
   };
   return { ...stores, include };
 };
@@ -163,8 +164,34 @@ describe("the status messages of an update (answering-flow-fixes, design decisio
     ]);
   });
 
+  test("the question shown deleted before any navigation: the removal is announced and the next one is in view", () => {
+    // One question per view shows the first question while no question is in view yet.
+    const before = documentOf(plan, other);
+    const stores = setUp(before);
+    const status = createStatusMessages();
+    const keys: StatusMessage[] = [];
+    status.subscribe(() => keys.push(...status.get().messages.slice(-1)));
+    expect(stores.board.get().inView).toBeUndefined();
+    applyDocumentUpdate(before, documentOf(other), {
+      ...stores,
+      shownQuestion: () => "plan",
+      status,
+    });
+    expect(keys).toEqual([{ key: "navigator.removed" }]);
+    expect(stores.removed.get()).toBe(true);
+    expect(stores.board.get().inView).toBe("other");
+  });
+
   test("a deleted question out of view says nothing", () => {
     expect(heard(documentOf(plan, other), documentOf(plan), "plan")).toEqual([]);
+  });
+
+  test("an update that carries a restore not yet applied gets no status store (review X-1)", () => {
+    expect(carriesNewRestore({ id: 1 }, 0)).toBe(true);
+    expect(carriesNewRestore({ id: 2 }, 1)).toBe(true);
+    // The same restore heard again, and an update without one, are ordinary updates.
+    expect(carriesNewRestore({ id: 1 }, 1)).toBe(false);
+    expect(carriesNewRestore(undefined, 0)).toBe(false);
   });
 
   test("without a store nothing is announced and nothing breaks", () => {

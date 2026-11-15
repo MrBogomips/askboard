@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { LifecycleBoardState } from "@askboard/contract";
 import { lifecycleBoardDocument, plainChoiceBoardDocument } from "@askboard/contract/fixtures";
-import type { ViewArea, ViewDocument } from "../view-document.ts";
+import { questionsOf, type ViewArea, type ViewDocument } from "../view-document.ts";
 import type { QuestionWork } from "./board-draft.ts";
 import {
   askPillOf,
@@ -14,6 +14,7 @@ import {
   openCountOf,
   postponedWarningOf,
   presentationOf,
+  shownQuestionOf,
   tabOpenCount,
 } from "./board-view.ts";
 
@@ -54,6 +55,17 @@ describe("presentations (ask-lifecycle: Presentations, Single-question board; FR
     expect(presentationOf({ ...lifecycleBoardDocument, presentation: undefined })).toBe("sections");
     expect(presentationOf(lifecycleBoardDocument)).toBe("tabs");
     expect(presentationOf({ ...flat, presentation: "one-per-view" })).toBe("one-per-view");
+  });
+
+  test("the question shown: the one in view, and in one question per view the first until one is", () => {
+    const perView = { ...flat, presentation: "one-per-view" } as ViewDocument;
+    const [first, second] = questionsOf(perView);
+    expect(shownQuestionOf(perView, undefined)).toBe(first?.id);
+    expect(shownQuestionOf(perView, second?.id)).toBe(second?.id);
+    expect(shownQuestionOf(perView, "gone")).toBe(first?.id);
+    expect(shownQuestionOf({ ...flat, presentation: undefined } as ViewDocument, undefined)).toBe(
+      undefined,
+    );
   });
 
   test("tabs without areas show as one group, with no tab strip", () => {

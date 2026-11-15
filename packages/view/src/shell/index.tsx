@@ -52,12 +52,12 @@ import {
 } from "./board-draft.ts";
 import { BoardKeys, createKeysStore, followKeys } from "./board-keys.tsx";
 import { BoardLanguage } from "./board-language.tsx";
-import { presentationOf } from "./board-view.ts";
+import { presentationOf, shownQuestionOf } from "./board-view.ts";
 import { clearCarried } from "./carried.ts";
 import { entriesWithCells } from "./cell-entries.ts";
 import { NO_CHANNEL, openChannel, type ViewChannel } from "./channel.ts";
 import { createDerivedStore } from "./derived-store.ts";
-import { applyDocumentUpdate, connectTracker } from "./document-update.ts";
+import { applyDocumentUpdate, carriesNewRestore, connectTracker } from "./document-update.ts";
 import { createDraftStore } from "./draft-store.ts";
 import { focusOpener } from "./focus-opener.ts";
 import type { HeadingRequest } from "./heading-request.ts";
@@ -213,8 +213,9 @@ const boot = (): void => {
         focus,
         removed,
         focused: () => focusedQuestion(window.document),
+        shownQuestion: () => shownQuestionOf(before, board.get().inView),
         // A restore is no news from the agent: the first update after a reload carries it.
-        ...(update.restore !== undefined && update.restore.id > restored ? {} : { status }),
+        ...(carriesNewRestore(update.restore, restored) ? {} : { status }),
       });
       // A prefill's mark alone is no unsent work: when the agent moves the question past it, the mark
       // follows, so the change shows at once with no notice (design decision 4).
@@ -234,7 +235,7 @@ const boot = (): void => {
       closedPanel = update.panelClosed.id;
       focusOpener(update.panelClosed.itemId);
     }
-    if (update.restore !== undefined && update.restore.id > restored) {
+    if (update.restore !== undefined && carriesNewRestore(update.restore, restored)) {
       restored = update.restore.id;
       restoreDraft(
         update.restore.record,

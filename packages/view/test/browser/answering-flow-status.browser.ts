@@ -12,6 +12,8 @@ import {
   eventually,
   expectNoCspProblem,
   isFocused,
+  LOAD_TIMEOUT_MS,
+  reloadBoard,
   STEP_TIMEOUT_MS,
   TEST_TIMEOUT_MS,
   useEngine,
@@ -23,6 +25,7 @@ import {
   answerOf,
   barButton,
   lifecycleScenario,
+  mirrored,
   noteOf,
   openBoard,
   optionOf,
@@ -80,19 +83,20 @@ const answerYes = async (board: Board, id: string): Promise<void> => {
 const answerIt = (board: Board, id: string) =>
   board.question(id).getByRole("button", { name: "Rispondi", exact: true });
 
-const ADDED = {
+const added = (id: string) => ({
   action: "add",
   parentId: "release",
   item: {
     type: "question",
-    id: "q10",
+    id,
     props: {
-      text: "Is step q10 needed for the release?",
-      header: "Q10",
+      text: `Is step ${id} needed for the release?`,
+      header: id.toUpperCase(),
       options: [{ label: "Yes" }, { label: "No" }],
     },
   },
-};
+});
+const ADDED = added("q10");
 
 for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
   describe(`${engine}: the status messages of the answering flow`, () => {
@@ -242,6 +246,41 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await board.question("q2").waitFor({ timeout: STEP_TIMEOUT_MS });
         await run.session.update([{ action: "delete", itemId: "q2" }]);
         await said(board, "Question removed by the agent");
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "the question shown removed before any navigation is announced, in one question per view",
+      async () => {
+        const { run, board } = await open(start, { presentation: "one-per-view" });
+        await run.session.update([{ action: "delete", itemId: "q1" }]);
+        await said(board, "Question removed by the agent");
+        await board.question("q2").waitFor({ timeout: STEP_TIMEOUT_MS });
+        const navigator = board.view.getByRole("navigation", { name: "Question navigator" });
+        await navigator
+          .getByText("Question removed by the agent", { exact: true })
+          .waitFor({ timeout: STEP_TIMEOUT_MS });
+        await navigator.getByText("Question 1 of 8", { exact: true }).waitFor();
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "the update that carries a restore is no news, and the next one is announced",
+      async () => {
+        const { run, board } = await open(start, { delivery: "submitted" });
+        await chooseYes(board, "q2");
+        await mirrored(run, (record) => record.questions.q2 !== undefined, "q2's work");
+        await reloadBoard(board, run, () =>
+          board.question("q2").waitFor({ state: "attached", timeout: LOAD_TIMEOUT_MS }),
+        );
+        // The first update after a reload carries the restore: no news, nothing said.
+        await eventually(() => optionOf(board, "q2", "Yes").isChecked(), "q2's work restored");
+        await settled(board);
+        expect(await regionText(board)).toBe("");
+        await run.session.update([added("q11")]);
+        await said(board, "The agent added 1 question: Q11.");
       },
       TEST_TIMEOUT_MS,
     );
