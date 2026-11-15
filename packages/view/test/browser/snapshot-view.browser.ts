@@ -21,16 +21,12 @@ type Opened = {
   readonly violations: string[];
 };
 
-const CONTROLS = [
-  "Answer",
-  "Postpone",
-  "More",
-  "Ask a follow-up",
-  "Settings",
-  "Submit",
-  "Select recommended",
-  "Snapshot",
-];
+/** The controls that act, by their hooks: a wording change cannot hide one (D5). */
+const HOOKED =
+  "[data-askboard-primary], [data-askboard-postpone], [data-askboard-submit], [data-askboard-prefill]";
+
+/** The controls with no hook, by name. */
+const CONTROLS = ["More", "Ask a follow-up", "Settings", "Snapshot"];
 
 for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
   describe(`${engine}: an opened Snapshot`, () => {
@@ -99,6 +95,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const line = page.getByText(/^Snapshot · taken .* by the agent · read-only$/);
         await line.waitFor({ timeout: STEP_TIMEOUT_MS });
         expect(await page.title()).toBe(`Snapshot · ${lifecycleSnapshotData.document.title}`);
+        expect(await page.locator(HOOKED).count()).toBe(0);
         for (const name of CONTROLS) {
           expect(await page.getByRole("button", { name, exact: true }).count()).toBe(0);
         }
@@ -158,7 +155,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         "input:not([disabled]):not([readonly]), textarea:not([readonly]):not([disabled]), select:not([disabled])",
       );
       const names = [...CONTROLS, "Decline", "Explain", "Send", "Accept recommended", "Reopen"];
-      let count = await inputs.count();
+      let count = (await inputs.count()) + (await page.locator(HOOKED).count());
       for (const name of names) {
         count += await page.getByRole("button", { name, exact: true, disabled: false }).count();
       }

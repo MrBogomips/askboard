@@ -53,14 +53,12 @@ const dataBlockOf = (page: string): SnapshotData => {
 const CASES = [
   {
     language: "en-US",
-    answer: "Answer",
     typed: { start: "3/2/2026", seats: "4", budget: "1200.00" },
     shown: { start: "Mon, Mar 2, 2026", seats: "4", budget: "€1,200.00", notify: "On" },
     words: { required: "(required)", clear: "Clear", filter: "Filter the options" },
   },
   {
     language: "it-IT",
-    answer: "Rispondi",
     typed: { start: "02/03/2026", seats: "4", budget: "1200,00" },
     shown: { start: "lun 2 mar 2026", seats: "4", budget: "€ 1.200,00", notify: "Attivo" },
     words: { required: "(obbligatorio)", clear: "Cancella", filter: "Filtra le opzioni" },
@@ -101,7 +99,7 @@ const expectNothingAsked = async (page: Page, words: (typeof CASES)[number]["wor
 };
 
 for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
-  for (const { language, answer, typed, shown, words } of CASES) {
+  for (const { language, typed, shown, words } of CASES) {
     describe(`${engine}: a Snapshot of an answered Form, ${language}`, () => {
       const { start } = useEngine(engine);
 
@@ -125,7 +123,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           await board.view.getByRole("checkbox", { name: "Chat", exact: true }).click();
           await board.view.getByRole("switch", { name: "Notify me" }).click();
           await board.view
-            .getByRole("button", { name: answer, exact: true })
+            .locator("[data-askboard-primary]")
             .click({ timeout: STEP_TIMEOUT_MS });
           await actsDone(run, 1);
           const taken = await run.session.snapshot();
