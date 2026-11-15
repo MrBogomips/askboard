@@ -24,8 +24,9 @@ Task 3.2 follows groups 1 and 2, since it records their names and #198's cause. 
 
 - [x] 0.1 Record the PO's answer to Q1 under design.md's Open Questions: (a), from #197's comment of 2026-11-15 (D4; decision 5). Tests: none (documents). Verify: Q1 carries its answer line, D4 says the PO decided it, and #197 has no `needs-po` label.
   - Note: done by the `/opsx:update` of 2026-11-15 that also added #198 (group 2); `needs-po` was already off #197.
-- [ ] 0.2 Base and borrowed names (design.md, Merge points). On `origin/main`, check each borrowed name with `git grep -n` and record its file and line, with main's SHA. This includes #198's names. Confirm that no workflow or test sets or reads `ASKBOARD_PERF_RUNNER` or writes `AppleKeyboardUIMode` yet. Tests: none. Verify: the note lists every name with its file and line. If a name is missing or its shape differs, stop for `/opsx:update` before group 1.
-- [ ] 0.3 Probe P1 locally, on a Mac, without touching the global setting (decision 5).
+- [x] 0.2 Base and borrowed names (design.md, Merge points). On `origin/main`, check each borrowed name with `git grep -n` and record its file and line, with main's SHA. This includes #198's names. Confirm that no workflow or test sets or reads `ASKBOARD_PERF_RUNNER` or writes `AppleKeyboardUIMode` yet. Tests: none. Verify: the note lists every name with its file and line. If a name is missing or its shape differs, stop for `/opsx:update` before group 1.
+  - Note: checked on `origin/main` e2cc5fd3 (only a bun.lock bump past the base) with `git grep -n`; all names present, shapes as designed. `perf.ts`: `PERF_RUNS` :15, `perfLine` :33, `expectMedianWithin` :40, `judgeMedians` :62, `perfRuns` :84. `markdown-total.browser.ts`: `DENSE_WAIT_MS` :30, `DENSE_TEST_TIMEOUT_MS` :31. `browser.yml` steps :86 and :104; `release.yml` `e2e-macos` :111; `e2e-workflows.test.ts` browser.yml describe :510. #198: `reopen-session.browser.ts` (g) :613, `reopenPrefills` :62, `prefillReopened` :111, `DRAFT_DEBOUNCE_MS` :10, `reloadBoard` :110, `sentDrafts` :74, `quiet` :113, spec scenario :3604. No file outside `openspec/` and `docs/` names `ASKBOARD_PERF_RUNNER` or `AppleKeyboardUIMode`.
+- [x] 0.3 Probe P1 locally, on a Mac, without touching the global setting (decision 5).
   - Read Playwright WebKit's bundle id (`CFBundleIdentifier` of `Playwright.app` in the Playwright cache) and the global `defaults read -g AppleKeyboardUIMode`.
   - Run `defaults write org.webkit.Playwright AppleKeyboardUIMode -int 0`, then a browser run of `board.browser.ts` with `--engines webkit`.
   - Run `defaults delete org.webkit.Playwright AppleKeyboardUIMode` and repeat the run.
@@ -35,6 +36,7 @@ Task 3.2 follows groups 1 and 2, since it records their names and #198's cause. 
     - the second passes;
     - after the delete, `defaults read org.webkit.Playwright AppleKeyboardUIMode` reports no such key and the global value is as read at the start.
   - Record the bundle id, the values and both outcomes in the note. If the first run passes, the hypothesis does not hold: stop for `/opsx:update`.
+  - Note: P1 holds locally. Bundle id `org.webkit.Playwright` (webkit-2388 `Playwright.app`); global `AppleKeyboardUIMode` = 2, per-app key absent at start and at end. With the per-app key set to 0, `board.browser.ts` "answering with the keyboard only" on WebKit failed with "ten presses of Tab never reached Answer" (a wider `-t board` run: 12 failures of the keyboard cases); after `defaults delete` it passed (1 pass). Global value unchanged.
 
 ## 1. The runner factor on the perf bounds (#196)
 
