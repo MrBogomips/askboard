@@ -496,8 +496,9 @@ describe("the built chunks hold Lucide once", () => {
     const page = await text(manifest.boardPage.script.path);
     expect(page).toContain("M18 6 6 18");
     expect(page).not.toContain("M20 6 9 17l-5-5");
+    // The literals that survive minification: `data-lucide` (in createIcons and replaceElement
+    // alike) and `createIcons` (in its error strings); the identifier `replaceElement` is mangled.
     expect(page).not.toContain("createIcons");
-    expect(page).not.toContain("replaceElement");
     expect(page).not.toContain("data-lucide");
   });
 
