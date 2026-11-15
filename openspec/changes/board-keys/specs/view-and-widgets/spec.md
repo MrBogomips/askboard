@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Next and previous open by key
-While the header shows "Next open", `N`, or the keys the user's file gives that action instead, SHALL do what "Next open" does, and `Shift+N` SHALL focus the heading of the open question before the question in view, in board order, wrapping to the last, scrolled clear of the bars. Each SHALL act only with focus in the view outside a text field, a widget item, a menu and a dialog, and not while an input method composes (NFR-12).
+While the header shows the next-open jump, `N`, or the keys the user's file gives that action instead, SHALL do what the jump does, and `Shift+N` SHALL focus the heading of the open question before the question in view, in board order, wrapping to the last, scrolled clear of the bars. Each SHALL act only with focus in the view outside a text field, a widget item, a menu and a dialog, and not while an input method composes (NFR-12).
 
 #### Scenario: From an option
 - **WHEN** with sections the focus is on an option of question 2, questions 1, 2 and 4 are open and 3 is answered, and the user presses `N`, then `Shift+N`, then `Shift+N`
@@ -36,7 +36,7 @@ While the header shows "Next open", `N`, or the keys the user's file gives that 
 - **THEN** the question in view does not change and neither key's default action is prevented
 
 ### Requirement: Answer by key
-`Mod+Enter` (`Ctrl` on Linux, `Cmd` on macOS), or the user's keys for that action, with focus on a question card's own controls outside a text field, a widget item, a link and the follow-up thread, SHALL act as a press of that question's "Answer", through its gates, confirmations and focus moves. The key SHALL change no choice, SHALL be taken there whether it acts or not, and a held key's repeats SHALL do nothing (NFR-12, NFR-10).
+`Mod+Enter` (`Ctrl` on Linux, `Cmd` on macOS), or the user's keys for that action, with focus on a question card's own controls outside a text field, a widget item, a link and the follow-up thread, SHALL act as a press of that question's primary button, the one that answers it, through its gates, confirmations and focus moves. The key SHALL change no choice, SHALL be taken there whether it acts or not, and a held key's repeats SHALL do nothing (NFR-12, NFR-10).
 
 #### Scenario: Immediate delivery
 - **WHEN** in immediate delivery the user selects "PostgreSQL" on question 1, moves the focus to another option without selecting it, and presses `Mod+Enter`
@@ -44,7 +44,7 @@ While the header shows "Next open", `N`, or the keys the user's file gives that 
 
 #### Scenario: Submitted delivery
 - **WHEN** in submitted delivery the user selects an option and presses `Mod+Enter` on it
-- **THEN** the question is ready and not sent, "Answer ready, not sent" is announced, and the ask pill still shows "Waiting"
+- **THEN** the question is ready and not sent, the status region says the answer is ready and not sent, and the ask pill still shows "Waiting"
 
 #### Scenario: A multiple choice's box
 - **WHEN** a question with several choices has one box ticked and the user presses `Mod+Enter` on another, unticked box
@@ -52,7 +52,7 @@ While the header shows "Next open", `N`, or the keys the user's file gives that 
 
 #### Scenario: The single-question board
 - **WHEN** on the single-question board the user selects an option and presses `Mod+Enter` on the heading
-- **THEN** the answer is sent as with "Answer"
+- **THEN** the answer is sent as with the primary button
 
 #### Scenario: Inside a widget
 - **WHEN** a Tree has the focus and the user presses `Mod+Shift+Enter`, then `Mod+Enter`
@@ -63,7 +63,7 @@ While the header shows "Next open", `N`, or the keys the user's file gives that 
 - **THEN** the dialog that asks before replacing it opens, and Cancel sends nothing and returns the focus to where it was
 
 ### Requirement: A blocked answer by key
-While "Answer" is disabled because a field must be fixed, because nothing is chosen and no note is written, or because the agent's change waits for the user's choice, `Mod+Enter` on that card SHALL send nothing, mark nothing ready and announce the reason in the status region. While it is disabled for any other cause it SHALL do nothing (NFR-10, NFR-12).
+While the question's primary button is disabled because a field must be fixed, because nothing is chosen and no note is written, or because the agent's change waits for the user's choice, `Mod+Enter` on that card SHALL send nothing, mark nothing ready and announce the reason in the status region. While it is disabled for any other cause it SHALL do nothing (NFR-10, NFR-12).
 
 #### Scenario: A field to fix
 - **WHEN** a pattern field holds `ab-1234` and the user presses `Mod+Enter` on the card's options
@@ -89,14 +89,14 @@ The keys the board takes outside its widgets SHALL be those of the board's key t
 - **THEN** the follow-up is sent at once and the question is not answered
 
 ### Requirement: The board's keys are discoverable
-"Next open", "Answer" and the composer's "Send" SHALL show, on hover and on keyboard focus, a tooltip with the action's name and its keys in effect, and SHALL carry those keys in `aria-keyshortcuts` (NFR-12).
+The header's next-open jump, each question's primary button and the composer's "Send" SHALL show, on hover and on keyboard focus, a tooltip with the action's name and its keys in effect, and SHALL carry those keys in `aria-keyshortcuts` (NFR-12).
 
-#### Scenario: Next open's tooltip
-- **WHEN** the user tabs to "Next open" on Linux
+#### Scenario: The jump's tooltip
+- **WHEN** the user tabs to the header's next-open jump on Linux
 - **THEN** a tooltip shows its name with the key N, and its `aria-keyshortcuts` is `N`
 
-#### Scenario: Answer's keys
-- **WHEN** the pointer rests on an enabled "Answer" on macOS
+#### Scenario: The primary button's keys
+- **WHEN** the pointer rests on an enabled primary button on macOS
 - **THEN** a tooltip shows its name with ⌘↩, and its `aria-keyshortcuts` is `Control+Enter Meta+Enter`
 
 ### Requirement: The board's keys panel
@@ -117,13 +117,13 @@ The header SHALL show a "Keys" button on a board that is not closed or discarded
 ### Requirement: The user's keys on the board's own keys
 The board's key handlers, tooltips and keys panel SHALL take the board's key table with the user's key overrides applied, or its default keys when the user file sets none or they were not applied. A key the overrides took away SHALL be left to the browser, and a Snapshot SHALL use the default keys (NFR-12, AD-14).
 
-#### Scenario: Next open on another key
+#### Scenario: The next-open jump on another key
 - **WHEN** the user file gives next open `j` and the user presses `N`, then `J`, with the focus on an option
-- **THEN** `N` moves nothing, `J` does what "Next open" does, "Next open"'s tooltip shows J, its `aria-keyshortcuts` is `J`, and the "Board keys" panel marks next open as changed
+- **THEN** `N` moves nothing, `J` does what the next-open jump does, the jump's tooltip shows J, its `aria-keyshortcuts` is `J`, and the "Board keys" panel marks next open as changed
 
 #### Scenario: Answer with no key
 - **WHEN** the user file gives answer no key and the user presses `Mod+Enter` on an option of a question with a choice
-- **THEN** nothing is sent, "Answer"'s tooltip shows its name with no key, and the panel lists answer with "no key"
+- **THEN** nothing is sent, the primary button's tooltip shows the action's name with no key, and the panel lists answer with "no key"
 
 ## MODIFIED Requirements
 

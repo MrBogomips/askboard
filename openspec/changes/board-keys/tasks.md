@@ -8,7 +8,7 @@ Terms used below:
 - **"File run"** means `ASKBOARD_E2E_ENGINES=chromium,firefox,webkit ASKBOARD_E2E_TARGET=session-process bun test ./packages/view/test/browser/<file>`, after `bun run build`. One browser process at a time on the machine.
 - **"The fixture"** means `packages/view/test/browser/fixtures/answering-flow-asks.ts` (from `answering-flow-fixes`): nine questions in three areas as sections, tabs and one question per view, a required field and a pattern field `^[A-Z]{2}-\d{4}$`, four recommendations, and a single-question ask. Tasks that need a Ranking, a Tree or a multiple choice add asks to a fixture module of this change, `fixtures/board-keys-asks.ts`, with neutral content only (the repository is public).
 - **"Dn"** refers to design.md. A requirement cited by name is in this change's delta specs (`specs/<capability>/spec.md`).
-- The board's table is `BOARD_KEYS` (D1). "In effect" means with the user's overrides applied (D6). Tests name actions by ID (`board.nextOpen`) and the header's jump by `/^Next open/` and `/^Prossima aperta/`, so they hold before and after `icon-set` drops the glyph.
+- The board's table is `BOARD_KEYS` (D1). "In effect" means with the user's overrides applied (D6). Tests name actions by ID (`board.nextOpen`), the header's jump by `/^Next open/` and `/^Prossima aperta/` (before change 4) or by `HeaderCounts`' button, and a question's primary button by `[data-askboard-primary]` inside its card, never by the name "Answer", so they hold before and after `icon-set`'s and change 4's renames.
 - Commit bodies say `Refs #187`. Each group commits its own paths only (`git add <paths>`, never `-a`).
 - Every new browser file is listed in `packages/view/test/browser/harness/suites.ts` with no `engines` restriction, so it runs in Chromium, Firefox and WebKit. Waits are probes (`eventually`) or `quiet(reason)`, never fixed sleeps, and no time bound is asserted. `Mod` is `Meta` on macOS and `Control` elsewhere: read it from the harness's platform, never hard-code one.
 
@@ -67,7 +67,7 @@ Terms used below:
 
   Verify: every case fails first, then passes after 2.5; 100% line coverage of `board-key-scope.ts`.
 - [ ] 2.3 Tests first, the answer verdict and the previous open question (D3, D4). In a new `shell/answer-key.test.ts`:
-  - `answerKeyOf` gives `press` when "Answer" is enabled.
+  - `answerKeyOf` gives `press` when the primary button is enabled.
   - It gives `announce` with `status.answerChangePending` when a change is pending, with a field to fix as well.
   - It gives `announce` with `status.answerBlocked` and `{reason}` for a field to fix.
   - It gives `announce` with `status.answerEmpty` for nothing chosen on an answerable open question.
@@ -100,7 +100,7 @@ Terms used below:
   - A prevented key, a repeat, a composing press, an unavailable twin (no "Next open", no target, no Keys button).
   - `board.answer`, which the listener never runs.
 
-  A two-way test reads `BOARD_KEYS`' `tool` entries of part `board` and the rendered header and card. Each such entry has a control carrying its `aria-keyshortcuts` ("Next open" `N`; "Answer" in group 4). Each of those controls has an entry. Verify: the tests fail first, then pass after 3.5.
+  A two-way test reads `BOARD_KEYS`' `tool` entries of part `board` and the rendered header and card. Each such entry has a control carrying its `aria-keyshortcuts` (the jump `N`; the primary in group 4). Each of those controls has an entry. Verify: the tests fail first, then pass after 3.5.
 - [ ] 3.2 Tests first, the tooltips and the Keys button (The board's keys are discoverable; The board's keys panel; The user's keys on the board's own keys; D5). Server-render tests of `BoardHeader`:
   - "Next open" carries `aria-keyshortcuts="N"`, and `J` under overrides `{"board.nextOpen": ["j"]}`; with `[]` it carries none.
   - The header shows "Keys" on a live board and on the single-question board, and none on an ended board. Its `aria-keyshortcuts` is `?`.
@@ -139,15 +139,15 @@ Terms used below:
 
 ## 4. View: the answer key and the composer
 
-- [ ] 4.1 Tests first, the card's and the composer's keys against the table (The board's key table matches its handlers; The board's keys are discoverable, "Answer" and "Send"; D4, D5, D6):
-  - Server-render tests of `ActionsRow`: an enabled "Answer" carries `aria-keyshortcuts="Control+Enter Meta+Enter"`; a blocked one keeps `aria-describedby` pointing at the reason's element; under `{"board.answer": []}` it carries no `aria-keyshortcuts`.
+- [ ] 4.1 Tests first, the card's and the composer's keys against the table (The board's key table matches its handlers; The board's keys are discoverable, the primary and "Send"; D4, D5, D6):
+  - Server-render tests of `ActionsRow`: the primary button carries `data-askboard-primary`; an enabled primary carries `aria-keyshortcuts="Control+Enter Meta+Enter"`; a blocked one keeps `aria-describedby` pointing at the reason's element; under `{"board.answer": []}` it carries no `aria-keyshortcuts`.
   - A thread test: the composer's "Send" carries the same `aria-keyshortcuts`, and the thread's section carries `data-askboard-thread`.
   - `thread-text.test.ts`'s `isSendKey` cases are replaced by cases of the composer's table match. Ctrl+Enter and Cmd+Enter send. Enter, Shift+Enter, Ctrl+Shift+Enter, Ctrl+Cmd+Enter and an Enter while an input method composes do not. Under `{"board.sendFollowUp": ["Mod+Alt+Enter"]}` only that combination sends.
 
   Verify: the tests fail first, then pass after 4.3.
-- [ ] 4.2 Browser tests in a new `packages/view/test/browser/answer-key.browser.ts`, listed in `suites.ts`, one case per scenario of "Answer by key", "A blocked answer by key" and "Follow-up thread":
+- [ ] 4.2 Browser tests in a new `packages/view/test/browser/answer-key.browser.ts`, listed in `suites.ts`, one case per scenario of "Answer by key", "A blocked answer by key" and "Follow-up thread", finding each primary by `[data-askboard-primary]` inside its card:
   - Immediate delivery: "PostgreSQL" is sent, the focused option is not selected, focus is on the heading, and one command reaches `board-host`.
-  - Submitted delivery: ready, "Answer ready, not sent" in the status region, the pill "Waiting".
+  - Submitted delivery: ready, `status.ready`'s message in the status region, the pill "Waiting".
   - A multiple choice's box not flipped.
   - `Mod+Enter` on a focused "Postpone": the question is answered and not postponed.
   - The single-question board, from the heading.
@@ -161,7 +161,7 @@ Terms used below:
   Each case counts the commands `board-host` receives. Tests: the file itself. Verify: the file run passes in Chromium, Firefox and WebKit, and fails on the base head for the key cases.
 - [ ] 4.3 Implement D4, D5 and D6's card and composer parts:
   - `question-card.tsx`: the section's `onKeyDown`, through `answerKeyOf`, `onAnswer(target)` and `context.status.announce`.
-  - `question-actions.tsx`: `KeyHint` on "Answer".
+  - `question-actions.tsx`: `KeyHint` on the primary button, and `data-askboard-primary` on it (D4).
   - `thread.tsx`: the table match in the composer, `KeyHint` on "Send", and `data-askboard-thread`.
   - `thread-text.ts`: `isSendKey` removed.
 
@@ -187,7 +187,7 @@ Terms used below:
 - [ ] 6.1 Documents (D9):
   - PRD NFR-12: the added sentence.
   - EXPERIENCE.md: the Accessibility Floor's Keyboard core and Shortcuts items, the Next-open jump and Context header rows, D8's Voice and Tone rows with "(to review)" on Italian strings outside report §4, and Open Items 21 closed.
-  - DESIGN.md: the Context header's Keys button, the key hint on "Next open", "Answer" and "Send", and the board's keys panel.
+  - DESIGN.md: the Context header's Keys button, the key hint on the next-open jump, the question's primary button and "Send", and the board's keys panel.
 
   Tests: none (documents). Verify: `grep -n "Open Items 21" docs/ux-askboard-2026-10-27/EXPERIENCE.md` shows it closed by `board-keys`; no sentence of the floor still says the board's keys or the composer's modifier are not recorded; NFR-12 holds the sentence.
 - [ ] 6.2 Chunk sizes: `bun run build:view --record-sizes`, then commit `packages/view/chunk-sizes.json`. Tests: the view build's size check. Verify: the note records the shell and board-page sizes before and after, and the build passes without the flag.
@@ -196,7 +196,7 @@ Terms used below:
 - [ ] 6.5 Integration: the check, `bun run test:e2e` (the header gains a Tab stop and two browser files are added), and `npx --yes @fission-ai/openspec@1.15.0 validate --all --strict --no-interactive`. Tests: the suites. Verify: each passes, and the note records the counts; a test that walked the header's Tab order and now fails is updated to include "Keys", with the file named in the note.
 - [ ] 6.6 Rebase (askboard-contract-versioning) once #212 has merged:
   - `git fetch origin`, a backup branch, then `git rebase --onto origin/main 9eb5f364`.
-  - Resolve per design.md's Merge points (`icon-set`, change 4 if merged).
+  - Resolve per design.md's Merge points (`icon-set`, change 4 if merged). If change 4 merged first: `previousOpenFrom` and the requirement "Next and previous open by key" mirror its `nextOpenFrom` order (test first in `board-view.test.ts`), `keys.action.board.previousOpen` reads "Previous to do" / "Precedente da fare", one `data-askboard-primary` stays on the primary, and `SKILL.md` is re-checked against `HELP_BUDGETS`.
   - Re-check every borrowed name with `git grep -n` on the rebased head.
   - Regenerate the skills (`bun run build:skills`) and re-record the chunk sizes.
   - Confirm no contract set moved: compare `git grep -nE '^export const [A-Z_]+_(VERSION|FORMAT) = "' origin/main -- packages/contract/src` with the head.
