@@ -32,6 +32,36 @@ export const revealDelta = (
   return 0;
 };
 
+/** The longest the smooth move lasts, in milliseconds (WCAG 2.2 SC 2.3.3; design decision 4). */
+export const SCROLL_MS = 250;
+
+/** The time between two frames, in milliseconds: about 60 a second. */
+export const FRAME_MS = 16;
+
+/** One frame of the smooth move: the scroll position to set `at` milliseconds from its start. */
+export type ScrollFrame = { readonly at: number; readonly y: number };
+
+/**
+ * The frames of a smooth scroll from `from` to `to`, pure: ease-out (cubic), one frame every
+ * `FRAME_MS`, the last at `duration` capped at `SCROLL_MS` and exactly on `to`. A zero delta or
+ * no duration gives the one frame, at 0. `revealAndFocus` drives these with `requestAnimationFrame`.
+ */
+export const scrollFrames = (
+  from: number,
+  to: number,
+  duration: number,
+): readonly ScrollFrame[] => {
+  const total = Math.min(duration, SCROLL_MS);
+  if (from === to || total <= 0) return [{ at: 0, y: to }];
+  const frames: ScrollFrame[] = [];
+  for (let at = FRAME_MS; at < total; at += FRAME_MS) {
+    const left = 1 - at / total;
+    frames.push({ at, y: from + (to - from) * (1 - left ** 3) });
+  }
+  frames.push({ at: total, y: to });
+  return frames;
+};
+
 /** Scrolls `element` clear of the bars, at once, then gives it focus without scrolling again. */
 export const revealAndFocus = (element: HTMLElement): void => {
   const doc = element.ownerDocument;

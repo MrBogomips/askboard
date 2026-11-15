@@ -55,3 +55,81 @@ export const addedMessageOf = (questions: readonly ViewQuestion[]): StatusMessag
   const { header, text } = only.props;
   return { key: "status.added", params: { count: 1, title: cut(header ?? text) } };
 };
+
+/** The question the board went to, as the message names it: its title and its place on the board. */
+export type NextTarget = { readonly title: string; readonly n: number; readonly m: number };
+
+/** "Next: {title}, {n} of {m}.": the title is the agent's, so it goes in as text, cut at 80. */
+export const nextMessageOf = ({ title, n, m }: NextTarget): StatusMessage => ({
+  key: "status.next",
+  params: { title: cut(title), n, m },
+});
+
+const withNext = (
+  messages: readonly StatusMessage[],
+  next?: NextTarget,
+): readonly StatusMessage[] => (next === undefined ? messages : [...messages, nextMessageOf(next)]);
+
+/**
+ * The messages for a command that was sent, as `sentMessageOf` says them, and after them, when the
+ * flow recorded a question for the acted one at the act, where the board went. A revision says the
+ * change was sent and never moves. Said when the board page reports the command sent, never earlier.
+ */
+export const sentMessagesOf = (
+  via: "answer" | "submit",
+  acts: readonly ViewAct[],
+  { next, revision = false }: { readonly next?: NextTarget; readonly revision?: boolean } = {},
+): readonly StatusMessage[] => {
+  if (revision && via === "answer" && acts.some((act) => act.type === "answer")) {
+    return [{ key: "status.changeSent" }];
+  }
+  const sent = sentMessageOf(via, acts);
+  return sent === undefined ? [] : withNext([sent], next);
+};
+
+/** A postpone that took effect, and where the board went. */
+export const postponedMessagesOf = (next?: NextTarget): readonly StatusMessage[] =>
+  withNext([{ key: "status.postponed" }], next);
+
+/** A decline that took effect, and where the board went. */
+export const declinedMessagesOf = (next?: NextTarget): readonly StatusMessage[] =>
+  withNext([{ key: "status.declined" }], next);
+
+/** A held answer lost its ready mark to a field: the field to fix (`fieldToFixOf`'s label). */
+export const readyLostMessageOf = (label: string): StatusMessage => ({
+  key: "status.readyLost",
+  params: { label: cut(label) },
+});
+
+/** An area has nothing left to do. */
+export const areaDoneMessageOf = (area: string): StatusMessage => ({
+  key: "status.areaDone",
+  params: { area: cut(area) },
+});
+
+/** Every question has an answer: the two lines of the completion panel, counted from receipts. */
+export const allAnsweredMessagesOf = ({
+  sent,
+  delivered,
+}: {
+  readonly sent: number;
+  readonly delivered: number;
+}): readonly StatusMessage[] => [
+  { key: "completion.title" },
+  { key: "completion.counts", params: { s: sent, d: delivered } },
+];
+
+/** "All together": nothing is left to do and nothing has been sent. */
+export const allReadyMessageOf = (): StatusMessage => ({ key: "bar.allReady" });
+
+/** "Undo" of a prefill took effect. */
+export const prefillUndoneMessageOf = (): StatusMessage => ({ key: "status.prefillUndone" });
+
+/** The delivered count, from receipts that read delivered (the gate decides when it is said). */
+export const deliveredMessageOf = ({
+  sent,
+  delivered,
+}: {
+  readonly sent: number;
+  readonly delivered: number;
+}): StatusMessage => ({ key: "status.delivered", params: { d: delivered, s: sent } });
