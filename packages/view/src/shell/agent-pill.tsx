@@ -33,7 +33,7 @@ export const AgentPill = ({
   readonly header: Store<HeaderData>;
   readonly status: Pick<StatusMessages, "announce">;
 }) => {
-  const { agent } = useSyncExternalStore(header.subscribe, header.get);
+  const { agent } = useSyncExternalStore(header.subscribe, header.get, header.get);
   const text = useStrings();
   // A change to waiting is announced; the first report, which is no change, is not.
   const before = useRef<AgentStatus | undefined>(undefined);

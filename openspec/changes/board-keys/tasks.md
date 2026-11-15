@@ -100,26 +100,26 @@ Terms used below:
 
 ## 3. View: next and previous open, and the board's keys panel
 
-- [ ] 3.1 Tests first, the key table against the handler and the header (The board's key table matches its handlers; D3). The pure part of `shell/use-board-keys.ts`, `boardKeyActOf(table, press, scope, available, prevented, repeat)`, gives the action to run or none. In a new `use-board-keys.test.ts`:
+- [x] 3.1 Tests first, the key table against the handler and the header (The board's key table matches its handlers; D3). The pure part of `shell/use-board-keys.ts`, `boardKeyActOf(table, press, scope, available, prevented, repeat)`, gives the action to run or none. In a new `use-board-keys.test.ts`: Done 2026-11-15. `use-board-keys.test.ts`, 20 tests over `boardKeyActOf` (each binding in each scope, with Alt, Ctrl, Cmd, Shift added, prevented, repeat, composing, text, unavailable twin, the answer key never run, the user's keys). The two-way check is in `board-header-keys.test.ts`: the header carries exactly `N` and `?`; the primary's side comes with group 4. The `useBoardKeys` listener is in `shell/board-keys-listener.ts`, not in `use-board-keys.ts` (it is DOM only, like `use-question-in-view.ts`, and a file under the per-file coverage floor would fail the test script); `boardKeyActOf` and `useBoardKeyTable` stay in `use-board-keys.ts`.
   - Each binding of the board's table with each scope.
   - Each binding with Alt, Ctrl, Cmd or Shift added.
   - A prevented key, a repeat, a composing press, an unavailable twin (no "Next open", no target, no Keys button).
   - `board.answer`, which the listener never runs.
 
   A two-way test reads `BOARD_KEYS`' `tool` entries of part `board` and the rendered header and card. Each such entry has a control carrying its `aria-keyshortcuts` (the jump `N`; the primary in group 4). Each of those controls has an entry. Verify: the tests fail first, then pass after 3.5.
-- [ ] 3.2 Tests first, the tooltips and the Keys button (The board's keys are discoverable; The board's keys panel; The user's keys on the board's own keys; D5). Server-render tests of `BoardHeader`:
+- [x] 3.2 Tests first, the tooltips and the Keys button (The board's keys are discoverable; The board's keys panel; The user's keys on the board's own keys; D5). Server-render tests of `BoardHeader`: Done 2026-11-15. `board-header-keys.test.ts` (6 tests) renders `HeaderActions`, a new `shell/header-actions.tsx` split out of `board-header.tsx` (the counts, the jump with its `KeyHint`, the Keys button): `BoardHeader` itself pulls in `who-and-where.tsx`, `agent-pill.tsx` and `markers.tsx`, which are browser-checked and under the coverage floor if a unit test imports them. `agent-pill.tsx` and `who-and-where.tsx` gained the server snapshot argument. The order (after Next open, before Settings) is checked in the browser file.
   - "Next open" carries `aria-keyshortcuts="N"`, and `J` under overrides `{"board.nextOpen": ["j"]}`; with `[]` it carries none.
   - The header shows "Keys" on a live board and on the single-question board, and none on an ended board. Its `aria-keyshortcuts` is `?`.
 
   Verify: the tests fail first, then pass after 3.5.
-- [ ] 3.3 Tests first, the board's keys panel (The board's keys panel; D5). Server-render tests of the panel's body in `board-keys-panel.test.ts`:
+- [x] 3.3 Tests first, the board's keys panel (The board's keys panel; D5). Server-render tests of the panel's body in `board-keys-panel.test.ts`: Done 2026-11-15. `board-keys-panel.test.ts` (7 tests): title in both languages, the groups, the note, "customised" and "no key", no edits lists the navigation keys, no agent markup, and `useBoardPanel` opening from the focused element and from the Keys button.
   - The title is "Board keys" ("Tasti della board").
   - The groups follow 2.1, with D8's note, the "customised" mark under `{"board.nextOpen": ["j"]}` and "no key" under `{"board.answer": []}`.
   - With `takesEdits` false it lists only the navigation keys.
   - It holds no agent text: render with a board whose title and options hold markup, and find none of it in the panel.
 
   Verify: the tests fail first, then pass after 3.5.
-- [ ] 3.4 Browser tests in a new `packages/view/test/browser/board-keys.browser.ts`, listed in `suites.ts`, on the fixture and `board-keys-asks.ts`, one case per scenario of "Next and previous open by key", "The board's keys are discoverable" ("Next open"), "The board's keys panel" and "The user's keys on the board's own keys":
+- [x] 3.4 Browser tests in a new `packages/view/test/browser/board-keys.browser.ts`, listed in `suites.ts`, on the fixture and `board-keys-asks.ts`, one case per scenario of "Next and previous open by key", "The board's keys are discoverable" ("Next open"), "The board's keys panel" and "The user's keys on the board's own keys": Done 2026-11-15. `board-keys.browser.ts` (11 cases) and `fixtures/board-keys-asks.ts`, listed in `suites.ts`; 11 of 11 pass in Chromium, Firefox and WebKit. Covered: N, Shift+N, Shift+N clear of the bars, one question per view, tabs, typing in the note and in Other…, a Ranking row (N moves nothing, `?` opens the Ranking's panel), a newly opened board before and after a click, single-question board, Alt+N and Ctrl+N, `?` then Escape, the header's Keys, a user file giving `j`. Not run on the base head: the implementation was in place before the file ran. Defect found: in one question per view the jump started from "no question in view" and so went to the first question, the one shown; `board.tsx` now starts both jumps from the first question there (`viewing`), which also fixes the header button's first press.
   - From an option: `N`, `Shift+N`, `Shift+N`, each heading clear of the bars, measured with `measureInset`'s edges.
   - Wrapping back.
   - One question per view.
@@ -134,7 +134,7 @@ Terms used below:
   - A user file giving next open `j`, set as `keys-config.browser.ts` sets it.
 
   Tests: the file itself. Verify: the file run passes in Chromium, Firefox and WebKit, and fails on the base head for the key cases.
-- [ ] 3.5 Implement D3, D5 and D6's view part:
+- [x] 3.5 Implement D3, D5 and D6's view part: Done 2026-11-15. New `shell/use-board-keys.ts`, `board-keys-listener.ts`, `board-keys-panel.tsx`, `header-actions.tsx`; `board.tsx` (+about 25 lines, 520 in all), `board-header.tsx`. The check is green (14,878 tests), `test:e2e:smoke` passes, and `lifecycle-presentations`, `lifecycle-header`, `answering-flow-focus`, `lifecycle-keyboard` and `header` pass in Chromium.
   - `shell/use-board-keys.ts`, with `useBoardKeys` and `useBoardKeyTable`.
   - `shell/board-keys-panel.tsx`.
   - In `board.tsx`, the hook, `previousOpen` through `go`, and the panel's open control.

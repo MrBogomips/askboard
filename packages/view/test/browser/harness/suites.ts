@@ -104,6 +104,7 @@ export const BROWSER_FILES: Readonly<Record<string, BrowserFileEntry>> = {
   "kanban.browser.ts": {},
   "keep-mine-reload-session.browser.ts": {},
   "keys-browser.browser.ts": {},
+  "board-keys.browser.ts": {},
   "keys-config.browser.ts": {},
   "keys-help.browser.ts": {},
   "languages.browser.ts": {},
