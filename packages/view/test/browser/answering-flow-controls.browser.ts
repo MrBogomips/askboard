@@ -126,11 +126,12 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
 
         const single = await start(lifecycleScenario(singleAnsweringAsk, dist));
         const only = await openBoard(single, ["only"]);
-        expect(
-          await bar(only)
-            .getByText(/^Answers (stay|go)/)
-            .count(),
-        ).toBe(0);
+        // Neither helper text shows anywhere on the single board (each was found on the other).
+        for (const language of ["en-US", "it-IT"] as const) {
+          for (const text of Object.values(HELPER[language])) {
+            expect(await only.view.getByText(text, { exact: true }).count()).toBe(0);
+          }
+        }
       },
       TEST_TIMEOUT_MS,
     );

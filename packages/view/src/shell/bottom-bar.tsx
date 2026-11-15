@@ -116,9 +116,9 @@ export const BottomBar = (props: BottomBarProps) => {
   >();
   const submitButton = useRef<HTMLButtonElement>(null);
   const immediateButton = useRef<HTMLButtonElement>(null);
-  // What the replace dialog's Submit did, for where focus goes once it has closed: "submitted" sent
-  // (the heading), "switched" sent and switched to immediate delivery (the switch, since Submit is
-  // disabled there), nothing: back to Submit.
+  // What the replace dialog's Send did, for where focus goes once it has closed: "submitted" sent
+  // (the heading), "switched" sent and switched to immediate delivery (the switch, since Send is
+  // absent there), nothing: back to Send.
   const sent = useRef<"submitted" | "switched" | undefined>(undefined);
   const text = useStrings();
   const language = useLanguage();
@@ -321,13 +321,16 @@ export const BottomBar = (props: BottomBarProps) => {
           <AlertDialog.Content
             className={DIALOG}
             onCloseAutoFocus={(event) => {
-              // The dialog has no trigger, so Radix restores no focus: the heading after a send, the switch after Send and switch, Submit when nothing was sent (D1).
+              // The dialog has no trigger, so Radix restores no focus: the heading after a send, the
+              // switch after Send and switch, Send when nothing was sent (D1). The dialog opens
+              // only from Send, in "All together", and the mode changes only through the "switched"
+              // path above, so Send is always there when nothing was sent.
               event.preventDefault();
               const did = sent.current;
               sent.current = undefined;
               if (did === "submitted") props.onSubmitted?.();
               else if (did === "switched") immediateButton.current?.focus();
-              else (submitButton.current ?? immediateButton.current)?.focus();
+              else submitButton.current?.focus();
             }}
           >
             <AlertDialog.Title className="text-body-lg font-semibold">

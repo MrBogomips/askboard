@@ -12,7 +12,7 @@ const base: PrimaryInputs = {
   revision: false,
 };
 const key = (change: Partial<PrimaryInputs>) => primaryLabelOf({ ...base, ...change });
-// "Send answer" is the value of `question.answer` once the wording task (4.2) lands: here its key.
+// The label as the catalogue gives it, in the ask's language.
 const label = (change: Partial<PrimaryInputs>, language: "en-US" | "it-IT" = "en-US") =>
   t(language, primaryLabelOf({ ...base, ...change }));
 

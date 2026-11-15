@@ -7,7 +7,7 @@
 import { describe, expect, test } from "bun:test";
 import type { Locator } from "playwright";
 import { answeringAsk, type Language } from "./fixtures/answering-flow-asks.ts";
-import { singleAsk } from "./fixtures/lifecycle-asks.ts";
+import { singleRequestingMoreAsk } from "./fixtures/lifecycle-asks.ts";
 import {
   eventually,
   expectNoCspProblem,
@@ -204,6 +204,10 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await reads(answerOf(italian.board, "q1"), "Invia risposta");
         expect(await labelOf(postponeOf(italian.board, "q1"))).toBe("Più tardi");
         await buttonOf(italian.board, "q1", "Altro").waitFor({ timeout: STEP_TIMEOUT_MS });
+        // In All together the same ask's primary confirms.
+        const together = await open(start, { language: "it-IT", delivery: "submitted" });
+        await yes(together.board, "q1", "it-IT").check({ timeout: STEP_TIMEOUT_MS });
+        await reads(answerOf(together.board, "q1"), "Conferma");
         await italian.board.view
           .getByRole("button", { name: "Impostazioni", exact: true })
           .waitFor({ timeout: STEP_TIMEOUT_MS });
@@ -214,7 +218,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     test(
       "the single-question board: Send answer, Later, no Send and no mode switch",
       async () => {
-        const run = await start(lifecycleScenario(singleAsk, dist));
+        // Submitted delivery, so that the absence of Send and of the switch is the single board's
+        // own doing and not immediate delivery's.
+        const run = await start(lifecycleScenario(singleRequestingMoreAsk, dist));
         const board = await openBoard(run, ["database"]);
         await optionOf(board, "database", "PostgreSQL").check({ timeout: STEP_TIMEOUT_MS });
         await reads(answerOf(board, "database"), "Send answer");
@@ -232,12 +238,12 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await board.header.getByText("9 to do", { exact: true }).waitFor({
           timeout: STEP_TIMEOUT_MS,
         });
-        expect((await labelOf(board.nextToDo)).startsWith("Next to do")).toBe(true);
+        expect(await labelOf(board.nextToDo)).toBe("Next to do");
         const italian = await open(start, { language: "it-IT" });
         await italian.board.header
           .getByText("9 da fare", { exact: true })
           .waitFor({ timeout: STEP_TIMEOUT_MS });
-        expect((await labelOf(italian.board.nextToDo)).startsWith("Prossima da fare")).toBe(true);
+        expect(await labelOf(italian.board.nextToDo)).toBe("Prossima da fare");
       },
       TEST_TIMEOUT_MS,
     );

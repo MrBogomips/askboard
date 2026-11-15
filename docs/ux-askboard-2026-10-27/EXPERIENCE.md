@@ -174,7 +174,7 @@ Act names. The requirements of the view capability call the question's primary b
 | Tree and Gantt chrome | "Cannot drop inside its own branch / At most 8 levels" (to review) | "Impossibile rilasciare nel suo stesso ramo / Al massimo 8 livelli" (to review) | OpenSpec change `widget-editing-plus`, F-04 |
 | Tree and Gantt chrome | "More / Copy path" (to review) | "Altro / Copia percorso" (to review) | OpenSpec change `widget-editing-plus`, F-04 |
 | Bottom action bar | "Sending answers", "One by one \| All together", "Select recommended", "Snapshot", "Send {count} answers" | "Invio delle risposte", "Una alla volta \| Tutte insieme", "Seleziona le consigliate", "Snapshot", "Invia {count} risposte" | Structural mock, L170 |
-| Delivery helper | "Answers go to the agent as you give them.", "Answers stay here until you press \"Submit\"." | "Le risposte arrivano all'agente man mano che le dai." (to review), "Le risposte restano qui finché non premi «Invia le risposte»." | UX review 1.1.0 §4, #183 |
+| Delivery helper | "Each answer goes to the agent as soon as you send it.", "Answers stay here until you press \"Send answers\"." | "Ogni risposta parte appena la invii.", "Le risposte restano qui finché non premi «Invia le risposte»." | UX review 1.1.0 §4, #183 |
 | Agent-change notice | "The agent updated this", "Your 17 changes on this question" (with the count), "Show the agent's change", "Reload, losing my work", "Keep mine"; under an edit widget made read-only after a reload or a takeover, "Read-only: your work on this question keeps an earlier version, which this tab can no longer show." (to review) | "L'agente ha aggiornato questa domanda", "Le tue 17 modifiche a questa domanda" (con il numero), "Mostra la modifica dell'agente", "Ricarica, perdendo il mio lavoro", "Tieni le mie"; "In sola lettura: il tuo lavoro su questa domanda mantiene una versione precedente, che questa scheda non può più mostrare." (to review) | L58, F-19, OpenSpec change `keep-mine-shown-revision` |
 | Deleted item | "Removed by the agent" [ASSUMPTION] | "Rimosso dall'agente" (to review) | L60 |
 | Board banner | "Connection lost, retrying"; "Your unsent work was not sent", "Copy my unsent work"; "Continue here" | "Connessione persa, nuovo tentativo in corso"; "Il lavoro non inviato non è stato inviato", "Copia il mio lavoro non inviato"; "Continua qui" (to review) | L85, L139, F-17, F-58 |
@@ -211,7 +211,7 @@ Act names. The requirements of the view capability call the question's primary b
 | WBS with PERT | Columns "Work package", "Optimistic", "Most likely", "Pessimistic", "Expected effort", "Spread" (to review) | — | L200 (T-5) |
 | Gantt plan | Columns "Task", "Start", "Duration"; zoom "Day \| Week \| Month" (to review) | — | L200 (T-5) |
 | Bottom action bar | "Sending answers", "One by one \| All together", "Select recommended", "Snapshot", "Send {count} answers" | — | Structural mock, L170 |
-| Delivery helper | "Answers go to the agent as you give them.", "Answers stay here until you press \"Submit\"." | "Le risposte arrivano all'agente man mano che le dai.", "Le risposte restano qui finché non premi «Invia le risposte»." | UX review 1.1.0 §4, #183 |
+| Delivery helper | "Each answer goes to the agent as soon as you send it.", "Answers stay here until you press \"Send answers\"." | "Ogni risposta parte appena la invii.", "Le risposte restano qui finché non premi «Invia le risposte»." | UX review 1.1.0 §4, #183 |
 | Agent-change notice | "The agent updated this", "Your 17 changes on this question" (with the count), "Show the agent's change", "Reload, losing my work", "Keep mine" | — | L58, F-19 |
 | Deleted item | "Removed by the agent" [ASSUMPTION] | — | L60 |
 | Board banner | "Connection lost, retrying"; "Your unsent work was not sent", "Copy my unsent work"; "Continue here" | — | L85, L139, F-17, F-58 |
@@ -543,7 +543,7 @@ Visual contrast lives in DESIGN.md, Colors.
   - in one question per view, to the new question's heading on navigation;
   - after Postpone or Decline, to the question's heading;
   - after "Answer" or "Accept recommended" sends at once, and after a confirmed revision, to the question's heading; marking an answer ready keeps focus on "Answer";
-  - after Submit sends, to the heading of the question in view; after "Send and switch" sends (through the replace confirmation or not), to the switch's "Immediate";
+  - after Send sends, to the heading of the question in view; after "Send and switch" sends (through the replace confirmation or not), to the switch's "Immediate";
   - after the agent deletes the question that holds focus, to the next question's heading;
   - when the ask closes or is discarded, to the banner;
   - after the reading panel or a comment card closes, back to the reference or the pin (F-03, F-35);
@@ -610,7 +610,7 @@ The PRD's journeys are mirrored with their names and steps verbatim (§2.4), and
    - The two fixes arrive as patch files under the worktree, applying to its files as they stand, and AskBoard diffs them, so the agent writes no diff text. Which fix to keep is a single-choice option on the question, with nothing preselected, and "Fix A \| Fix B \| A vs B" switches between them (L108, L182, F-25).
    - The Graph opens in the layout AskBoard computes (L160).
 2. "A notification and a link in the terminal bring the board up". *UX:* The notification names who asked, where, the ask's title and "2 questions". The board comes to the front unless Luca is working on another board of the same Claude Code session; then the notification or the terminal link opens it (Notices, Bring to front). With the mod, the terminal notice also lists Luca's pending asks (L65, L141, L157, F-49).
-3. "its context header shows the project, the branch, the worktree and that the agent is still working." *UX:* Row 1 reads "Main agent · <name>" and the fields. Row 2 reads "Waiting", "Agent: Working" (`{components.state-pill-agent-working}`), "2 open" and "Next open ↓" (L46, L50, L86, F-08, F-87).
+3. "its context header shows the project, the branch, the worktree and that the agent is still working." *UX:* Row 1 reads "Main agent · <name>" and the fields. Row 2 reads "Waiting", "Agent: Working" (`{components.state-pill-agent-working}`), "2 to do" and "Next to do" (L46, L50, L86, F-08, F-87).
 4. "Luca writes a follow-up asking why the second fix touches the queue, and the agent's reply appears beside the question." *UX:* The thread opens inline under the question and the composer sits at its foot. The follow-up goes at once, and the reply is appended to the thread without an agent-change notice. If Luca has moved on, the reply is marked unread and "1 new reply" leads back to it (L45, AD-20, F-20).
 5. **Climax.** "Luca accepts one change, rejects another, removes a transition from the state machine and answers". *UX:*
    - Luca picks the fix to keep among the question's options. The ✓ and ✕ controls work per line, or per file, and his decisions are kept per fix (F-25).
