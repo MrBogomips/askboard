@@ -73,7 +73,7 @@ Task 3.2 follows groups 1 and 2, since it records their names and #198's cause. 
 
 ## 2. Reopen-session case (g) (#198)
 
-- [ ] 2.1 Reproduce case (g) and find its root cause (decision 8; `openspec/specs/view-and-widgets/spec.md`, scenario "A closed ask after a reload"). Tests: none (probe). Any instrumentation is a temporary edit and is not committed.
+- [x] 2.1 Reproduce case (g) and find its root cause (decision 8; `openspec/specs/view-and-widgets/spec.md`, scenario "A closed ask after a reload"). Tests: none (probe). Any instrumentation is a temporary edit and is not committed.
   - Run case (g) alone in Chromium with `--rerun-each 10`.
   - Then add load until it fails: a browser run of the whole set with `--engines chromium`, three times; then Chromium's CPU throttling (CDP `Emulation.setCPUThrottlingRate`, 4) on case (g)'s page.
   - On a failing run, log with timestamps:
@@ -87,7 +87,8 @@ Task 3.2 follows groups 1 and 2, since it records their names and #198's cause. 
     - #198 has a comment with the cause, the evidence and the corrected Expected (design.md, Open Questions). For H3, the comment also moves #198 from `sev:M` to `sev:L`.
   - If nothing fails locally, dispatch the browser workflow on the branch for Chromium with the logging (design.md, Risks).
   - If the cause needs a spec change, stop for `/opsx:update`.
-- [ ] 2.2 Fix the cause, tests first (decision 8; NFR-10, AD-10).
+  - Note (Refs #198): the cause is H3, the test; no spec change. Chromium, `--rerun-each 10`, alone on `main` at 16c6d23f: 4 of 10 failed in the first run (the sibling session's timed runs shared the machine), then about 110 runs alone, under 6 parallel runs with CPU hogs, and with CDP throttling 4 and 20, all passed (so no load failed again). A temporary 600 ms pause between the move and Answer fails 3 of 3. Frame log (temporary, not committed): the move's record (`plan`, rev 1) is mirrored 300 ms after the move and before the Answer; the empty record that replaces it goes out 300 ms after the answer; the reopen, the close and the reload come within about 110 ms, so `board-host` restores the stale record (`received draft {"plan":{"rev":1,...mobile 2026-01-12}}`). The session process sends one `state` for reopen and close together (`ask: "closed"`), so H1 and H2 cannot occur here: the prefill gate never sees an open ask. `promptArmed` is the view's state, not `board-host`'s record. Not run: the whole-set browser runs and the dispatch, since a deterministic repro of the cause was found. #198 has the comment with cause, evidence and the corrected Expected, and moved from `sev:M` to `sev:L`.
+- [x] 2.2 Fix the cause, tests first (decision 8; NFR-10, AD-10).
   - Product cause: a unit test in the package that holds the cause (for example `shell/reopen-prefill.test.ts`, the draft mirror's test, or `board-host`'s draft-record test). It reproduces 2.1's ordering with no browser or timer, and it fails before the fix. Then the fix: a closed ask is never filled, and its late records are refused.
   - Test cause: case (g) establishes its premise deterministically and keeps every assertion.
   - Verify:
@@ -96,6 +97,7 @@ Task 3.2 follows groups 1 and 2, since it records their names and #198's cause. 
     - `reopen-session.browser.ts` passes in a browser run with `--engines chromium,firefox,webkit`, and any other failure is mapped to #145;
     - `git diff` adds no `quiet` call or fixed wait and removes no assertion;
     - the check passes.
+  - Note (Refs #198): test cause, so no unit test; case (g) now waits, before the reopen and the close, for the last draft record the page sent to hold no work for the question (`eventually` over `sentDrafts`), which establishes "board-host holds no record" and keeps every assertion; no `quiet` or fixed wait added. The fix is in `packages/view/test/browser/reopen-session.browser.ts` only; no product code changed. Before the fix, with the 600 ms pause probe: 3 of 3 fail; after: 10 of 10 pass, and 3 concurrent runs of 8 under the same pause plus 6 CPU hogs pass (24 of 24); alone `--rerun-each 20`: 20 of 20. `reopen-session.browser.ts` in a browser run on chromium, firefox and webkit: 10 of 10 on each (no #145 failure); the whole-suite run of the three engines showed 37 other failures, unrelated to this file (not mapped here). The check passes: 14677 pass, 3 skip, 0 fail.
 - [ ] 2.3 Review checkpoint: spec review of group 2's range (askboard-spec-reviewer). Add a security review (askboard-security-reviewer) when the range touches `packages/view/src` or `packages/server/src`; otherwise the note says the range is test-only. Verify: every finding is fixed as a task, tests first, or recorded with its reason, and each review's range and verdict are in the note.
 
 ## 3. The workflow and the records (#196, #197, #198)

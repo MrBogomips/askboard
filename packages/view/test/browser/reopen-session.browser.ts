@@ -620,6 +620,14 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           async () => (await promptArmed(board)) === false,
           "no unsent work after the answer",
         );
+        // The premise: board-host holds no work for the question. The page mirrors a record 300 ms
+        // after its last change, so a move made more than that before the answer was mirrored, and
+        // the record that replaces it, empty, goes out only 300 ms after the answer; a reload before
+        // then restores the move from the stale record (Issue #198). Waits for the empty record.
+        await eventually(() => {
+          const last = sentDrafts(run).at(-1);
+          return last !== undefined && last.questions.plan === undefined;
+        }, "the record that holds no work for the question, mirrored after the answer");
         const mirroredBefore = sentDrafts(run).length;
 
         await run.session.update([{ action: "reopen", itemId: "plan" }, { action: "close" }]);
