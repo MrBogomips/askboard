@@ -133,7 +133,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await viewText(board, "First area").filter({ visible: true }).count()).toBe(1);
         const previous = navigator.getByRole("button", { name: "Previous", exact: true });
         const next = navigator.getByRole("button", { name: "Next", exact: true });
-        const nextOpen = board.header.getByRole("button", { name: "Next open ↓" });
+        const nextOpen = board.header.getByRole("button", { name: /^Next open/ });
         expect(await previous.isDisabled()).toBe(true);
         await answerYes(board, "q1");
         // Answering does not advance.
