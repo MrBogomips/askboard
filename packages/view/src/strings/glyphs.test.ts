@@ -30,4 +30,11 @@ describe("glyphs in strings", () => {
       expect(problems).toEqual([]);
     });
   }
+
+  for (const [language, table] of Object.entries(STRINGS)) {
+    test(`${language}: every exempted key exists, so a deleted string drops its exemption`, () => {
+      const missing = [...ARROW_EXEMPT].filter((key) => !Object.hasOwn(table, key));
+      expect(missing).toEqual([]);
+    });
+  }
 });

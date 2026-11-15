@@ -12,7 +12,7 @@ The board draws its marks as Unicode glyphs in strings and JSX (↓ → ↩ ↻ 
 - **One icon module, one chunk.** `packages/view/src/icons/index.ts`, exported as `@askboard/view/icons`, re-exports each icon the board uses under an AskBoard name, imported by its path (`lucide-react/icons/<name>`). A new library chunk, `icons`, provides it to the shell and to every component chunk, so Lucide's runtime is bundled once. `check:imports` fails on any other import of `lucide-react`.
 - **Glyphs and ad-hoc SVGs replaced.** The glyphs become icons, each beside the text label it had: the header's "Next open" jump, the unread-reply badge, the agent-change flag, a reference's "opens in browser" hint, the Approval's selected decision, and the comment card's close control. The date field's calendar, the Tree's chevron and the Tree's and the Ranking's drag grips come from the module too (design decision 2). The glyph leaves the strings and the accessible names. **BREAKING** for tests only: "Next open ↓" is now named "Next open". The question navigator's "Next open →" is left as it is: `answering-flow-fixes` deletes that button and its string (#184).
 - **Accessible names.** A decorative icon is `aria-hidden`. A mark whose only content is an icon is an image named by the existing strings ("1 new reply", "The agent updated this"). An icon-only control is named by its button.
-- **Board page (Q1, proposed default).** The board page is plain DOM, outside the sandbox, so `lucide-react` cannot draw its two ✕ close controls. By default it adopts `lucide`, Lucide's DOM package from the same repository and release, pinned with `lucide-react`. This waits for the PO's answer on #188.
+- **Board page (Q1: the PO chose (a), 2026-11-15).** The board page is plain DOM, outside the sandbox, so `lucide-react` cannot draw its two ✕ close controls. It adopts `lucide`, Lucide's DOM package from the same repository and release, pinned with `lucide-react`.
 - **What stays text or CSS.** Key names (⌃ ⌥ ⇧ ⌘ ↩ ⌫ ⌦ ↑ ↓ ← →) in key caps, tooltips, the keys panel and `askboard-help`. The state markers' CSS shapes and their text labels. The Gantt's duration pin and every chart SVG. An icon never replaces a label (DESIGN.md, Do's and Don'ts).
 - **Records.** The spine: the Stack rows, AD-1 and AD-9 (widgets may import `view`'s icon module), the Structural Seed, and the Tests row (the import rule). DESIGN.md: a new Icons section, Open point 2 settled, one Do's and Don'ts row. Dependabot: Lucide's near-daily minor releases are bumped by hand (design decision 9). `docs/as-built/icon-set.md`.
 
@@ -24,7 +24,7 @@ None.
 
 ### Modified Capabilities
 
-- `view-and-widgets`: new requirements for the one icon set and its chunk, for icons beside their labels with their accessible names, and for the board page's close icon (default of Q1).
+- `view-and-widgets`: new requirements for the one icon set and its chunk, for icons beside their labels with their accessible names, and for the board page's close icon (Q1 (a)).
 
 ## Impact
 
