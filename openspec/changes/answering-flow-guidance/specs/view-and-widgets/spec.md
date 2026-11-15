@@ -296,15 +296,19 @@ On a board of two or more questions, in every presentation, the header SHALL sho
 - **THEN** the header reads "4 to do (1 postponed)", and "4 da fare (di cui 1 rimandata)" in it-IT
 
 ### Requirement: Open prompt
-Every question SHALL show its open prompt, "Note for the agent (optional)", whose text SHALL leave only with the question's answer or decline, or alone through the primary ("Send the note" in "One by one"), leaving the question to do with "Note sent {time}" under the prompt, shown once the note's command is done (never while it is queued, refused or dropped) and kept while the page stays open; never on typing or blur (FR-7, AD-20, NFR-10). While an item's held result requires a reason, as with an Approval's "Approve with changes", the prompt SHALL read "Reason for the changes (required)" (FR-11).
+Every question SHALL show its open prompt, "Note for the agent (optional)", whose text SHALL leave only with the question's answer or decline, or alone through the primary ("Send the note" in "One by one" sends it; in "All together" "Confirm" holds it and Send sends it), leaving the question to do with "Note sent {time}" under the prompt, shown once the command that sends the note is done (Send's, in "All together"; never at "Confirm", never while the note is queued, refused or dropped) and kept while the page stays open, where {time} SHALL be when the user sent the note (the press that sent it, the time the agent's event carries), not when its command was done; never on typing or blur (FR-7, AD-20, NFR-10). While an item's held result requires a reason, as with an Approval's "Approve with changes", the prompt SHALL read "Reason for the changes (required)" (FR-11).
 
 #### Scenario: A note without an answer
 - **WHEN** the user writes only a note and presses "Send the note"
 - **THEN** a note is sent, the question still reads "To do" and counts as to do, and "Note sent" shows under the prompt
 
 #### Scenario: A note while the connection is lost
-- **WHEN** the user sends only a note while the connection is lost
-- **THEN** no "Note sent" line shows and the question reads "Not sent yet"; once the connection returns and the note's command is done, the line shows
+- **WHEN** the user sends only a note at 10:42 while the connection is lost
+- **THEN** no "Note sent" line shows and the question reads "Not sent yet"; once the connection returns at 10:47 and the note's command is done, the line reads "Note sent 10:42"
+
+#### Scenario: A note held for Send
+- **WHEN** in "All together" the user writes only a note and activates "Confirm", then "Send"
+- **THEN** no "Note sent" line shows after "Confirm"; once Send's command is done, "Note sent" shows under the prompt
 
 #### Scenario: The reason's label
 - **WHEN** the user selects "Approve with changes", then "Reject"
