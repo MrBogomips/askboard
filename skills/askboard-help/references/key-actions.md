@@ -1,5 +1,19 @@
 # Actions and their default keys
 
+## Board keys
+
+The board's own keys. They do nothing in a text field or inside a widget, apart from the follow-up's send. Sending all held answers has no key.
+
+| Action | Where | Keys (macOS) |
+|---|---|---|
+| Next open ↓ | outside text fields and widgets | N (N) |
+| Previous open | outside text fields and widgets | Shift+N (⇧N) |
+| Answer the question in focus | on a question's own controls | Ctrl+Enter (⌘↩) |
+| Show the keys | outside text fields and widgets | ? (?) |
+| Send the follow-up | in the follow-up composer | Ctrl+Enter (⌘↩) |
+
+## Every action
+
 Each action an override may name, with its default keys on Linux and, in brackets, on macOS. Where it acts depends on the widget: a widget lists the actions it binds in its own reference.
 
 - `cursor.up`: Go up, ↑ (↑)
@@ -32,6 +46,10 @@ Each action an override may name, with its default keys on Linux and, in bracket
 - `toolbar.next`: Next tool, → (→)
 - `toolbar.first`: First tool, Home (Home)
 - `toolbar.last`: Last tool, End (End)
+- `board.nextOpen`: Next open ↓, N (N)
+- `board.previousOpen`: Previous open, Shift+N (⇧N)
+- `board.answer`: Answer the question in focus, Ctrl+Enter (⌘↩)
+- `board.sendFollowUp`: Send the follow-up, Ctrl+Enter (⌘↩)
 - `tree.cancelDelete`: Cancel, Esc (Esc)
 - `tree.cancelGroup`: Cancel, Esc (Esc)
 - `gantt.clear`: Clear the cell, Delete and Backspace (⌦ and ⌫)

@@ -43,4 +43,4 @@ Each reference says what a type is for, how to edit it with the mouse, what the 
 
 {{index}}
 
-Changing keys: [configure-keys](references/configure-keys.md). Every action a key can be given and its default keys: [key-actions](references/key-actions.md).
+The board's own keys, and every action with its default keys: [key-actions](references/key-actions.md). Changing keys: [configure-keys](references/configure-keys.md).

@@ -5,6 +5,9 @@
 // board would refuse.
 
 import {
+  BOARD_KEY_TABLE,
+  BOARD_KEYS,
+  type BoardKeyAction,
   CONFIGURATION_VERSION,
   KEY_COMBINATION_MAX_CHARS,
   KEY_TABLES_ON_BOARD,
@@ -18,7 +21,7 @@ import {
   type WidgetType,
 } from "@askboard/contract";
 import { contractSchemaResolver, type Resolve } from "./fields.ts";
-import { actionLine, actionRows, typeName } from "./keys.ts";
+import { actionLine, actionName, actionRows, keysText, typeName } from "./keys.ts";
 
 /** An example of the `keys` member, with what it shows. */
 export type KeyExample = { readonly title: string; readonly overrides: KeyOverrides };
@@ -65,7 +68,7 @@ export const rowWarningsBound = (resolve: Resolve = contractSchemaResolver()): n
 // combinations do not read.
 const checked = (examples: readonly KeyExample[], widgets: readonly WidgetType[]): void => {
   for (const { title, overrides } of examples) {
-    const problems = keyOverridesProblems(overrides, widgets).map(
+    const problems = keyOverridesProblems(overrides, [BOARD_KEY_TABLE, ...widgets]).map(
       ({ rule, action, binding }) =>
         `${rule} on ${action}${binding === undefined ? "" : ` (${binding})`}`,
     );
@@ -112,13 +115,13 @@ const reach = (widgets: readonly WidgetType[], onBoard: readonly string[]) =>
   onBoard.length === 0
     ? {
         scope:
-          "The board applies them in no widget yet: no widget takes them yet, so a change has no effect on it for now.",
+          "A change holds only in the board's own keys: no widget takes them yet, so a change has no effect in a widget for now.",
         applies:
-          "- A change applies to boards opened afterwards; an open board may take it when it reconnects or after a change in its settings panel. No widget takes the user's keys yet, so nothing changes on the board until one does.",
+          "- A change applies to boards opened afterwards; an open board may take it when it reconnects or after a change in its settings panel. It holds only in the board's own keys: no widget takes the user's keys yet.",
       }
     : {
-        scope: `A change holds only in ${reached(widgets, onBoard)}, ${onBoard.length === 1 ? "the widget" : "the widgets"} the board gives a Keys button, and in no other.`,
-        applies: `- A change applies to boards opened afterwards; an open board may take it when it reconnects or after a change in its settings panel. It holds only in ${reached(widgets, onBoard)}; the keys panel (the Keys button) shows the keys in effect, with a changed action marked.`,
+        scope: `A change holds only in the board's own keys and in ${reached(widgets, onBoard)}, ${onBoard.length === 1 ? "the widget" : "the widgets"} the board gives a Keys button, and in no other.`,
+        applies: `- A change applies to boards opened afterwards; an open board may take it when it reconnects or after a change in its settings panel. It holds only in the board's own keys and in ${reached(widgets, onBoard)}; the keys panel (the Keys button) shows the keys in effect, with a changed action marked.`,
       };
 
 // The sentence of `SKILL.md`'s "Read-only." line on the keys that still act on an item that takes no
@@ -156,7 +159,7 @@ const openReserved = (): string =>
 
 // The exits an override may not leave with no key, from the contract.
 const exitsText = (widgets: readonly WidgetType[]): string =>
-  keyExitActions(widgets)
+  keyExitActions([BOARD_KEY_TABLE, ...widgets])
     .map((action) => `\`${action}\``)
     .join(", ");
 
@@ -190,7 +193,7 @@ export const configureKeysText = (
     `- Modifiers, each at most once and in any order: \`Mod\` (Ctrl on Linux, Cmd on macOS), \`Alt\` (Option on macOS) and \`Shift\`, then \`+\` and the key. At most ${KEY_COMBINATION_MAX_CHARS} characters.`,
     "- The key is a key name (`ArrowUp`, `Home`, `End`, `Enter`, `Escape`, `Delete`, `Backspace`, `PageUp`, `PageDown`, `F2`), a letter, `Space`, or `?` or `%` alone. `Ctrl`, `Cmd`, `Meta` and `Option` are not modifiers here.",
     `- \`Mod+Alt\` takes only ${modAltKeys()}.`,
-    "- Refused, because the browser or the system needs them: `Tab`, `F1`, `F3` to `F12`, `Mod` with any key but Z and A, `Mod+Shift` with any key but the arrows up and down and Enter, `Alt` alone (no hold has it), and a modifier on `?` or `%`.",
+    "- Refused, because the browser or the system needs them: `Tab`, `F1`, `F3` to `F12`, `Mod` with any key but Z, A and Enter, `Mod+Shift` with any key but the arrows up and down and Enter, `Alt` alone (no hold has it), and a modifier on `?` or `%`.",
     "- Refused, because the system needs them: `Alt+Shift` with a letter or `Space` (macOS composes a character from it and some Linux desktops switch the keyboard layout on it).",
     "- An action an editor takes (a text field's actions) refuses a key that types a character: a letter or `Space` with no modifier or `Shift`, and a printed character.",
     `- \`keys.open\` also refuses, with no modifier or Shift, the keys a control inside a question takes: ${openReserved()}; and any key that another action of a widget takes, since it acts across the whole question.`,
@@ -206,12 +209,41 @@ export const configureKeysText = (
   ].join("\n");
 };
 
-/** `references/key-actions.md`: every action an override may name, with its default keys. */
+// Where each of the board's own actions acts; typed on the table's actions, so a new action fails
+// to compile here until the skill says where it acts.
+const BOARD_WHERE: Readonly<Record<BoardKeyAction | "keys.open", string>> = {
+  "board.nextOpen": "outside text fields and widgets",
+  "board.previousOpen": "outside text fields and widgets",
+  "board.answer": "on a question's own controls",
+  "keys.open": "outside text fields and widgets",
+  "board.sendFollowUp": "in the follow-up composer",
+};
+
+// The "Board keys" section: a row for each action of the board's table that has keys.
+const boardKeysSection = (): string =>
+  [
+    "## Board keys",
+    "",
+    "The board's own keys. They do nothing in a text field or inside a widget, apart from the follow-up's send. Sending all held answers has no key.",
+    "",
+    "| Action | Where | Keys (macOS) |",
+    "|---|---|---|",
+    ...BOARD_KEYS.filter(({ keys }) => keys.length > 0).map(
+      (entry) =>
+        `| ${actionName(entry.label)} | ${BOARD_WHERE[entry.action]} | ${keysText(entry.keys)} |`,
+    ),
+  ].join("\n");
+
+/** `references/key-actions.md`: the board's keys, then every action an override may name, with its default keys. */
 export const keyActionsText = (widgets: readonly WidgetType[]): string =>
   [
     "# Actions and their default keys",
     "",
+    boardKeysSection(),
+    "",
+    "## Every action",
+    "",
     "Each action an override may name, with its default keys on Linux and, in brackets, on macOS. Where it acts depends on the widget: a widget lists the actions it binds in its own reference.",
     "",
-    ...actionRows(widgets).map(actionLine),
+    ...actionRows([BOARD_KEY_TABLE, ...widgets]).map(actionLine),
   ].join("\n");
