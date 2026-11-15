@@ -6,6 +6,7 @@
 // finds it when it does. At 1280x800. Every scenario runs on the session process.
 
 import { describe, expect, test } from "bun:test";
+import { formatTime } from "@askboard/contract";
 import type { Locator } from "playwright";
 import { answeringAsk, type Language, type Presentation } from "./fixtures/answering-flow-asks.ts";
 import {
@@ -398,6 +399,67 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         ]);
         await sentLine("q1").waitFor({ timeout: STEP_TIMEOUT_MS });
         expect((await sentLine("q1").innerText()).trim()).toMatch(/^Note sent \d{1,2}:\d{2}/);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a note held for Send shows Note sent only once Send's command is done (A note held for Send)",
+      async () => {
+        const { run, board } = await open(start, { delivery: "submitted" });
+        const sentLine = card(board, "q1").locator("[data-askboard-note-sent]");
+        await noteOf(board, "q1").fill("Ask ops first.");
+        await answerOf(board, "q1").click({ timeout: STEP_TIMEOUT_MS });
+        // Positive first: the note is held, so Send is enabled.
+        await eventually(() => board.submit.isEnabled(), "Send enabled for the held note");
+        await viewSettled(board);
+        expect(await sentLine.count()).toBe(0);
+        await board.submit.click({ timeout: STEP_TIMEOUT_MS });
+        const [sent] = await actsDone(run, 1);
+        expect(sent?.acts.map((act) => act.type)).toEqual(["note"]);
+        await sentLine.waitFor({ timeout: STEP_TIMEOUT_MS });
+        expect((await sentLine.innerText()).trim()).toMatch(/^Note sent \d{1,2}:\d{2}/);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a queued note shows the time the user sent it, not the time its command was done (A note while the connection is lost)",
+      async () => {
+        const run = await start(
+          lifecycleScenario(answeringAsk("sections", "en-US", "immediate"), dist),
+        );
+        // Playwright's clock, installed before the board loads; time flows until the test moves it.
+        await run.browser.context.clock.install();
+        const board = await openBoard(run, FIRST);
+        const sentLine = card(board, "q1").locator("[data-askboard-note-sent]");
+        await run.session.drop();
+        await board
+          .banner("Connection lost, retrying")
+          .first()
+          .waitFor({ timeout: STEP_TIMEOUT_MS });
+        await noteOf(board, "q1").fill("Check with the platform team.");
+        await answerOf(board, "q1").click({ timeout: STEP_TIMEOUT_MS });
+        await reads(lineOf(board, "q1"), "not-sent-yet", "Not sent yet");
+        // The page's clock moves two hours ahead; no timer fires, so the reconnect keeps its pace.
+        const moved = Date.now() + 2 * 60 * 60 * 1000;
+        await board.page.clock.setSystemTime(moved);
+        await run.session.restore();
+        const [sent] = await actsDone(run, 1);
+        const [note] = sent?.acts ?? [];
+        const when = note?.type === "note" ? note.when : "";
+        expect(Date.parse(when)).toBeLessThan(moved - 60 * 60 * 1000);
+        await sentLine.waitFor({ timeout: STEP_TIMEOUT_MS });
+        // The viewer's offset is the page's, which the test process may not share.
+        const offset = await board.page.evaluate(
+          (instant) => 0 - new Date(instant).getTimezoneOffset(),
+          when,
+        );
+        const shown = (await sentLine.innerText()).trim();
+        expect(shown).toBe(`Note sent ${formatTime(when, offset, "en-US")}`);
+        expect(shown).not.toBe(
+          `Note sent ${formatTime(new Date(moved).toISOString(), offset, "en-US")}`,
+        );
       },
       TEST_TIMEOUT_MS,
     );
