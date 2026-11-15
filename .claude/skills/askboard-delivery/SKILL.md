@@ -8,8 +8,8 @@ description: Runs an AskBoard OpenSpec change end to end with the project's agen
 The session that runs this skill is the coordinator. It holds the change's state (ids, SHAs,
 findings), delegates the file-heavy work to the agents, and keeps their conclusions, not their
 reading. OpenSpec owns the artifacts: everything written under `openspec/changes/<id>/` goes through
-the `openspec-*` skills. GitHub Issues own the backlog: a change starts from its Issue, and `CLAUDE.md` (The
-backlog) holds the procedure and the commands for every step below that touches one.
+the `openspec-*` skills. GitHub Issues own the backlog: a change starts from its Issue, and the
+`askboard-backlog` skill holds the procedure and the commands for every step below that touches one.
 
 ## 1. Team, model and effort
 
@@ -37,11 +37,11 @@ and the base of the next one.
 ## 3. Flow
 
 0. **Triage.** A question, a typo or a configuration fix is not delivery work: answer it, or commit
-   it directly on `main` as CLAUDE.md allows. For a change, find its Issue, or open one after the
-   duplicate search (`CLAUDE.md`, The backlog); a change with no Issue is the exception, and its report
+   it directly on `main` as AGENTS.md allows. For a change, find its Issue, or open one after the
+   duplicate search (the `askboard-backlog` skill); a change with no Issue is the exception, and its report
    says why. Then read `openspec list` and `openspec status --change <id>`, and resume at the first
    step not done.
-1. **Worktree.** A change runs in an integrated worktree `feature-<slug>` (CLAUDE.md, Git / PR
+1. **Worktree.** A change runs in an integrated worktree `feature-<slug>` (AGENTS.md, Git / PR
    Working Policy).
 2. **Design.** `askboard-architect` proposes the change, or revises it, given the Issue numbers; the
    proposal cites `Issue: #n`. Once the change exists, comment on each Issue with the change id and
@@ -67,14 +67,14 @@ and the base of the next one.
    2. `GITHUB_TOKEN=$(gh auth token) bun run check`, then `bun run build`.
    3. `bun run test:e2e:smoke` when the change touches the view, the server or the conformance suite,
       and `bun run test:e2e` when it changes the harness, the runner or a widget's rendering
-      (CLAUDE.md, CI section, Triggers).
+      (AGENTS.md, CI).
    4. Pre-PR review: both reviewers in parallel, merge base to head, at raised effort. Fold, fix and
       re-review.
    5. The kaizen retrospective of the development workflow, then the pull request. Its body says
       `Closes #n`, or `Refs #n` when the Issue spans several changes (the last one says `Closes`).
 5. **Before `/openspec-archive-change`:** the pull request is merged; every Verify task is ticked or its reason
    recorded; the change's as-built note `docs/as-built/<change-id>.md` describes it as built (the
-   change never edits CLAUDE.md for its own record, and the archive does not touch it); the PRD,
+   change never edits AGENTS.md for its own record, and the archive does not touch it); the PRD,
    spine and UX documents carry the updates the change states. The archive pull request says
    `Refs #n` and never reopens the Issue.
 
@@ -102,5 +102,5 @@ the report; what is left for the PO (live runs, hand checks, decisions).
 Route what you learn to the right place: output quality to the skill that covers it, a missing or
 miscast role to an agent definition, a wrong order to this skill, a missed trigger to a description.
 Signals: a finding class that recurs, an agent that keeps failing or is bypassed, a step the PO keeps
-redoing by hand. Record every change to the harness in the change history of CLAUDE.md's Agent
-harness section.
+redoing by hand. Record every change to the harness as a row of its change history, `docs/harness-history.md`
+(AGENTS.md, Agent harness).

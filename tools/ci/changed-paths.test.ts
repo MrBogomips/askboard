@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
-// tools/ci/changed-paths.sh decides which parts of CI a change needs (CLAUDE.md, CI). The test
+// tools/ci/changed-paths.sh decides which parts of CI a change needs (.github/AGENTS.md, CI). The test
 // builds a scratch repository whose HEAD is a commit on top of a base, as a pull request's merge
 // commit is, and runs the script on it.
 const ROOT = join(import.meta.dir, "..", "..");
@@ -106,7 +106,9 @@ describe("a pull request", () => {
   });
 
   test.each([
+    ["AGENTS.md"],
     ["CLAUDE.md"],
+    [".claude/CLAUDE.md"],
     [".claude/skills/askboard-implementation/SKILL.md"],
     [".claude/agents/askboard-architect.md"],
     ["setup.sh"],
@@ -115,12 +117,24 @@ describe("a pull request", () => {
     expect(decide("pull_request", [path])).toEqual({ code: "true", codex: "true" });
   });
 
+  // A nested instruction file is Markdown of its folder for the check, and a Codex source.
+  test("that changes docs/AGENTS.md needs the Codex files regenerated, not the check", () => {
+    expect(decide("pull_request", ["docs/AGENTS.md"])).toEqual({ code: "false", codex: "true" });
+  });
+
+  test.each([[".github/AGENTS.md"], ["tools/AGENTS.md"]])(
+    "that changes %s needs the Codex files regenerated, and the check",
+    (path) => {
+      expect(decide("pull_request", [path])).toEqual({ code: "true", codex: "true" });
+    },
+  );
+
   test("that renames code into docs/ needs the check", () => {
     expect(decideRename("packages/core/src/core.ts", "docs/core.ts").code).toBe("true");
   });
 
   test("that renames a Codex source away needs the Codex files regenerated", () => {
-    expect(decideRename("CLAUDE.md", "docs/CLAUDE.md")).toEqual({ code: "true", codex: "true" });
+    expect(decideRename("AGENTS.md", "drafts/AGENTS.md")).toEqual({ code: "true", codex: "true" });
   });
 
   test("that changes no Codex source leaves the Codex job out", () => {

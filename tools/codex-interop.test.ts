@@ -2,26 +2,65 @@ import { describe, expect, test } from "bun:test";
 import { lstatSync, readdirSync, readFileSync, readlinkSync } from "node:fs";
 import { join } from "node:path";
 
-// Codex interop (CLAUDE.md): CLAUDE.md is the one source, and the Codex files are generated
-// by the codex-port block of setup.sh with the latest rulesync, gitignored.
+// Codex interop (AGENTS.md): AGENTS.md is the one instruction file, written by hand and committed;
+// CLAUDE.md is a symlink to it and Claude Code's own lines are in .claude/CLAUDE.md. The Codex
+// files are generated from .claude/ by the codex-port block of setup.sh with the latest rulesync,
+// gitignored, except OpenSpec's shared skills, which it commits.
 const ROOT = join(import.meta.dir, "..");
 const read = (path: string): string => readFileSync(join(ROOT, path), "utf8");
 const BLOCK = /# >>> codex-port >>>\n([\s\S]*?)# <<< codex-port <<</;
+const ignored = (path: string): boolean =>
+  Bun.spawnSync(["git", "check-ignore", "-q", "--no-index", path], { cwd: ROOT }).exitCode === 0;
 
 describe("Codex interop", () => {
-  test("CLAUDE.md imports nothing, so its Codex form needs no import", () => {
-    const imports = read("CLAUDE.md")
+  test("AGENTS.md imports nothing: Codex resolves no @ import", () => {
+    const imports = read("AGENTS.md")
       .split("\n")
       .filter((line) => /^@\S/.test(line));
     expect(imports).toEqual([]);
   });
 
-  test("the Codex files are gitignored; OpenSpec's shared skills are not", () => {
-    const ignored = (path: string): boolean =>
-      Bun.spawnSync(["git", "check-ignore", "-q", "--no-index", path], { cwd: ROOT }).exitCode ===
-      0;
-    for (const generated of [
+  test("AGENTS.md is a real file and CLAUDE.md a symbolic link to it", () => {
+    expect(lstatSync(join(ROOT, "AGENTS.md")).isFile()).toBe(true);
+    expect(lstatSync(join(ROOT, "CLAUDE.md")).isSymbolicLink()).toBe(true);
+    expect(readlinkSync(join(ROOT, "CLAUDE.md"))).toBe("AGENTS.md");
+  });
+
+  test("every other CLAUDE.md outside .claude/ links to the AGENTS.md beside it", () => {
+    const listed = Bun.spawnSync(
+      ["git", "ls-files", "--cached", "--others", "--exclude-standard", "*CLAUDE.md"],
+      { cwd: ROOT },
+    );
+    const nested = listed.stdout
+      .toString()
+      .split("\n")
+      .filter((path) => path.endsWith("/CLAUDE.md") && !path.startsWith(".claude/"));
+    for (const path of nested) {
+      const link = lstatSync(join(ROOT, path)).isSymbolicLink()
+        ? readlinkSync(join(ROOT, path))
+        : "";
+      expect({ path, link }).toEqual({ path, link: "AGENTS.md" });
+    }
+  });
+
+  test("the instruction files are committed, never ignored", () => {
+    for (const source of [
       "AGENTS.md",
+      "CLAUDE.md",
+      ".claude/CLAUDE.md",
+      "docs/AGENTS.md",
+      "docs/CLAUDE.md",
+      ".github/AGENTS.md",
+      ".github/CLAUDE.md",
+      "tools/AGENTS.md",
+      "tools/CLAUDE.md",
+    ]) {
+      expect({ source, ignored: ignored(source) }).toEqual({ source, ignored: false });
+    }
+  });
+
+  test("the Codex files are gitignored; OpenSpec's shared skills are not", () => {
+    for (const generated of [
       ".codex/agents/askboard-architect.toml",
       ".codex/codex-port.manifest",
       ".agents/skills/askboard-delivery/SKILL.md",
@@ -58,6 +97,14 @@ describe("Codex interop", () => {
     const setup = read("setup.sh");
     expect(setup).toMatch(BLOCK);
     expect(setup.replace(BLOCK, "")).toMatch(/^\s*codex_port\b/m);
+  });
+
+  test("the block keeps the local amendment for OpenSpec's linked skills", () => {
+    // Not in the port-to-codex template: a block vendored again must carry it over.
+    const block = BLOCK.exec(read("setup.sh"))?.[1] ?? "";
+    expect(block).toContain("Local amendment");
+    expect(block).toContain("cp_linked() {");
+    expect(block.match(/cp_linked "/g)?.length).toBe(3);
   });
 
   test("CI converts the sources in the codex job only; the shared setup skips the Codex files", () => {

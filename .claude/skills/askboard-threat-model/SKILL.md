@@ -7,7 +7,7 @@ description: AskBoard's threat model for reviewing the diff range of an OpenSpec
 
 What to look for in an AskBoard diff, and where. Pinning the target, refuting a candidate, rating it
 (H, M, L) and the report format are in `askboard-review-protocol`; the invariants in one line each
-are in CLAUDE.md. When a finding turns on wording, quote the binding text: the NFRs in
+are in AGENTS.md. When a finding turns on wording, quote the binding text: the NFRs in
 `docs/prd-askboard-2026-10-25/prd.md`, the ADs in the spine, the security model and the adoption
 rule in `docs/prd-askboard-2026-10-25/addendum.md`.
 

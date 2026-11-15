@@ -14,7 +14,7 @@ runs:
         version=$(node -p 'require("./package.json").packageManager.replace(/^bun@/, "")')
         npm install --global --strict-allow-scripts --allow-scripts="bun@${version}" "bun@${version}"
         bun --version
-    # The same setup as a local checkout (CLAUDE.md, Development commands), without the Codex files:
+    # The same setup as a local checkout (AGENTS.md, Development commands), without the Codex files:
     # nothing the jobs run reads them, and fetching rulesync would cost about 20 s of each.
     - run: sh ./setup.sh --ci --no-codex
       shell: bash
