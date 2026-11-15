@@ -17,15 +17,22 @@ export const QUIET_MS = 1_500;
 export const TIMER_SLACK = 2;
 
 /**
+ * The least a no-reconnect wait lasts, four times the first delay: the delay with `TIMER_SLACK`
+ * alone is 500 ms, which a page under the parallel set's load has outrun (the timer control failed
+ * in Firefox). Below `QUIET_MS`, so a test still gains over the fixed wait.
+ */
+export const NO_RECONNECT_FLOOR_MS = 1_000;
+
+/**
  * How long a board page that has opened `sockets` WebSockets may still wait before it opens one
  * more: the wait before its next reconnect attempt, with `TIMER_SLACK`. Each socket after the first
  * is at most one attempt, and the attempt count only falls when a socket goes live, so
  * `sockets - 1` attempts is an upper bound, and the board page's own `reconnectDelay` of it a wait
- * no timer already armed outlasts (task 4.6: after a restart the page has already reconnected once,
+ * no timer already armed outlasts, held up to `NO_RECONNECT_FLOOR_MS` (task 4.6: after a restart the page has already reconnected once,
  * and its next wait is the second delay, not the first).
  */
 export const noReconnectWaitMs = (sockets: number): number =>
-  reconnectDelay(Math.max(sockets - 1, 0)) * TIMER_SLACK;
+  Math.max(reconnectDelay(Math.max(sockets - 1, 0)) * TIMER_SLACK, NO_RECONNECT_FLOOR_MS);
 
 type Evaluates = { evaluate(run: () => unknown): Promise<unknown> };
 
@@ -88,7 +95,8 @@ export const draftSettled = async (board: Settleable): Promise<void> => {
 
 /**
  * A product timer under test: waits `ms`, the timer's own constant imported from the product (the
- * reconnect backoff, `NO_RECONNECT_WAIT_MS`), then settles the view.
+ * reconnect backoff: `noReconnectWaitMs(sockets)`, the board page's own delay with `TIMER_SLACK`
+ * and a floor), then settles the view.
  */
 export const timerSettled = async (ms: number, board: Settleable): Promise<void> => {
   if (!Number.isFinite(ms) || ms < 0) {

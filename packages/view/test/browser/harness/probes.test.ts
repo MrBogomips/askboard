@@ -8,6 +8,7 @@ import {
   flushBoardPage,
   flushViewFrame,
   hostSettled,
+  NO_RECONNECT_FLOOR_MS,
   noReconnectWaitMs,
   QUIET_MS,
   quiet,
@@ -135,13 +136,19 @@ describe("timerSettled", () => {
     await expect(timerSettled(Number.NaN, board)).rejects.toThrow(/finite/);
   });
 
-  test("the no-reconnect wait is the board page's own next reconnect delay, with slack, by the sockets it has opened", () => {
+  test("the no-reconnect wait is the board page's next reconnect delay with slack, and never below the floor", () => {
     // One socket: the first attempt is next. Two: the page reconnected once, so the second delay.
-    expect(noReconnectWaitMs(1)).toBe(reconnectDelay(0) * TIMER_SLACK);
-    expect(noReconnectWaitMs(2)).toBe(reconnectDelay(1) * TIMER_SLACK);
-    expect(noReconnectWaitMs(2)).toBeGreaterThan(noReconnectWaitMs(1));
+    // The floor holds the first waits up, where the slack alone is shorter than a loaded page's timer.
+    expect(NO_RECONNECT_FLOOR_MS).toBeGreaterThanOrEqual(4 * reconnectDelay(0));
+    expect(noReconnectWaitMs(1)).toBe(NO_RECONNECT_FLOOR_MS);
+    expect(noReconnectWaitMs(2)).toBe(
+      Math.max(reconnectDelay(1) * TIMER_SLACK, NO_RECONNECT_FLOOR_MS),
+    );
+    // Past the floor the wait is the delay with slack, and it grows with the sockets.
+    expect(noReconnectWaitMs(3)).toBe(reconnectDelay(2) * TIMER_SLACK);
+    expect(noReconnectWaitMs(3)).toBeGreaterThan(noReconnectWaitMs(2));
     // None opened yet counts as the first, and a long run of sockets stays at the last delay.
-    expect(noReconnectWaitMs(0)).toBe(reconnectDelay(0) * TIMER_SLACK);
+    expect(noReconnectWaitMs(0)).toBe(noReconnectWaitMs(1));
     expect(noReconnectWaitMs(50)).toBe(reconnectDelay(49) * TIMER_SLACK);
     expect(TIMER_SLACK).toBeGreaterThanOrEqual(1);
     expect(noReconnectWaitMs(1)).toBeLessThan(QUIET_MS);

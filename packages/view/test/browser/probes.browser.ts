@@ -8,7 +8,6 @@ import { describe, expect, test } from "bun:test";
 import { submittedAsk } from "./fixtures/lifecycle-asks.ts";
 import {
   answerWith,
-  eventually,
   RECONNECT_TIMEOUT_MS,
   STEP_TIMEOUT_MS,
   TEST_TIMEOUT_MS,
@@ -92,12 +91,10 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           .first()
           .waitFor({ state: "visible", timeout: STEP_TIMEOUT_MS });
         const before = run.browser.sockets.length;
-        // A page under load runs its timer later than this process runs its own: the probe is
-        // repeated until it has seen the reconnect, within one step's time.
-        await eventually(async () => {
-          await timerSettled(noReconnectWaitMs(before), board);
-          return run.browser.sockets.length > before;
-        }, "the board page's first reconnect, after the reconnect delay and a flush");
+        // One probe, no repeat: the control fails when the wait is too short for the page's timer,
+        // which `expectNoReconnect` relies on.
+        await timerSettled(noReconnectWaitMs(before), board);
+        expect(run.browser.sockets.length).toBeGreaterThan(before);
         await run.session.restore();
         await board
           .banner("Connection lost, retrying")
