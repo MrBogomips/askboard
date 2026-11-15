@@ -241,6 +241,23 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
+      "its close control draws a hidden icon, no ✕ text, and keeps its name",
+      async () => {
+        const { board } = await startPanel();
+        await board.view
+          .locator('[data-askboard-item="spec-excerpt"]')
+          .getByRole("button", { name: "Open in reading panel" })
+          .click();
+        const close = panelOf(board).getByRole("button", { name: "Close reading panel" });
+        await close.waitFor({ timeout: STEP_TIMEOUT_MS });
+        expect(await close.locator('svg[aria-hidden="true"]').count()).toBe(1);
+        expect((await close.textContent())?.trim()).toBe("");
+        expect(await close.innerHTML()).not.toContain("✕");
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
       "a takeover closes the panel in the older tab",
       async () => {
         const { run, board } = await startPanel();

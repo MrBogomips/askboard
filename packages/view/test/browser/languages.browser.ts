@@ -105,7 +105,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           const run = await start(lifecycleScenario(italianAsk, dist), options);
           const board = await openBoard(run, ["database", "cache"]);
           const row = board.view.locator("header > div").nth(1);
-          await row.getByText("Prossima aperta ↓").waitFor({ timeout: STEP_TIMEOUT_MS });
+          await row
+            .getByText("Prossima aperta", { exact: true })
+            .waitFor({ timeout: STEP_TIMEOUT_MS });
           const fit = await row.evaluate((element) => {
             const right = Math.max(
               ...[...element.children].map((child) => child.getBoundingClientRect().right),

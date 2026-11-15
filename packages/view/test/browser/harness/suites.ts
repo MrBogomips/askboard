@@ -96,6 +96,7 @@ export const BROWSER_FILES: Readonly<Record<string, BrowserFileEntry>> = {
   "header.browser.ts": {},
   "hover-audit.browser.ts": {},
   "hover-layer.browser.ts": {},
+  "icons.browser.ts": {},
   "kanban.browser.ts": {},
   "keep-mine-reload-session.browser.ts": {},
   "keys-browser.browser.ts": {},

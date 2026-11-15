@@ -6,6 +6,7 @@
 
 import type { ApprovalDecision } from "@askboard/contract";
 import { useStrings } from "@askboard/view/catalog";
+import { IconSelected } from "@askboard/view/icons";
 import { ToggleGroup } from "radix-ui";
 import { BLOCK, CHECK, DECISION, DECISIONS, GROUP, SECTION_LABEL } from "./classes.ts";
 import { selectable } from "./decision.ts";
@@ -59,11 +60,7 @@ export const ApprovalWidget = ({
               className={DECISION}
               disabled={!selectable(value, summary.count)}
             >
-              {decision === value ? (
-                <span aria-hidden="true" className={CHECK}>
-                  ✓
-                </span>
-              ) : null}
+              {decision === value ? <IconSelected className={`size-4 ${CHECK}`} /> : null}
               {text(DECISION_KEYS[value])}
             </ToggleGroup.Item>
           ))}

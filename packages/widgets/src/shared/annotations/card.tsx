@@ -10,6 +10,7 @@
 // type. Text is rendered by React as text, never as markup.
 
 import { useStrings } from "@askboard/view/catalog";
+import { IconClose } from "@askboard/view/icons";
 import { Popover } from "radix-ui";
 import { type ReactElement, useEffect, useId, useRef, useState } from "react";
 import {
@@ -139,7 +140,7 @@ export const CardBody = ({
             aria-label={text("annotations.close")}
             onClick={onClose}
           >
-            <span aria-hidden="true">×</span>
+            <IconClose className="size-4" />
           </button>
         </div>
       </div>

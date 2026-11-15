@@ -333,6 +333,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           "Alt+Shift+Home",
           "Ctrl+Shift+↑",
         ]);
+        // Key names stay text (design decision 7): no key cap holds an icon.
+        expect(await board.view.locator("kbd svg").count()).toBe(0);
         await board.page.keyboard.press("Escape");
         const names = await toolbar(board).getByRole("button").allTextContents();
         expect(names.at(-1)).toBe("Keys");
@@ -423,6 +425,13 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(text).toContain("Alt+Shift+Home");
         expect(text).toContain("Ctrl+Shift+↑");
         expect(text).toContain("Keep this order");
+        // Key names stay text (design decision 7): the panel's key caps hold no icon, and name the
+        // arrows and the Enter key in words or characters.
+        expect(await panel(board).locator("kbd svg").count()).toBe(0);
+        const caps = (await panel(board).locator("kbd").allTextContents()).join(" ");
+        expect(caps).toContain("↑");
+        expect(caps).toContain("↓");
+        expect(caps).toContain("Enter");
         await board.page.keyboard.press("Escape");
         await panel(board).waitFor({ state: "hidden", timeout: STEP_TIMEOUT_MS });
         await toolbar(board).getByRole("button", { name: "Keys", exact: true }).click();

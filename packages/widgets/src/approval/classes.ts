@@ -27,7 +27,7 @@ export const DECISION =
   "disabled:text-muted-foreground disabled:opacity-50 data-[state=on]:border-primary " +
   "data-[state=on]:bg-primary-subtle";
 
-/** The selected decision's ✓. */
+/** The selected decision's check icon: it keeps its size beside the label. */
 export const CHECK = "shrink-0";
 
 /** The summary: a bordered block on `card`, on the block's right, which may shrink and wrap. */

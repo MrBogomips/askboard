@@ -259,6 +259,20 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
+      "its close control draws a hidden icon, no ✕ text, and keeps its name",
+      async () => {
+        const run = await start(scenario({}));
+        const board = await openBoard(run, ["database", "cache"]);
+        await openPanel(board);
+        const close = panel(board).getByRole("button", { name: "Close settings" });
+        expect(await close.locator('svg[aria-hidden="true"]').count()).toBe(1);
+        expect((await close.textContent())?.trim()).toBe("");
+        expect(await close.innerHTML()).not.toContain("✕");
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
       "a key the project sets is read-only in the panel with the file and key",
       async () => {
         const run = await start(scenario({ project: file({ density: "comfortable" }) }));

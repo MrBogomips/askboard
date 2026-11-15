@@ -2,12 +2,13 @@
 // header and State pill), sticky, in two rows (L46, L110). Row 1 is push delivery's (E4): who
 // asked, the project, the directory, the branch and the worktree (FR-24, `who-and-where.tsx`). Row
 // 2 holds the ask's title, the "Ask" label and the ask state pill, the agent pill (push delivery,
-// `agent-pill.tsx`), then the open count, "Next open ↓", the unread-reply count and the
+// `agent-pill.tsx`), then the open count, "Next open", the unread-reply count and the
 // agent-change flag (ask-lifecycle, design decisions 6 and 8), and the quick toggles at its right
 // end (`quick-toggles.tsx`, settings-languages). A single-question board shows only
 // the pills (L198). The title is agent text and renders as text only (AD-8).
 
 import { useStrings } from "../catalog/port.ts";
+import { IconNextOpen } from "../icons/index.ts";
 import { AgentPill } from "./agent-pill.tsx";
 import type { AskPill as Pill } from "./board-view.ts";
 import type { HeaderData } from "./header-data.ts";
@@ -45,6 +46,7 @@ const Counts = ({ counts }: { readonly counts: HeaderCounts }) => {
         onClick={counts.onNextOpen}
       >
         {text("header.nextOpen")}
+        <IconNextOpen className="size-4" />
       </button>
       {counts.unreadReplies === 0 ? null : (
         <button type="button" className={BUTTON_LINK} onClick={counts.onUnread}>

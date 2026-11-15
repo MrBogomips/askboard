@@ -7,6 +7,7 @@
 // nothing, and a web reference is a link that opens in a new tab only on a click, with `noopener`
 // and `noreferrer`.
 
+import { IconExternal } from "../../icons/index.ts";
 import type { ItemProps } from "../port.ts";
 import { useHosted, useOpenReference, useReadyAfterLayout } from "../port.ts";
 import { HINT, LABEL, PATH, REFERENCE, REFERENCE_ROW, REFERENCE_STATIC } from "./classes.ts";
@@ -27,10 +28,10 @@ const Row = ({ reference }: { readonly reference: ReferenceView }) => (
 
 const Hint = ({ reference }: { readonly reference: ReferenceView }) =>
   reference.external ? (
-    <span data-context-part="hint" className={HINT}>
-      opens in browser{" "}
-      <span data-context-part="external" aria-hidden="true">
-        ↗
+    <span data-context-part="hint" className={`${HINT} inline-flex items-center gap-1`}>
+      opens in browser
+      <span data-context-part="external" className="inline-flex">
+        <IconExternal className="size-3" />
       </span>
     </span>
   ) : (

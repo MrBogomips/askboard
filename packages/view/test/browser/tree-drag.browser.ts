@@ -47,6 +47,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           const tree = treeGridOf(run.board);
           const handle = handleOf(tree, "portal");
           expect(await handle.getAttribute("aria-label")).toBe("Drag Customer portal");
+          // The grip is the icon module's mark; the handle keeps its role and name.
+          expect(await handle.getAttribute("role")).toBe("img");
+          expect(await handle.locator("svg.lucide").count()).toBe(1);
           await tree.row("portal").hover();
           expect(await handle.evaluate((grip) => getComputedStyle(grip).opacity)).toBe("1");
           expect(await handle.evaluate((grip) => getComputedStyle(grip).cursor)).toBe("grab");

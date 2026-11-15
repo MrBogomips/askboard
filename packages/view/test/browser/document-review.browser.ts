@@ -195,8 +195,11 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           () => pin(view, "Comment 1").evaluate((el) => el === el.ownerDocument.activeElement),
           "focus on the pin",
         );
-        // The close control does the same.
+        // The close control does the same: a button named "Close" whose icon is hidden, no × text.
         await pin(view, "Comment 1").click();
+        const close = card(view).getByRole("button", { name: "Close" });
+        expect(await close.locator('svg.lucide[aria-hidden="true"]').count()).toBe(1);
+        expect(await close.textContent()).not.toContain("×");
         await card(view).getByRole("button", { name: "Close" }).click();
         await card(view).waitFor({ state: "hidden", timeout: STEP_TIMEOUT_MS });
         await eventually(

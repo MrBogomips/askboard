@@ -104,7 +104,6 @@ export const STRING_KEYS = [
   "mark.postponed",
   "mark.declined",
   "outline.label",
-  "outline.newReplies",
   "navigator.label",
   "navigator.position",
   "navigator.entry",

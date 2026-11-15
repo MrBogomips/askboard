@@ -13,6 +13,7 @@
 
 import type { TreeColumn } from "@askboard/contract";
 import { useLocale, useStrings } from "@askboard/view/catalog";
+import { IconDisclosure, IconDragHandle } from "@askboard/view/icons";
 import { memo, type ReactNode, type RefObject, useRef } from "react";
 import { errorSpan } from "../shared/field-error.ts";
 import { type CheckState, SelectBox } from "../shared/select-box.tsx";
@@ -62,20 +63,11 @@ const Chevron = ({ open }: { readonly open: boolean }) => (
     aria-hidden="true"
     className={open ? `${CHEVRON} ${CHEVRON_OPEN}` : CHEVRON}
   >
-    <svg viewBox="0 0 12 12" className="size-3" aria-hidden="true">
-      <path
-        d="M4.5 2.5 8 6l-3.5 3.5"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
+    <IconDisclosure className="size-3" />
   </span>
 );
 
-// The drag handle: a grip of six dots, named "Drag <name>". It is no tab stop and no button: the
+// The drag handle: the icon module's grip, named "Drag <name>". It is no tab stop and no button: the
 // row stays the one focusable thing, and the keyboard moves a node with the Alt+Shift keys.
 const DragHandle = ({
   handle,
@@ -92,15 +84,7 @@ const DragHandle = ({
     data-grab=""
     className={DRAG_HANDLE}
   >
-    <svg viewBox="0 0 12 12" className="size-3" aria-hidden="true">
-      <path
-        d="M4 2.5h.01M8 2.5h.01M4 6h.01M8 6h.01M4 9.5h.01M8 9.5h.01"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-    </svg>
+    <IconDragHandle className="size-3" />
   </span>
 );
 

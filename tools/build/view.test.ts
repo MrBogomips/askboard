@@ -103,6 +103,9 @@ describe("bun run build:view (design decision 7)", () => {
       "ext-apps": "library",
       gantt: "component",
       group: "component",
+      // The icon module: Lucide's icons by path, in a library chunk of their own (icon-set, design
+      // decision 4).
+      icons: "library",
       kanban: "component",
       latex: "component",
       // The shared Markdown renderer: markdown-it, DOMPurify and the Markdown classes, in a library
@@ -147,14 +150,14 @@ describe("bun run build:view (design decision 7)", () => {
     // The DateField's calendar is react-day-picker in Radix's Popover, with date-fns, all in its own
     // chunk (task 5.5; design decision 9).
     expect(manifest.chunks["date-field"]?.components).toEqual(["date-field"]);
-    expect(manifest.chunks["date-field"]?.needs).toEqual(["radix", "react", "shell"]);
+    expect(manifest.chunks["date-field"]?.needs).toEqual(["icons", "radix", "react", "shell"]);
     // The MoneyField's currency control is Radix's Toggle Group (task 5.4).
     expect(manifest.chunks["money-field"]?.components).toEqual(["money-field"]);
     expect(manifest.chunks["money-field"]?.needs).toEqual(["radix", "react", "shell"]);
     // The Approval's decisions are Radix's Toggle Group; it needs no drag and no board graph
     // (approval-scale-ranking, design decision 8).
     expect(manifest.chunks.approval?.components).toEqual(["approval"]);
-    expect(manifest.chunks.approval?.needs).toEqual(["radix", "react", "shell"]);
+    expect(manifest.chunks.approval?.needs).toEqual(["icons", "radix", "react", "shell"]);
     // The Chart's canvas renderer is in its own chunk, which needs React and the shell's port alone
     // (chart-widget, design decision 8).
     expect(manifest.chunks.chart?.components).toEqual(["chart"]);
@@ -167,7 +170,7 @@ describe("bun run build:view (design decision 7)", () => {
     // (keyboard-shortcuts-help, design decision 8); it needs no board graph and no compute
     // (approval-scale-ranking, design decision 9).
     expect(manifest.chunks.ranking?.components).toEqual(["ranking"]);
-    expect(manifest.chunks.ranking?.needs).toEqual(["dnd", "radix", "react", "shell"]);
+    expect(manifest.chunks.ranking?.needs).toEqual(["dnd", "icons", "radix", "react", "shell"]);
     // The LaTeX draws with KaTeX, which its chunk bundles with its stylesheet: it needs no Radix
     // control, no drag, no board graph and no compute (latex-kanban-timeline, design decision 8).
     expect(manifest.chunks.latex?.components).toEqual(["latex"]);
@@ -182,7 +185,7 @@ describe("bun run build:view (design decision 7)", () => {
     expect(manifest.chunks.timeline?.needs).toEqual(["radix", "react", "shell"]);
     // Since the ask lifecycle the shell's tab strip is Radix Tabs (ask-lifecycle, task 6.2). Since
     // the Snapshot it takes ext-apps from the registry only with a host (snapshot task 3.2).
-    expect(manifest.chunks.shell?.needs).toEqual(["radix", "react"]);
+    expect(manifest.chunks.shell?.needs).toEqual(["icons", "radix", "react"]);
     expect(manifest.chunks.choice?.needs).toEqual(["radix", "react", "shell"]);
     // The Tree reads the board graph since the molecules change (design decision 13), and the
     // work breakdown's values need compute's `isFormulaError` and `roundNumber` (decision 14).
@@ -192,6 +195,7 @@ describe("bun run build:view (design decision 7)", () => {
       "board-graph",
       "compute",
       "dnd",
+      "icons",
       "radix",
       "react",
       "shell",
@@ -377,6 +381,7 @@ describe("bun run build:view (design decision 7)", () => {
       "ext-apps",
       "gantt",
       "group",
+      "icons",
       "kanban",
       "latex",
       "markdown",
@@ -423,8 +428,89 @@ describe("bun run build:view (design decision 7)", () => {
   }, 60_000);
 });
 
+// The icon module's library chunk (icon-set, design decision 4; requirement "One icon set in one
+// chunk").
+describe("the icons library chunk", () => {
+  test("it is a library chunk that needs React", () => {
+    expect(chunkNamed("icons").kind).toBe("library");
+    expect(chunkNamed("icons").needs).toEqual(["react"]);
+  });
+
+  test("only its notices name lucide-react, ISC and Feather's MIT text with them", async () => {
+    const notice = chunkNamed("icons").licences.find((entry) => entry.package === "lucide-react");
+    expect(notice?.licence).toBe("ISC");
+    const licence = await text(notice?.path ?? "");
+    expect(licence).toContain("ISC License");
+    expect(licence).toContain("Cole Bemis");
+    for (const [name, chunk] of Object.entries(manifest.chunks)) {
+      if (name === "icons") continue;
+      expect(packagesIn(chunk.licences), name).not.toContain("lucide-react");
+    }
+    expect(packagesIn(manifest.boardPage.licences)).not.toContain("lucide-react");
+  });
+});
+
 const packagesIn = (notices: ViewManifest["boardPage"]["licences"]) =>
   notices.map((notice) => notice.package);
+
+// The built chunks (icon-set task 5.1; design decisions 4 and 10).
+describe("the built chunks hold Lucide once", () => {
+  test("the shell needs the icons chunk", () => {
+    expect(chunkNamed("shell").needs).toContain("icons");
+  });
+
+  test("the icons chunk holds Lucide's code, and no component chunk and not the shell does", async () => {
+    expect(await text(chunkNamed("icons").script.path)).toContain("lucide");
+    for (const name of [
+      "tree",
+      "ranking",
+      "approval",
+      "document-review",
+      "context",
+      "date-field",
+      "shell",
+    ]) {
+      expect(await text(chunkNamed(name).script.path), name).not.toContain("lucide");
+    }
+  });
+
+  test("a board with a Tree, a Ranking and a Text inlines the icons chunk once", async () => {
+    const [question] = treeBoardDocument.items;
+    const board = {
+      ...treeBoardDocument,
+      items: [
+        {
+          ...question,
+          props: { ...question.props, items: [RANKING_FIXTURE_ITEM] },
+        },
+        ...treeBoardDocument.items,
+      ],
+    } as unknown as ViewDocument;
+    const built = await assembled(board);
+    expect(built.chunks.filter((name) => name === "icons")).toHaveLength(1);
+    const script = await text(chunkNamed("icons").script.path);
+    expect(built.srcdoc.split(script)).toHaveLength(2);
+  });
+
+  test("the board page draws the close icon only: x's path data, no check, no page scan", async () => {
+    const page = await text(manifest.boardPage.script.path);
+    expect(page).toContain("M18 6 6 18");
+    expect(page).not.toContain("M20 6 9 17l-5-5");
+    // The literals that survive minification: `data-lucide` (in createIcons and replaceElement
+    // alike) and `createIcons` (in its error strings); the identifier `replaceElement` is mangled.
+    expect(page).not.toContain("createIcons");
+    expect(page).not.toContain("data-lucide");
+  });
+
+  test("the board page's notices name lucide under ISC with its text, and no chunk's do", async () => {
+    const notice = manifest.boardPage.licences.find((entry) => entry.package === "lucide");
+    expect(notice?.licence).toBe("ISC");
+    expect(await text(notice?.path ?? "")).toContain("ISC License");
+    for (const [name, chunk] of Object.entries(manifest.chunks)) {
+      expect(packagesIn(chunk.licences), name).not.toContain("lucide");
+    }
+  });
+});
 
 // The board state with the document's question open, as the board page first shows it.
 const openState = (document: ViewDocument): BoardState => {
@@ -481,7 +567,7 @@ describe("ext-apps only with a host (snapshot design decision 5; No view-protoco
     const code = await text(extApps.script.path);
     expect(board.chunks).toContain("ext-apps");
     expect(board.srcdoc).toContain(code);
-    expect(snapshot.chunks).toEqual(["react", "radix", "shell", "choice"]);
+    expect(snapshot.chunks).toEqual(["react", "icons", "radix", "shell", "choice"]);
     expect(snapshot.srcdoc).not.toContain(code);
     expect(snapshot.policy).not.toContain(cspHashSource(extApps.script.sha256));
     const block = /id="askboard-licences">([\s\S]*?)<\/script>/.exec(snapshot.srcdoc)?.[1] ?? "";
@@ -525,6 +611,7 @@ describe("only boards with a Tree load it (view spec, Widget chunks)", () => {
       "dnd",
       "ext-apps",
       "react",
+      "icons",
       "radix",
       "shell",
       "tree",
@@ -752,6 +839,7 @@ describe("the Chart's chunk (chart-widget, design decisions 8 and 9; view spec, 
         "@atlaskit/pragmatic-drag-and-drop/element/adapter",
       ],
       markdown: ["@askboard/view/markdown"],
+      icons: ["@askboard/view/icons"],
     });
     expect(Object.keys(manifest.chunks).filter((name) => name.includes("echarts"))).toEqual([]);
     expect(Object.keys(manifest.chunks)).not.toContain("zrender");
@@ -868,6 +956,7 @@ describe("the Gantt's chunks (gantt-widget design decisions 7 and 11; view spec,
       "board-graph",
       "ext-apps",
       "react",
+      "icons",
       "radix",
       "shell",
       "gantt",
@@ -886,6 +975,7 @@ describe("the Gantt's chunks (gantt-widget design decisions 7 and 11; view spec,
       "dnd",
       "ext-apps",
       "react",
+      "icons",
       "radix",
       "shell",
       "gantt",
@@ -971,7 +1061,7 @@ describe("molecules reach the view expanded (molecules; view spec, Molecules rea
 describe("the context chunk (excerpts, design decision 6; view spec, Context items)", () => {
   test("it registers excerpt, image and reference, needing React and the shell", () => {
     expect(chunkNamed("context").components).toEqual(["excerpt", "image", "reference"]);
-    expect(chunkNamed("context").needs).toEqual(["react", "shell"]);
+    expect(chunkNamed("context").needs).toEqual(["icons", "react", "shell"]);
   });
 
   test("it holds only AskBoard's own code, no schema, no Ajv and no code made from text", async () => {
@@ -990,6 +1080,7 @@ describe("the context chunk (excerpts, design decision 6; view spec, Context ite
     expect(names(contextBoardDocument)).toEqual([
       "ext-apps",
       "react",
+      "icons",
       "radix",
       "shell",
       "choice",
@@ -1146,7 +1237,7 @@ describe("the Document review's chunk (document-review, task 6.3; view spec, The
     const chunk = chunkNamed("document-review");
     expect(chunk.kind).toBe("component");
     expect(chunk.components).toEqual(["document-review"]);
-    expect(chunk.needs).toEqual(["markdown", "radix", "react", "shell"]);
+    expect(chunk.needs).toEqual(["icons", "markdown", "radix", "react", "shell"]);
   });
 
   test("it bundles no react-dom code of its own: its notices name none, and it reads React DOM from the react library chunk", async () => {

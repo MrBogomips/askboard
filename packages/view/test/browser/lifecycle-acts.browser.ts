@@ -362,7 +362,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await count.waitFor({ timeout: STEP_TIMEOUT_MS });
         await board.view
           .locator('[data-askboard-outline="first"]')
-          .getByText("↩ 1")
+          .getByRole("img", { name: "1 new reply", exact: true })
           .waitFor({ timeout: STEP_TIMEOUT_MS });
         await count.click();
         const latest = card(board, "first").getByText("Yes, the pilot needs it.", { exact: true });

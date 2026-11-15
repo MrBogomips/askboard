@@ -20,14 +20,34 @@ updates:
       interval: weekly
     groups:
       # Every dependency is a development dependency: one pull request a week for the minor and
-      # patch bumps, one CI run; a major gets its own, so a breaking bump never holds the others.
+      # patch bumps, one CI run; a major gets its own, so a breaking bump never holds the others, except
+      # Lucide's two packages, which a major moves together (grouped below).
       bun-dev:
         patterns:
           - "*"
         update-types:
           - minor
           - patch
+      # Lucide's two packages are pinned to one version (a test fails if they differ), so a major
+      # of either arrives in one pull request.
+      lucide:
+        patterns:
+          - "lucide"
+          - "lucide-react"
+        update-types:
+          - major
     ignore:
       # Follows the Bun pin in packageManager, which Dependabot does not bump: bump both by hand
       # (tools/workspace.test.ts fails if they differ).
       - dependency-name: "@types/bun"
+      # Lucide ships a minor release every few days, and a redrawn icon would ride in the weekly
+      # group unreviewed: a change that needs an icon bumps it by hand, re-reads the adoption
+      # evidence and records the chunk sizes (icon-set, decision 9). A major still gets a pull request.
+      - dependency-name: "lucide-react"
+        update-types:
+          - "version-update:semver-minor"
+          - "version-update:semver-patch"
+      - dependency-name: "lucide"
+        update-types:
+          - "version-update:semver-minor"
+          - "version-update:semver-patch"

@@ -10,11 +10,9 @@ import type { Board } from "./dom.ts";
 const holdsFocus = (group: Locator): Promise<boolean> =>
   group.evaluate((element) => element.contains(element.ownerDocument.activeElement));
 
-// The focused element's own text without a check mark, which stands for a pressed toggle.
+// The focused element's own text; a pressed toggle's check is an icon, which has none.
 const focusedName = (group: Locator): Promise<string> =>
-  group.evaluate((element) =>
-    (element.ownerDocument.activeElement?.textContent ?? "").replace("✓", "").trim(),
-  );
+  group.evaluate((element) => (element.ownerDocument.activeElement?.textContent ?? "").trim());
 
 /**
  * Clicks the question's text, which sets where Tab starts, then presses Tab until the focus is

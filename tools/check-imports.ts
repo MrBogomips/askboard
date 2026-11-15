@@ -27,8 +27,9 @@ const SERVER_UNITS = new Set([
 ]);
 
 // What each unit may import, from the spine's Invariants & Rules diagram and AD-1. `view/assemble`
-// (AD-9), `view/catalog` (the CatalogRenderer port) and `view/markdown` (the shared Markdown renderer,
-// document-review design decision 6) are the view entries other units use.
+// (AD-9), `view/catalog` (the CatalogRenderer port), `view/markdown` (the shared Markdown renderer,
+// document-review design decision 6) and `view/icons` (the icon module, icon-set design decision 3)
+// are the view entries other units use.
 // A change to the diagram updates this table in the same OpenSpec change.
 const ALLOWED: Readonly<Record<string, readonly string[]>> = {
   contract: [],
@@ -57,7 +58,7 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
   ],
   molecules: ["contract"],
   view: ["contract", "compute"],
-  widgets: ["contract", "compute", "view/catalog", "view/markdown"],
+  widgets: ["contract", "compute", "view/catalog", "view/markdown", "view/icons"],
   mod: ["contract"],
   hooks: ["contract"],
   bench: ["contract"],
@@ -80,7 +81,7 @@ const PACKAGES = new Set([
 const RUNTIME_NEUTRAL = new Set(["core", "compute", "mod"]);
 // core, compute and mod compile contract's sources too, so its type references would reach them.
 const TYPE_ISOLATED = new Set(["contract", "core", "compute", "mod"]);
-const VIEW_ENTRIES = new Set(["assemble", "catalog", "markdown"]);
+const VIEW_ENTRIES = new Set(["assemble", "catalog", "markdown", "icons"]);
 const SOURCE_FILE = /\.[cm]?[jt]sx?$/;
 const SKIPPED_DIRECTORIES = new Set(["node_modules", "dist", "coverage"]);
 const SCOPE = "@askboard/";
@@ -95,6 +96,8 @@ const RULE_NODE_MODULES =
   "a relative path into node_modules, where the isolated linker links other packages: import @askboard/<unit> or a third-party package by name (AD-1)";
 const RULE_REFERENCE =
   "contract, core, compute and mod reference no type package and no library beyond ECMAScript outside their tests: core, compute and mod compile without DOM, Node or Bun types (AD-1)";
+const RULE_LUCIDE =
+  "lucide-react is imported only as lucide-react/icons/<icon>, in packages/view/src/icons/index.ts or a test, and lucide only as a static named import of createElement and icon names from its main entry, in packages/view/src/board-page/icons.ts or a test: every other file imports the icon module; no createIcons, no subpath, no @lucide/* (AD-1, icon-set design decisions 5 and 10)";
 const RULE_LINK = "a symbolic link under packages/, which the check does not follow (AD-1)";
 
 type Target =
@@ -206,7 +209,41 @@ const specifiersOf = (file: string, source: string): string[] => {
   return [...new Set([...scanned, ...queried])];
 };
 
+// Lucide enters in two forms only. The view's icon module imports one `lucide-react` icon by its
+// path. The board page's icon file (or a test) imports `lucide`'s documented main entry as one
+// static named import of `createElement` and PascalCase icons; `createIcons` (which scans the DOM),
+// `icons`, namespace and default imports, re-exports, dynamic imports and subpaths are refused. Every
+// other `lucide`, `lucide-*` and `@lucide/*` specifier fails everywhere. Lucide is found in lower
+// case (a differently cased path resolves on a case-insensitive disk), but only the exact lower-case
+// form passes.
+const LUCIDE = /^(@lucide\/|lucide(-[a-z0-9]+)*(\/|$))/i;
+const LUCIDE_REACT_ICON = /^lucide-react\/icons\/[a-z0-9]+(-[a-z0-9]+)*$/;
+const LUCIDE_NAME = /^(createElement|[A-Z][A-Za-z0-9]*)(\s+as\s+[A-Za-z_$][\w$]*)?$/;
+const LUCIDE_IMPORT = /\bimport\s*\{([^{}]*)\}\s*from\s*(["'])lucide\2\s*;?/g;
+const ICON_MODULE = "packages/view/src/icons/index.ts";
+const BOARD_PAGE_ICONS = "packages/view/src/board-page/icons.ts";
+
+const lucidePasses = (file: string, specifier: string): boolean =>
+  LUCIDE_REACT_ICON.test(specifier) && (file === ICON_MODULE || isTestFile(file));
+
+// The allowed `lucide` imports, taken out of the source before its specifiers are read: what is
+// left that names `lucide` is a violation.
+const withoutLucideImports = (file: string, source: string): string => {
+  if (file !== BOARD_PAGE_ICONS && !isTestFile(file)) return source;
+  return source.replace(LUCIDE_IMPORT, (statement, names: string) => {
+    const listed = names.split(",").map((name) => name.trim());
+    const valid = listed.every((name, at) => LUCIDE_NAME.test(name) || (name === "" && at > 0));
+    return valid && listed[0] !== "" ? "" : statement;
+  });
+};
+
+const lucideViolation = (file: string, specifier: string): Violation | undefined =>
+  lucidePasses(file, specifier)
+    ? undefined
+    : { file, specifier, target: "lucide", rule: RULE_LUCIDE };
+
 const violationOf = (file: string, unit: string, specifier: string): Violation | undefined => {
+  if (LUCIDE.test(specifier)) return lucideViolation(file, specifier);
   const target = targetOf(file, specifier);
   switch (target.kind) {
     case "third-party":
@@ -256,7 +293,7 @@ export const checkSource = (file: string, source: string): Violation[] => {
   }
   let specifiers: string[];
   try {
-    specifiers = specifiersOf(file, source);
+    specifiers = specifiersOf(file, withoutLucideImports(file, source));
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return [{ file, specifier: "", target: "-", rule: `could not parse: ${message}` }];

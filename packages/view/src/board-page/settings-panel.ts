@@ -11,6 +11,7 @@
 import type { PresentationSetting } from "@askboard/contract";
 import { SEGMENT, SEGMENTS } from "../shell/segment-classes.ts";
 import { segmentAfterKey } from "../shell/segment-keys.ts";
+import { closeIcon } from "./icons.ts";
 import { element } from "./page-chrome.ts";
 import type { PanelControl, PanelData, PanelKeysRow, PanelRow } from "./settings-panel-data.ts";
 
@@ -37,6 +38,7 @@ const LABEL = "text-label uppercase text-muted-foreground";
 const FOCUS_RING =
   "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring";
 const BUTTON = `h-control-height shrink-0 rounded-md border border-border bg-muted px-md text-control text-foreground hover:bg-card ${FOCUS_RING}`;
+const CLOSE = `${BUTTON} inline-flex w-7 items-center justify-center px-0`;
 const READ_ONLY = "flex flex-col gap-1 rounded-md bg-muted p-sm";
 const CODE = "break-all font-mono text-code";
 const ERROR = "text-body text-destructive-text";
@@ -182,7 +184,8 @@ const sheetOf = (document: Document, data: PanelData, actions: PanelActions): HT
   const aside = element(document, "aside", SHEET);
   aside.setAttribute("aria-label", data.title);
   aside.dataset.askboardSettingsPanel = "";
-  const close = element(document, "button", BUTTON, "✕");
+  const close = element(document, "button", CLOSE);
+  close.append(closeIcon(document));
   close.type = "button";
   close.setAttribute("aria-label", data.closeLabel);
   close.dataset.askboardSettingsClose = "";

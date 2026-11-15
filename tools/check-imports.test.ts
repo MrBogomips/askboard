@@ -37,6 +37,7 @@ const ALLOWED: [string, string][] = [
   ["widgets", "@askboard/compute"],
   ["widgets", "@askboard/view/catalog"],
   ["widgets", "@askboard/view/markdown"],
+  ["widgets", "@askboard/view/icons"],
   ["mod", "@askboard/contract"],
   ["hooks", "@askboard/contract"],
   ["bench", "@askboard/contract"],
@@ -59,6 +60,8 @@ const DISALLOWED: [string, string][] = [
   ["snapshot", "@askboard/view/catalog"],
   ["snapshot", "@askboard/view/markdown"],
   ["core", "@askboard/view/markdown"],
+  ["snapshot", "@askboard/view/icons"],
+  ["core", "@askboard/view/icons"],
   ["molecules", "@askboard/core"],
   ["view", "@askboard/core"],
   ["view", "@askboard/widgets"],
@@ -288,6 +291,117 @@ describe("unit boundaries (AD-1)", () => {
       "widgets may import only contract, compute, view/catalog, view/markdown",
     );
     expect(violation?.rule).toContain("AD-1");
+  });
+});
+
+// icon-set design decision 5: Lucide enters only as `lucide-react/icons/<name>`, in the icon module.
+describe("the icon set's import rule (icon-set, design decision 5)", () => {
+  const ICON_MODULE = "packages/view/src/icons/index.ts";
+
+  test.each([
+    ["packages/widgets/src/a.tsx", "lucide-react"],
+    ["packages/widgets/src/a.tsx", "lucide-react/icons/check"],
+    [ICON_MODULE, "lucide-react"],
+    [ICON_MODULE, "lucide-react/icons"],
+    [ICON_MODULE, "lucide-react/dynamic"],
+    ["packages/view/src/shell/a.tsx", "lucide-react/dynamic"],
+    ["packages/view/src/shell/a.tsx", "lucide-react/dynamicIconImports"],
+    [ICON_MODULE, "lucide-react/dynamicIconImports"],
+    [ICON_MODULE, "lucide-react/dist/esm/icons/x.mjs"],
+    ["packages/view/src/shell/a.tsx", "lucide-react/dist/esm/icons/x.mjs"],
+    ["packages/view/src/shell/x.tsx", "lucide-react/icons/check"],
+    ["packages/view/src/icons/other.ts", "lucide-react/icons/check"],
+    ["packages/view/test/browser/a.ts", "lucide-react/dynamic"],
+    ["packages/view/src/icons/index.test.ts", "lucide-react/icons"],
+    // Another case resolves on a case-insensitive disk and would bundle Lucide into the shell (X-1).
+    ["packages/view/src/shell/a.tsx", "Lucide-React/icons/x"],
+    [ICON_MODULE, "Lucide-React/icons/x"],
+    [ICON_MODULE, "LUCIDE-REACT"],
+    [ICON_MODULE, "lucide-react/icons/Check"],
+    [ICON_MODULE, "lucide-react/icons/check/"],
+    [ICON_MODULE, "lucide-react/icons/check.js"],
+    [ICON_MODULE, "lucide-react/icons/a/b"],
+  ])("%s may not import %s", (file, specifier) => {
+    const violations = checkSource(file, importOf(specifier));
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toMatchObject({ file, specifier });
+    expect(violations[0]?.rule).toContain("lucide-react");
+  });
+
+  test.each([
+    [ICON_MODULE, "lucide-react/icons/check"],
+    [ICON_MODULE, "lucide-react/icons/message-square-reply"],
+    ["packages/view/src/icons/index.test.ts", "lucide-react/icons/check"],
+    ["packages/view/test/browser/a.ts", "lucide-react/icons/check"],
+    ["packages/widgets/src/a.tsx", "@askboard/view/icons"],
+    ["packages/view/src/shell/a.tsx", "../icons/index.ts"],
+  ])("%s may import %s", (file, specifier) => {
+    expect(checkSource(file, importOf(specifier))).toEqual([]);
+  });
+
+  test("the failure names the file and the rule", () => {
+    const [violation] = checkSource(
+      "packages/view/src/shell/x.tsx",
+      importOf("lucide-react/icons/check"),
+    );
+    expect(formatViolation(violation as NonNullable<typeof violation>)).toContain(
+      "packages/view/src/shell/x.tsx",
+    );
+    expect(violation?.rule).toContain("packages/view/src/icons/index.ts");
+  });
+});
+
+// icon-set design decision 10: `lucide` (the DOM package) enters only through its documented main
+// entry, as a static named import of `createElement` and PascalCase icons, in the board page's icon
+// file or a test. `createIcons` scans the DOM, so it, `icons`, namespace and default imports,
+// re-exports, subpaths, `lucide-*` and `@lucide/*` fail everywhere.
+describe("the board page's Lucide import rule (icon-set, design decision 10)", () => {
+  const BOARD_ICONS = "packages/view/src/board-page/icons.ts";
+  const from = (file: string, source: string) => checkSource(file, source);
+
+  test.each([
+    [BOARD_ICONS, 'import { createIcons } from "lucide";'],
+    [BOARD_ICONS, 'import { createElement, createIcons } from "lucide";'],
+    [BOARD_ICONS, 'import { icons } from "lucide";'],
+    [BOARD_ICONS, 'import { replaceElement } from "lucide";'],
+    [BOARD_ICONS, 'import * as L from "lucide";'],
+    [BOARD_ICONS, 'import L from "lucide";'],
+    [BOARD_ICONS, 'import L, { X } from "lucide";'],
+    [BOARD_ICONS, 'import "lucide";'],
+    [BOARD_ICONS, 'import { type X } from "lucide";'],
+    [BOARD_ICONS, 'export { X } from "lucide";'],
+    [BOARD_ICONS, 'export * from "lucide";'],
+    [BOARD_ICONS, 'const L = await import("lucide");'],
+    [BOARD_ICONS, 'import("lucide").then(() => 1);'],
+    [BOARD_ICONS, 'import { X } from "lucide"; import { createIcons } from "lucide";'],
+    [BOARD_ICONS, 'import X from "lucide/dist/esm/icons/x.mjs";'],
+    [BOARD_ICONS, 'import "lucide/dist/esm/icons/x.mjs";'],
+    [BOARD_ICONS, 'import createElement from "lucide/dist/esm/createElement.mjs";'],
+    [BOARD_ICONS, 'import { X } from "lucide/dist/lucide.js";'],
+    [BOARD_ICONS, 'import { X } from "Lucide";'],
+    [BOARD_ICONS, 'import { X } from "LUCIDE";'],
+    [BOARD_ICONS, 'import { X } from "@lucide/lab";'],
+    [BOARD_ICONS, 'import { X } from "@Lucide/lab";'],
+    [BOARD_ICONS, 'import { X } from "lucide-static";'],
+    [BOARD_ICONS, 'import { X } from "lucide-react";'],
+    ["packages/view/src/board-page/reading-panel.ts", 'import { X } from "lucide";'],
+    ["packages/view/src/icons/index.ts", 'import { X } from "lucide";'],
+    ["packages/widgets/src/a.tsx", 'import { createElement } from "lucide";'],
+  ])("%s may not hold %s", (file, source) => {
+    const violations = from(file, source);
+    expect(violations.length).toBeGreaterThan(0);
+    expect(violations[0]?.rule).toContain("lucide");
+  });
+
+  test.each([
+    [BOARD_ICONS, 'import { createElement, X } from "lucide";'],
+    [BOARD_ICONS, 'import { createElement, X as Cross } from "lucide";'],
+    [BOARD_ICONS, "import {\n  createElement,\n  MessageSquareReply,\n} from 'lucide';"],
+    [BOARD_ICONS, 'import { X } from "lucide";\nimport { other } from "./other.ts";'],
+    ["packages/view/src/board-page/icons.test.ts", 'import { createElement, X } from "lucide";'],
+    ["packages/view/test/browser/a.ts", 'import { X } from "lucide";'],
+  ])("%s may hold %s", (file, source) => {
+    expect(from(file, source)).toEqual([]);
   });
 });
 
