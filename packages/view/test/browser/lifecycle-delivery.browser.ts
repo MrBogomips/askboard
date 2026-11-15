@@ -75,7 +75,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const two = await openBoard(immediate, ["database", "cache"]);
         expect(await mode(two, "immediate").getAttribute("aria-pressed")).toBe("true");
         await viewText(two, "Each answer goes to the agent as soon as you send it.").waitFor();
-        expect(await two.submit.isDisabled()).toBe(true);
+        expect(await two.submit.count()).toBe(0);
         const submitted = await start(lifecycleScenario(submittedAsk, dist));
         const three = await openBoard(submitted, QUESTIONS);
         expect(await mode(three, "submitted").getAttribute("aria-pressed")).toBe("true");

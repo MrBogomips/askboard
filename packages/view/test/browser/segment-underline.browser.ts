@@ -50,7 +50,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           expect(resting.weight).not.toBe("600");
         }
         // The delivery switch of the bottom bar.
-        const delivery = board.view.getByRole("group", { name: /delivery/i });
+        const delivery = board.view.getByRole("group", { name: /sending answers/i });
         const pressed = delivery.locator('[aria-pressed="true"]');
         expect(await underline(pressed)).toEqual(CHOSEN);
         // The settings panel, on the board page.

@@ -83,10 +83,12 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await yes(board, "q1").check({ timeout: STEP_TIMEOUT_MS });
         const primary = answerOf(board, "q1");
         await reads(primary, "Confirm");
-        await primary.click({ timeout: STEP_TIMEOUT_MS });
+        // The keyboard presses it (WebKit does not focus a clicked button), so focus is the test's.
+        await primary.focus({ timeout: STEP_TIMEOUT_MS });
+        await primary.press("Enter", { timeout: STEP_TIMEOUT_MS });
         await reads(primary, "Edit");
         await eventually(() => isFocused(primary), "focus kept on the primary");
-        await primary.click({ timeout: STEP_TIMEOUT_MS });
+        await primary.press("Enter", { timeout: STEP_TIMEOUT_MS });
         await reads(primary, "Confirm");
         await eventually(() => isFocused(primary), "focus kept on the primary after Edit");
       },

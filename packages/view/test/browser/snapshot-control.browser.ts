@@ -156,6 +156,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       async () => {
         const run = await start({ ...lifecycleScenario(twoAsk, dist), asker: ASKER });
         const board = await openBoard(run, ["database", "cache"]);
+        // Send shows in "All together" only.
+        await board.delivery("submitted").click({ timeout: STEP_TIMEOUT_MS });
         await snapshotButton(board).click({ timeout: STEP_TIMEOUT_MS });
         await says(board, "Snapshot saved:", RECONNECT_TIMEOUT_MS);
         const path = await shownPath(board);
