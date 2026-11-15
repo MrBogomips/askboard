@@ -92,7 +92,7 @@ Terms used below:
 
 ## 3. The question in view (#181)
 
-- [ ] 3.1 Browser tests first (The question in view; Counts and the next-open jump; Outline navigator): `packages/view/test/browser/answering-flow-in-view.browser.ts`, listed in `suites.ts`. One test per scenario:
+- [x] 3.1 Browser tests first (The question in view; Counts and the next-open jump; Outline navigator): `packages/view/test/browser/answering-flow-in-view.browser.ts`, listed in `suites.ts`. One test per scenario:
   - scrolling with focus outside the cards;
   - the card holding focus;
   - the end of the page;
@@ -104,12 +104,15 @@ Terms used below:
   - tighten `answering-flow-focus.browser.ts`'s Submit case (Focus after Answer and Submit, scenario "Submit"): scroll so that a mid-board question (question 5) is the question in view, Submit, and expect focus on question 5's heading, not only off `<body>`.
 
   Scroll with `window.scrollTo` inside the view, and wait on the outline's `aria-current` with a probe. Refs #181. Verify: the file fails for the right reason before 3.2 (the mark stays on question 2), in the three engines.
-- [ ] 3.2 `useQuestionInView` (D3), with sections and tabs only. On `scroll` (passive, once per animation frame) and `focusin`, never at mount, it reads the `[data-askboard-question]` rects of the main area and the band (`measureInset`), takes `focusedQuestion`, calls `questionInView`, and calls `setInView` when the result differs. One question per view is unchanged. Refs #181. Verify: 3.1 passes in a File run in the three engines. `board-view.test.ts` passes. `presentation-persistence.browser.ts`, `reopen-session.browser.ts` and `lifecycle-presentations.browser.ts` still pass. The note gives the number of `setInView` calls while scrolling the nine-question board from top to bottom: at most one per question crossed.
-- [ ] 3.3 EXPERIENCE.md, Board chrome:
+  - Note: `answering-flow-in-view.browser.ts` (7 tests: scrolling and end of page, card holding focus, another tab, reload, Next open from where the user is, agent-added question, Submit on question 5), in `suites.ts`. Red before 3.2 in the three engines (6 fail on the mark, the agent-added case passes already: the unseen rule needs no in-view change). `answering-flow-focus`'s Submit case now scrolls question 5 into view and expects its heading focused. Runs on d8ba5af7: 7/7 in Chromium, Firefox and WebKit.
+- [x] 3.2 `useQuestionInView` (D3), with sections and tabs only. On `scroll` (passive, once per animation frame) and `focusin`, never at mount, it reads the `[data-askboard-question]` rects of the main area and the band (`measureInset`), takes `focusedQuestion`, calls `questionInView`, and calls `setInView` when the result differs. One question per view is unchanged. Refs #181. Verify: 3.1 passes in a File run in the three engines. `board-view.test.ts` passes. `presentation-persistence.browser.ts`, `reopen-session.browser.ts` and `lifecycle-presentations.browser.ts` still pass. The note gives the number of `setInView` calls while scrolling the nine-question board from top to bottom: at most one per question crossed.
+  - Note: `shell/use-question-in-view.ts`, called from `Board` (enabled for sections and tabs); scroll passive and once per frame, `focusin`, never at mount. 3.1, `answering-flow-focus` (16), `presentation-persistence` (3), `reopen-session` (10), `lifecycle-presentations` (7) pass in the three engines on d8ba5af7; `board-view.test.ts` in `bun run test` (14766 pass). Scrolling the nine-question board top to bottom in 15 px steps changed the current mark 9 times (the first set plus 8 crossings): one per question.
+- [x] 3.3 EXPERIENCE.md, Board chrome:
   - the Outline navigator row defines the question in view by D3's rule: the focused card, the reading line, the end of the page;
   - the Next-open jump row says that the jump searches forward from the question in view on every presentation.
 
   Refs #181. Tests: none (documents). Verify: each replaced phrase stood once before and its replacement stands once after (`grep -c -F`).
+  - Note: EXPERIENCE.md rows Outline navigator and Next-open jump amended; each replaced phrase 0 after, each replacement 1 (`grep -c -F`).
 - [ ] 3.4 Review checkpoint: spec review of group 3's range against D3 and the three requirements. No security review. Verify: no open finding of severity H or M.
 
 ## 4. Status messages (#182)
