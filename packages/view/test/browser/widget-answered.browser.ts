@@ -16,7 +16,13 @@ import {
 } from "./harness/board-test.ts";
 import type { Board } from "./harness/dom.ts";
 import { enginesFrom } from "./harness/engines.ts";
-import { answerOf, lifecycleScenario, openBoard, sentDrafts } from "./harness/lifecycle-test.ts";
+import {
+  answerOf,
+  lifecycleScenario,
+  mirrored,
+  openBoard,
+  sentDrafts,
+} from "./harness/lifecycle-test.ts";
 import { pressIn, tabIntoTree, treeGridOf } from "./harness/tree-grid.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 
@@ -25,7 +31,7 @@ const [{ props }] = planAsk.items;
 const NEW_NAME = "UX design, reviewed";
 
 // Renames `ux` with the keyboard alone: into the Tree, down to the row, F2 on its name, Enter.
-const renameUx = async (board: Board): Promise<void> => {
+const renameUx = async (board: Board, answer = true): Promise<void> => {
   const tree = treeGridOf(board);
   await tabIntoTree(board, props.text);
   await pressIn(board, "ArrowDown");
@@ -34,7 +40,7 @@ const renameUx = async (board: Board): Promise<void> => {
   await tree.editor.waitFor({ timeout: STEP_TIMEOUT_MS });
   await board.page.keyboard.type(NEW_NAME);
   await pressIn(board, "Enter");
-  await answerOf(board, "plan").click({ timeout: STEP_TIMEOUT_MS });
+  if (answer) await answerOf(board, "plan").click({ timeout: STEP_TIMEOUT_MS });
 };
 
 // The Tree shows the edited name, read from its cell, with no editor open.
@@ -97,6 +103,30 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await expectEdited(second);
         await run.session.collected();
         await second.receipt("delivered").waitFor({ timeout: STEP_TIMEOUT_MS });
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a reload while the mirror still holds the sent Tree keeps the answered card (#250)",
+      async () => {
+        const run = await start(lifecycleScenario(planAsk, dist));
+        const board = await openBoard(run, ["plan"]);
+        await renameUx(board, false);
+        await mirrored(
+          run,
+          (record) => JSON.stringify(record.questions.plan?.values ?? {}).includes(NEW_NAME),
+          "the renamed Tree",
+        );
+        await answerOf(board, "plan").click({ timeout: STEP_TIMEOUT_MS });
+        await board.receipt("sent").waitFor({ timeout: STEP_TIMEOUT_MS });
+        await reloadAndOpen(run, board);
+        await board.receipt("sent").waitFor({ timeout: STEP_TIMEOUT_MS });
+        const card = board.view.locator('[data-askboard-question="plan"]');
+        expect(await card.getAttribute("data-askboard-stripe")).not.toBe("draft");
+        await expectEdited(board);
+        await run.session.collected();
+        await board.receipt("delivered").waitFor({ timeout: STEP_TIMEOUT_MS });
       },
       TEST_TIMEOUT_MS,
     );
