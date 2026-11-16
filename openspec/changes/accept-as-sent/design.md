@@ -122,6 +122,8 @@ The change widens four sets, each to the **next minor after main's**:
 
 The input format, the board document, the view manifest, the configuration, the local API and the session file keep main's values. Group 0 records main's values. The constants are set to main's plus one when group 1 starts, and are bound at the rebase task. The binding line goes here then, dated, with main's SHA. Header comments, schema descriptions, fixture comments and test titles say "since accept-as-sent", never a number.
 
+Bound on 2026-11-16, rebased onto origin/main 95e7e31f (main had not moved since the proposal): output format 1.14 (main 1.13), board protocol 1.15 (main 1.14), tool envelopes 1.15 (main 1.14), Snapshot data 1.5 (main 1.4); the other sets keep main's.
+
 ### 9. Teaching
 
 `tools/build/skills/templates/answers.md` gains one bullet after `tooLarge`'s: an answer with `asSent: true` is the user's explicit acceptance of the question's content exactly as sent, carries no `changes`, may carry the note and the derived values, and is never a missing answer. `bun run build:skills` regenerates `skills/askboard/references/answers.md` (2,323 characters, within its 6,000 budget). No widget's teaching text says an untouched editable item gives no answer (checked: none of the six), so none changes.
