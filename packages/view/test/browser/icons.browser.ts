@@ -4,7 +4,7 @@
 // reply badge and agent-change flag are images named in the board's language; the date field's
 // calendar button keeps its name over a hidden icon; every icon takes the text colour of its
 // element, in the light and the dark theme; and a Snapshot opened offline draws them as inline SVG
-// with no request and no CSP violation.
+// with no request and no CSP violation. The icon-only buttons draw their icon as a full square (#254).
 
 import { describe, expect, test } from "bun:test";
 import type { Browser } from "playwright";
@@ -216,6 +216,34 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       );
     });
   }
+
+  describe(`${engine}: icon-only buttons`, () => {
+    const { start } = useEngine(engine);
+
+    test(
+      "Keys, Theme, Settings and a card's More each draw their icon as a full square (#254)",
+      async () => {
+        const ask = { ...sectionsAsk, askId: "sections-icon-buttons" };
+        const run = await start(lifecycleScenario(ask, dist));
+        const board = await openBoard(run, ["region", "mobile", "export", "flag"]);
+        const buttons = [
+          board.header.getByRole("button", { name: "Keys", exact: true }),
+          board.header.getByRole("button", { name: "Theme", exact: true }),
+          board.header.getByRole("button", { name: "Settings", exact: true }),
+          card(board, "region").getByRole("button", { name: "More", exact: true }),
+        ];
+        for (const button of buttons) {
+          await button.waitFor({ timeout: STEP_TIMEOUT_MS });
+          const box = await svgsIn(button).first().boundingBox();
+          if (box === null) throw new Error("an icon-only button draws no icon");
+          // `size-4`: one rem square, never squeezed by the padding of a labelled button.
+          expect(box.width).toBeGreaterThan(8);
+          expect(box.width).toBe(box.height);
+        }
+      },
+      TEST_TIMEOUT_MS,
+    );
+  });
 
   describe(`${engine}: icons of the context and the date field`, () => {
     const { start } = useEngine(engine);

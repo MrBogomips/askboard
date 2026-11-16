@@ -19,7 +19,7 @@ import {
   stopKey,
 } from "./keys-frame-actions.ts";
 import { KeysPanelBody } from "./keys-panel.tsx";
-import { BUTTON_SECONDARY } from "./styles.ts";
+import { BUTTON_ICON } from "./styles.ts";
 import { useBoardKeyTable } from "./use-board-keys.ts";
 
 const PANEL =
@@ -76,7 +76,7 @@ export const BoardKeysButton = ({ panel, takesEdits }: BoardKeysProps) => {
       type="button"
       aria-haspopup="dialog"
       aria-label={text("keys.button")}
-      className={`${BUTTON_SECONDARY} w-control-height justify-center px-0`}
+      className={BUTTON_ICON}
       ref={buttonRefOf(panel.control, undefined)}
       onClick={clickOf(panel.control, undefined)}
     >

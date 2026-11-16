@@ -13,7 +13,7 @@ import { IconMore } from "../icons/index.ts";
 import { type Mark, markLabel } from "./board-view.ts";
 import { QuestionMarker } from "./markers.tsx";
 import type { CardActions } from "./question-state.ts";
-import { BUTTON_SECONDARY, CHIP, FOCUS_RING } from "./styles.ts";
+import { BUTTON_ICON, CHIP, FOCUS_RING } from "./styles.ts";
 
 const MENU =
   "z-20 flex min-w-36 flex-col gap-0.5 rounded-md border border-border bg-popover p-1 text-control text-foreground shadow-md";
@@ -97,7 +97,7 @@ export const CardHead = ({
             ref={more}
             aria-label={text("question.more")}
             title={text("question.more")}
-            className={`${BUTTON_SECONDARY} w-control-height justify-center px-0`}
+            className={BUTTON_ICON}
             disabled={locked}
           >
             <IconMore className="size-4" />
