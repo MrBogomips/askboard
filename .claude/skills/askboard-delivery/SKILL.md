@@ -93,6 +93,10 @@ Record each group's head (`git rev-parse HEAD`) as its commit lands: a handoff r
       harness or a widget's rendering also asks for a train on its branch before merge:
       `gh workflow run e2e.yml --ref <branch> -f cadence=nightly`, then the conclusion of
       `gh run list --workflow e2e.yml --branch <branch> --limit 1`, reported in the pull request.
+      That train gates the merge. When it is red, diff its failing tests against the last train on
+      `main` (both digests). A failure only on the branch is new: fix it in the change, or file it
+      (`source:e2e`) and get the PO's yes to defer it. Merge only when no new failure is untriaged.
+      Failures that `main` already has never block it.
 5. **Before `/openspec-archive-change`:** the pull request is merged; every Verify task is ticked or its reason
    recorded; the change's as-built note `docs/as-built/<change-id>.md`, written once at the end of
    the change, describes it as built (the change never edits AGENTS.md for its own record, and the
