@@ -49,10 +49,12 @@ const keysNotApplied = ({
 
 // The warnings that drop `keys`, or undefined when it stays. The check runs on a user file's `keys`
 // only, which passed the configuration schema (a file that failed it holds no values), and gives
-// every problem, of which only the first eight become warnings.
+// every problem, of which only the first eight become warnings. A user file others can write loses
+// its `keys` whole, as its `editor` does, before the check (user-keys-writable-by-others).
 const keysRule = (file: SettingsFileName, state: FileState): SettingWarning[] | undefined => {
   if (state.status !== "applied" || state.values.keys === undefined) return undefined;
   if (file === "project") return [{ code: "project-keys-ignored", file, key: "keys" }];
+  if (state.othersCanWrite) return [{ code: "keys-file-writable-by-others", file, key: "keys" }];
   const problems = keyOverridesProblems(state.values.keys);
   return problems.length === 0
     ? undefined

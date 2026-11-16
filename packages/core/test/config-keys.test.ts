@@ -320,3 +320,52 @@ describe("the settings message built from both files passes the board protocol",
     expect(view.keys.keys?.value).toBe(keys);
   });
 });
+
+describe("a user file others can write has its keys ignored (user-keys-writable-by-others)", () => {
+  const writable = (values: Record<string, unknown>): FakeFile => ({
+    kind: "read",
+    text: JSON.stringify({ version, ...values }),
+    othersCanWrite: true,
+  });
+  const WARNING: SettingWarning = {
+    code: "keys-file-writable-by-others",
+    file: "user",
+    key: "keys",
+  };
+
+  test("no override applies, theme does, and one warning stands on the row", async () => {
+    const { settings, diagnosed } = await read(
+      writable({ theme: "dark", keys: { "answer.focus": ["x"] } }),
+      undefined,
+    );
+    expect(settings.values.theme).toBe("dark");
+    expect(settings.values.keys).toBeUndefined();
+    expect(settings.rows.keys).toEqual({ from: "default", writable: false, warnings: [WARNING] });
+    expect(diagnosed.filter((line) => /its keys/.test(line))).toHaveLength(1);
+    expect(diagnosed.join("\n")).toContain("can be written by another user");
+  });
+
+  test("the keys are not checked: a refused file gives this warning only, after the project's", async () => {
+    const { settings } = await read(writable({ keys: CONFLICT }), { version, keys: TOP });
+    expect(settings.rows.keys?.warnings).toEqual([
+      { code: "project-keys-ignored", file: "project", key: "keys" },
+      WARNING,
+    ]);
+  });
+
+  test("the settings message passes the board protocol", async () => {
+    const { ok } = await message(writable({ keys: TOP }), undefined);
+    expect(ok).toBe(true);
+  });
+
+  test("a file others cannot write is unchanged", async () => {
+    const { settings } = await read({ version, keys: TOP }, undefined);
+    expect(settings.rows.keys?.from).toBe("user");
+    expect(settings.rows.keys?.warnings).toBeUndefined();
+  });
+
+  test("a writable file without keys gives no warning", async () => {
+    const { settings } = await read(writable({ theme: "dark" }), undefined);
+    expect(settings.rows.keys?.warnings).toBeUndefined();
+  });
+});

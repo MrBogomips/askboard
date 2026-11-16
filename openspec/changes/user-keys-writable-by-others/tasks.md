@@ -12,7 +12,7 @@ Each task writes its tests first and sees them fail before implementing. "The ch
 
 ## 2. Core: the rule and stderr (D1, D3, D5)
 
-- [ ] 2.1 Tests first in `packages/core/test/config-keys.test.ts` and `config-diagnostics-text.test.ts`, with `othersCanWrite: true` (core, "A user file others can write", "A writable file's keys are not checked"): no override, `theme` applies, one warning, the project's first; no `keys-not-applied`; one stderr line. Then `keysRule` and `WARNINGS`, and AD-14's clause in the spine. Verify: the cases fail first, then pass; `othersCanWrite: false` cases pass unchanged; the check passes.
+- [x] 2.1 Tests first in `packages/core/test/config-keys.test.ts` and `config-diagnostics-text.test.ts`, with `othersCanWrite: true` (core, "A user file others can write", "A writable file's keys are not checked"): no override, `theme` applies, one warning, the project's first; no `keys-not-applied`; one stderr line. Then `keysRule` and `WARNINGS`, and AD-14's clause in the spine. Verify: the cases fail first, then pass; `othersCanWrite: false` cases pass unchanged; the check passes.
 
 ## 3. View: the Keys row (D3, D5)
 

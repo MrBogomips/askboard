@@ -45,6 +45,8 @@ const WARNINGS: Readonly<Record<SettingWarning["code"], (warning: SettingWarning
     `sets snapshotFolder to ${quoteFileText(value ?? "")}, which leaves the project: .askboard/snapshots is used instead.`,
   "project-keys-ignored": () =>
     "sets keys, which AskBoard reads from the user file only: it is ignored.",
+  "keys-file-writable-by-others": () =>
+    "can be written by another user, or a folder above it can, or another user owns one: its keys are ignored (every key is the default).",
   // The action, the combination and the other action come from a file: quoted by `quoteFileText`,
   // so no control character, separator or bidirectional control gets out.
   "keys-not-applied": ({ rule, action, binding, with: other }) => {
