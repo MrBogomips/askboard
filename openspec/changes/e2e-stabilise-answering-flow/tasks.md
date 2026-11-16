@@ -53,8 +53,8 @@ Commit bodies say `Refs #n` for the Issues each group touches.
 
 ## 4. Records and the train
 
-- [ ] 4.1 `docs/as-built/e2e-stabilise-answering-flow.md`: what was fixed and where, the names added (`workOf`, the moved `pickTheme`, `revealAndFocus`'s `resolve` and deadline), the causes 2.1, 3.1 and 3.3 found, and no versions. EXPERIENCE.md and DESIGN.md change only if 3.2 changed the Tab order. Tests: none. Verify: every name the note cites is found with `git grep -nwF`.
-- [ ] 4.2 The check: `bun run build && GITHUB_TOKEN=$(gh auth token) bun run check`, and `bun run build:view --record-sizes` only if `shell` moved. Tests: the whole check. Verify: it passes; the size of `shell` is recorded if it changed.
+- [x] 4.1 `docs/as-built/e2e-stabilise-answering-flow.md`: what was fixed and where, the names added (`workOf`, the moved `pickTheme`, `revealAndFocus`'s `resolve` and deadline), the causes 2.1, 3.1 and 3.3 found, and no versions. EXPERIENCE.md and DESIGN.md change only if 3.2 changed the Tab order. Tests: none. Verify: every name the note cites is found with `git grep -nwF`.
+- [x] 4.2 The check: `bun run build && GITHUB_TOKEN=$(gh auth token) bun run check`, and `bun run build:view --record-sizes` only if `shell` moved. Tests: the whole check. Verify: it passes; the size of `shell` is recorded if it changed.
 - [ ] 4.3 Rebase onto `origin/main` before the pull request, re-check D8's names, and `npx --yes @fission-ai/openspec@2.0.0 validate --all --strict --no-interactive`. Verify: all pass; the note gives main's SHA.
 - [ ] 4.4 The train on the branch (AGENTS.md, CI): push, then `gh workflow run e2e.yml --ref worktree-fix-e2e-stabilise -f cadence=nightly`. Read the conclusion and each failure from the run's artifacts. Tests: the full three-engine suite on CI. Verify: no failure of #236, #237, #239 to #243 remains. Any other failure is matched to an open Issue or filed as `source:e2e` (`askboard-backlog`), and listed in the pull request body.
 
