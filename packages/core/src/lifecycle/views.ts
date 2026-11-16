@@ -78,7 +78,7 @@ export type LifecycleBoardView =
       readonly closed?: ClosedReason;
     };
 
-const CONTENT = ["choice", "other", "optionNotes", "note"] as const;
+const CONTENT = ["choice", "other", "optionNotes", "note", "asSent"] as const;
 
 /** An answer event's content fields, as a fetch result or the board holds them. */
 const eventContent = (event: AnswerEvent): AnswerContent & { readonly declined?: true } => {

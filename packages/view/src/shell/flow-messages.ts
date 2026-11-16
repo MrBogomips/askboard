@@ -38,6 +38,7 @@ export const sentMessageOf = (
   for (const act of acts) {
     if (act.type === "note") return { key: "status.noteSent" };
     if (act.type === "answer") {
+      if (act.asSent === true) return { key: "status.acceptedAsIs" };
       const option = optionOf(act);
       return option === undefined
         ? { key: "status.answerSentPlain" }

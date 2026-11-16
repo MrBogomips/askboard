@@ -114,4 +114,5 @@ register(NUMBER_FIELD, NumberField, {
   fits: (result, props) =>
     numberFieldResultShape(result) && numberFieldResultProblems(result, props).length === 0,
   check: numberFieldFieldCheck,
+  inputField: true,
 });

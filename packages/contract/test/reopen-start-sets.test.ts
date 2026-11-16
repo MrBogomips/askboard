@@ -37,7 +37,7 @@ describe("the sets reopen-start-from-answer widens", () => {
       snapshot: SNAPSHOT_DATA_VERSION,
     }).toEqual({
       protocol: true,
-      snapshot: "1.4",
+      snapshot: "1.5",
     });
     expect(setOf("board-protocol").version).toBe(BOARD_PROTOCOL_VERSION);
     expect(setOf("snapshot-data").version).toBe(SNAPSHOT_DATA_VERSION);
@@ -56,8 +56,8 @@ describe("the sets reopen-start-from-answer widens", () => {
       sessionFile: SESSION_FILE_FORMAT,
     }).toEqual({
       input: "1.13",
-      output: "1.13",
-      envelopes: "1.14",
+      output: "1.14",
+      envelopes: "1.15",
       document: "1.12",
       manifest: "1.1",
       configuration: true,

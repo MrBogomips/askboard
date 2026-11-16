@@ -54,7 +54,7 @@ describe("the versions of the four widened sets", () => {
       output: OUTPUT_FORMAT_VERSION,
       envelopes: TOOL_ENVELOPES_VERSION,
       document: BOARD_DOCUMENT_VERSION,
-    }).toEqual({ input: "1.13", output: "1.13", envelopes: "1.14", document: "1.12" });
+    }).toEqual({ input: "1.13", output: "1.14", envelopes: "1.15", document: "1.12" });
   });
 
   test("every other set holds at least the minor main bound when this change was bound", () => {

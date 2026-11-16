@@ -10,6 +10,7 @@
 import { Fragment, useId } from "react";
 import { useStrings } from "../catalog/port.ts";
 import { IconBlocked, IconEdit } from "../icons/index.ts";
+import { AcceptAsIsButton, type AcceptAsIsButtonProps } from "./accept-as-sent-button.tsx";
 import type { FieldToFix } from "./field-block.ts";
 import { QuestionMarker } from "./markers.tsx";
 import { PrimaryButton } from "./primary-button.tsx";
@@ -50,6 +51,16 @@ export type ActionsRowProps = {
   readonly submitted: boolean;
   /** Pressed on `control`, the button, which a confirmation gives focus back to. */
   readonly onAnswer: (control: HTMLElement) => void;
+  /**
+   * "Accept as is", after the primary and its reason: present only on a question that offers it
+   * (accept-as-sent, design decision 1; `acceptAsSentOffered`).
+   */
+  readonly acceptAsIs?: AcceptAsIsButtonProps | undefined;
+  /**
+   * The answer the card shows was accepted as sent. An opened Snapshot has no row, but names that
+   * answer on its line: nothing else shows it, since no option is chosen (accept-as-sent).
+   */
+  readonly accepted?: boolean;
   readonly onPostpone: () => void;
   /** "Edit" on a sent, delivered or declined answer: focus the chosen option; send nothing. */
   readonly onEdit: () => void;
@@ -97,10 +108,13 @@ export const ActionsRow = ({
   single,
   submitted,
   onAnswer,
+  acceptAsIs,
+  accepted = false,
   onPostpone,
   onEdit,
 }: ActionsRowProps) => {
   const hintId = useId();
+  const acceptHintId = useId();
   const text = useStrings();
   const answerKey = useBoardKeyTable().find((entry) => entry.action === "board.answer");
   // What describes the disabled primary: the field to correct, as a link to it, or "Choose an option"
@@ -125,7 +139,15 @@ export const ActionsRow = ({
         {text("question.chooseOption")}
       </span>
     ) : undefined;
-  if (opened) return null;
+  if (opened) {
+    return accepted && answered && answerParts !== undefined ? (
+      <div className="flex flex-wrap items-center gap-md">
+        <span data-askboard-answer-line="" className="min-w-0 text-body text-foreground">
+          <AnswerLine template={text("answer.line", { answer: ANSWER_SLOT })} parts={answerParts} />
+        </span>
+      </div>
+    ) : null;
+  }
   return (
     <>
       <div className="flex flex-wrap items-center gap-md">
@@ -171,6 +193,14 @@ export const ActionsRow = ({
           </PrimaryButton>
         )}
         {reason}
+        {acceptAsIs === undefined || answered ? null : (
+          <AcceptAsIsButton
+            {...acceptAsIs}
+            label={text("question.acceptAsIs")}
+            hint={text("question.acceptAsIsHint")}
+            hintId={acceptHintId}
+          />
+        )}
         {answered ? null : (
           <>
             <span className="flex-1" />

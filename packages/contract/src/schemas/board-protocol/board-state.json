@@ -110,6 +110,10 @@
           "minLength": 1,
           "maxLength": 10000
         },
+        "asSent": {
+          "description": "Since accept-as-sent: the user accepted the question's content as the agent sent it; the answer holds no choice, \"Other…\" text, option notes, values or decline; it may hold the input fields' results (AD-10).",
+          "const": true
+        },
         "values": {
           "description": "Since 1.5: the logged full props of each widget item the answer changed, by expanded item ID (AD-20); never a derived value, which the view recomputes.",
           "type": "object",
@@ -152,7 +156,18 @@
         }
       },
       "required": ["when", "receipt"],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "dependentSchemas": {
+        "asSent": {
+          "properties": {
+            "choice": false,
+            "other": false,
+            "optionNotes": false,
+            "values": false,
+            "declined": false
+          }
+        }
+      }
     },
     "thread": {
       "type": "array",

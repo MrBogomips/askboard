@@ -742,3 +742,85 @@ describe("a write of the after-answer key that did not save (answering-flow-guid
     expect(saved.passedOn.presentation?.afterAnswer).toBe("next");
   });
 });
+
+describe("an answer accepted as sent goes only where it can be (accept-as-sent, design decision 5)", () => {
+  const when = "2026-11-16T09:41:27.123Z";
+  const [{ id: question }] = ganttPlanBoardDocument.items;
+  const planState: LifecycleBoardState = {
+    ask: "waiting",
+    questions: [{ itemId: question, rev: 1, state: "open" }],
+  };
+  const visible = (document: BoardDocument = ganttPlanBoardDocument): BoardModel =>
+    withViewMessage(
+      withHostMessage(
+        withHostMessage(EMPTY_MODEL, {
+          version,
+          type: "board",
+          document,
+        } as unknown as HostMessage),
+        { version, type: "state", state: planState } as unknown as HostMessage,
+      ),
+      { type: "ready", itemId: question },
+    );
+  const accepted = (fields: Record<string, unknown> = {}): ViewAnswer =>
+    ({ type: "answer", itemId: question, rev: 1, asSent: true, when, ...fields }) as ViewAnswer;
+  const detailOf = (model: BoardModel, message: ViewAnswer) => {
+    const acts = answerActFor(model, message);
+    return acts.ok ? undefined : acts.detail;
+  };
+
+  test("an asSent answer goes as one answer act, with or without derived values", () => {
+    for (const extra of [{}, { note: "ok" }, { derived: { "schedule.finish": "2026-12-02" } }]) {
+      expect(answerActFor(visible(), accepted(extra))).toEqual({
+        ok: true,
+        value: [{ type: "answer", itemId: question, rev: 1, asSent: true, when, ...extra }],
+      });
+    }
+  });
+
+  test("an asSent answer goes with the input fields' results, which core checks (decision 11)", () => {
+    const [first] = (
+      ganttPlanBoardDocument.items[0] as unknown as { props: { items: { id: string }[] } }
+    ).props.items;
+    const results = { [first?.id ?? ""]: "Sara Conti" };
+    expect(answerActFor(visible(), accepted({ results }))).toEqual({
+      ok: true,
+      value: [{ type: "answer", itemId: question, rev: 1, asSent: true, when, results }],
+    });
+  });
+
+  test.each([
+    ["choice", { choice: ["Yes"] }],
+    ["other", { other: "Else" }],
+    ["values", { values: { wbs: { nodes: [] } } }],
+  ])("beside %s it is refused before sending, naming it", (field, extra) => {
+    expect(detailOf(visible(), accepted(extra))).toBe(
+      `an answer accepted as sent carries no ${field}`,
+    );
+  });
+
+  test("on a revision that is not the current one it is refused, naming the current one", () => {
+    const revised = {
+      ...ganttPlanBoardDocument,
+      items: ganttPlanBoardDocument.items.map((item) => ({ ...item, rev: 2 })),
+    } as unknown as BoardDocument;
+    expect(detailOf(visible(revised), accepted({ rev: 1 }))).toBe(
+      "an answer accepted as sent names the current revision, revision 2, not revision 1",
+    );
+    // The current revision is accepted, so the refusal is the revision's alone.
+    expect(answerActFor(visible(revised), accepted({ rev: 2 })).ok).toBe(true);
+  });
+
+  test("on a question with options at the current revision it is refused", () => {
+    const withOptions = {
+      ...ganttPlanBoardDocument,
+      items: ganttPlanBoardDocument.items.map((item) => ({
+        ...item,
+        props: { ...item.props, options: [{ label: "Yes" }] },
+      })),
+    } as unknown as BoardDocument;
+    expect(detailOf(visible(withOptions), accepted())).toBe(
+      "an answer accepted as sent is for a question with no options",
+    );
+  });
+});

@@ -223,4 +223,5 @@ register(PICK_FIELD, PickField, {
   fits: (result, props) =>
     pickFieldResultShape(result) && pickFieldResultProblems(result, props).length === 0,
   check: pickFieldFieldCheck,
+  inputField: true,
 });

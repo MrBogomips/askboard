@@ -31,12 +31,15 @@ export const answerLineOf = (
 /**
  * The same answer as parts, for the card to draw each in an element of its own (an override in one
  * label cannot reorder the next): each chosen label, then the "Other…" text, each cut as the line
- * cuts; none when the answer names no choice.
+ * cuts; none when the answer names no choice, unless it was accepted as sent, which `accepted`
+ * names (accept-as-sent: "Accepted as is").
  */
 export const answerPartsOf = (
   choice: readonly string[] | undefined,
   other: string | undefined,
+  accepted?: string,
 ): readonly string[] | undefined => {
   const parts = [...(choice ?? []), ...(other === undefined || other === "" ? [] : [other])];
-  return parts.length === 0 ? undefined : parts.map(cutTitle);
+  if (parts.length === 0) return accepted === undefined ? undefined : [accepted];
+  return parts.map(cutTitle);
 };

@@ -30,6 +30,7 @@ import { type Rendered, renderedOf } from "../catalog/components.ts";
 import { questionTextId, type ReasonStrings, useLanguage, useStrings } from "../catalog/port.ts";
 import type { ViewQuestion } from "../view-document.ts";
 import type { ViewLock } from "../view-protocol.ts";
+import { acceptAsSentOffered } from "./accept-as-sent.ts";
 import type { ActResult } from "./after-answer.ts";
 import {
   changeCountOf,
@@ -54,6 +55,7 @@ import {
 import { type Ladder, markLabel, markOf } from "./board-view.ts";
 import {
   type AnswerContext,
+  type AnswerOptions,
   type AnswerOutcome,
   CARD_ACTS,
   decline,
@@ -63,6 +65,7 @@ import {
   pressAnswer,
   pressDecline,
   reloadQuestion,
+  revisionFor,
   selectRecommendedOption,
   sendFollowUp,
   startFromPrevious,
@@ -521,13 +524,20 @@ export const QuestionCard = (props: CardProps) => {
   };
   // "Answer", and "Accept recommended" once it has selected, take one path: the reason check, then
   // the confirmation, then the act, and what follows it.
-  const onAnswer = (control: HTMLElement) => {
+  // "Accept as is" is "Answer" with the question's content as sent (accept-as-sent, decision 5).
+  const onAnswer = (control: HTMLElement, options: AnswerOptions = {}) => {
     outcomeOfPress.current = undefined;
     moved.current = false;
-    const pressed = pressAnswer(question, acting, status, (outcome) => {
-      asking(outcome);
-      if (outcome !== "needs-reason") runFlow("answer", outcome);
-    });
+    const pressed = pressAnswer(
+      question,
+      acting,
+      status,
+      (outcome) => {
+        asking(outcome);
+        if (outcome !== "needs-reason") runFlow("answer", outcome);
+      },
+      options,
+    );
     if (pressed.kind === "needs-reason") asking("needs-reason");
     // An answer sent at once moves focus when the act is taken, never when its command settles
     // (answering-flow-fixes, design decision 1): to the next question or "Continue" when the flow
@@ -683,8 +693,30 @@ export const QuestionCard = (props: CardProps) => {
   // primary reading "Edit"; any other answered state under edit is a revision in draft.
   const answered = answeredLookOf(mark, revising && mark !== "ready");
   const content = card.shown ?? answerContentOf(shown, values, work, results);
+  // An answer accepted as sent, logged or ready, names the acceptance on its line.
+  const accepted = content.asSent === true || (mark === "ready" && work?.held?.asSent === true);
   const answerParts =
-    mark === "declined" ? undefined : answerPartsOf(content.choice, content.other);
+    mark === "declined"
+      ? undefined
+      : answerPartsOf(content.choice, content.other, accepted ? text("answer.asSent") : undefined);
+  // "Accept as is" (accept-as-sent, design decision 1): offered on an untouched question with an
+  // editable item and no options, to do or in draft.
+  const acceptAsIs = acceptAsSentOffered({
+    question: shown,
+    currentRev: question.rev,
+    namedRev: revisionFor(question, work),
+    readOnlyItems,
+    values,
+    results,
+    open: mark === "todo" || mark === "draft",
+    locked: lock !== undefined,
+    opened,
+  })
+    ? {
+        disabled: readOnly || pending || blocked || card.phase !== "open",
+        onAccept: (control: HTMLElement) => onAnswer(control, { asSent: true }),
+      }
+    : undefined;
   // "Choose an option" (design decision 9): the primary waits on a choice and nothing else.
   const nothingChosen =
     !answered &&
@@ -813,6 +845,8 @@ export const QuestionCard = (props: CardProps) => {
             single={single}
             submitted={!single && delivery === "submitted"}
             onAnswer={onAnswer}
+            acceptAsIs={acceptAsIs}
+            accepted={accepted}
             onPostpone={onPostpone}
           />
           {footer === undefined ? null : (

@@ -231,12 +231,35 @@ const revisionProblem = (act: ViewAct, question: ViewQuestion): string | undefin
   return undefined;
 };
 
+// An answer accepted as sent carries no choice, "Other…" text, option notes or values, and is for a
+// question with no options and on its current revision, never a kept one (accept-as-sent, design
+// decisions 5 and 11); the results of input fields go with
+// it (decision 11). Whether the question holds an item whose content the user edits, that each
+// result is an input field's, and the rest, are ask-core's to check.
+const asSentProblem = (
+  answer: Extract<ViewAct, { readonly type: "answer" }>,
+  question: ViewQuestion,
+): string | undefined => {
+  const beside = (["choice", "other", "optionNotes", "values"] as const).find(
+    (field) => answer[field] !== undefined,
+  );
+  if (beside !== undefined) return `an answer accepted as sent carries no ${beside}`;
+  if (answer.rev !== question.rev) {
+    return `an answer accepted as sent names the current revision, revision ${question.rev}, not revision ${answer.rev}`;
+  }
+  if ((question.props.options ?? []).length > 0) {
+    return "an answer accepted as sent is for a question with no options";
+  }
+  return undefined;
+};
+
 // An answer's content against the question's current revision: its labels, one unless
 // `multiSelect`, "Other…" only where it is offered, option notes on its labels (FR-3).
 const contentProblem = (
   answer: Extract<ViewAct, { readonly type: "answer" }>,
   question: ViewQuestion,
 ): string | undefined => {
+  if (answer.asSent === true) return asSentProblem(answer, question);
   if (
     answer.choice === undefined &&
     answer.other === undefined &&

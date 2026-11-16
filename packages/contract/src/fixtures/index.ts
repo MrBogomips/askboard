@@ -366,3 +366,14 @@ export {
   answeringFlowVisualDraftRecord,
   answeringFlowVisualNumbers,
 } from "./answering-flow-visual.ts";
+
+// The accept-as-sent fixtures: an answer accepted as sent in an act, a held answer, an event, the
+// board state and a `fetch` result.
+
+export {
+  acceptAsSentAct,
+  acceptAsSentDraft,
+  acceptAsSentEvent,
+  acceptAsSentFetch,
+  acceptAsSentState,
+} from "./accept-as-sent.ts";

@@ -10,9 +10,10 @@ import {
   type QuestionProps,
   WIDGET_TYPES,
   type WidgetType,
+  widgetTypeOf,
 } from "@askboard/contract";
 import type { AnswerContent } from "./model.ts";
-import { namesOf } from "./widget-values.ts";
+import { holdsEditWidget, namesOf, type WidgetContent } from "./widget-values.ts";
 
 export type ContentProblem = { readonly refusal: "choice" | "content"; readonly detail: string };
 
@@ -68,6 +69,7 @@ export const contentProblem = (
   declined: boolean,
   widgetChange = false,
   types: readonly WidgetType[] = WIDGET_TYPES,
+  asSent = false,
 ): ContentProblem | undefined => {
   const { choice, other, optionNotes, note } = content;
   if (choice !== undefined) {
@@ -79,11 +81,50 @@ export const contentProblem = (
     (optionNotes === undefined ? undefined : notesProblem(optionNotes, props)) ??
     (note === undefined ? undefined : textProblem(note, NOTE_MAX_CHARS, "the note"));
   if (problem !== undefined) return { refusal: "content", detail: problem };
-  if (!declined && !widgetChange && choice === undefined && other === undefined) {
+  if (!declined && !widgetChange && !asSent && choice === undefined && other === undefined) {
     return {
       refusal: "content",
       detail: `the answer names no option, has no Other… text, changes no ${namesOf(types)} and gives no result`,
     };
+  }
+  return undefined;
+};
+
+const ACCEPTED = "an answer accepted as sent";
+
+/**
+ * Why an answer that accepts the question's content as sent cannot be one, or undefined when it can
+ * (accept-as-sent, design decisions 4 and 11; AD-10): the revision it names has options or holds no
+ * widget whose content the user edits, it carries a choice, "Other…" text or option notes, a
+ * result of an item that is no input field (a type that declares no `fieldCheck`: an Approval's
+ * verdict or a Ranking's order would contradict "accepted as is"), or a value that differs from
+ * the item as sent. `widgets` is the content `widgetContentOf` kept: any value in it is one that
+ * differs. The results of input fields stay; their field checks run after.
+ */
+export const asSentProblem = (
+  content: Readonly<Record<string, unknown>>,
+  props: QuestionProps,
+  widgets: WidgetContent,
+  types: readonly WidgetType[] = WIDGET_TYPES,
+): ContentProblem | undefined => {
+  const refuse = (detail: string): ContentProblem => ({ refusal: "content", detail });
+  if ((props.options ?? []).length > 0) {
+    return refuse(`${ACCEPTED} is only for a question with no options`);
+  }
+  if (!holdsEditWidget(props, types)) {
+    return refuse(`${ACCEPTED} needs a ${namesOf(types)} item whose content the user edits`);
+  }
+  for (const field of ["choice", "other", "optionNotes"] as const) {
+    if (content[field] !== undefined) return refuse(`${ACCEPTED} carries no ${field}`);
+  }
+  if (Object.keys(widgets.values).length > 0) {
+    return refuse(`${ACCEPTED} holds values that differ from the content as sent`);
+  }
+  for (const id of Object.keys(widgets.results)) {
+    const item = widgets.sent.find((sent) => sent.id === id);
+    if (widgetTypeOf(item?.type ?? "", types)?.fieldCheck === undefined) {
+      return refuse(`${ACCEPTED} carries no result of item ${id}, which is no input field`);
+    }
   }
   return undefined;
 };

@@ -95,4 +95,5 @@ register(TOGGLE, Toggle, {
   name: "change.widgetToggle",
   fits: toggleResultShape,
   check: toggleFieldCheck,
+  inputField: true,
 });

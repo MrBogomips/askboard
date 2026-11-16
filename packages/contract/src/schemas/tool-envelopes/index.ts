@@ -11,7 +11,8 @@
 // (design decisions 2 and 4); table-widget's minor adds the Table's item, a question's and a
 // layout's, to `fetch`'s results (design decision 16); agent-facing-gaps' minor adds the outcome
 // `deleted` to `fetch`'s typed outcome, naming the item (design decision 2); document-review's minor
-// adds the Document review's item, and its result, to it (design decisions 3 and 13).
+// adds the Document review's item, and its result, to it (design decisions 3 and 13); accept-as-sent's
+// minor adds `asSent` to `fetch`'s answer (design decision 3).
 
 import type { SchemaSet } from "../../versions.ts";
 import { composeFetchResult } from "../../widgets/compose.ts";
@@ -48,7 +49,7 @@ import versions from "./versions.json" with { type: "json" };
 // The `fetch` result with each registered type's item composed in.
 const fetchResult = composeFetchResult(fetchResultBase);
 
-export const TOOL_ENVELOPES_VERSION = "1.14";
+export const TOOL_ENVELOPES_VERSION = "1.15";
 
 /** A tool as `tools/list` lists it: the approved definition, unchanged. */
 export type ToolDefinition = {
@@ -210,6 +211,8 @@ export type FetchAnswer = {
   readonly other?: string;
   readonly optionNotes?: Readonly<Record<string, string>>;
   readonly note?: string;
+  /** Since accept-as-sent: the user accepted the question's content as the agent sent it (AD-10). */
+  readonly asSent?: true;
   /** Since 1.4: each changed widget item's full props, by item ID in reference addressing. */
   readonly values?: Readonly<Record<string, unknown>>;
   /** Since widget-registry: each widget item's result, by item ID in reference addressing. */

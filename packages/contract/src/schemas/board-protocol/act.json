@@ -101,6 +101,10 @@
           "minLength": 1,
           "maxLength": 10000
         },
+        "asSent": {
+          "description": "Since accept-as-sent: the user accepted the question's content as the agent sent it (AD-10); ask-core accepts it only on a question with no options whose edit widgets are unchanged. It admits no choice, \"Other…\" text or option notes; note and derived stay, with the results of input fields and values, whose equality with what was sent ask-core checks.",
+          "const": true
+        },
         "values": {
           "description": "Since 1.5: the full edited props of each widget item the user changed, by item ID (AD-20); ask-core checks each against its item and the diff against the revision the answer names.",
           "type": "object",
@@ -135,7 +139,16 @@
         }
       },
       "required": ["type", "itemId", "rev", "when"],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "dependentSchemas": {
+        "asSent": {
+          "properties": {
+            "choice": false,
+            "other": false,
+            "optionNotes": false
+          }
+        }
+      }
     },
     "reference": {
       "description": "AD-13's reference syntax without brackets: the item ID, then child IDs or a field, separated by dots; never an array index.",

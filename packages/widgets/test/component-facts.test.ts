@@ -154,6 +154,7 @@ console.log(JSON.stringify(WIDGET_TYPES.map((entry, at) => {
     revisionBound: facts?.revisionBound,
     keys: facts?.keys,
     hasCheck: facts?.check !== undefined,
+    inputField: facts?.inputField === true,
     fits: facts?.fits === undefined ? undefined : probes[at].map(
       (result) => facts.fits(result, entry.example.item.props),
     ),
@@ -178,6 +179,7 @@ type Facts = {
   revisionBound?: true;
   keys?: unknown;
   hasCheck?: boolean;
+  inputField?: boolean;
   fits?: readonly boolean[];
   valueFits?: readonly boolean[];
   probeReasons?: readonly ({ label: string; missing: string } | null)[];
@@ -234,6 +236,26 @@ describe("a chunk's fact `shape`", () => {
     // The check is not vacuous: some types edit, others do not.
     expect(WIDGET_TYPES.some(({ edits }) => edits !== undefined)).toBe(true);
     expect(WIDGET_TYPES.some(({ edits }) => edits === undefined)).toBe(true);
+  });
+});
+
+// "Accept as is" lets the results of input fields travel and refuses any other (accept-as-sent,
+// design decision 11, D-A); the core tells an input field by the registry's `fieldCheck`, so the
+// view's mark must equal it. A chunk's `check` is no stand-in: the Document review registers one
+// (a detached annotation) and declares no `fieldCheck`.
+describe("a chunk's fact `inputField`", () => {
+  test("is registered exactly when the type's entry declares a `fieldCheck`", async () => {
+    const facts = await registered();
+    for (const [at, entry] of WIDGET_TYPES.entries()) {
+      expect(
+        facts[at]?.inputField === true,
+        `${entry.type}: inputField registered exactly with fieldCheck`,
+      ).toBe(entry.fieldCheck !== undefined);
+    }
+    // Not vacuous: six types declare one, and the Document review registers a check without it.
+    expect(WIDGET_TYPES.filter(({ fieldCheck }) => fieldCheck !== undefined)).toHaveLength(6);
+    const review = facts.find(({ type }) => type === "document-review");
+    expect(review?.hasCheck).toBe(true);
   });
 });
 

@@ -196,6 +196,14 @@ export type ComponentFacts = {
    */
   readonly check?: (result: unknown, props: unknown) => FieldCheckFailure | undefined;
   /**
+   * The type is an input field: its entry in the contract's registry declares a `fieldCheck`
+   * (accept-as-sent, design decision 11, D-A). Only the six field chunks register it, and
+   * `component-facts.test.ts` holds it equal to the registry's `fieldCheck`; `check` is no stand-in,
+   * since the Document review registers one (a detached annotation) and is no input field. "Accept
+   * as is" sends an input field's result and refuses any other's, as `ask-core` does.
+   */
+  readonly inputField?: true;
+  /**
    * The item's result points into the agent's content of the revision it was made on (document-
    * review, design decision 15): a passage quoted from a document's text, a place on an image. On a
    * revision the board cannot show, after a reload or a takeover under kept work, such a result

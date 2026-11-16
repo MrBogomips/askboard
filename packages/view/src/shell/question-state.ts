@@ -326,6 +326,7 @@ export const contentOf = ({
   other,
   optionNotes,
   note,
+  asSent,
   unchanged,
 }: CarriedAnswer): CarriedAnswer => ({
   ...(choice === undefined ? {} : { choice: [...choice] }),
@@ -335,6 +336,7 @@ export const contentOf = ({
   ...(other === undefined ? {} : { other }),
   ...(optionNotes === undefined ? {} : { optionNotes: { ...optionNotes } }),
   ...(note === undefined ? {} : { note }),
+  ...(asSent === true ? { asSent } : {}),
   ...(unchanged === undefined ? {} : { unchanged: [...unchanged] }),
 });
 

@@ -80,6 +80,32 @@ const actOf = (
   const itemId = question.id;
   switch (work.held.act) {
     case "answer": {
+      // A held "Accept as is": the content as sent, with the note, the input fields' results and the
+      // derived values only (accept-as-sent, design decisions 5 and 11). It names the current
+      // revision alone: on an earlier one, after "Keep mine", the core would refuse it and with it
+      // the whole of Submit's command, so nothing is sent (fail closed).
+      if (work.held.asSent === true) {
+        if (namesEarlierRevision(question, work)) return [];
+        const held = answerContentOf(shownOf?.(question) ?? question, values, work, results);
+        const accepted = withDerived(
+          {
+            asSent: true as const,
+            ...(filled(work.note) ? { note: work.note } : {}),
+            ...(held.results === undefined ? {} : { results: held.results }),
+          },
+          reported,
+          itemIdsOf(question),
+        );
+        return [
+          {
+            type: "answer",
+            itemId,
+            rev: revisionFor(question, work),
+            ...contentOf(accepted),
+            when,
+          },
+        ];
+      }
       // The items of the revision the card shows, even one a later revision removed (Issue #93).
       const held = answerContentOf(shownOf?.(question) ?? question, values, work, results);
       const content = namesEarlierRevision(question, work)

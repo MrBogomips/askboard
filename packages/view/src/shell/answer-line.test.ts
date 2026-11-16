@@ -34,3 +34,14 @@ describe("answerPartsOf", () => {
     expect(Array.from(part ?? "")).toHaveLength(80);
   });
 });
+
+describe("answerPartsOf for an answer accepted as sent (accept-as-sent)", () => {
+  test("names the acceptance when the answer names no choice", () => {
+    expect(answerPartsOf(undefined, undefined, "Accepted as is")).toEqual(["Accepted as is"]);
+    expect(answerPartsOf([], "", "Accepted as is")).toEqual(["Accepted as is"]);
+  });
+
+  test("a choice or Other text still names itself, and no acceptance is added", () => {
+    expect(answerPartsOf(["A"], undefined, "Accepted as is")).toEqual(["A"]);
+  });
+});
