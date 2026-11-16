@@ -6,6 +6,7 @@ The user can replace or remove the keys of an action, in the user configuration 
 
 - The file is `$XDG_CONFIG_HOME/askboard/config.json`, by default `~/.config/askboard/config.json`. The `keys` member sits beside `version` (`"1.3"` in a new file) and the file's other keys, which stay as they are.
 - The project file `.askboard/config.json` ignores `keys`, with a warning: an agent can write that file, and an agent never chooses what a key does. Never put `keys` there.
+- A user file another user can write, or whose folder another user can write, has its `keys` ignored, with a warning: `chmod go-w` the file and its folder, and the next board takes them.
 - Write the file only when the user asks you to; otherwise give them the `keys` JSON to paste. Keep `version` and every other key.
 
 ## Format

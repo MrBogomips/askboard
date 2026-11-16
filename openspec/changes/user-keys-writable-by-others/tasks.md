@@ -20,7 +20,7 @@ Each task writes its tests first and sees them fail before implementing. "The ch
 
 ## 4. The help skill (D4)
 
-- [ ] 4.1 Tests first in `tools/build/skills/help.test.ts` (skills, "The help skill names a user file others can write", both scenarios): `configure-keys.md`'s "Where" holds D4's bullet after the project file's, naming `chmod go-w`. Then `configureKeysText`, `bun run build:skills`, and commit `skills/askboard-help/`. Verify: the test fails first, then passes; `bun run check:skills` is clean; the commit body records `configure-keys.md`'s characters against 4,000.
+- [x] 4.1 Tests first in `tools/build/skills/help.test.ts` (skills, "The help skill names a user file others can write", both scenarios): `configure-keys.md`'s "Where" holds D4's bullet after the project file's, naming `chmod go-w`. Then `configureKeysText`, `bun run build:skills`, and commit `skills/askboard-help/`. Verify: the test fails first, then passes; `bun run check:skills` is clean; the commit body records `configure-keys.md`'s characters against 4,000.
 
 ## 5. Records and the rebase
 
