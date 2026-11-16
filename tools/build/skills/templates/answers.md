@@ -6,7 +6,7 @@
 - An event is an answer (a decline is an answer with `declined: true`), a postpone, a reopening (the user undid a postpone or a decline), a note, a follow-up, an edit choice, a closing, or a discard.
 - An answer carries only what changed: for a widget, its `changes` and the derived values, not the whole item. `fetch` returns a whole item, in pages when it is long.
 - An answer marked `tooLarge` was too large to carry its `changes`, derived values or `results`: `fetch` the item to read them.
-- An answer with `asSent: true` is the user's explicit acceptance of the question's content exactly as you sent it: it carries no `changes`, may carry the user's note and the derived values, and is never a missing answer. Do not ask the same question again.
+- An answer with `asSent: true` is the user's explicit acceptance of the question's content exactly as you sent it, on your current revision: it carries no `changes`, may carry the user's note, the input fields' `results` and the derived values, and is never a missing answer. Do not ask the same question again.
 - An answer whose `rev` is earlier than the question's current one (the user kept their work over your update, as the edit choice before it says) carries no derived values: the board computes them on the current revision only; to have them, ask again on your current revision; `fetch` has none either.
 - A revision names the answer it replaces. Take the latest.
 - A `discarded` ask is gone and its answers will not come.

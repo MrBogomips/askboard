@@ -400,13 +400,15 @@ describe("the answers reference", () => {
     expect(answers).toContain("`fetch` the item");
   });
 
-  test("says an answer with asSent accepts the question's content as sent, carries no changes, and is never a missing answer", () => {
-    expect(answers).toContain("`asSent: true`");
-    expect(answers).toContain("exactly as you sent it");
-    expect(answers).toContain("no `changes`");
-    expect(answers).toContain("note");
-    expect(answers).toContain("derived values");
-    expect(answers).toContain("never a missing answer");
+  test("says an answer with asSent accepts the question's content as sent, carries no changes, may carry the input fields' results, and is never a missing answer", () => {
+    const bullet = answers
+      .split("\n")
+      .find((line) => line.startsWith("- An answer with `asSent: true`"));
+    expect(bullet).toBeDefined();
+    expect(bullet).toContain("exactly as you sent it, on your current revision");
+    expect(bullet).toContain("carries no `changes`");
+    expect(bullet).toContain("the user's note, the input fields' `results` and the derived values");
+    expect(bullet).toContain("never a missing answer");
   });
 
   test("says an answer whose rev is earlier than the question's current one carries no derived values", () => {
