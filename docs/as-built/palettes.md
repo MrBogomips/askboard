@@ -5,3 +5,5 @@ In code since `palettes`: the presentation key `palette` (`PALETTES`, `Palette`;
 Beside them: `tools/build/contrast.ts` (`CONTRAST_PAIRS`, `contrastReport`, `roleReport`, `contrastTable`), whose test is the gate on every pair and role rule and whose tables DESIGN.md holds; `styles/contrast.css` (Contrasto's 3 px ring and 1.5 px borders on the elements that carry `border`) and `styles/forced-colors.css` (system colours, `forced-color-adjust: none` on the Chart's host, diff marks and the change fill); the browser files `palettes.browser.ts`, `palettes-fit.browser.ts` and `palettes-forced-colors.browser.ts` (Chromium only).
 
 Seams for later changes: a fifth palette is a YAML group, a `PALETTES` value and two strings; a diagram renderer follows DESIGN.md's Diagram theme and re-renders on `useColourScheme`. A 1.5 px border computes as 1 px at a device pixel ratio of 1, so a test reads the matched rule. The Theme popover is `w-[26rem]` so the four names fit.
+
+Versions bound, on `main` ddf90ae8: configuration 1.3 (main 1.2), board protocol 1.13 (main 1.12), Snapshot data 1.4 (main 1.3); the view manifest and the other sets unchanged.
