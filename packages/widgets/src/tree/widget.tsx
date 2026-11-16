@@ -227,7 +227,10 @@ export const TreeWidget = ({
   const [picked, setPicked] = useState<Selection>(NO_SELECTION);
   // Where Shift with an arrow extends the selection from: the row last selected by itself.
   const [anchor, setAnchor] = useState<string>();
-  const [announced, setAnnounced] = useState("");
+  // The count keys the live region's child, so that a repeated message is announced again (#182).
+  const [announcement, setAnnouncement] = useState({ n: 0, text: "" });
+  const setAnnounced = (message: string): void =>
+    setAnnouncement((last) => ({ n: last.n + 1, text: message }));
   // The node the latest undo acted on: the focus goes to it once the restored Tree is rendered.
   const [undoneAt, setUndoneAt] = useState<string>();
   // The row being dragged and where the pointer is: view state, nothing until it drops.
@@ -643,7 +646,7 @@ export const TreeWidget = ({
         {tip === undefined ? "" : text(tip.key, "max" in tip ? { max: tip.max } : undefined)}
       </p>
       <p role="status" className="sr-only">
-        {announced}
+        {announcement.text === "" ? null : <span key={announcement.n}>{announcement.text}</span>}
       </p>
     </div>
   );

@@ -207,6 +207,73 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       );
 
       test(
+        "a rename undone with the focus elsewhere: the renamed row is current and holds the focus again",
+        async () => {
+          const run = await host(dist, treeBoardDocument);
+          await readyIn(run);
+          const { board } = run;
+          const tree = treeGridOf(board);
+          await focusPortal(run, tree);
+          await typeIn(run, tree, "F2", "Portal v2");
+          await board.page.keyboard.press("Enter");
+          await eventually(
+            async () => ((await tree.cell("portal", 0).textContent()) ?? "").includes("Portal v2"),
+            "the rename",
+          );
+          expect(await pressIn(board, "ArrowDown")).toEqual({ nodeId: "billing" });
+          await undoKey(board);
+          await eventually(
+            async () =>
+              ((await tree.cell("portal", 0).textContent()) ?? "").includes("Customer portal"),
+            "the old name",
+          );
+          expect(await tree.row("portal").getAttribute("aria-current")).toBe("true");
+          expect(await pressIn(board, "ArrowDown")).toEqual({ nodeId: "billing" });
+        },
+        TEST_TIMEOUT_MS,
+      );
+
+      test(
+        "two undos in a row are announced twice: the status region changes once for each",
+        async () => {
+          const run = await host(dist, treeBoardDocument);
+          await readyIn(run);
+          const { board } = run;
+          const tree = treeGridOf(board);
+          await focusBilling(run, tree);
+          await pressIn(board, "Alt+Shift+ArrowUp");
+          await eventually(
+            async () => (await shownIds(tree)).slice(5).join() === "billing,portal,reporting",
+            "the first move",
+          );
+          await pressIn(board, "Alt+Shift+ArrowDown");
+          await eventually(
+            async () => (await shownIds(tree)).slice(5).join() === "portal,billing,reporting",
+            "the second move",
+          );
+          const status = board.view.locator("p[role=status]");
+          await status.evaluate((node) => {
+            const seen: string[] = [];
+            (window as unknown as { __announced: string[] }).__announced = seen;
+            new MutationObserver((records) => {
+              for (const record of records)
+                for (const added of record.addedNodes)
+                  if ((added.textContent ?? "") !== "") seen.push(added.textContent ?? "");
+            }).observe(node, { childList: true, characterData: true, subtree: true });
+          });
+          await undoKey(board);
+          await eventually(async () => (await undoDisabled(board)) === false, "the first undo");
+          await undoKey(board);
+          await eventually(countsAs(tree, NONE), NONE, STEP_TIMEOUT_MS);
+          const seen = await status.evaluate(
+            () => (window as unknown as { __announced: string[] }).__announced,
+          );
+          expect(seen.filter((text) => text === UNDONE).length).toBe(2);
+        },
+        TEST_TIMEOUT_MS,
+      );
+
+      test(
         "a bulk adjustment is undone in one step, from the toolbar",
         async () => {
           const run = await host(dist, treeBoardDocument);

@@ -9,7 +9,9 @@ Terms:
 ## 0. Base
 
 - [x] 0.1 Borrowed names (design.md, merge points): `git grep -n <name> origin/main -- packages` for each, and `openspec list` plus `.claude/worktrees/feature-accept-as-sent/openspec/changes/` for `accept-as-sent`'s seams. Tests: none. Verify: a note gives each name's file and any `accept-as-sent` seam found. A missing name stops the work for `/openspec-update-change`.
+  - Note: every borrowed name was found on 95e7e31f in the files design.md lists (`onValuesChange`, `BoardContent.draft`, `keyLabel`, `useKeyPlatform` in `@askboard/view/catalog`; `linkedAdd`, `linkedDelete` in `tree/linked.ts`; `sameNodes` in `tree/model/marks.ts`; `dropOn`, `zoneOf`, `EDGE_SHARE` in `tree/model/drop.ts`; `tipOf`, `overTarget` in `tree/model/dragging.ts`; `DRAG_TIP` in `tree/classes.ts`; `TREE_KEYS` in `contract/src/widgets/tree/keys.ts`; the drag helpers in `view/test/browser/harness/tree-drag.ts`); `accept-as-sent` has artifacts only, no code seam.
 - [x] 0.2 Confirm in Pragmatic drag and drop 4.0.0's documentation that `location.initial.input` (drop target `onDrag` and `onDrop` arguments) is public (D7; PO rule: documented APIs only). Tests: none. Verify: a note quotes the documentation page. If it is not documented, stop for `/openspec-update-change`.
+  - Note: Pragmatic drag and drop 4.0.0's events page documents `location: DragLocationHistory` for every event, with `initial: DragLocation` ("Where the drag operation started") whose `input` holds `clientX`; so `location.initial.input.clientX` is public.
 
 ## 1. The history model (`model/history.ts`)
 
@@ -20,6 +22,7 @@ Terms:
   - `undoValues` and `popped`;
   - the emptying on `disabled` and on a new `sent`;
   - a linked write of the Tree and two plans.
+  - Note: not seen red first: the tests and the model went in one commit (c8640009), the red for the missing module was not recorded.
 
   Scenarios: Several undos, The oldest edits go, A plan edited after a linked add. Verify: red for the missing module.
 - [x] 1.2 Implement `model/history.ts` (types, `TREE_HISTORY_DEPTH`, the functions of 1.1), plain ECMAScript (AD-1), and export `sameJson` unchanged from `model/marks.ts`. Tests: 1.1. Verify: 1.1 green; `marks.test.ts` green; 100% line coverage of `history.ts`; `bun run check:imports` clean.
@@ -30,10 +33,13 @@ Terms:
   - `contract/test/keys-tables.test.ts` expects `grid undo tool [mod:z] tree.tool.undo`;
   - in `toolbar.test.ts`, a two-way check between `TREE_KEYS`' `tool` entries and the labels of `itemsOf` (exported for it), with "Undo" present when nothing can be undone;
   - `widgets/test/keys-parity-tree.test.ts` is unchanged.
+  - Note: the reds of 2.1 to 2.3 were seen (missing label, missing `undoTitle`, missing "Undo" tool) but not run as separate commits; the commit holds tests and code together.
 
   Verify: the label and two-way checks are red; parity is green.
 - [x] 2.2 Tooltip test first: a pure `undoTitle(platform, say)` in `toolbar.tsx`, built on `keyLabel` and the `undo` entry, gives "Undo (⌘Z)" on macOS, "Undo (Ctrl+Z)" elsewhere and "Annulla (Ctrl+Z)" in it-IT (D5). Keys panel: none; the Tree registers no table on the board (D6). Scenario: The Undo tool. Verify: red for the missing function.
+  - Note: `undoTitle` and `itemsOf` live in `toolbar-items.ts`, not `toolbar.tsx`, so that a unit test loads them without the component (80% per-file coverage).
 - [x] 2.3 Browser file first: `packages/view/test/browser/tree-undo.browser.ts`, listed in `harness/suites.ts` as `{}`, on the widget host and in a WBS with PERT. Scenarios: every scenario of "Tree undo" and "Tree undo history" but "The oldest edits go" (unit, 1.1). Verify: File run red, failing on the missing "Undo" tool.
+  - Note: the Italian case runs on the widget host only (the session process host builds its ask from items that carry no language); the reload and the Answer-then-Edit cases run on the session process only.
 - [x] 2.4 Strings (D3, D5):
   - add `tree.tool.undo` ("Undo" / "Annulla") and `tree.undone` ("Last change undone." / "Ultima modifica annullata.");
   - remove `tree.tool.undoAdjust` and `tree.adjust.undone` from `view/src/strings/en-US.ts`, `it-IT.ts` and `keys.ts`;
@@ -46,12 +52,14 @@ Terms:
   - take `undo` and `canUndo`, and pass `nodeId` on each write;
   - send the grid's `undo` action to the history, ignored while editing or asking;
   - set the focus and the current row, and announce `tree.undone`.
+  - Note: review fix S-1: the cell editor's rename and field commits (`editing.tsx`) passed no node to `onValueChange`, so an undo did not move the focus to the renamed node; the callback now carries `nodeId` for every value commit, and an announcement count keys the Tree's live region (S-2) so that repeated undos are announced each time.
 
   Tests: 2.3. Verify: `git grep -n UndoSlot packages` is empty; the unit suite is green.
 - [x] 2.7 `toolbar.tsx` (D5): the permanent "Undo" item, with `overflow: false`, `aria-disabled` when `canUndo` is false or the Tree is read-only, `undoTitle`, `aria-keyshortcuts="Control+Z Meta+Z"` and `data-tree-undo`. Update the header comments of `toolbar.tsx`, `widget.tsx` and `keys.ts`. Tests: 2.1, 2.2, 2.3. Verify: 2.1 and 2.2 green; File run of `tree-undo` green.
 - [x] 2.8 Existing browser files:
   - in `tree-adjust.browser.ts`, "Undo adjust" becomes "Undo", and the case "another edit takes the button away" becomes "the next undo undoes that edit first";
   - `tree-toolbar.browser.ts`'s narrow it-IT board keeps "Undo" outside "More".
+  - Note: `tree-moving`, `tree-deleting` and `widget-chrome-it` were re-pinned: End and the empty Tree's toolbar stop reach "Undo", and the it-IT plan board opens at 1600 px; review fix S-3 widens `tree-toolbar`'s overlap check to every toolbar button and adds the it-IT plan board at 1280 px.
 
   Scenarios: Undoing an adjustment, Tree toolbar overflow. Verify: File runs of both green.
 - [x] 2.9 UX documents (D9):

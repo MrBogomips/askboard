@@ -2,8 +2,8 @@
 // treegrid, in navigation and in edit mode, and in the toolbar. WAI-ARIA treegrid navigation;
 // Enter or F2 edits the focused name or field, Enter commits and Escape cancels; Alt+Shift with
 // the arrows moves a node; Delete or Backspace deletes; Space toggles the focused row's
-// selection, Shift with ArrowUp or ArrowDown extends it and Ctrl or Cmd with Z undoes a bulk
-// adjustment (widget-editing-plus). A key with other modifiers is not the
+// selection, Shift with ArrowUp or ArrowDown extends it and Ctrl or Cmd with Z undoes the latest
+// edit of the Tree (tree-edit-undo). A key with other modifiers is not the
 // Tree's: Alt+ArrowLeft and Alt+ArrowRight navigate history in Firefox and Chromium on Linux, and
 // in an input Alt+Shift with an arrow selects by word. The component prevents the default of
 // every key that has an action, possible or not, and leaves every other key to the browser.
@@ -39,7 +39,7 @@ export type KeyEdit = Extract<TreeEdit, "moveUp" | "moveDown" | "indent" | "outd
  * What a key does: a focus move, which a read-only Tree keeps; starting to edit the focused cell
  * (a row's name when the row has the focus); an edit, to check with `can`; committing or
  * cancelling the cell being edited; toggling the focused row's selection, extending the selection
- * with the focus, undoing a bulk adjustment (widget-editing-plus, Tree keyboard).
+ * with the focus, undoing the latest edit of the Tree (tree-edit-undo, Tree keyboard).
  */
 export type KeyAction =
   | { readonly kind: "focus"; readonly move: FocusMove }

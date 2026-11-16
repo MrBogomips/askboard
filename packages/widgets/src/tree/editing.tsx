@@ -60,7 +60,8 @@ export const useCellEditing = ({
   /** The collapsed nodes, from the view. */
   readonly collapsed: ReadonlySet<string>;
   readonly disabled: boolean;
-  readonly onValueChange: (value: TreeProps | undefined) => void;
+  /** Writes the value; `nodeId` is the node the edit acted on, for the focus after an undo. */
+  readonly onValueChange: (value: TreeProps | undefined, nodeId: string) => void;
   /**
    * Writes the value `next` once the add's new node `added` is named, with its linked edits, or
    * returns the field error that refuses it, writing nothing (`linked.ts`).
@@ -100,7 +101,7 @@ export const useCellEditing = ({
   // A changed value goes in the draft, an added node's through its linked write, which may refuse.
   const write = (next: TreeProps, add: PendingAdd | undefined, nodeId: string) => {
     if (add !== undefined) return onCommitAdd(next, nodeId, add);
-    onValueChange(sameNodes(sent, next) ? undefined : next);
+    onValueChange(sameNodes(sent, next) ? undefined : next, nodeId);
     return undefined;
   };
   const commit = (text: string, by: CommitBy): boolean => {

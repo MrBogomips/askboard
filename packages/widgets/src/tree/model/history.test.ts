@@ -117,6 +117,21 @@ describe("kept", () => {
     expect(kept(history, draftOf({}), { disabled: false, sentChanged: false })).toEqual([]);
   });
 
+  test("a refused write leaves the draft as it was: only that entry goes, the edits before it stay", () => {
+    const first = entry({ v: 1 });
+    const refused = entry({ v: 2 }, { v: 1 });
+    const result = kept([first, refused], draft, { disabled: false, sentChanged: false });
+    expect(result).toEqual([first]);
+  });
+
+  test("a stale top that is no refused write still empties the whole history", () => {
+    const first = entry({ v: 1 });
+    const other = entry({ v: 2 }, { v: 1 });
+    expect(
+      kept([first, other], draftOf({ tree: { v: 3 } }), { disabled: false, sentChanged: false }),
+    ).toEqual([]);
+  });
+
   test("an empty history stays the same list", () => {
     const none: readonly HistoryEntry[] = [];
     expect(kept(none, draft, { disabled: false, sentChanged: false })).toBe(none);

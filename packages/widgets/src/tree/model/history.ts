@@ -65,7 +65,15 @@ export const undoValues = (entry: HistoryEntry): Readonly<Record<string, unknown
 /** Why a history is emptied: the Tree is disabled, or the agent sent a new value. */
 export type Emptying = { readonly disabled: boolean; readonly sentChanged: boolean };
 
-/** `history`, or an empty list when it must go: see `Emptying`, or its top entry is stale. */
+/** The entry's items all hold what it replaced: the draft never took its write (the shell refused it). */
+const refused = (entry: HistoryEntry, draftOf: DraftOf): boolean =>
+  Object.entries(entry.written).every(([id, { before }]) => sameJson(draftOf(id), before));
+
+/**
+ * `history`, or an empty list when it must go: see `Emptying`, or its top entry is stale. A top
+ * entry whose write the draft never took is dropped alone, so that an edit the shell refused is
+ * not recorded and the edits before it stay.
+ */
 export const kept = (
   history: readonly HistoryEntry[],
   draftOf: DraftOf,
@@ -73,5 +81,8 @@ export const kept = (
 ): readonly HistoryEntry[] => {
   if (history.length === 0) return history;
   if (disabled || sentChanged) return [];
+  const top = history.at(-1);
+  if (top !== undefined && refused(top, draftOf))
+    return kept(popped(history), draftOf, { disabled, sentChanged });
   return liveTop(history, draftOf) === undefined ? [] : history;
 };
