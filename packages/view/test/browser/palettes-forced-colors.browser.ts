@@ -216,8 +216,18 @@ for (const engine of enginesFor(import.meta.path)) {
         // The most cards marked together, and the last one marked, from before the first act.
         await board.view.locator("body").evaluate((body) => {
           const doc = body.ownerDocument;
-          const seen = { most: 0, last: "" };
+          // `atEnter`: which card carried the mark at each Enter, "" for none.
+          const seen = { most: 0, last: "", atEnter: [] as string[] };
           (doc.defaultView as unknown as { __marks: typeof seen }).__marks = seen;
+          doc.addEventListener(
+            "keydown",
+            (event) => {
+              if (event.key !== "Enter") return;
+              const on = doc.querySelector("[data-askboard-arrived]");
+              seen.atEnter.push(on?.getAttribute("data-askboard-question") ?? "");
+            },
+            true,
+          );
           new MutationObserver(() => {
             const marked = doc.querySelectorAll("[data-askboard-arrived]");
             seen.most = Math.max(seen.most, marked.length);
@@ -241,11 +251,12 @@ for (const engine of enginesFor(import.meta.path)) {
           (body) =>
             (
               body.ownerDocument.defaultView as unknown as {
-                __marks: { most: number; last: string };
+                __marks: { most: number; last: string; atEnter: string[] };
               }
             ).__marks,
         );
-        expect(marks).toEqual({ most: 1, last: "q3" });
+        // The second send came while q2 still carried the mark: within 1.2 s of the first move.
+        expect(marks).toEqual({ most: 1, last: "q3", atEnter: ["", "q2"] });
       },
       TEST_TIMEOUT_MS,
     );

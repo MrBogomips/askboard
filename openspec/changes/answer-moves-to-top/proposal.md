@@ -15,12 +15,12 @@ Serves FR-2 (the guided flow After an answer) and NFR-12 (keyboard core; reduced
   - In one question per view, the page goes to its top.
   - A card taller than the viewport is placed the same way.
   - The move ends where it was asked to go even when a card above changes height during it, and still never fights a user's own scroll.
-- **A visible arrival mark.** The card arrived at takes the `primary-subtle` fill and a 4 px `primary` inner edge, held through the move, then fading to the card's own fill over the rest of the 1.2 s. It is legible in Carta, Nordico, Grafite and Contrasto, light and dark: three contrast pairs added to the report. Under forced colours it is a 3 px `Highlight` outline for 1.2 s.
+- **A visible arrival mark.** The card arrived at takes the `primary-subtle` fill and a 4 px `primary` inner edge, held through the move, then fading to the card's own fill over the rest of the 1.2 s. It is legible in Carta, Nordico, Grafite and Contrasto, light and dark: four contrast pairs added to the report. Under forced colours it is a 3 px `Highlight` outline for 1.2 s.
 - **Reduced motion unchanged in kind.** The move is instant and the mark is static for 1.2 s, then removed.
 - **Every other jump unchanged.** "Next to do", the outline, the strip, an unread reply, an agent change, "Go", the navigator, tabs, Submit and the field to fix keep the least-scroll reveal.
 - DESIGN.md (Motion, Arrival mark, Contrast tables) and EXPERIENCE.md (After an answer, Reduced motion, the Ana walkthrough) follow.
 
-Open for the PO, with a proposed default (design.md, D2): the move aligns the card's top, so its number, state badge and "More" stay in view, rather than the heading's top, which would hide them under the bars.
+Decided by the PO on 2026-11-16 (design.md, D2): the move aligns the card's top, so its number, state badge and "More" stay in view, rather than the heading's top, which would hide them under the bars.
 
 ## Capabilities
 
@@ -38,6 +38,6 @@ None.
 
 - `packages/view/src/shell/reveal.ts`: a new top alignment beside `revealDelta`, used by the move and its landing. `board.tsx` asks for the alignment on the move's heading request; `heading-request.ts` and `flow.ts` are unchanged.
 - `packages/view/src/styles/motion.css` and `forced-colors.css`: the arrival mark.
-- `tools/build/contrast.ts`: three pairs.
+- `tools/build/contrast.ts`: four pairs.
 - Browser files: `answering-flow-advance`, `answering-flow-motion`, `palettes-forced-colors`. Unit files: `reveal.test.ts`, `reveal-smooth.test.ts`, and a CSS test for the mark.
 - No contract, protocol, configuration, key-table or dependency change. The shell's chunk grows by well under 1 KB. The change alters a widget's rendering path (the card) and the reveal, so a train is dispatched on its branch before merge (AGENTS.md, CI).

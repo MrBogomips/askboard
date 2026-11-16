@@ -56,7 +56,7 @@ Alternatives considered:
 - Folding the alignment into `smooth`: this breaks the `reveal-smooth.test.ts` cases that pin the smooth path's arithmetic, and it ties two concerns, the motion and the target place, that reduced motion separates.
 - A browser `scrollIntoView({ block: "start" })` with `scroll-margin-top`: it ignores the tray's dynamic inset unless the margin is rewritten at every move, its smooth behaviour has no duration bound (SC 2.3.3's 250 ms), and engines differ on a scroll while focus moves (the reason for #180).
 
-### D2. The anchor is the card's top (proposed default; needs the PO)
+### D2. The anchor is the card's top
 
 The PO wrote "until the next question's heading sits just under the sticky bars". Above the heading sit the card's padding, its head (short number, state badge, "More") and any change or reopened notice. A heading at 8 px under the bars hides all of them under the bars at the moment the user arrives. The anchor is therefore the card's top at 8 px under the bars, and the heading sits just below its own card head, the highest it can be with the card wholly readable.
 
@@ -64,7 +64,7 @@ Alternatives:
 - The heading's top: the PO's literal wording, with the hidden head above.
 - The area's heading when the card is the first of its area (sections): it keeps the area's name in view, but two anchors cost a rule and tests for little, since the outline and the status region already name the area.
 
-Task 0.1 records the PO's answer, asked on #256 with `needs-po`. Choosing the heading changes one branch of D1 (`"card"` measures the heading) and the spec's "card top" wording, through `/openspec-update-change`.
+The PO chose the card's top on 2026-11-16, asked on #256. The heading's top would have changed one branch of D1 (`"card"` measures the heading) and the spec's "card top" wording.
 
 ### D3. The gap
 
@@ -148,4 +148,4 @@ None: view-only behaviour, no stored data. Rollback is a revert.
 
 ## Open Questions
 
-- D2, the anchor: the card's top (default) or the heading's top. Asked on #256 with `needs-po`. Task 0.1 records the answer before group 1 starts.
+None.

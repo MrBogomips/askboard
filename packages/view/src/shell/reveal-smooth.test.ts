@@ -427,4 +427,34 @@ describe("scroll anchoring during a move", () => {
       ?.run();
     expect(anchor(s)).toBe("");
   });
+
+  test("is restored when the user scrolls and the move ends early", () => {
+    const s = stand();
+    revealAndFocus(s.element, { smooth: true, align: "card" });
+    s.frames.shift()?.(16);
+    s.view.scrollY += 50;
+    s.frames.shift()?.(32);
+    expect(anchor(s)).toBe("");
+  });
+
+  test("is restored at the last frame", () => {
+    const s = stand();
+    revealAndFocus(s.element, { smooth: true, align: "card" });
+    expect(anchor(s)).toBe("none");
+    for (let now = 16; s.frames.length > 0 && now <= SCROLL_MS + 32; now += 16) {
+      s.frames.shift()?.(now);
+    }
+    expect(anchor(s)).toBe("");
+  });
+
+  test("is restored when a move with no smooth scroll interrupts, with a resolve or without", () => {
+    for (const options of [{ resolve: () => null }, {}]) {
+      const s = stand();
+      s.doc.documentElement.style.overflowAnchor = "auto";
+      revealAndFocus(s.element, { smooth: true, align: "card" });
+      expect(anchor(s)).toBe("none");
+      revealAndFocus(s.element, options);
+      expect(anchor(s)).toBe("auto");
+    }
+  });
 });
