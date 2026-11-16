@@ -123,8 +123,12 @@ jobs:
           TIMINGS_FILE: ${{ steps.timings.outputs.file }}
           # The perf bounds are scaled by the runner's factor (harness/perf.ts, ci-e2e-gates).
           ASKBOARD_PERF_RUNNER: ${{ runner.os }}
+        # The console and the job summary get the digest (#227 point 2); the full output goes to
+        # browser.log, shown by the next step. A file with a new failure runs once more alone, so a
+        # load timeout reads as flaky; known-failures.json's entries do not fail the job.
         run: |
           set -- --no-build --target session-process --set "$SET" --engines "$ENGINE"
+          set -- "$@" --rerun-failed 1 --log browser.log
           # A shard of 1/1 is no shard, which the all and perf sets would refuse.
           if [ "$SHARD" != "1/1" ]; then set -- "$@" --shard "$SHARD"; fi
           if [ -n "$WORKERS" ]; then set -- "$@" --workers "$WORKERS"; fi
@@ -133,6 +137,12 @@ jobs:
             set -- "$@" --timings-out "$TIMINGS_FILE"
           fi
           exec bun packages/view/test/browser/run.ts "$@"
+      - name: The full log
+        if: ${{ always() && inputs.code }}
+        run: |
+          echo "::group::browser.log"
+          cat browser.log 2>/dev/null || echo "no log: the run stopped before it started one"
+          echo "::endgroup::"
       - name: Keep this shard's timings
         if: ${{ inputs.code && inputs.set == 'full' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

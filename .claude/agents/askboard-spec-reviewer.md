@@ -6,7 +6,6 @@ effort: medium
 tools: Read, Grep, Glob, Bash
 skills:
   - askboard-review-protocol
-  - askboard-contract-versioning
 memory: user
 color: blue
 ---
@@ -25,8 +24,10 @@ your job is to find it before the pull request, in the one review a change gets.
    the deviation.
 3. Check the tasks: a ticked task whose Verify clause is not met, a note that claims what the code
    does not do.
-4. Check versioned sets and seams with `askboard-contract-versioning`: numbers consistent across
-   constants, schemas, fixtures, transcripts, documents and notes; borrowed names present on `main`.
+4. When the range touches `packages/contract` or a `*_VERSION` or `*_FORMAT` constant, read
+   `.claude/skills/askboard-contract-versioning/SKILL.md` (it is not preloaded) and check versioned sets and
+   seams with it: numbers consistent across constants, schemas, fixtures, transcripts, documents and
+   notes; borrowed names present on `main`.
 5. Check what the import check cannot see: AD-1 dependencies by injection rather than import, and
    no dependency on AXFX (FR-31).
 6. Check that a widget's key table (`KEY_VOCABULARY` and the type's own entries), its handler (`keyActionOf` over `useKeyTable`'s table), its tooltips (`KeyHint`), its keys panel (`KeysButton`, `KeysPanelBody`), the references and `askboard-help` agree, and that any key outside the vocabulary carries the PO's recorded approval.

@@ -86,6 +86,17 @@ const SETS_OF = {
   all: ["full", "perf"],
 } as const satisfies Record<Options["set"], readonly PassSet[]>;
 
+/**
+ * One file of a failing pass, run again alone (#227 point 2): serial, untimed and unsharded, so that
+ * neither load from other files nor the shard's balance decides it; the extra arguments are kept.
+ */
+export const rerunPass = (pass: Pass, file: string, options: Options): Pass => ({
+  set: pass.set,
+  engine: pass.engine,
+  files: [file],
+  args: ["test", "--timeout", String(TEST_TIMEOUT_MS), file, ...options.extra],
+});
+
 /** The passes of a run, in order; an engine with no file in a set has no pass in it. */
 export const planPasses = (
   options: Options,

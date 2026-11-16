@@ -610,12 +610,15 @@ describe("browser.yml (decisions 1 to 3, 5; C5)", () => {
           .trim()
           .split("\n");
       const common = ["--no-build", "--target", "session-process"];
+      // A file with a new failure runs once more alone; the full output goes to browser.log (#227).
+      const digest = ["--rerun-failed", "1", "--log", "browser.log"];
       expect(argsFor({ SET: "smoke", ENGINE: "chromium", SHARD: "1/1" })).toEqual([
         ...common,
         "--set",
         "smoke",
         "--engines",
         "chromium",
+        ...digest,
       ]);
       expect(
         argsFor({
@@ -631,6 +634,7 @@ describe("browser.yml (decisions 1 to 3, 5; C5)", () => {
         "full",
         "--engines",
         "webkit",
+        ...digest,
         "--shard",
         "3/4",
         "--workers",
@@ -645,6 +649,7 @@ describe("browser.yml (decisions 1 to 3, 5; C5)", () => {
         "all",
         "--engines",
         "firefox",
+        ...digest,
       ]);
     } finally {
       rmSync(dir, { recursive: true, force: true });

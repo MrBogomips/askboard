@@ -17,9 +17,23 @@ describe("parseArgs", () => {
       set: "all",
       workers: 14,
       updateTimings: false,
+      rerunFailed: 0,
       extra: [],
     });
     expect(parseArgs([], { env: {}, cores: 0 }).workers).toBe(1);
+  });
+
+  // #227 point 2: a failing file runs again alone, to tell load timeouts from real failures; the
+  // full output goes to a log file and the console gets the digest.
+  test("parses --rerun-failed and --log", () => {
+    expect(parse("--rerun-failed", "1", "--log", "out/browser.log")).toMatchObject({
+      rerunFailed: 1,
+      log: "out/browser.log",
+    });
+    expect(parse("--rerun-failed", "0").rerunFailed).toBe(0);
+    expect(() => parse("--rerun-failed", "-1")).toThrow("--rerun-failed takes a whole number");
+    expect(() => parse("--rerun-failed", "4")).toThrow("at most 3");
+    expect(() => parse("--log", "")).toThrow("--log takes a file name");
   });
 
   test("reads the engines, the target and the runtime from the environment, as before", () => {

@@ -20,6 +20,9 @@ A review needs four facts:
 | Change | the OpenSpec change id |
 | Scope | "whole change", or a fix range |
 
+When the range touches `packages/contract` or a `*_VERSION` or `*_FORMAT` constant, load
+`askboard-contract-versioning` too (no reviewer preloads it).
+
 Check them with commands run in the worktree:
 
 ```sh

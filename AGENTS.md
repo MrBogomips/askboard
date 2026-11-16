@@ -116,6 +116,7 @@ This file is the shared source; Codex reads it as it is.
 ./setup.sh --ci                                      #   as CI runs it (set by CI=1 too): bun install --frozen-lockfile
 ./setup.sh --no-codex                                #   the toolchain check and the install only
 ./setup.sh --codex-only                              #   only regenerate the Codex files (--check: stale or not, offline; --dry-run: what it writes)
+bun run check:agent                                  # the same steps, quiet: the failing step's failures and counts only, the full output in a log file
 bun run check                                        # what CI runs, stopping at the first failure:
 bun run typecheck                                    #   tsc -p on each package, then on tsconfig.test.json
 bun run lint                                         #   Biome formatting and lint checks, no writes (bun run format applies fixes)
@@ -139,6 +140,7 @@ bun tools/release/version.ts <x.y.z>                 # one version in every mani
 ## CI
 
 - A change runs no full or multi-engine e2e suite locally: its new browser files are checked in Chromium only, and CI's smoke run on the pull request is its e2e gate (informative; read the conclusion with `gh pr checks`, not the log). A new browser file is listed in `packages/view/test/browser/harness/suites.ts` or a test fails.
+- Agents read the browser runner's digest, never its log: counts per pass and one line per failing test, `new`, `flaky` (passed when its file ran again alone, `--rerun-failed`) or `known` (quarantined under its open Issue in `packages/view/test/browser/known-failures.json`, whose entry the change closing the Issue removes); only new failures fail a run. The quiet check is `bun run check:agent`.
 - The e2e train runs the full three-engine suite on CI: `e2e.yml`'s nightly cadence on `main`, nightly or dispatched after a batch of merges. Its failures become `source:e2e` Issues, fixed in one stabilisation change; changes in flight never stop for them. A change that alters the runner, the browser harness or a widget's rendering dispatches a train on its branch before merge: `gh workflow run e2e.yml --ref <branch> -f cadence=nightly` (the PO's answer on #227, 2026-11-16).
 - No ruleset requires a status yet: check that `openspec`, `check` and `codex` are green before merging. The e2e statuses are not required (the PO's answer, 2026-11-14).
 - On a Mac, WebKit's keyboard cases need keyboard navigation on (System Settings > Keyboard > Keyboard navigation), or they fail with "ten presses of Tab never reached Answer".

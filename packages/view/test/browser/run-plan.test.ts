@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { ENGINES, type Engine } from "./harness/engines.ts";
 import { BROWSER_FILES, type BrowserFileEntry } from "./harness/suites.ts";
 import type { Options } from "./run-options.ts";
-import { type Pass, planPasses, TIMINGS_DIR, timingsFile } from "./run-plan.ts";
+import { type Pass, planPasses, rerunPass, TIMINGS_DIR, timingsFile } from "./run-plan.ts";
 
 const DIR = "./packages/view/test/browser";
 const manifest: Record<string, BrowserFileEntry> = {
@@ -23,6 +23,7 @@ const base: Options = {
   set: "all",
   workers: 8,
   updateTimings: false,
+  rerunFailed: 0,
   extra: [],
 };
 const plan = (
@@ -234,5 +235,22 @@ describe("planPasses: the bun test arguments", () => {
 
   test("--workers 1 still gives --parallel=1, so the files run in argument order", () => {
     expect(argsOf({ set: "full", workers: 1 })).toContain("--parallel=1");
+  });
+});
+
+describe("rerunPass: a failing file again, alone (#227 point 2)", () => {
+  test("one file, serial, untimed and unsharded, the extra arguments kept", () => {
+    const [pass] = plan(
+      { set: "full", shard: { k: 2, n: 4 }, extra: ["-t", "reload"] },
+      () => true,
+    );
+    const file = pass?.files[1] ?? "";
+    const again = rerunPass(pass as Pass, file, { ...base, extra: ["-t", "reload"] });
+    expect(again).toEqual({
+      set: "full",
+      engine: "chromium",
+      files: [file],
+      args: ["test", "--timeout", "60000", file, "-t", "reload"],
+    });
   });
 });

@@ -34,7 +34,10 @@ everything high.
 - the change id, its Issue numbers and the absolute worktree path;
 - for the implementer: the groups to run, from the first not done, or the fix tasks with their
   finding IDs; when it resumes another implementer's work, that one's handoff note;
-- for a reviewer: the base and head SHAs, the scope, and the IDs of findings already open.
+- for a reviewer: the base and head SHAs, the scope, and the IDs of findings already open;
+- when the work touches `packages/contract` or a `*_VERSION` or `*_FORMAT` constant, or is the
+  rebase: "load `askboard-contract-versioning`". No agent preloads it (the PO's answer on #227,
+  2026-11-16); `askboard-threat-model` stays preloaded for the security reviewer only.
 
 Record each group's head (`git rev-parse HEAD`) as its commit lands: a handoff resumes from it.
 
@@ -70,8 +73,9 @@ Record each group's head (`git rev-parse HEAD`) as its commit lands: a handoff r
 4. **Before the pull request:**
    1. Rebase onto `origin/main`. Bind the version labels and re-check the borrowed seams with
       `askboard-contract-versioning`. Run the implementer at high effort for conflicts.
-   2. The whole check, once per change: `GITHUB_TOKEN=$(gh auth token) bun run check`, then
-      `bun run build`. No local full or multi-engine `test:e2e`: CI's smoke and the e2e train
+   2. The whole check, once per change, in its quiet form: `GITHUB_TOKEN=$(gh auth token) bun run
+      check:agent` (the steps of `bun run check`; only the failing step's failures and counts on the
+      console, the rest in a log file it names), then `bun run build`. No local full or multi-engine `test:e2e`: CI's smoke and the e2e train
       (section 4) replace it.
    3. Pre-PR review, merge base to head: `askboard-spec-reviewer` at medium. Add
       `askboard-security-reviewer` at high, in parallel, only when the diff touches
@@ -100,8 +104,14 @@ Record each group's head (`git rev-parse HEAD`) as its commit lands: a handoff r
 - The full three-engine suite runs on CI, never inside a change: `e2e.yml`'s nightly cadence on
   `main`, every night or dispatched after a batch of merges
   (`gh workflow run e2e.yml --ref main -f cadence=nightly`).
-- Its failures become Issues labelled `source:e2e`, after the duplicate search (`askboard-backlog`,
-  End-to-end test sessions): a failure an open Issue already holds gets no second one.
+- Read the run's digest, never its log: each browser job prints it and adds it to the job summary,
+  one line per failing test marked `new`, `flaky` (it passed when its file ran again alone) or
+  `known` (quarantined in `packages/view/test/browser/known-failures.json` under its open Issue).
+  Only new failures fail a job.
+- Each new failure becomes an Issue labelled `source:e2e`, after the duplicate search
+  (`askboard-backlog`, End-to-end test sessions); a flaky one recurring across trains gets one too.
+  A failure that stays and is not fixed at once is quarantined under its Issue in
+  `known-failures.json`; the change that closes the Issue removes its entry.
 - One stabilisation change per train fixes them, in one session with one implementer. Changes in
   flight never stop for them.
 
