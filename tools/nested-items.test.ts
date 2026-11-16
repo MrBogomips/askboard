@@ -239,6 +239,11 @@ const VIEW_READS: readonly Read[] = [
     reason: "a layout's own item list, which it draws one level through the port's renderer",
   },
   {
+    file: "packages/view/src/shell/accept-as-sent.ts",
+    text: "valueItemsOf(question.props.items)",
+    reason: HANDED,
+  },
+  {
     file: "packages/view/src/shell/agent-change.ts",
     text: "valueItemsOf(shown.props.items)",
     reason: HANDED,

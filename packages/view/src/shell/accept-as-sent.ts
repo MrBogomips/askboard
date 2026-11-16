@@ -3,7 +3,7 @@
 // is offered only where there is content to accept and nothing the user changed or resulted.
 
 import { elementChanges } from "@askboard/contract";
-import { componentFacts } from "../catalog/port.ts";
+import { type ComponentFacts, componentFacts } from "../catalog/port.ts";
 import { valueItemsOf } from "../nested-items.ts";
 import type { ViewQuestion, WidgetItem } from "../view-document.ts";
 import type { DraftRecord } from "./draft-store.ts";
@@ -21,6 +21,8 @@ export type AcceptInputs = {
   readonly locked: boolean;
   /** The board is an opened Snapshot. */
   readonly opened: boolean;
+  /** The facts the chunks registered for a type; the registry's when none (a test gives its own). */
+  readonly factsOf?: ((type: string) => ComponentFacts | undefined) | undefined;
 };
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
@@ -28,11 +30,15 @@ const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
 
 // Whether the held value gives no element change against the item as sent. A value the diff cannot
 // read counts as a change: the content is then not what the agent sent (NFR-10).
-const unchanged = (item: WidgetItem, held: unknown): boolean => {
+const unchanged = (
+  item: WidgetItem,
+  held: unknown,
+  factsOf: (type: string) => ComponentFacts | undefined,
+): boolean => {
   if (held === undefined) return true;
   if (!isRecord(held) || !isRecord(item.props)) return false;
   try {
-    const shape = componentFacts(item.type)?.shape?.(item.props);
+    const shape = factsOf(item.type)?.shape?.(item.props);
     return shape !== undefined && elementChanges(item.id, item.props, held, shape).length === 0;
   } catch {
     return false;
@@ -53,11 +59,12 @@ export const acceptAsSentOffered = ({
   open,
   locked,
   opened,
+  factsOf = componentFacts,
 }: AcceptInputs): boolean => {
   if (!open || locked || opened) return false;
   if ((question.props.options ?? []).length > 0) return false;
   const items = valueItemsOf(question.props.items);
-  if (!items.some((item) => componentFacts(item.type)?.shape !== undefined)) return false;
+  if (!items.some((item) => factsOf(item.type)?.shape !== undefined)) return false;
   if (items.some((item) => results?.get(item.id) !== undefined)) return false;
-  return items.every((item) => unchanged(item, values.get(item.id)));
+  return items.every((item) => unchanged(item, values.get(item.id), factsOf));
 };

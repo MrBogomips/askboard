@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import type { DraftRecord, LifecycleBoardState } from "@askboard/contract";
-import { componentFacts, register } from "../catalog/port.ts";
 import type { ViewDocument, ViewQuestion } from "../view-document.ts";
 import { connectDrafts, createBoardDraft, draftRecordOf, restoreDraft } from "./board-draft.ts";
 import { createDraftStore } from "./draft-store.ts";
@@ -30,8 +29,6 @@ const document = {
   items: [question("plan"), question("roadmap"), question("budget")],
 } as unknown as ViewDocument;
 const NONE_REPORTED = () => undefined;
-
-if (componentFacts("tree") === undefined) register("tree", () => null, {});
 
 const setUp = () => {
   const values = createDraftStore();

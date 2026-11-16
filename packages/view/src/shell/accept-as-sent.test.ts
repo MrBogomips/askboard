@@ -1,34 +1,26 @@
 import { describe, expect, test } from "bun:test";
 import { WIDGET_TYPES } from "@askboard/contract";
-import { componentFacts, register } from "../catalog/port.ts";
+import type { ComponentFacts } from "../catalog/port.ts";
 import type { ViewQuestion } from "../view-document.ts";
 import { type AcceptInputs, acceptAsSentOffered } from "./accept-as-sent.ts";
 
 // "Accept as is" is offered on a question with no options that holds an item whose widget edits
 // agent content, while it is to do or in draft and nothing is edited or resulted (accept-as-sent,
-// design decision 1; view-and-widgets spec: When Accept as is is offered). The chunks register each
-// type's element shape with its component; these tests register what the chunks do.
-const noComponent = () => null;
+// design decision 1; view-and-widgets spec: When Accept as is is offered).
 const EDITING = WIDGET_TYPES.filter((entry) => entry.edits !== undefined);
 const ITEMS = Object.fromEntries(
   EDITING.map((entry) => [entry.type, structuredClone(entry.example.item)]),
 ) as Record<string, { type: string; id: string; props: Record<string, unknown> }>;
 
-// The names the notice gives the Tree and the Gantt, as widget-changes.test.ts registers them; the
-// other types register none, so that the registry stays as that test finds it.
-const NAMES: Readonly<Record<string, "change.widgetTree" | "change.widgetGantt">> = {
-  tree: "change.widgetTree",
-  gantt: "change.widgetGantt",
-};
-for (const entry of EDITING) {
-  if (componentFacts(entry.type) === undefined) {
-    const name = NAMES[entry.type];
-    register(entry.type, noComponent, {
-      shape: (props) => (entry.edits as NonNullable<typeof entry.edits>).shape(props),
-      ...(name === undefined ? {} : { name }),
-    });
-  }
-}
+// Each type's chunk registers its element shape with its component; the tests give the same
+// lookup, built from the contract's registry, so that they register nothing in the shared one.
+const FACTS = new Map<string, ComponentFacts>(
+  EDITING.map((entry) => [
+    entry.type,
+    { shape: (props) => (entry.edits as NonNullable<typeof entry.edits>).shape(props) },
+  ]),
+);
+const factsOf = (type: string): ComponentFacts | undefined => FACTS.get(type);
 
 const questionOf = (items: readonly unknown[], extra: Record<string, unknown> = {}) =>
   ({
@@ -45,6 +37,7 @@ const inputs = (question: ViewQuestion, more: Partial<AcceptInputs> = {}): Accep
   open: true,
   locked: false,
   opened: false,
+  factsOf,
   ...more,
 });
 
@@ -110,7 +103,7 @@ describe("Accept as is is not offered", () => {
     expect(acceptAsSentOffered(inputs(questionOf([tree]), { opened: true }))).toBe(false);
   });
 
-  test("for a type whose chunk registered no shape", () => {
+  test("for a type whose chunk registered no shape, which waits for it (fail closed)", () => {
     const unknown = { type: "sketchpad", id: "pad", props: { rows: {} } };
     expect(acceptAsSentOffered(inputs(questionOf([unknown])))).toBe(false);
   });
@@ -121,14 +114,19 @@ describe("Accept as is is not offered", () => {
   });
 
   test("when the diff of a held value throws, it counts as a change", () => {
-    register("thrower", noComponent, {
-      shape: () => {
-        throw new Error("no shape for this value");
-      },
-    });
+    const throwing = (type: string): ComponentFacts | undefined =>
+      type === "thrower"
+        ? {
+            shape: () => {
+              throw new Error("no shape for this value");
+            },
+          }
+        : factsOf(type);
     const item = { type: "thrower", id: "t", props: { rows: {} } };
     const other = ITEMS.tree as { id: string };
     const values = new Map([["t", { rows: { a: 1 } }]]);
-    expect(acceptAsSentOffered(inputs(questionOf([other, item]), { values }))).toBe(false);
+    expect(
+      acceptAsSentOffered(inputs(questionOf([other, item]), { values, factsOf: throwing })),
+    ).toBe(false);
   });
 });
