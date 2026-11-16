@@ -71,7 +71,7 @@ The view build writes each palette's CSS as its own file, `chunks/shell-palette-
 
 ### D8. Contrasto's marks
 
-`packages/view/src/styles/contrast.css`, imported by `base.css` outside Tailwind's layers (so it wins over `outline-2` and `border`): under `:root[data-palette="contrasto"]`, `:focus-visible` outlines are 3 px; question cards, buttons, inputs and text areas take 1.5 px borders, selected by their existing `data-askboard-*` hooks and element names, no component edited. DESIGN.md's Named palettes states both widths.
+`packages/view/src/styles/contrast.css`, imported by `base.css` outside Tailwind's layers (so it wins over `outline-2` and `border`): under `:root[data-palette="contrasto"]`, `:focus-visible` outlines are 3 px; question cards take 1.5 px borders, and so do buttons, inputs and text areas that carry `.border` (a borderless control keeps none), selected by their existing `data-askboard-*` hooks and element names, no component edited. DESIGN.md's Named palettes states both widths.
 
 ### D9. Forced colours
 
