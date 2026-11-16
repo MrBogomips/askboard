@@ -29,7 +29,9 @@ import {
 } from "./fixtures/table-documents.ts";
 import { plan } from "./fixtures/tree-documents.ts";
 import { eventually, isFocused, STEP_TIMEOUT_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
+import { workOf } from "./harness/draft-results.ts";
 import { enginesFrom } from "./harness/engines.ts";
+import { labelText } from "./harness/lifecycle-test.ts";
 import {
   cellOf,
   cellText,
@@ -196,7 +198,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           await table.frame.locator('td[data-total="days"]').getAttribute("data-derived"),
         ).toBeNull();
         expect(await counterText(table)).toBe("Le tue modifiche: 1");
-        expect((await board.answer.innerText()).trim()).toBe("Invia risposta");
+        expect(await labelText(board.answer)).toBe("Invia risposta");
       },
       TEST_TIMEOUT_MS,
     );
@@ -213,7 +215,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await board.page.keyboard.press("Escape");
         await editor.waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
         expect(await cellText(table, "dev", "days")).toBe("72");
-        expect(run.drafts).toEqual([]);
+        expect(workOf(run.drafts)).toEqual([]);
         await cellOf(table, "pm", "amount").click();
         await board.page.keyboard.press("Enter");
         await board.page.keyboard.press("F2");
@@ -568,7 +570,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         );
         expect(await table.frame.locator("[role=status]").textContent()).toContain("at most 200");
         expect(await table.rows.count()).toBe(200);
-        expect(run.drafts).toEqual([]);
+        expect(workOf(run.drafts)).toEqual([]);
       },
       TEST_TIMEOUT_MS,
     );

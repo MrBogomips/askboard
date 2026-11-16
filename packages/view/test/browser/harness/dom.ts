@@ -159,3 +159,24 @@ export const boardOf = (page: Page): Board => {
     },
   };
 };
+
+/** Where a Theme radio is found: the view's frame on a board, or the page of a Snapshot. */
+type ThemeScope = Pick<Page, "getByRole" | "locator">;
+
+/** The Theme popover's radio of that name, whether the popover is open or not. */
+export const themeRadio = (scope: ThemeScope, name: "System" | "Light" | "Dark"): Locator =>
+  scope.getByRole("radiogroup", { name: "Theme" }).getByRole("radio", { name, exact: true });
+
+/**
+ * Picks a theme: the radios are inside the Theme popover (answering-flow-visual), which opens
+ * when the radio is not visible, by the ask row's Theme control (`data-askboard-theme`).
+ */
+export const pickTheme = async (
+  scope: ThemeScope,
+  name: "System" | "Light" | "Dark",
+): Promise<void> => {
+  const radio = themeRadio(scope, name);
+  if (!(await radio.isVisible()))
+    await scope.locator("[data-askboard-theme]").click({ timeout: 5_000 });
+  await radio.click({ timeout: 5_000 });
+};

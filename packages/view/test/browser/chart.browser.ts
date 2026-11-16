@@ -19,7 +19,7 @@ import { plan } from "./fixtures/tree-documents.ts";
 import { eventually, STEP_TIMEOUT_MS, TEST_TIMEOUT_MS, useEngine } from "./harness/board-test.ts";
 import { barCentre, barWidthOf, boxOf, clickAt, wearsRing } from "./harness/chart-points.ts";
 import type { Board } from "./harness/dom.ts";
-import { draftHolds } from "./harness/draft-results.ts";
+import { draftHolds, workOf } from "./harness/draft-results.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import {
   answerOf,
@@ -97,7 +97,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await board.answer.isDisabled()).toBe(true);
         await draftSettled(board);
         expect(run.messages.map((message) => message.type)).toEqual(["ready"]);
-        expect(run.drafts).toEqual([]);
+        expect(workOf(run.drafts)).toEqual([]);
         expect(run.browser.cspProblems()).toEqual([]);
       },
       TEST_TIMEOUT_MS,
@@ -166,7 +166,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await draftSettled(board);
         expect(await live(board).textContent()).toBe("Fix B, Failures: 9 runs");
         expect(await ringOf(board, 0, 1)).toBe(false);
-        expect(run.drafts).toEqual([]);
+        expect(workOf(run.drafts)).toEqual([]);
         expect(await board.answer.isDisabled()).toBe(true);
         expect(run.browser.cspProblems()).toEqual([]);
       },

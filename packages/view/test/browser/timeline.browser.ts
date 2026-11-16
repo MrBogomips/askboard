@@ -30,6 +30,7 @@ import {
   useEngine,
 } from "./harness/board-test.ts";
 import type { Board } from "./harness/dom.ts";
+import { workOf } from "./harness/draft-results.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import {
   answerOf,
@@ -132,7 +133,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await board.answer.isDisabled()).toBe(true);
         await draftSettled(board);
         expect(run.messages.map((message) => message.type)).toEqual(["ready"]);
-        expect(run.drafts).toEqual([]);
+        expect(workOf(run.drafts)).toEqual([]);
         expect(run.browser.violations).toEqual([]);
       },
       TEST_TIMEOUT_MS,
@@ -156,7 +157,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(Math.round(during.x - before.x)).toBe(7 * PER_DAY[zoom]);
         expect(during.y).toBeGreaterThan(before.y);
         await draftSettled(board);
-        expect(run.drafts).toEqual([]);
+        expect(workOf(run.drafts)).toEqual([]);
         expect(await days(board, "checkout")).toEqual(CHECKOUT);
         await release(board);
         await expectDays(board, "checkout", LATER);
@@ -207,7 +208,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await boxOf(shapeOf(board, "checkout"))).toEqual(before);
         expect(await days(board, "checkout")).toEqual(CHECKOUT);
         expect(await counterText(board)).toBe("No changes");
-        expect(run.drafts).toEqual([]);
+        expect(workOf(run.drafts)).toEqual([]);
       },
       TEST_TIMEOUT_MS,
     );
@@ -232,7 +233,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await board.view.locator('[data-change="moved"]').count()).toBe(0);
         expect(await counterText(board)).toBe("No changes");
         await draftSettled(board);
-        expect(run.drafts).toEqual([]);
+        expect(workOf(run.drafts)).toEqual([]);
         expect(await board.answer.isDisabled()).toBe(true);
       },
       TEST_TIMEOUT_MS,
@@ -374,7 +375,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await draftSettled(board);
         expect(await isFocused(tool(board, "Move later"))).toBe(true);
         expect((await days(board, "end")).date).toBe("9999-12-31");
-        expect(run.drafts).toEqual([]);
+        expect(workOf(run.drafts)).toEqual([]);
         // One step earlier, a day at day zoom, which this Timeline opens at: the tool follows the day.
         expect(await zoomOf(board)).toBe("day");
         await tool(board, "Move earlier").click();

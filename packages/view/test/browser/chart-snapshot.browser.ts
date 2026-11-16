@@ -18,6 +18,7 @@ import { eventually, STEP_TIMEOUT_MS, TEST_TIMEOUT_MS, useEngine } from "./harne
 import { launchEngine } from "./harness/browser.ts";
 import { barCentre, barWidthOf, boxOf, pixelAt, wearsRing } from "./harness/chart-points.ts";
 import { clickBar } from "./harness/chart-steps.ts";
+import { pickTheme } from "./harness/dom.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import { answerOf, lifecycleScenario, openBoard } from "./harness/lifecycle-test.ts";
 import { readViewBuild } from "./harness/view-build.ts";
@@ -128,10 +129,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           expect(await (await barAt(page, 2)).ring()).toBe(true);
           expect(await (await barAt(page, 1)).ring()).toBe(false);
           // A switch of the theme draws the light palette and keeps the rings.
-          await page
-            .getByRole("radiogroup", { name: "Theme" })
-            .getByRole("radio", { name: "Light", exact: true })
-            .click();
+          await pickTheme(page, "Light");
           expect(await isDark(page)).toBe(false);
           await eventually(async () => {
             const { chart, centre } = await barAt(page, 1);

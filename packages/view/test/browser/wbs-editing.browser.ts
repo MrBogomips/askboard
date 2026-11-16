@@ -10,6 +10,7 @@ import { uj2ExpandedBoardDocument } from "@askboard/contract/fixtures";
 import { ganttOf, rowTexts } from "./fixtures/gantt-view.ts";
 import { cellTexts, totalRow, wbsPlan } from "./fixtures/wbs-documents.ts";
 import { isFocused, STEP_TIMEOUT_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
+import { workOf } from "./harness/draft-results.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import { viewSettled } from "./harness/probes.ts";
 import { treeGridOf } from "./harness/tree-grid.ts";
@@ -91,7 +92,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await isFocused(tree.editor)).toBe(true);
         expect(await tree.editor.getAttribute("aria-invalid")).toBe("true");
         expect((await cellTexts(tree.row("portal"))).slice(4)).toEqual(["12.7 d", "2.0 d"]);
-        expect(run.drafts).toEqual([]);
+        expect(workOf(run.drafts)).toEqual([]);
         await expectUnchanged(run);
       },
       TEST_TIMEOUT_MS,

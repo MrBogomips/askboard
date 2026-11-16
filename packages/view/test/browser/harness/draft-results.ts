@@ -30,3 +30,39 @@ export const draftHolds = (
   itemId: string,
   expected: unknown,
 ): boolean => Bun.deepEquals(draftResultOf(drafts, questionId, itemId), expected, true);
+
+// The fields of a question's draft that are unsent work: not its revision, its prefill mark or
+// where the user put the context.
+const WORK = [
+  "values",
+  "results",
+  "entries",
+  "cellEntries",
+  "other",
+  "optionNotes",
+  "note",
+  "composer",
+  "held",
+] as const;
+
+const holdsWork = (question: object): boolean =>
+  WORK.some((field) => {
+    const held = (question as Record<string, unknown>)[field];
+    if (held === undefined || held === null) return false;
+    if (typeof held === "string") return held !== "";
+    if (typeof held === "object") return Object.keys(held).length > 0;
+    return true;
+  });
+
+/**
+ * The questions of the latest mirrored record that hold unsent work (an answer, a result, a note,
+ * a held act or a change), by ID. The record also carries the short numbers and the question in
+ * view, which are no work (answering-flow-visual, Draft mirror and restore): a test that expects
+ * "nothing drafted" asserts this equals `[]`, not that no record was mirrored.
+ */
+export const workOf = (drafts: DraftSource): string[] => {
+  const latest = drafts.at(-1);
+  const questions = latest === undefined ? undefined : recordOf(latest)?.questions;
+  if (questions === undefined) return [];
+  return Object.keys(questions).filter((id) => holdsWork(questions[id] ?? {}));
+};

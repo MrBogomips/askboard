@@ -17,7 +17,7 @@ import {
   useEngine,
 } from "./harness/board-test.ts";
 import type { Board } from "./harness/dom.ts";
-import { draftHolds } from "./harness/draft-results.ts";
+import { draftHolds, workOf } from "./harness/draft-results.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import {
   answerOf,
@@ -67,7 +67,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await board.answer.isDisabled()).toBe(true);
         await draftSettled(board);
         expect(run.messages.map((message) => message.type)).toEqual(["ready"]);
-        expect(run.drafts).toEqual([]);
+        expect(workOf(run.drafts)).toEqual([]);
         expect(draftHolds(run.drafts, "plan", "share", undefined)).toBe(true);
       },
       TEST_TIMEOUT_MS,
