@@ -7,7 +7,7 @@
 // nothing. After Postpone or Decline, the board moves on or focus goes to the question's heading, as
 // After an answer says (answering-flow-guidance, decision 3; Accessibility Floor, Focus).
 
-import { useId } from "react";
+import { Fragment, useId } from "react";
 import { useStrings } from "../catalog/port.ts";
 import { IconBlocked, IconEdit } from "../icons/index.ts";
 import type { FieldToFix } from "./field-block.ts";
@@ -28,7 +28,7 @@ export type ActionsRowProps = {
   readonly questionId: string;
   readonly answered: boolean;
   /** The answer the line names; none for a decline. */
-  readonly answerLine: string | undefined;
+  readonly answerParts: readonly string[] | undefined;
   /** The primary waits only on a choice: "Choose an option" describes it (design decision 9). */
   readonly nothingChosen: boolean;
   readonly actions: CardActions;
@@ -55,12 +55,38 @@ export type ActionsRowProps = {
   readonly onEdit: () => void;
 };
 
+// The answer line: the string's own words, and each part of the answer in an inline-block `bdi` of
+// its own, the ", " between them outside (a stray override cannot reorder the next part).
+const ANSWER_SLOT = "\u0000";
+const AnswerLine = ({
+  template,
+  parts,
+}: {
+  readonly template: string;
+  readonly parts: readonly string[];
+}) => {
+  const [before = "", after = ""] = template.split(ANSWER_SLOT);
+  return (
+    <>
+      {before}
+      {parts.map((part, at) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: parts may repeat; their order is fixed
+        <Fragment key={at}>
+          {at === 0 ? null : ", "}
+          <bdi className="inline-block max-w-full">{part}</bdi>
+        </Fragment>
+      ))}
+      {after}
+    </>
+  );
+};
+
 export const ActionsRow = ({
   opened = false,
   card,
   questionId,
   answered,
-  answerLine,
+  answerParts,
   nothingChosen,
   actions,
   fieldToFix,
@@ -103,9 +129,12 @@ export const ActionsRow = ({
   return (
     <>
       <div className="flex flex-wrap items-center gap-md">
-        {answered && answerLine !== undefined ? (
+        {answered && answerParts !== undefined ? (
           <span data-askboard-answer-line="" className="min-w-0 text-body text-foreground">
-            <bdi>{text("answer.line", { answer: answerLine })}</bdi>
+            <AnswerLine
+              template={text("answer.line", { answer: ANSWER_SLOT })}
+              parts={answerParts}
+            />
           </span>
         ) : null}
         {answered && !card.ready ? (

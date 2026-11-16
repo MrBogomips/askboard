@@ -49,7 +49,7 @@ export const OptionText = ({
   return (
     <span className="min-w-0 flex-1">
       <span id={optionLabelId(itemId, index)} className="text-body-lg text-foreground">
-        {option.label}
+        <bdi className="inline-block max-w-full">{option.label}</bdi>
       </span>
       {option.recommended === true ? (
         <span className={`ml-sm align-baseline ${RECOMMENDED}`}>
@@ -61,7 +61,7 @@ export const OptionText = ({
           id={optionDescriptionId(itemId, index)}
           className="ml-sm text-body text-foreground-secondary"
         >
-          {option.description}
+          <bdi className="inline-block max-w-full">{option.description}</bdi>
         </span>
       )}
     </span>

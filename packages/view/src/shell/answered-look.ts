@@ -27,3 +27,16 @@ export const answerLineOf = (
   const parts = [...(choice ?? []), ...(other === undefined || other === "" ? [] : [other])];
   return parts.length === 0 ? undefined : cutTitle(parts.join(", "));
 };
+
+/**
+ * The same answer as parts, for the card to draw each in an element of its own (an override in one
+ * label cannot reorder the next): each chosen label, then the "Other…" text, each cut as the line
+ * cuts; none when the answer names no choice.
+ */
+export const answerPartsOf = (
+  choice: readonly string[] | undefined,
+  other: string | undefined,
+): readonly string[] | undefined => {
+  const parts = [...(choice ?? []), ...(other === undefined || other === "" ? [] : [other])];
+  return parts.length === 0 ? undefined : parts.map(cutTitle);
+};

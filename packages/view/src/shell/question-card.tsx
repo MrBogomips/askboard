@@ -42,7 +42,7 @@ import {
 } from "./agent-change.ts";
 import type { AnswerActs } from "./answer-acts.ts";
 import { answerableOf, answerKeyHandling } from "./answer-key.ts";
-import { answeredLookOf, answerLineOf } from "./answered-look.ts";
+import { answeredLookOf, answerPartsOf } from "./answered-look.ts";
 import { type Attention, useInView } from "./attention.ts";
 import {
   answerContentOf,
@@ -681,7 +681,8 @@ export const QuestionCard = (props: CardProps) => {
   // primary reading "Edit"; any other answered state under edit is a revision in draft.
   const answered = answeredLookOf(mark, revising && mark !== "ready");
   const content = card.shown ?? answerContentOf(shown, values, work, results);
-  const answerLine = mark === "declined" ? undefined : answerLineOf(content.choice, content.other);
+  const answerParts =
+    mark === "declined" ? undefined : answerPartsOf(content.choice, content.other);
   // "Choose an option" (design decision 9): the primary waits on a choice and nothing else.
   const nothingChosen =
     !answered &&
@@ -795,7 +796,7 @@ export const QuestionCard = (props: CardProps) => {
             opened={opened}
             questionId={question.id}
             answered={answered}
-            answerLine={answerLine}
+            answerParts={answerParts}
             nothingChosen={nothingChosen}
             onEdit={onEdit}
             card={card}

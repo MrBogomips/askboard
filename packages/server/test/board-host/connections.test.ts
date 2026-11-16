@@ -559,17 +559,35 @@ describe("a draft record's short numbers", () => {
     }
   });
 
-  test("a number held twice is refused, naming /numbers, and the held record is unchanged", async () => {
-    const fake = fakeHostCore({ draft: draftOf("held before") });
+  test("a number held twice is refused, naming /numbers and saying so, and the held record is unchanged", async () => {
+    // Two questions, both known, so that the repeated number is the only fault.
+    const [first] = plainView.document.items;
+    const view = {
+      ...plainView,
+      document: { ...plainView.document, items: [first, { ...first, id: "other" }] },
+      questions: [
+        ...plainView.questions,
+        { itemId: "other", rev: 1, state: "open" as const, thread: [] },
+      ],
+    } as unknown as typeof plainView;
+    const fake = fakeHostCore({ view, draft: draftOf("held before") });
     const { host, open } = await hostOf(fake);
     try {
       const tab = await open();
       await types(tab, 3);
-      const twice = { ...draftOf("x"), numbers: { database: 1, other: 1 }, nextNumber: 2 };
+      const twice = {
+        ...draftOf("x"),
+        questions: { database: { rev: 1, note: "x" }, other: { rev: 1 } },
+        numbers: { database: 1, other: 1 },
+        nextNumber: 2,
+      };
       tab.send(draftMessage(twice));
       const refused = await tab.next();
       expect(refused).toMatchObject({ type: "refused", reason: "message" });
-      expect((refused as { detail: string }).detail).toContain("/numbers");
+      const { detail } = refused as { detail: string };
+      expect(detail).toContain("/numbers");
+      expect(detail).toContain("held twice");
+      expect(detail).not.toContain("names no question");
       expect(fake.draft).toEqual(draftOf("held before"));
       expect(fake.calls.some(([kind]) => kind === "holdDraft")).toBe(false);
     } finally {

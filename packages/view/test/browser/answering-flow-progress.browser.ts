@@ -88,12 +88,15 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       async () => {
         const { board } = await open("sections", "submitted");
         for (const id of ALL) expect(await board.strip(id).count()).toBe(1);
-        expect(await board.strip("q1").getAttribute("aria-label")).toBe("Q1 Database: To do");
+        expect(await board.strip("q1").getAttribute("aria-label")).toBe(
+          "Q1 \u2068Database\u2069: To do",
+        );
         await optionOf(board, "q1", "Yes").click({ timeout: STEP_TIMEOUT_MS });
         await answerOf(board, "q1").click({ timeout: STEP_TIMEOUT_MS });
         await eventually(
           async () =>
-            (await board.strip("q1").getAttribute("aria-label")) === "Q1 Database: Ready, not sent",
+            (await board.strip("q1").getAttribute("aria-label")) ===
+            "Q1 \u2068Database\u2069: Ready, not sent",
           "the segment ready",
         );
         expect(

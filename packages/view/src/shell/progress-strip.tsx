@@ -12,6 +12,7 @@ import { Tooltip } from "radix-ui";
 import { type KeyboardEvent, useEffect, useRef } from "react";
 import { useLanguage, useStrings } from "../catalog/port.ts";
 import { IconNew } from "../icons/index.ts";
+import { isolate } from "./bidi.ts";
 import { type Mark, markLabel } from "./board-view.ts";
 import { QuestionMarker } from "./markers.tsx";
 import { type Segment, type SegmentGroup, stripScrollLeft } from "./progress-strip-model.ts";
@@ -65,7 +66,7 @@ export const ProgressStrip = ({
       segment.number === undefined ? "" : `${text("question.number", { n: segment.number })} `;
     const base = text("progress.segment", {
       number: number.trim(),
-      chip: segment.chip,
+      chip: isolate(segment.chip),
       state: markLabel(segment.state, language),
     }).trim();
     return segment.isNew ? `${base}, ${text("mark.new")}` : base;
