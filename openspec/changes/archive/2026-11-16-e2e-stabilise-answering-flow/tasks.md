@@ -58,7 +58,8 @@ Commit bodies say `Refs #n` for the Issues each group touches.
 - [x] 4.2 The check: `bun run build && GITHUB_TOKEN=$(gh auth token) bun run check`, and `bun run build:view --record-sizes` only if `shell` moved. Tests: the whole check. Verify: it passes; the size of `shell` is recorded if it changed.
 - [x] 4.3 Rebase onto `origin/main` before the pull request, re-check D8's names, and `npx --yes @fission-ai/openspec@2.0.0 validate --all --strict --no-interactive`. Verify: all pass; the note gives main's SHA.
   - Note: rebased onto `origin/main` fd9e21f5; D8's names unchanged; `validate --all --strict` passes (14 of 14).
-- [ ] 4.4 The train on the branch (AGENTS.md, CI): push, then `gh workflow run e2e.yml --ref worktree-fix-e2e-stabilise -f cadence=nightly`. Read the conclusion and each failure from the run's artifacts. Tests: the full three-engine suite on CI. Verify: no failure of #236, #237, #239 to #243 remains. Any other failure is matched to an open Issue or filed as `source:e2e` (`askboard-backlog`), and listed in the pull request body.
+- [x] 4.4 The train on the branch (AGENTS.md, CI): push, then `gh workflow run e2e.yml --ref worktree-fix-e2e-stabilise -f cadence=nightly`. Read the conclusion and each failure from the run's artifacts. Tests: the full three-engine suite on CI. Verify: no failure of #236, #237, #239 to #243 remains. Any other failure is matched to an open Issue or filed as `source:e2e` (`askboard-backlog`), and listed in the pull request body.
+  - Note: run 43847154557 on 3f3d3696: 20 jobs green, 2 red (firefox 4/4, webkit 4/4) against 13 red on main's train 43834178556. No failure of #236 to #243 remains. Firefox: #174's crashes, and `widget-answered` after a reload, which #240 hid on main, filed as #250. WebKit: `widget-revision`'s delivered receipt, the #201 family. Both quarantined in 140bb7b6; the triage is in a comment on #249 rather than its body.
 
 ## 5. Pre-PR fixes (the spec review, S-60 to S-68)
 
