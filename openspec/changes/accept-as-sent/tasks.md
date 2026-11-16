@@ -47,11 +47,11 @@ Each task names its tests first and sees them fail for the right reason before i
 
 ## 7. Documents and record
 
-- [ ] 7.1 PRD (decision 10): the glossary "Answer", FR-11's sentence, FR-22's paragraph and acceptance line, and NFR-10 name "Accept as is". Tests: none. Verify: `grep -n "Accept as is" docs/prd-askboard-2026-10-25/prd.md` finds the four places, and no other requirement's text changes.
-- [ ] 7.2 Spine: AD-10's "What becomes an answer" amended in place, as decision 10 words it, with no renumbering. Tests: none. Verify: `git diff` touches only AD-10's bullets; SOLUTION-DESIGN.md needs no edit, or the edit is named.
-- [ ] 7.3 EXPERIENCE.md (decision 10): the Question card row, Answer, Interaction Primitives Explicit acts, Keyboard core, Focus, Voice and Tone (four strings, Italian to review), and State Patterns By surface. Tests: none. Verify: each section names "Accept as is" and cites `accept-as-sent`.
-- [ ] 7.4 DESIGN.md (decision 10): Question actions, a new "Accept as is" component row, and the Button row's `button-secondary` list. Tests: none. Verify: the rows agree with EXPERIENCE.md and with `question-actions.tsx`.
-- [ ] 7.5 `docs/as-built/accept-as-sent.md`: what was built, where the code lives, the seams added (design.md, Merge points), and the versions bound (filled at 8.1). No status. Tests: none. Verify: every seam listed exists in the diff.
+- [x] 7.1 PRD (decision 10): the glossary "Answer", FR-11's sentence, FR-22's paragraph and acceptance line, and NFR-10 name "Accept as is". Tests: none. Verify: `grep -n "Accept as is" docs/prd-askboard-2026-10-25/prd.md` finds the four places, and no other requirement's text changes.
+- [x] 7.2 Spine: AD-10's "What becomes an answer" amended in place, as decision 10 words it, with no renumbering. Tests: none. Verify: `git diff` touches only AD-10's bullets; SOLUTION-DESIGN.md needs no edit, or the edit is named.
+- [x] 7.3 EXPERIENCE.md (decision 10): the Question card row, Answer, Interaction Primitives Explicit acts, Keyboard core, Focus, Voice and Tone (four strings, Italian to review), and State Patterns By surface. Tests: none. Verify: each section names "Accept as is" and cites `accept-as-sent`.
+- [x] 7.4 DESIGN.md (decision 10): Question actions, a new "Accept as is" component row, and the Button row's `button-secondary` list. Tests: none. Verify: the rows agree with EXPERIENCE.md and with `question-actions.tsx`.
+- [x] 7.5 `docs/as-built/accept-as-sent.md`: what was built, where the code lives, the seams added (design.md, Merge points), and the versions bound (filled at 8.1). No status. Tests: none. Verify: every seam listed exists in the diff.
 
 ## 8. Rebase and pull request
 
