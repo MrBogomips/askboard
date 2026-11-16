@@ -917,6 +917,15 @@ The radius tokens take Tailwind's names, and shadcn's `--radius` is 6px, so shad
 
 shadcn's derived `rounded-sm` (2px) and `rounded-xl` (10px) are not used. The small radii keep the board reading as a tool. Nothing in the records asks for larger radii.
 
+### Motion
+
+The inventory of the board's motion (settled by `answering-flow-guidance`, which closes Open Items 1):
+
+- **The move.** After an answer with "Go to the next", and on "Continue", the page scrolls to the next question in at most 250 ms, ease-out (cubic), with the heading clear of the sticky bars. Every other move of the view (the jumps, the outline, the navigator, a tab) is instant.
+- **The arrival mark.** The target card's 2px `{colors.primary}` left edge, set for 1.2 s, fading out over those 1.2 s (`askboard-arrival`).
+- **What else moves.** The reading panel's skeleton pulses (Tailwind's `animate-pulse`) while its source loads. Nothing else animates: no dialog, menu, sheet or panel has an enter or exit animation, no hover or press scales, and the Stitch pulse on "Working" and its button press scale stay illustrations.
+- **Reduced motion.** Under `prefers-reduced-motion: reduce` the scroll is instant, the arrival mark is static for 1.2 s and then removed, and a rule on every element of the view and of the board page sets `animation-duration` and `transition-duration` to 0 s, `animation-iteration-count` to 1 and `scroll-behavior` to auto, so the skeleton does not pulse (WCAG 2.2 SC 2.3.3). The rule is in `styles/motion.css`, which both documents load.
+
 ## Icons
 
 Every icon on the board comes from one set: Lucide (ISC, with Feather's MIT text for the icons derived from it), adopted under the adoption rule and pinned exactly (`lucide-react` and `lucide`, the same version, Stack in the spine). The view and the widgets draw an icon only from the icon module, `@askboard/view/icons` (`packages/view/src/icons/index.ts`), which re-exports each icon under the name of its role on the board; nothing else imports Lucide, except the board page's own icon file for `lucide` (below), and `check:imports` fails CI when it does. The module is bundled once, in the `icons` library chunk that the shell and the component chunks share.
@@ -1140,7 +1149,7 @@ Not blocking. They stay open until the stories close them (L145).
 
 **Identity and foundations**
 
-1. **Motion.** No motion inventory, durations or reduced-motion behaviour is recorded (L102). The Stitch pulse on "Working" and its button press scale are illustrations.
+1. **Motion.** Settled by the OpenSpec change `answering-flow-guidance`: the inventory, the durations and the reduced-motion rule are in Elevation & Depth, Motion. The Stitch pulse on "Working" and its button press scale stay illustrations.
 2. **Icons** (F-76). Settled by the OpenSpec change `icon-set` (2026-11-15), on the PO's choice of Lucide (2026-11-14): one set, bundled under its open licence (L38), drawn only through the icon module (Icons). The ask pill's marker shapes stay CSS shapes; the question markers of the ladder became icons in `answering-flow-guidance`.
 3. **Product mark.** No logo or product mark exists. The Stitch "A" tile was invented.
 4. **Tabular figures.** The font preview shows tabular figures for numbers, but no decision applies them.

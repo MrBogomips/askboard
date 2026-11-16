@@ -1,0 +1,232 @@
+// Reduced motion, in each engine (answering-flow-guidance, task 10.1; view-and-widgets spec: Reduced
+// motion; D12; #168). At 1280x800, under Playwright's `reducedMotion` emulation: after a send with
+// "Go to the next" the page is at its new position at once, the arrival mark has no animation, every
+// element of the view and of the board page (the reading panel's skeleton open) computes animation
+// and transition durations of 0 s, and the More menu, the mode-switch dialog and the board's keys
+// panel still open and close. Without a preference, the arrival mark animates. Every scenario runs
+// on the session process.
+
+import { afterEach, describe, expect, test } from "bun:test";
+import { mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import type { Locator, Route } from "playwright";
+import { answeringAsk } from "./fixtures/answering-flow-asks.ts";
+import { panelAsk, panelFiles } from "./fixtures/context-asks.ts";
+import {
+  eventually,
+  expectNoCspProblem,
+  isFocused,
+  STEP_TIMEOUT_MS,
+  TEST_TIMEOUT_MS,
+  useEngine,
+} from "./harness/board-test.ts";
+import type { Board } from "./harness/dom.ts";
+import { enginesFrom } from "./harness/engines.ts";
+import {
+  actsSent,
+  answerOf,
+  buttonOf,
+  card,
+  headingOf,
+  lifecycleScenario,
+  menuItem,
+  openBoard,
+  optionOf,
+} from "./harness/lifecycle-test.ts";
+import { readViewBuild } from "./harness/view-build.ts";
+
+const dist = await readViewBuild();
+const ALL = ["q1", "q2", "q3", "q4", "q5", "q6", "q7", "q8", "q9"];
+type Preference = "reduce" | "no-preference";
+
+const open = async (
+  start: ReturnType<typeof useEngine>["start"],
+  preference: Preference,
+  delivery: "immediate" | "submitted" = "immediate",
+) => {
+  const run = await start(lifecycleScenario(answeringAsk("sections", "en-US", delivery), dist));
+  const board = await openBoard(run, ALL);
+  await board.page.emulateMedia({ reducedMotion: preference });
+  return { run, board };
+};
+
+const answerWithKeys = async (board: Board, id: string): Promise<void> => {
+  await optionOf(board, id, "Yes").focus();
+  await board.page.keyboard.press(" ");
+  await eventually(() => optionOf(board, id, "Yes").isChecked(), `Yes chosen on ${id}`);
+  await answerOf(board, id).focus();
+  await board.page.keyboard.press("Enter");
+};
+
+const scrollY = (board: Board): Promise<number> =>
+  board.view.locator("body").evaluate((body) => body.ownerDocument.defaultView?.scrollY ?? 0);
+
+const arrived = (board: Board, id: string): Locator =>
+  card(board, id).and(board.view.locator("[data-askboard-arrived]"));
+
+type Durations = { readonly name: string; readonly animation: string; readonly transition: string };
+
+// Every element of a document, and its two pseudo-elements, whose animation or transition lasts
+// longer than 0 s. Runs in the page, so it is self-contained.
+const longMotion = (): Durations[] => {
+  const offenders: Durations[] = [];
+  const lasting = (value: string) => value.split(",").some((each) => Number.parseFloat(each) > 0);
+  for (const element of Array.from(document.querySelectorAll("*"))) {
+    for (const pseudo of [null, "::before", "::after"]) {
+      const style = getComputedStyle(element, pseudo);
+      if (lasting(style.animationDuration) || lasting(style.transitionDuration)) {
+        offenders.push({
+          name: `${element.tagName.toLowerCase()}${pseudo ?? ""}.${element.getAttribute("class") ?? ""}`,
+          animation: style.animationDuration,
+          transition: style.transitionDuration,
+        });
+      }
+    }
+  }
+  return offenders;
+};
+
+for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
+  describe(`${engine}: reduced motion`, () => {
+    const { start } = useEngine(engine);
+    const folders: string[] = [];
+    afterEach(async () => {
+      for (const folder of folders.splice(0)) await rm(folder, { recursive: true, force: true });
+    });
+
+    test(
+      "matchMedia follows the emulation, in both documents",
+      async () => {
+        const { board } = await open(start, "reduce");
+        const query = "(prefers-reduced-motion: reduce)";
+        expect(await board.page.evaluate((q) => matchMedia(q).matches, query)).toBe(true);
+        expect(
+          await board.view.locator("body").evaluate((_b, q) => matchMedia(q).matches, query),
+        ).toBe(true);
+        await board.page.emulateMedia({ reducedMotion: "no-preference" });
+        expect(await board.page.evaluate((q) => matchMedia(q).matches, query)).toBe(false);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "reduce: after a send with Go to the next the page is at its new position at once, and the arrival mark does not animate",
+      async () => {
+        const { run, board } = await open(start, "reduce");
+        await answerWithKeys(board, "q3");
+        await actsSent(run, 1);
+        await eventually(() => isFocused(headingOf(board, "q4")), "focus on the q4 heading");
+        // Instant: the scroll was done before the focus, so nothing moves after it.
+        const bar = await board.view.getByRole("contentinfo").boundingBox();
+        const box = await headingOf(board, "q4").boundingBox();
+        if (bar === null || box === null) throw new Error("no box");
+        expect(box.y + box.height).toBeLessThanOrEqual(bar.y);
+        const at = await scrollY(board);
+        await Bun.sleep(400);
+        expect(await scrollY(board)).toBe(at);
+        // The mark is static, and goes after its time.
+        const mark = arrived(board, "q4");
+        await mark.waitFor({ timeout: STEP_TIMEOUT_MS });
+        const style = await mark.evaluate((element) => {
+          const computed = getComputedStyle(element);
+          return { name: computed.animationName, duration: computed.animationDuration };
+        });
+        expect(style.name).toBe("none");
+        expect(style.duration).toBe("0s");
+        await eventually(async () => (await mark.count()) === 0, "the mark gone", 5_000);
+        expectNoCspProblem(run);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "reduce: no element of the view or of the board page computes a motion longer than 0 s, the reading panel's skeleton open",
+      async () => {
+        const base = await realpath(await mkdtemp(join(tmpdir(), "askboard-e2e-motion-")));
+        folders.push(base);
+        const outside = join(base, "outside.txt");
+        await writeFile(outside, "outside the project\n");
+        const run = await start({
+          ...lifecycleScenario(panelAsk, dist),
+          files: panelFiles(outside),
+          projectDir: join(base, "project"),
+        });
+        const board = await openBoard(run, ["spec", "other"]);
+        await board.page.emulateMedia({ reducedMotion: "reduce" });
+        // Hold the source's request, so the panel shows its skeleton while the check runs.
+        let held: Route | undefined;
+        await run.browser.context.route(/\/source/, (route) => {
+          held = route;
+        });
+        await board.view
+          .locator('[data-askboard-item="ref-file"]')
+          .getByRole("button")
+          .first()
+          .click();
+        const panel = board.page.locator('aside[aria-label="Reading panel"]');
+        await panel.waitFor({ timeout: STEP_TIMEOUT_MS });
+        const skeleton = panel.locator(".animate-pulse");
+        // The panel replaces its skeleton as its states come in: read the one that is there.
+        await eventually(async () => (await skeleton.count()) > 0, "the skeleton");
+        const durations = await skeleton.evaluateAll((all) =>
+          all.map((el) => getComputedStyle(el).animationDuration),
+        );
+        expect(durations.length).toBeGreaterThan(0);
+        expect(durations.every((each) => each === "0s")).toBe(true);
+        expect(await board.page.evaluate(longMotion)).toEqual([]);
+        const frame = await board.viewFrame();
+        expect(await frame.evaluate(longMotion)).toEqual([]);
+        await held?.continue();
+        await run.browser.context.unroute(/\/source/);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "reduce: the More menu, the mode-switch dialog and the board's keys panel still open and close",
+      async () => {
+        const { board } = await open(start, "reduce", "submitted");
+        await buttonOf(board, "q1", "More").click({ timeout: STEP_TIMEOUT_MS });
+        await menuItem(board, "Explain").waitFor({ timeout: STEP_TIMEOUT_MS });
+        await board.page.keyboard.press("Escape");
+        await menuItem(board, "Explain").waitFor({ state: "hidden", timeout: STEP_TIMEOUT_MS });
+        // A held answer makes the switch to One by one ask first.
+        await optionOf(board, "q1", "Yes").check({ timeout: STEP_TIMEOUT_MS });
+        await answerOf(board, "q1").click({ timeout: STEP_TIMEOUT_MS });
+        await board.delivery("immediate").click({ timeout: STEP_TIMEOUT_MS });
+        const dialog = board.view.getByRole("alertdialog");
+        await dialog.waitFor({ timeout: STEP_TIMEOUT_MS });
+        await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+        await dialog.waitFor({ state: "hidden", timeout: STEP_TIMEOUT_MS });
+        const keys = board.view
+          .getByRole("banner")
+          .getByRole("button", { name: "Keys", exact: true });
+        await keys.click({ timeout: STEP_TIMEOUT_MS });
+        const panel = board.view.getByRole("dialog", { name: "Board keys" });
+        await panel.waitFor({ timeout: STEP_TIMEOUT_MS });
+        await board.page.keyboard.press("Escape");
+        await panel.waitFor({ state: "hidden", timeout: STEP_TIMEOUT_MS });
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "no preference: the arrival mark animates",
+      async () => {
+        const { run, board } = await open(start, "no-preference");
+        await answerWithKeys(board, "q3");
+        await actsSent(run, 1);
+        const mark = arrived(board, "q4");
+        await mark.waitFor({ timeout: STEP_TIMEOUT_MS });
+        const style = await mark.evaluate((element) => {
+          const computed = getComputedStyle(element);
+          return { name: computed.animationName, duration: computed.animationDuration };
+        });
+        expect(style.name).toBe("askboard-arrival");
+        expect(style.duration).toBe("1.2s");
+      },
+      TEST_TIMEOUT_MS,
+    );
+  });
+}
