@@ -97,6 +97,15 @@ Terms:
 
   Tests: none. Verify: the note exists and names every path changed (`git diff --stat origin/main`).
 
+## 5. Fixes from review
+
+All landed in bbfe0988.
+
+- [x] 5.1 S-1: undoing a rename or field edit puts the focus and the current row back on its node; `editing.tsx` passes the node ID with its write (D3). Tests: `tree-undo.browser.ts`, "a rename undone with the focus elsewhere". Verify: File run green, seen red first.
+- [x] 5.2 S-2: each undo is announced, also when two come in a row; the Tree's live region keys its child by an announcement count (D3). Tests: `tree-undo.browser.ts`, "two undos in a row are announced twice", which uses a `MutationObserver`. Verify: File run green, seen red first.
+- [x] 5.3 S-3: the overlap check covers every toolbar button, selection tools included (`allTools` in `harness/tree-grid.ts`), and adds the it-IT plan board at 1280 px (D5). Tests: `tree-toolbar.browser.ts`. Verify: File run green; the as-built note records the moves in "More" there.
+- [x] 5.4 A refused write is not recorded: `kept` drops a top entry whose items all still hold their `before`, alone, and a top that is stale for any other reason still empties the history (D2, review S-7). Tests: two cases of `kept` in `model/history.test.ts`. Verify: unit suite green.
+
 ## Workflow follow-up
 
 - The change alters a widget's rendering and the browser harness: before merge, dispatch the e2e train on the branch (`gh workflow run e2e.yml --ref <branch> -f cadence=nightly`) and triage any new failure (AGENTS.md, CI).

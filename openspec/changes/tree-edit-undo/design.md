@@ -58,6 +58,7 @@ The pure part is `model/history.ts`, with no React (AD-1): the types, `TREE_HIST
   - the Tree is `disabled` (answered, being sent, locked). An undo after an answer would quietly start a revision, and after "Edit" the history starts again;
   - `sent` changes (the agent's update): a `before` of "no entry" would now mean the agent's new value;
   - the top entry is no longer live: an item it wrote holds something else (a Gantt edit on a plan a linked add wrote, an agent change the shell kept). Lower entries chain from the top one, so the whole history goes, as the slot did.
+- **A refused write is dropped alone.** The shell refuses a write all or nothing (a read-only item, `item-callbacks.ts`). Every item of a top entry that still holds its `before` means the draft never took that write. `kept` (`model/history.ts`) drops that entry alone and checks the next one, so the earlier edits stay undoable. A top entry that is stale for any other reason still empties the whole history (review S-7).
 - **Not recorded:**
   - view state: expand, collapse, selection, focus, the pending unnamed add;
   - a refused drop or linked edit;
