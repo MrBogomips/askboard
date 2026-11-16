@@ -232,7 +232,8 @@ const revisionProblem = (act: ViewAct, question: ViewQuestion): string | undefin
 };
 
 // An answer accepted as sent carries no choice, "Other…" text, option notes or values, and is for a
-// question with no options (accept-as-sent, design decision 5); the results of input fields go with
+// question with no options and on its current revision, never a kept one (accept-as-sent, design
+// decisions 5 and 11); the results of input fields go with
 // it (decision 11). Whether the question holds an item whose content the user edits, that each
 // result is an input field's, and the rest, are ask-core's to check.
 const asSentProblem = (
@@ -243,7 +244,10 @@ const asSentProblem = (
     (field) => answer[field] !== undefined,
   );
   if (beside !== undefined) return `an answer accepted as sent carries no ${beside}`;
-  if (answer.rev === question.rev && (question.props.options ?? []).length > 0) {
+  if (answer.rev !== question.rev) {
+    return `an answer accepted as sent names the current revision, revision ${question.rev}, not revision ${answer.rev}`;
+  }
+  if ((question.props.options ?? []).length > 0) {
     return "an answer accepted as sent is for a question with no options";
   }
   return undefined;

@@ -799,6 +799,18 @@ describe("an answer accepted as sent goes only where it can be (accept-as-sent, 
     );
   });
 
+  test("on a revision that is not the current one it is refused, naming the current one", () => {
+    const revised = {
+      ...ganttPlanBoardDocument,
+      items: ganttPlanBoardDocument.items.map((item) => ({ ...item, rev: 2 })),
+    } as unknown as BoardDocument;
+    expect(detailOf(visible(revised), accepted({ rev: 1 }))).toBe(
+      "an answer accepted as sent names the current revision, revision 2, not revision 1",
+    );
+    // The current revision is accepted, so the refusal is the revision's alone.
+    expect(answerActFor(visible(revised), accepted({ rev: 2 })).ok).toBe(true);
+  });
+
   test("on a question with options at the current revision it is refused", () => {
     const withOptions = {
       ...ganttPlanBoardDocument,
