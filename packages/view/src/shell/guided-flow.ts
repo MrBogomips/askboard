@@ -6,7 +6,7 @@ import type { LifecycleBoardState } from "@askboard/contract";
 import { areaOf, questionsOf, type ViewDocument } from "../view-document.ts";
 import type { AfterAnswerInputs } from "./after-answer.ts";
 import type { QuestionWork } from "./board-draft.ts";
-import { isOpen, type Ladder, markOf, nextOpenFrom } from "./board-view.ts";
+import { isOpen, type Ladder, markOf, nextOpenFrom, tabOpenCount } from "./board-view.ts";
 import type { SentRecord } from "./flow-messages.ts";
 
 type Work = ReadonlyMap<string, QuestionWork>;
@@ -55,9 +55,8 @@ export const areaInputOf = (
 ): AfterAnswerInputs["area"] => {
   const area = areaOf(document, acted);
   if (area === undefined) return undefined;
-  const left = area.props.items.filter(
-    (question) => question.id !== acted && isOpen(question.id, state, work, ladder),
-  ).length;
+  const left =
+    tabOpenCount(area, state, work, ladder) - (isOpen(acted, state, work, ladder) ? 1 : 0);
   const targetArea = target === undefined ? undefined : areaOf(document, target);
   return {
     acted: { id: area.id, title: area.props.title },

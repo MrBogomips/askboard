@@ -695,7 +695,9 @@ describe("the board's keys in the help skill", () => {
       expect(section).toContain(`| ${name} | ${where} | ${keysText(entry.keys)} |`);
     }
     expect(section).toContain("outside text fields and widgets | N (N) |");
-    expect(section).toContain("| Previous open | outside text fields and widgets | Shift+N (⇧N) |");
+    expect(section).toContain(
+      "| Previous to do | outside text fields and widgets | Shift+N (⇧N) |",
+    );
     expect(section).toContain(
       "| Answer the question in focus | on a question's own controls | Ctrl+Enter (⌘↩) |",
     );
