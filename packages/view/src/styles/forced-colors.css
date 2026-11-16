@@ -3,7 +3,8 @@
    states are drawn in system colours, disabled controls in `GrayText`, and the state stripes in
    `CanvasText`, keeping their dashed, dotted or solid line, which is what tells the answer states
    apart beside each badge's icon and text. Colour stays the palette's only where it carries data:
-   the Chart's host, the diff marks and the change fill, which opt out of the adjustment. Icons
+   the Chart's host, the diff marks and the change fill, which opt out of the adjustment. The card
+   the board has moved to is outlined in `Highlight` while it carries the arrival mark. Icons
    drawn with `currentColor` follow with no rule. Unlayered, like the other sheets of colour. */
 @media (forced-colors: active) {
   [data-askboard-question],
@@ -32,6 +33,13 @@
 
   [data-askboard-stripe] {
     border-left-color: CanvasText;
+  }
+
+  /* The arrival mark (answer-moves-to-top, D5): engines drop the box shadow and force the fill to
+     Canvas, so the card the move arrives at is outlined for the 1.2 s it carries the mark. */
+  [data-askboard-question][data-askboard-arrived] {
+    outline: 3px solid Highlight;
+    outline-offset: 2px;
   }
 
   /* After the pressed states, so that a focused selected segment keeps its ring on top. */

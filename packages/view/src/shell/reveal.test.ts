@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { revealAndFocus, revealDelta } from "./reveal.ts";
+import { alignDelta, revealAndFocus, revealDelta } from "./reveal.ts";
 
 // The scroll that clears the sticky bars (answering-flow-fixes, design decision 2; #180): a
 // 800 px viewport under a header 60 px down and over a bottom inset of 80 px (the arithmetic keeps a
@@ -97,5 +97,44 @@ describe("revealing and focusing an element", () => {
     const { calls, element } = stubbed({ top: -20, bottom: 20 }, {});
     revealAndFocus(element);
     expect(calls).toEqual(["scrollBy -28 instant", "focus true"]);
+  });
+});
+
+// The alignment of a move After an answer (answer-moves-to-top, D1, D4): the box's top at the gap
+// under the bars, within what the page can scroll. The bars are 60 px, the gap 8: the place is 68.
+describe("the scroll that brings a card's top under the bars", () => {
+  const align = (top: number, y: number, max: number) =>
+    alignDelta({ top, bottom: top + 300 }, INSET, GAP, { y, max });
+
+  test("a card below the bars scrolls down until its top is the gap under them", () => {
+    expect(align(900, 0, 5000)).toBe(832);
+  });
+
+  test("a card wholly in view still scrolls, up to the place", () => {
+    expect(align(300, 0, 5000)).toBe(232);
+  });
+
+  test("a card above the bars scrolls up to the place", () => {
+    expect(align(-200, 1000, 5000)).toBe(-268);
+  });
+
+  test("a card already at the place needs none", () => {
+    expect(align(68, 400, 5000)).toBe(0);
+  });
+
+  test("a card past what the page can scroll stops at the page's end", () => {
+    expect(align(900, 4000, 4300)).toBe(300);
+  });
+
+  test("a card above on a page at its top stops at the top", () => {
+    expect(align(-50, 20, 5000)).toBe(-20);
+  });
+
+  test("a card taller than the span still starts at the place", () => {
+    expect(alignDelta({ top: 500, bottom: 2500 }, INSET, GAP, { y: 0, max: 9000 })).toBe(432);
+  });
+
+  test("a page that cannot scroll gives 0", () => {
+    expect(align(300, 0, 0)).toBe(0);
   });
 });

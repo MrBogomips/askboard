@@ -183,6 +183,31 @@ export const CONTRAST_PAIRS: readonly ContrastPair[] = [
   },
   { name: "Border / sunken", kind: "mark", foreground: "border-strong", background: "muted" },
   { name: "Ring / page", kind: "mark", foreground: "ring", background: "background" },
+  // The arrival mark's fill and edge (answer-moves-to-top, D6).
+  {
+    name: "Text / arrival fill",
+    kind: "text",
+    foreground: "foreground",
+    background: "primary-subtle",
+  },
+  {
+    name: "Secondary text / arrival fill",
+    kind: "text",
+    foreground: "foreground-secondary",
+    background: "primary-subtle",
+  },
+  {
+    name: "Muted text / arrival fill",
+    kind: "text",
+    foreground: "muted-foreground",
+    background: "primary-subtle",
+  },
+  {
+    name: "Arrival edge / fill",
+    kind: "mark",
+    foreground: "primary",
+    background: "primary-subtle",
+  },
 ];
 
 // ---- colour arithmetic ----

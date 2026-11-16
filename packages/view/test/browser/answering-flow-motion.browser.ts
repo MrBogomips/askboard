@@ -70,6 +70,11 @@ type Arrival = {
   readonly removed?: number;
   readonly name?: string;
   readonly duration?: string;
+  /** The card's fill and shadow when the mark was set, and the palette's two colours resolved. */
+  readonly fill?: string;
+  readonly shadow?: string;
+  readonly subtle?: string;
+  readonly primary?: string;
 };
 
 /** One frame at 60 Hz, with the slack a loaded runner needs. */
@@ -81,6 +86,26 @@ const expectSetWithTheMove = (seen: Arrival): void => {
   expect(seen.focused).toBeDefined();
   expect(Math.abs((seen.set ?? 0) - (seen.focused ?? 0))).toBeLessThanOrEqual(FRAME_SLACK_MS);
   expect((seen.set ?? 0) - (seen.act ?? 0)).toBeGreaterThanOrEqual(0);
+};
+
+/** The mark at its first sample: the primary-subtle fill, and for a static mark the 4 px primary edge. */
+const expectMarkShown = (seen: Arrival, edge: boolean): void => {
+  expect(seen.subtle).toBeDefined();
+  expect(seen.fill).toBe(seen.subtle ?? "");
+  if (!edge) return;
+  expect(seen.shadow).toContain(seen.primary ?? "none");
+  expect(seen.shadow).toContain("4px 0px 0px 0px");
+  expect(seen.shadow).toContain("inset");
+};
+
+/** The card starts 8 px (±2) under the header's bottom edge. */
+const expectCardAtTop = async (board: Board, id: string): Promise<void> => {
+  await eventually(async () => {
+    const card = await board.question(id).boundingBox();
+    const header = await board.view.getByRole("banner").boundingBox();
+    if (card === null || header === null) return false;
+    return Math.abs(card.y - (header.y + header.height) - 8) <= 2;
+  }, `the ${id} card 8 px under the header`);
 };
 
 /** The mark lives 1.2 s: removed between 1,000 and 2,000 ms after it was set (a loaded runner). */
@@ -123,6 +148,17 @@ const watchArrival = (board: Board, id: string): Promise<void> =>
         record.set = performance.now();
         record.name = style.animationName;
         record.duration = style.animationDuration;
+        record.fill = style.backgroundColor;
+        record.shadow = style.boxShadow;
+        // The palette's colours resolved through a probe, since `var()` does not compute alone.
+        const probe = doc.createElement("div");
+        probe.style.backgroundColor = "var(--primary-subtle)";
+        probe.style.color = "var(--primary)";
+        doc.body.appendChild(probe);
+        const probed = getComputedStyle(probe);
+        record.subtle = probed.backgroundColor;
+        record.primary = probed.color;
+        probe.remove();
       } else if (!marked && record.set !== undefined && record.removed === undefined) {
         record.removed = performance.now();
       }
@@ -195,6 +231,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await eventually(() => isFocused(headingOf(board, "q4")), "focus on the q4 heading");
         // Instant: the scroll is done within the time of the smooth move, and nothing moves after it.
         const foot = await viewportBottom(board);
+        await expectCardAtTop(board, "q4");
         await Bun.sleep(400);
         const bottom = await headingOf(board, "q4").evaluate(
           (element) => element.getBoundingClientRect().bottom,
@@ -212,6 +249,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(seen.set).toBeDefined();
         expect(seen.name).toBe("none");
         expect(seen.duration).toBe("0s");
+        expectMarkShown(seen, true);
         expectSetWithTheMove(seen);
         expectLife(seen);
         expectNoCspProblem(run);
@@ -304,6 +342,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const seen = await arrivalOf(board);
         expect(seen.name).toBe("askboard-arrival");
         expect(seen.duration).toBe("1.2s");
+        expectMarkShown(seen, false);
         expectSetWithTheMove(seen);
         expectLife(seen);
       },

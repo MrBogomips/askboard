@@ -323,9 +323,16 @@ const PANEL_WAIT_MS = 10_000;
 // the send button; a request for the completion panel's heading waits until the panel shows (the
 // receipts are logged then, decision 6) and is dropped when the user has moved focus off the card
 // the act was taken on, so the move never takes a focus the user chose.
-const useHeadingFocus = (focus: Store<HeadingRequest | undefined>, panelShown: boolean) => {
+const useHeadingFocus = (
+  focus: Store<HeadingRequest | undefined>,
+  panelShown: boolean,
+  onePerView: boolean,
+) => {
   const target = useSyncExternalStore(focus.subscribe, focus.get);
   const waiting = useRef<HeadingRequest | undefined>(undefined);
+  // Read when a request lands: a change of presentation alone must not move the page again.
+  const paged = useRef(onePerView);
+  paged.current = onePerView;
   useEffect(() => {
     if (target === undefined) return;
     if (target.to === "completion") {
@@ -345,6 +352,9 @@ const useHeadingFocus = (focus: Store<HeadingRequest | undefined>, panelShown: b
     if (heading !== null) {
       revealAndFocus(heading, {
         smooth: target.smooth === true,
+        // The move After an answer brings the card to the top (answer-moves-to-top, D1); the
+        // question shown replaces the one before in one question per view, so the page's top.
+        ...(target.smooth === true ? { align: paged.current ? "page" : "card" } : {}),
         resolve: () => document.getElementById(questionTextId(target.id)),
       });
     }
@@ -448,7 +458,7 @@ export const Board = ({
     { locked: lock !== undefined, snapshot: context.opened !== undefined },
   );
   const panelShown = completion.kind === "done" || completion.kind === "postponed";
-  const focusHeading = useHeadingFocus(context.focus, panelShown);
+  const focusHeading = useHeadingFocus(context.focus, panelShown, presentation === "one-per-view");
   const announced = useRef(completion.kind);
   useEffect(() => {
     const before = announced.current;
