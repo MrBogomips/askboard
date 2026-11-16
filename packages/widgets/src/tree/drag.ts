@@ -2,8 +2,10 @@
 // the draggable, held by its handle, and a drop target; native drag works in the view's sandboxed
 // frame in Chromium and WebKit. The row reports what happens to the Tree through events it holds
 // in a ref, so that the effect that registers it never re-runs for a new closure. Where a drop
-// lands is the pointer's place on the row: its fraction of the row's height. Escape cancels the
-// browser's drag, which gives `end` and no `drop`.
+// lands is the pointer's place on the row: its fraction of the row's height, and how far right of
+// where the drag started it is (`location.initial.input.clientX`, documented on the library's
+// events page: where the drag operation started). Escape cancels the browser's drag, which gives
+// `end` and no `drop`.
 
 import { combine } from "@atlaskit/pragmatic-drag-and-drop/combine";
 import {
@@ -15,12 +17,12 @@ import { type RefObject, useEffect } from "react";
 /** What a Tree's drag tells the Tree; every event carries the dragged node. */
 export type RowDragEvents = {
   start(nodeId: string): void;
-  /** The pointer is over `targetId`, `fraction` of the way down its row. */
-  over(nodeId: string, targetId: string, fraction: number): void;
+  /** The pointer is over `targetId`, `fraction` of the way down its row, `offset` px right of the drag's start. */
+  over(nodeId: string, targetId: string, fraction: number, offset: number): void;
   /** The pointer left `targetId`'s row. */
   leave(targetId: string): void;
-  /** The node was dropped on `targetId`, `fraction` of the way down its row. */
-  drop(nodeId: string, targetId: string, fraction: number): void;
+  /** The node was dropped on `targetId`, `fraction` of the way down its row, `offset` px right of the drag's start. */
+  drop(nodeId: string, targetId: string, fraction: number, offset: number): void;
   /** The drag ended, dropped or cancelled. */
   end(nodeId: string): void;
 };
@@ -47,6 +49,19 @@ const fractionOf = (row: HTMLElement, clientY: number): number => {
   const box = row.getBoundingClientRect();
   return box.height === 0 ? 0.5 : Math.min(1, Math.max(0, (clientY - box.top) / box.height));
 };
+
+// The pointer's place: its fraction of the row's height, and its distance right of where the drag
+// started.
+const placeOf = (
+  row: HTMLElement,
+  location: {
+    readonly initial: { readonly input: { readonly clientX: number } };
+    readonly current: { readonly input: { readonly clientX: number; readonly clientY: number } };
+  },
+) => ({
+  fraction: fractionOf(row, location.current.input.clientY),
+  offset: location.current.input.clientX - location.initial.input.clientX,
+});
 
 /**
  * Makes `row` draggable by `handle` and a drop target, while `enabled`, for the node `nodeId` of
@@ -87,15 +102,15 @@ export const useRowDrag = ({
         onDrag: ({ source, location }) => {
           const dragged = from(source);
           if (dragged === undefined) return;
-          const fraction = fractionOf(element, location.current.input.clientY);
-          events.current.over(dragged.nodeId, nodeId, fraction);
+          const { fraction, offset } = placeOf(element, location);
+          events.current.over(dragged.nodeId, nodeId, fraction, offset);
         },
         onDragLeave: () => events.current.leave(nodeId),
         onDrop: ({ source, location }) => {
           const dragged = from(source);
           if (dragged === undefined) return;
-          const fraction = fractionOf(element, location.current.input.clientY);
-          events.current.drop(dragged.nodeId, nodeId, fraction);
+          const { fraction, offset } = placeOf(element, location);
+          events.current.drop(dragged.nodeId, nodeId, fraction, offset);
         },
       }),
     );

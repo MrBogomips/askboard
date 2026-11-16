@@ -34,6 +34,8 @@ export type TreeGrid = {
   readonly toolbar: Locator;
   /** The toolbar's tools, in order. */
   readonly tools: Locator;
+  /** Every button of the toolbar, the selection tools and "More" included, in order. */
+  readonly allTools: Locator;
   tool(label: string): Locator;
   /** The counter of the user's changes, at the toolbar row's right. */
   readonly counter: Locator;
@@ -57,6 +59,7 @@ export const treeGridOf = (board: Board): TreeGrid => {
     editor: grid.getByRole("textbox"),
     toolbar,
     tools: toolbar.locator("button:not([data-selection-tool])"),
+    allTools: toolbar.locator("button"),
     tool: (label) => toolbar.getByRole("button", { name: label, exact: true }),
     counter: board.view.locator("p").filter({ hasText: COUNTER }),
     marks: (kind) => grid.locator(kind === undefined ? "[data-change]" : `[data-change="${kind}"]`),

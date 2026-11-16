@@ -22,24 +22,36 @@ const centreOf = async (locator: Locator) => {
   return box;
 };
 
+// Where each board's drag left the pointer horizontally, for the vertical drags.
+const pointerX = new WeakMap<Board, number>();
+
 /** Takes the handle of `nodeId` with the mouse and starts the drag. */
 export const beginDrag = async (board: Board, tree: TreeGrid, nodeId: string): Promise<void> => {
   const handle = await centreOf(handleOf(tree, nodeId));
   const { mouse } = board.page;
   await mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
   await mouse.down();
-  await mouse.move(handle.x + handle.width / 2 + 12, handle.y - 4, { steps: 4 });
+  const x = handle.x + handle.width / 2 + 12;
+  await mouse.move(x, handle.y - 4, { steps: 4 });
+  pointerX.set(board, x);
 };
 
-/** Moves the dragged row over `targetId`, `fraction` of the way down its row. */
+/**
+ * Moves the dragged row over `targetId`, `fraction` of the way down its row. The pointer goes to
+ * the row's centre, far right of the handle, so that a drop in the middle nests; with `vertical` it
+ * keeps the x where `beginDrag` left it, as a drag straight up or down from the handle does.
+ */
 export const dragOver = async (
   board: Board,
   tree: TreeGrid,
   targetId: string,
   fraction: number,
+  options: { readonly vertical?: boolean } = {},
 ): Promise<void> => {
   const row = await centreOf(tree.row(targetId));
-  const x = row.x + row.width / 2;
+  const held = pointerX.get(board);
+  if (options.vertical === true && held === undefined) throw new Error("no drag has begun");
+  const x = options.vertical === true ? (held as number) : row.x + row.width / 2;
   const y = row.y + row.height * fraction;
   await board.page.mouse.move(x, y, { steps: 10 });
   // The move that enters a row fires only its `dragenter`; a real browser goes on firing

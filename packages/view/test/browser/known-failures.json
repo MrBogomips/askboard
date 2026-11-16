@@ -52,6 +52,11 @@
           "file": "widget-revision.browser.ts",
           "test": "revising a widget answer > a revision renaming one more node logs a second event with replaces and one more set, the first unchanged",
           "engines": ["webkit"]
+        },
+        {
+          "file": "widget-revision.browser.ts",
+          "test": "a revision moving one more Kanban card carries the Timeline's earlier move",
+          "engines": ["webkit"]
         }
       ]
     },

@@ -4,7 +4,7 @@ Item type `tree`. It is for a work breakdown or any hierarchy the user edits: ad
 
 ## With the mouse
 
-Click a name to edit it, drag a row to move it (Escape cancels a drag), tick the check box beside a row to select it, and use the toolbar to add, move, indent, outdent or delete nodes.
+Click a name to edit it, drag a row to move it (drag to the right to drop inside a row; Escape cancels a drag), tick the check box beside a row to select it, use the toolbar to add, move, indent, outdent or delete nodes, and press Ctrl or Cmd with Z, or "Undo", to undo the latest edit.
 
 ## What the agent receives
 
@@ -26,7 +26,7 @@ The board shows no keys panel for the Tree yet, and the user's key changes do no
 | Select | grid | Space (Space) |
 | Extend selection up | grid | Shift+↑ (⇧↑) |
 | Extend selection down | grid | Shift+↓ (⇧↓) |
-| Undo adjust | grid | Ctrl+Z (⌘Z) |
+| Undo | grid | Ctrl+Z (⌘Z) |
 | Move up | grid | Alt+Shift+↑ (⌥⇧↑) |
 | Move down | grid | Alt+Shift+↓ (⌥⇧↓) |
 | Indent | grid | Alt+Shift+→ (⌥⇧→) |

@@ -142,9 +142,9 @@ describe("the widget's pending edit", () => {
       widget.indexOf("// The events every row"),
     );
     expect(body.indexOf("askGroup(")).toBeGreaterThan(0);
-    expect(body.indexOf("askGroup(")).toBeLessThan(body.indexOf("change(moved.value)"));
+    expect(body.indexOf("askGroup(")).toBeLessThan(body.indexOf("change(moved.value, nodeId)"));
     expect(body).toContain("!confirmed");
-    expect(widget).toContain("dropRow(edit.nodeId, edit.drop.targetId, INTO, true)");
+    expect(widget).toContain("dropRow(edit.nodeId, edit.drop, true)");
   });
 
   test("an indent and an Add child ask before the edit, and a confirmed one acts on the node it was asked of", async () => {

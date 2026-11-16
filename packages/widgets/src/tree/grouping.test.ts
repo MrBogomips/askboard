@@ -5,7 +5,7 @@ import type { BoardContent } from "@askboard/view/catalog";
 import { chain } from "../../test/tree-model.ts";
 import { type GroupEdit, grouped, groupKey, groupQuestionOf, sameQuestion } from "./grouping.ts";
 import { linkedDependents } from "./linked.ts";
-import { dropOn } from "./model/drop.ts";
+import { dropOn, NEST_OFFSET } from "./model/drop.ts";
 
 // When an edit asks before it makes a leaf a group (view spec, Making a work package a group asks
 // first; design decision 1): a pure rule over the value, no React.
@@ -18,7 +18,7 @@ const board: Pick<BoardContent, "items" | "shown"> = { items: [WBS, PLAN], shown
 const into = (nodeId: string, targetId: string, tree: TreeProps = PERT): GroupEdit => ({
   kind: "drop",
   nodeId,
-  drop: dropOn(tree, nodeId, targetId, 0.5),
+  drop: dropOn(tree, nodeId, targetId, 0.5, NEST_OFFSET),
 });
 const indent = (nodeId: string): GroupEdit => ({ kind: "indent", nodeId });
 const addChild = (nodeId: string): GroupEdit => ({ kind: "addChild", nodeId });
@@ -33,7 +33,7 @@ describe("which leaf an edit would make a group", () => {
 
   test("names nothing for a drop before or after a node", () => {
     for (const fraction of [0.1, 0.9]) {
-      const drop = dropOn(PERT, "billing", "portal", fraction);
+      const drop = dropOn(PERT, "billing", "portal", fraction, NEST_OFFSET);
       expect(grouped(PERT, { kind: "drop", nodeId: "billing", drop })).toBeUndefined();
     }
   });

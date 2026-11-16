@@ -134,7 +134,7 @@ const isObject = (value: unknown): value is Json =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 // Deep equality of JSON values: arrays by element, objects by key, whatever the keys' order.
-const sameJson = (a: unknown, b: unknown): boolean => {
+export const sameJson = (a: unknown, b: unknown): boolean => {
   if (a === b) return true;
   if (Array.isArray(a)) {
     return Array.isArray(b) && a.length === b.length && a.every((x, at) => sameJson(x, b[at]));

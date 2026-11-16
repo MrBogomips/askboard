@@ -21,11 +21,13 @@
 // estimate that counts or is a task of a plan (`grouping.ts`, view spec "Making a work package a
 // group asks first"): the pending edit is view state, never draft, and "Continue" makes the edit
 // the unasked path would make, on the value as it is then, so an edit no longer possible changes
-// nothing; "Cancel" and Escape change nothing and return the focus. The selection of rows, the percentage
-// adjustment of the selected leaves and its one undo slot are view state (widget-editing-plus
-// design decisions 1, 3 and 4): the selection clears when the Tree turns read-only and drops what
-// a delete took away; the slot holds the value before the last adjustment and is emptied by any
-// other edit, and undoing it goes through the normal change path, leaving no trace in the draft.
+// nothing; "Cancel" and Escape change nothing and return the focus. The selection of rows and the
+// percentage adjustment of the selected leaves are view state (widget-editing-plus design decisions
+// 1 and 3): the selection clears when the Tree turns read-only and drops what a delete took away.
+// Every write of the Tree goes through its history (`history.ts`, tree-edit-undo): the toolbar's
+// "Undo" and Ctrl or Cmd with Z put back the draft as it was before the latest edit, the focus and
+// the current row going to the node it acted on, and ignore the press while a cell is edited or a
+// question is asked. The history is view state and never in a draft or an answer.
 
 import type { TreeColumn, TreeProps } from "@askboard/contract";
 import { useStrings } from "@askboard/view/catalog";
@@ -65,8 +67,15 @@ import {
 import { treeKeyOf } from "./key-event.ts";
 import { applyAdjustment } from "./model/adjust.ts";
 import { anchorOf, type Current, canAct, currentIn } from "./model/current.ts";
-import { type DragState, leaveTarget, overTarget, startDrag, tipOf } from "./model/dragging.ts";
-import { dropOn } from "./model/drop.ts";
+import {
+  type DragState,
+  leaveTarget,
+  nestHint,
+  overTarget,
+  startDrag,
+  tipOf,
+} from "./model/dragging.ts";
+import { type Drop, dropOn } from "./model/drop.ts";
 import type { TreeEdit } from "./model/edits.ts";
 import {
   focusOn,
@@ -90,7 +99,6 @@ import {
   selectAll,
   toggle as toggleSelected,
 } from "./model/selection.ts";
-import { draftAfterUndo, liveSlot, slotOf, type UndoSlot } from "./model/undo.ts";
 import { afterDrop, afterMove, isMove, type MoveEdit } from "./moving.ts";
 import {
   cellTargetOf,
@@ -128,9 +136,6 @@ type AskedGroup = {
 /** The question the toolbar row shows, if any: one at a time. */
 type Asked = AskedDelete | AskedGroup;
 
-// The middle of a row, where a drop into it lands (`zoneOf`).
-const INTO = 0.5;
-
 // The edit of a tool or key that may give a leaf its first child, with the node it acts on.
 const groupEditOf = (edit: TreeEdit, nodeId: string): GroupEdit | undefined =>
   edit === "indent" || edit === "addChild" ? { kind: edit, nodeId } : undefined;
@@ -166,6 +171,8 @@ export const TreeWidget = ({
   disabled,
   graph,
   onValueChange,
+  undo,
+  canUndo,
   onLinkedAdd,
   countDependents,
   onLinkedDelete,
@@ -181,7 +188,12 @@ export const TreeWidget = ({
   readonly disabled: boolean;
   /** A work breakdown's live graph, the board's; none for a Tree without `pert`. */
   readonly graph: BoardGraph | undefined;
-  readonly onValueChange: (value: TreeProps | undefined) => void;
+  /** Writes the Tree's value; `nodeId` is the node the edit acted on, for the focus after an undo. */
+  readonly onValueChange: (value: TreeProps | undefined, nodeId?: string) => void;
+  /** Undoes the latest edit of the Tree; its node, or `undefined` when nothing was undone. */
+  readonly undo: () => { readonly nodeId: string | undefined } | undefined;
+  /** An edit of the Tree can be undone. */
+  readonly canUndo: boolean;
   /**
    * Writes the value `next` once the new node `added` is named after, or under, the node `anchor`,
    * with the plans' linked edits, or returns the field error that refuses it (`linked.ts`).
@@ -215,29 +227,23 @@ export const TreeWidget = ({
   const [picked, setPicked] = useState<Selection>(NO_SELECTION);
   // Where Shift with an arrow extends the selection from: the row last selected by itself.
   const [anchor, setAnchor] = useState<string>();
-  const [slot, setSlot] = useState<UndoSlot>();
-  const [announced, setAnnounced] = useState("");
+  // The count keys the live region's child, so that a repeated message is announced again (#182).
+  const [announcement, setAnnouncement] = useState({ n: 0, text: "" });
+  const setAnnounced = (message: string): void =>
+    setAnnouncement((last) => ({ n: last.n + 1, text: message }));
+  // The node the latest undo acted on: the focus goes to it once the restored Tree is rendered.
+  const [undoneAt, setUndoneAt] = useState<string>();
   // The row being dragged and where the pointer is: view state, nothing until it drops.
   const [dragging, setDragging] = useState<DragState>();
   const focus = useTreeFocus();
-  // Any edit but an adjustment, or its undo, empties the slot.
-  const edited = (next: TreeProps | undefined): void => {
-    setSlot(undefined);
-    onValueChange(next);
-  };
-
   const { rows, editing, start, startAdd, dropped, pendingId } = useCellEditing({
     itemId,
     sent,
     value,
     collapsed: stored.collapsed,
     disabled,
-    onValueChange: edited,
-    onCommitAdd: (next, added, pending) => {
-      const refusal = onLinkedAdd(next, added, pending.anchor?.nodeId);
-      if (refusal === undefined) setSlot(undefined);
-      return refusal;
-    },
+    onValueChange,
+    onCommitAdd: (next, added, pending) => onLinkedAdd(next, added, pending.anchor?.nodeId),
     onClosed: (moveFocus, takenAway) => {
       focus.moveFocusTo(moveFocus ? "grid" : undefined);
       if (takenAway !== undefined) {
@@ -254,6 +260,15 @@ export const TreeWidget = ({
     const back = viewWithoutAdd(view, value, dropped);
     setView(back);
     setCurrent(back.focus?.nodeId);
+  }
+  // The restored Tree is rendered: the current row and the view's focus go to the node the undo
+  // acted on, its ancestors expanded; a node the Tree no longer holds leaves them where they are.
+  if (undoneAt !== undefined) {
+    setUndoneAt(undefined);
+    if (locate(value.nodes, undoneAt) !== undefined) {
+      setCurrent(undoneAt);
+      setView(focusOn(view, value, undoneAt));
+    }
   }
   const current = currentIn(value, currentId);
   const marks = useMemo(() => marksOf(sent, value), [sent, value]);
@@ -272,8 +287,8 @@ export const TreeWidget = ({
     focus.moveFocusTo(moveFocus ? "grid" : undefined);
     setView(next);
   };
-  const change = (next: TreeProps): void => {
-    edited(sameNodes(sent, next) ? undefined : next);
+  const change = (next: TreeProps, nodeId: string): void => {
+    onValueChange(sameNodes(sent, next) ? undefined : next, nodeId);
   };
 
   // The selection: what the Tree still holds, none once it is read-only (view state, never draft).
@@ -301,21 +316,21 @@ export const TreeWidget = ({
     show(next, true);
   };
 
-  // The one undo slot: valid while the Tree is editable and holds the value the adjustment gave.
-  const undo = liveSlot(slot, value, disabled);
-  if (slot !== undefined && undo === undefined) setSlot(undefined);
   const adjusted = ({ plan, percent }: Applied): void => {
     const next = applyAdjustment(value, plan);
     if (disabled || plan.kind !== "ready" || next === value) return;
-    setSlot(slotOf(value, next));
     onValueChange(sameNodes(sent, next) ? undefined : next);
     setAnnounced(text("tree.adjust.done", { count: plan.changes.length, percent }));
   };
-  const undoAdjust = (): void => {
-    if (undo === undefined) return;
-    setSlot(undefined);
-    onValueChange(draftAfterUndo(undo, sent));
-    setAnnounced(text("tree.adjust.undone"));
+  // Undoes the latest edit; the focus and the current row go to the node it acted on, where the
+  // restored Tree holds it. From the grid's key the DOM focus follows; from the tool it stays.
+  const undoEdit = (from: TreePart): void => {
+    if (disabled || editing !== undefined || asked !== undefined) return;
+    const undone = undo();
+    if (undone === undefined) return;
+    setAnnounced(text("tree.undone"));
+    focus.moveFocusTo(from === "grid" ? "grid" : undefined);
+    setUndoneAt(undone.nodeId);
   };
 
   // The new node's name is entered in its row, whose editor takes the focus.
@@ -333,7 +348,6 @@ export const TreeWidget = ({
     const deleted = afterDelete(value, view, nodeId);
     const refusal = onLinkedDelete(deleted.value, branchIdsOf(value, nodeId));
     if (refusal !== undefined) return refusal;
-    setSlot(undefined);
     focus.moveFocusTo(focusTo);
     setView(deleted.view);
     setCurrent(deleted.view.focus?.nodeId);
@@ -354,7 +368,7 @@ export const TreeWidget = ({
     const moved = afterMove(edit, value, view, nodeId);
     focus.moveFocusTo(focusTo);
     setView(moved.view);
-    change(moved.value);
+    change(moved.value, nodeId);
   };
   // An edit of the node `nodeId`, where it is possible, made at once.
   const perform = (edit: TreeEdit, nodeId: string | undefined, from: TreePart): void => {
@@ -387,15 +401,14 @@ export const TreeWidget = ({
   };
   // A drop makes the move the buttons make, the focus following the node (`moving.ts`); a refused
   // drop and one where the node already is change nothing.
-  const dropRow = (nodeId: string, targetId: string, fraction: number, confirmed = false): void => {
-    const moved = afterDrop(dropOn(value, nodeId, targetId, fraction), value, view, nodeId);
+  const dropRow = (nodeId: string, drop: Drop, confirmed = false): void => {
+    const moved = afterDrop(drop, value, view, nodeId);
     if (disabled || moved.value === value) {
       // A confirmed drop that is no longer possible changes nothing, and the focus, which was on
       // "Continue", goes back to the grid, never to the page body.
       if (confirmed) focus.moveFocusTo("grid");
       return;
     }
-    const drop = dropOn(value, nodeId, targetId, fraction);
     if (!confirmed && askGroup({ kind: "drop", nodeId, drop }, "grid")) {
       // Nothing moves: the dragged row stays the grid's Tab stop, where "Cancel" returns the focus.
       // The drag's end, whether it came first or comes next, leaves the focus to the question.
@@ -407,7 +420,7 @@ export const TreeWidget = ({
     focus.moveFocusTo("grid");
     setCurrent(nodeId);
     setView(moved.view);
-    change(moved.value);
+    change(moved.value, nodeId);
     const name = locate(value.nodes, nodeId)?.node.label ?? nodeId;
     setAnnounced(text("tree.drag.moved", { name }));
   };
@@ -421,15 +434,15 @@ export const TreeWidget = ({
       cancelled.current = false;
       setDragging(startDrag(nodeId));
     },
-    over: (nodeId, targetId, fraction) => {
+    over: (nodeId, targetId, fraction, offset) => {
       if (cancelled.current) return;
-      setDragging((state) =>
-        overTarget(state, nodeId, targetId, dropOn(value, nodeId, targetId, fraction)),
-      );
+      const drop = dropOn(value, nodeId, targetId, fraction, offset);
+      const hint = nestHint(value, nodeId, targetId, fraction, offset);
+      setDragging((state) => overTarget(state, nodeId, targetId, drop, hint));
     },
     leave: (targetId) => setDragging((state) => leaveTarget(state, targetId)),
-    drop: (nodeId, targetId, fraction) => {
-      if (!cancelled.current) dropRow(nodeId, targetId, fraction);
+    drop: (nodeId, targetId, fraction, offset) => {
+      if (!cancelled.current) dropRow(nodeId, dropOn(value, nodeId, targetId, fraction, offset));
     },
     end: () => {
       setDragging(undefined);
@@ -475,7 +488,7 @@ export const TreeWidget = ({
     if (edit.kind !== "drop") {
       if (disabled || !canAct(edit.kind, value, edit.nodeId)) focus.moveFocusTo(from);
       perform(edit.kind, edit.nodeId, from);
-    } else if (edit.drop.kind !== "refused") dropRow(edit.nodeId, edit.drop.targetId, INTO, true);
+    } else dropRow(edit.nodeId, edit.drop, true);
   };
   const askingOf = (open: Asked): Asking | undefined => {
     if (open.kind === "group") {
@@ -532,7 +545,7 @@ export const TreeWidget = ({
     } else if (action.kind === "select") {
       if (view.focus !== undefined) toggleRow(view.focus.nodeId);
     } else if (action.kind === "extend") extendBy(action.move);
-    else if (action.kind === "undo") undoAdjust();
+    else if (action.kind === "undo") undoEdit("grid");
     else if (action.kind === "startEdit" && view.focus !== undefined) start(view.focus);
     else if (action.kind === "edit") act(action.edit, "grid");
   };
@@ -601,7 +614,8 @@ export const TreeWidget = ({
           onSelectAll: () => select(selectAll(value), undefined),
           onSelectNone: () => select(NO_SELECTION, undefined),
           onApply: adjusted,
-          onUndo: undo === undefined ? undefined : undoAdjust,
+          canUndo,
+          onUndo: () => undoEdit("toolbar"),
         }}
       />
       <TreeGrid
@@ -632,7 +646,7 @@ export const TreeWidget = ({
         {tip === undefined ? "" : text(tip.key, "max" in tip ? { max: tip.max } : undefined)}
       </p>
       <p role="status" className="sr-only">
-        {announced}
+        {announcement.text === "" ? null : <span key={announcement.n}>{announcement.text}</span>}
       </p>
     </div>
   );

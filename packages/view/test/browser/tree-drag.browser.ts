@@ -34,6 +34,9 @@ import { placeSuffix, placesOf, widgetBoardFor } from "./harness/widget-board.ts
 
 const dist = await readViewBuild();
 
+// The middle half's lower half: a drop there without the offset is after the row, never on the boundary.
+const LOWER_MIDDLE = 0.6;
+
 for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
   for (const place of placesOf())
     describe(`${engine}: the Tree's drag and drop${placeSuffix(place)}`, () => {
@@ -113,6 +116,83 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           expect(await placeOf(tree, "billing")).toEqual(["3", "1", "1"]);
           expect(await tree.row("portal").getAttribute("aria-expanded")).toBe("true");
           expect(await tree.counter.textContent()).toBe("Your changes: 1");
+        },
+        TEST_TIMEOUT_MS,
+      );
+
+      test(
+        "a short drag up from the handle, released over the middle of portal with the pointer still over the handle's column, drops reporting as a sibling, as the indicator showed",
+        async () => {
+          const run = await host(dist, treeBoardDocument);
+          await readyIn(run);
+          const { board } = run;
+          const tree = treeGridOf(board);
+          await beginDrag(board, tree, "reporting");
+          await dragOver(board, tree, "portal", 0.4, { vertical: true });
+          await expectDrop(tree, "portal", "before");
+          await dragOver(board, tree, "portal", 0.6, { vertical: true });
+          await expectDrop(tree, "portal", "after");
+          await release(board);
+          await eventually(
+            async () => (await shownIds(tree)).indexOf("reporting") === 6,
+            "reporting to follow portal",
+          );
+          expect(await shownIds(tree)).toEqual([
+            ...FIXTURE_IDS.slice(0, 6),
+            "reporting",
+            "billing",
+          ]);
+          expect(await placeOf(tree, "reporting")).toEqual(["2", "2", "3"]);
+          expect(await tree.row("portal").getAttribute("aria-expanded")).toBeNull();
+        },
+        TEST_TIMEOUT_MS,
+      );
+
+      test(
+        "nesting on purpose: over the middle of portal and 16 px or more right of where the drag started, the indicator is the into outline, the tip is empty and the drop makes billing the last child",
+        async () => {
+          const run = await host(dist, treeBoardDocument);
+          await readyIn(run);
+          const { board } = run;
+          const tree = treeGridOf(board);
+          await beginDrag(board, tree, "billing");
+          await dragOver(board, tree, "portal", LOWER_MIDDLE, { vertical: true });
+          await expectDrop(tree, "portal", "after");
+          await dragOver(board, tree, "portal", ZONE.into);
+          await expectDrop(tree, "portal", "into");
+          expect(await dragTip(board).textContent()).toBe("");
+          await release(board);
+          await eventually(
+            async () => (await placeOf(tree, "billing"))[0] === "3",
+            "billing to move into portal",
+          );
+          expect(await placeOf(tree, "billing")).toEqual(["3", "1", "1"]);
+          expect(await tree.row("portal").getAttribute("aria-expanded")).toBe("true");
+        },
+        TEST_TIMEOUT_MS,
+      );
+
+      test(
+        "the hint: over the middle of portal without the offset the indicator is a line and the tip reads Move right to drop inside.; in the top quarter there is no hint",
+        async () => {
+          const run = await host(dist, treeBoardDocument);
+          await readyIn(run);
+          const { board } = run;
+          const tree = treeGridOf(board);
+          await beginDrag(board, tree, "billing");
+          await dragOver(board, tree, "portal", LOWER_MIDDLE, { vertical: true });
+          await expectDrop(tree, "portal", "after");
+          await dragTip(board).getByText("Move right to drop inside.").waitFor({
+            timeout: STEP_TIMEOUT_MS,
+          });
+          await dragOver(board, tree, "portal", ZONE.before, { vertical: true });
+          await expectDrop(tree, "portal", "before");
+          await eventually(
+            async () => (await dragTip(board).textContent()) === "",
+            "the hint to go in the top quarter",
+          );
+          await board.page.keyboard.press("Escape");
+          await release(board);
         },
         TEST_TIMEOUT_MS,
       );
@@ -238,6 +318,29 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         TEST_TIMEOUT_MS,
       );
     });
+
+  describe(`${engine}: the Tree's drag hint in Italian`, () => {
+    const { host } = widgetBoardFor(engine, "widget host");
+
+    test(
+      "on an it-IT board the hint reads Sposta a destra per inserire dentro.",
+      async () => {
+        const run = await host(dist, { ...treeBoardDocument, language: "it-IT" });
+        await readyIn(run);
+        const { board } = run;
+        const tree = treeGridOf(board);
+        await beginDrag(board, tree, "billing");
+        await dragOver(board, tree, "portal", LOWER_MIDDLE, { vertical: true });
+        await expectDrop(tree, "portal", "after");
+        await dragTip(board).getByText("Sposta a destra per inserire dentro.").waitFor({
+          timeout: STEP_TIMEOUT_MS,
+        });
+        await board.page.keyboard.press("Escape");
+        await release(board);
+      },
+      TEST_TIMEOUT_MS,
+    );
+  });
 
   describe(`${engine}: the Tree's drag when read-only`, () => {
     const { host } = widgetBoardFor(engine, "widget host");

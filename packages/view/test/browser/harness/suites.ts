@@ -201,6 +201,7 @@ export const BROWSER_FILES: Readonly<Record<string, BrowserFileEntry>> = {
   "tree-selection.browser.ts": {},
   "tree-toolbar.browser.ts": {},
   "tree-uj2.browser.ts": {},
+  "tree-undo.browser.ts": {},
   "uj2-editing-plus.browser.ts": {},
   "update-components.browser.ts": {},
   "view.browser.ts": { smoke: true },

@@ -5,12 +5,13 @@
 // no key takes it: "Add node", "Add child", "Select all", "Select none" and "Adjust by %…" are
 // entries of the type's own with no keys, which the lists retrofit replaces with the vocabulary's
 // entries and the approved keys (add after, add a child, select all, select none, adjust by a
-// percentage, Alt+Shift+Delete, `?`). A parity test in `packages/widgets` fails when the table and
+// percentage, Alt+Shift+Delete, `?`). "Undo" is the vocabulary's `mod+z` and undoes the latest
+// edit of the Tree, whatever it was (tree-edit-undo). A parity test in `packages/widgets` fails when the table and
 // the handler differ.
 //
 // `readOnly`: a read-only Tree keeps its cursor and its toolbar's roving focus. It drops the
 // selection (`tree/widget.tsx`: `if (disabled && picked.size > 0) setPicked(NO_SELECTION)`), takes
-// no edit, undo, move or delete (`perform`, `liveSlot`, `editableCells`), and opens neither its
+// no edit, undo, move or delete (`perform`, `canUndo`, `editableCells`), and opens neither its
 // editor nor its two questions (`asking`). Plain data, no DOM (AD-1).
 
 import { keyBinding, ownEntry, vocabularyEntry } from "../../keys/vocabulary.ts";
@@ -33,7 +34,7 @@ export const TREE_KEYS = [
   vocabularyEntry("select.toggle", GRID, "pointer"),
   vocabularyEntry("select.extendUp", GRID, "pointer"),
   vocabularyEntry("select.extendDown", GRID, "pointer"),
-  vocabularyEntry("undo", GRID, "tool", { label: "tree.tool.undoAdjust" }),
+  vocabularyEntry("undo", GRID, "tool", { label: "tree.tool.undo" }),
   vocabularyEntry("move.up", GRID, "tool", { label: "tree.tool.moveUp" }),
   vocabularyEntry("move.down", GRID, "tool", { label: "tree.tool.moveDown" }),
   vocabularyEntry("move.right", GRID, "tool", { label: "tree.tool.indent" }),

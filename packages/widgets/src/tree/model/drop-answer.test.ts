@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { elementChanges, TREE_SHAPE, type TreeProps } from "@askboard/contract";
 import { treeBoardDocument } from "@askboard/contract/fixtures";
 import { validateTreeChanges } from "@askboard/contract/validate";
-import { applyDrop, type DropZone, dropOn } from "./drop.ts";
+import { applyDrop, type DropZone, dropOn, NEST_OFFSET } from "./drop.ts";
 import { indent, moveDown, moveUp, outdent } from "./edits.ts";
 import { marksOf } from "./marks.ts";
 
@@ -12,7 +12,7 @@ const { id: ITEM, props: sent } = treeBoardDocument.items[0].props.items[0];
 
 const FRACTION: Readonly<Record<DropZone, number>> = { before: 0.1, after: 0.9, into: 0.5 };
 const dragged = (value: TreeProps, nodeId: string, targetId: string, zone: DropZone) =>
-  applyDrop(value, nodeId, dropOn(value, nodeId, targetId, FRACTION[zone]));
+  applyDrop(value, nodeId, dropOn(value, nodeId, targetId, FRACTION[zone], NEST_OFFSET));
 const changesOf = (edited: TreeProps) => elementChanges(ITEM, sent, edited, TREE_SHAPE);
 const press = (value: TreeProps, nodeId: string, ...moves: (typeof moveUp)[]): TreeProps =>
   moves.reduce((current, move) => move(current, nodeId), value);

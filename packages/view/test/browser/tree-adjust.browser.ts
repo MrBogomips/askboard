@@ -1,9 +1,9 @@
 // The Tree's bulk percentage adjustment, in each engine, on the widget host (widget-editing-plus;
 // view spec, "Tree bulk percentage adjustment panel", "Tree bulk adjustment preview", "A bulk
-// adjustment is changes", "Tree adjustment undo"): by keyboard only a selection is adjusted once,
+// adjustment is changes", "Tree undo"): by keyboard only a selection is adjusted once,
 // with no navigation; Cancel and Escape change nothing; the adjustment is highlighted, counted and
-// answered as one set per changed value; Undo adjust, by button and by Ctrl or Cmd with Z, puts
-// every value back, and any other edit takes the button away.
+// answered as one set per changed value; Undo, by button and by Ctrl or Cmd with Z, puts every
+// value back, and the next undo, after another edit, undoes that edit first (tree-edit-undo).
 
 import { describe, expect, test } from "bun:test";
 import { uj2ExpandedBoardDocument } from "@askboard/contract/fixtures";
@@ -105,7 +105,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
-      "Undo adjust, by button and by the keyboard, puts the values back; the draft is empty again; another edit takes the button away",
+      "Undo, by button and by the keyboard, puts the values back; the draft is empty again; after another edit the next undo undoes that edit first",
       async () => {
         const run = await host(dist, uj2ExpandedBoardDocument);
         await readyIn(run);
@@ -117,14 +117,13 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await panel.getByLabel("Percentage", { exact: true }).fill("15");
         await panel.getByRole("button", { name: "Apply" }).click();
         await panel.waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
-        await tree.tool("Undo adjust").waitFor();
-        await tree.tool("Undo adjust").click();
+        await tree.tool("Undo").click();
         await eventually(
           async () => (await tree.counter.textContent()) === "No changes",
           "No changes",
           STEP_TIMEOUT_MS,
         );
-        expect(await tree.tool("Undo adjust").count()).toBe(0);
+        expect(await tree.tool("Undo").getAttribute("aria-disabled")).toBe("true");
         await expectUnchanged(run);
         // By the keyboard: Ctrl or Cmd with Z in the tree.
         await tree.tool(ADJUST).click();
@@ -138,7 +137,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           "No changes by the keyboard",
           STEP_TIMEOUT_MS,
         );
-        // Another edit takes the button away.
+        // After another edit, the next undo undoes that edit first, the adjustment after it.
         await tree.tool(ADJUST).click();
         await panel.getByLabel("Percentage", { exact: true }).fill("15");
         await panel.getByRole("button", { name: "Apply" }).click();
@@ -146,7 +145,24 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await tree.cell("ux", 0).dblclick();
         await board.page.keyboard.type("UX research");
         await board.page.keyboard.press("Enter");
-        await tree.tool("Undo adjust").waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
+        await eventually(
+          async () => ((await tree.cell("ux", 0).textContent()) ?? "").includes("UX research"),
+          "the rename",
+          STEP_TIMEOUT_MS,
+        );
+        await tree.tool("Undo").click();
+        await eventually(
+          async () => !((await tree.cell("ux", 0).textContent()) ?? "").includes("UX research"),
+          "the rename undone first",
+          STEP_TIMEOUT_MS,
+        );
+        expect(await tree.marks("field").count()).toBeGreaterThan(0);
+        await tree.tool("Undo").click();
+        await eventually(
+          async () => (await tree.counter.textContent()) === "No changes",
+          "No changes after the second undo",
+          STEP_TIMEOUT_MS,
+        );
       },
       TEST_TIMEOUT_MS,
     );

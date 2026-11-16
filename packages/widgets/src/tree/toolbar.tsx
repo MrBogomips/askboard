@@ -7,12 +7,13 @@
 // its title. While a delete asks first, its question takes the tools' place and the counter keeps
 // its own (`delete-question.tsx`). The counter truncates before it overprints a tool; when the row
 // cannot hold all the tools and the counter's minimum, the move tools go into a "More" menu, the
-// last stop of the toolbar (`model/overflow.ts`, review F-16). A leaf about to become a group asks in
+// last stop of the toolbar (`model/overflow.ts`, review F-16). "Undo", the last of the selection and
+// adjustment tools, is always there, disabled while the history is empty, and never goes into "More"
+// (tree-edit-undo, design decision 5). A leaf about to become a group asks in
 // the same place, by the same pattern (`group-question.tsx`); the row shows one question at a time.
 
 import type { TreeProps } from "@askboard/contract";
-import type { StringKey } from "@askboard/view/catalog";
-import { type Say, useLanguage, useStrings } from "@askboard/view/catalog";
+import { useKeyPlatform, useLanguage, useStrings } from "@askboard/view/catalog";
 import { DropdownMenu, Popover } from "radix-ui";
 import { type KeyboardEvent, type Ref, useRef, useState } from "react";
 import { toolbarFocus, toolbarStop } from "../shared/toolbar-focus.ts";
@@ -37,9 +38,9 @@ import { GroupQuestion } from "./group-question.tsx";
 import type { GroupQuestion as GroupQuestionWords } from "./grouping.ts";
 import { treeKeyOf } from "./key-event.ts";
 import type { TreeEdit } from "./model/edits.ts";
-import { TREE_TOOLS, type TreeTool, toolbarKey } from "./model/keys.ts";
-import { OVERFLOW_TOOLS } from "./model/overflow.ts";
-import { type Selection, selectAll } from "./model/selection.ts";
+import { toolbarKey } from "./model/keys.ts";
+import type { Selection } from "./model/selection.ts";
+import { type Item, itemsOf } from "./toolbar-items.ts";
 
 // The counter: "No changes", then each node the user changed, once, after the change dot; cut with
 // an ellipsis, its whole text in the tooltip, before it overprints a tool.
@@ -53,12 +54,6 @@ const ChangeCount = ({ count }: { readonly count: number }) => {
     </p>
   );
 };
-
-// "Move up (Alt+Shift+ArrowUp)", "Delete (Delete or Backspace)"; a tool with no keys has none.
-const titleOf = ({ label, shortcut }: TreeTool, text: Say): string | undefined =>
-  shortcut === undefined
-    ? undefined
-    : `${text(label)} (${shortcut.split(" ").join(text("tree.keysSeparator"))})`;
 
 /** The answers to a question, whichever it is. */
 type Answers = {
@@ -83,84 +78,13 @@ export type SelectionTools = {
   readonly onSelectAll: () => void;
   readonly onSelectNone: () => void;
   readonly onApply: (applied: Applied) => void;
-  /** Undoes the last adjustment; `undefined` once there is none to undo. */
-  readonly onUndo: (() => void) | undefined;
+  /** An edit of the Tree can be undone. */
+  readonly canUndo: boolean;
+  /** Undoes the Tree's latest edit. */
+  readonly onUndo: () => void;
 };
 
-// One button of the row: a Tree tool, or a selection or adjustment tool, in order.
-type Item = {
-  readonly key: string;
-  readonly label: StringKey;
-  readonly enabled: boolean;
-  readonly title?: string;
-  readonly shortcut?: string;
-  /** Goes into "More" when the row is crowded. */
-  readonly overflow: boolean;
-  readonly run: () => void;
-};
-
-const SELECTION_TOOLS: ReadonlySet<string> = new Set([
-  "selectAll",
-  "selectNone",
-  "adjust",
-  "undoAdjust",
-]);
-
-const itemsOf = (
-  enabled: readonly boolean[],
-  onTool: (edit: TreeEdit) => void,
-  tools: SelectionTools,
-  open: () => void,
-  text: Say,
-): readonly Item[] => {
-  const some = tools.selection.size > 0;
-  const own: Item[] = [
-    {
-      key: "selectAll",
-      label: "tree.select.all",
-      // Nothing to select in an empty Tree, which leaves its toolbar stop to "Add node".
-      enabled: selectAll(tools.value).size > 0,
-      overflow: true,
-      run: tools.onSelectAll,
-    },
-    {
-      key: "selectNone",
-      label: "tree.select.none",
-      enabled: some,
-      overflow: true,
-      run: tools.onSelectNone,
-    },
-    {
-      key: "adjust",
-      label: "tree.tool.adjust",
-      enabled: some && !tools.disabled,
-      overflow: false,
-      run: open,
-    },
-  ];
-  if (tools.onUndo !== undefined) {
-    own.push({
-      key: "undoAdjust",
-      label: "tree.tool.undoAdjust",
-      enabled: !tools.disabled,
-      shortcut: "Control+Z Meta+Z",
-      overflow: false,
-      run: tools.onUndo,
-    });
-  }
-  const treeTools = TREE_TOOLS.map(
-    (tool, at): Item => ({
-      key: tool.edit,
-      label: tool.label,
-      enabled: enabled[at] === true,
-      title: titleOf(tool, text),
-      shortcut: tool.shortcut,
-      overflow: OVERFLOW_TOOLS.has(tool.edit),
-      run: () => onTool(tool.edit),
-    }),
-  );
-  return [...treeTools, ...own];
-};
+const SELECTION_TOOLS: ReadonlySet<string> = new Set(["selectAll", "selectNone", "adjust", "undo"]);
 
 // The "More" menu, the last stop of the toolbar: the tools given up when crowded, each disabled as
 // its tool is. It is not modal, as the question card's, so it locks no scroll and adds no style element.
@@ -251,7 +175,8 @@ export const TreeToolbar = ({
   const buttons = useRef<(HTMLButtonElement | null)[]>([]);
   const toolsRow = useRef<HTMLDivElement>(null);
   const crowded = useCrowded(toolsRow, useLanguage(), asking === undefined);
-  const items = itemsOf(enabled, onTool, selecting, () => setPanel(true), text);
+  const platform = useKeyPlatform();
+  const items = itemsOf(enabled, onTool, selecting, () => setPanel(true), text, platform);
   const shown = items.filter((item) => !(crowded && item.overflow));
   const given = items.filter((item) => crowded && item.overflow);
   // Each stop's enabled state: the shown tools', then "More", which is always enabled.
@@ -280,6 +205,7 @@ export const TreeToolbar = ({
       aria-disabled={item.enabled ? undefined : true}
       aria-keyshortcuts={item.shortcut}
       data-selection-tool={SELECTION_TOOLS.has(item.key) ? "" : undefined}
+      data-tree-undo={item.marker}
       aria-haspopup={item.key === "adjust" ? "dialog" : undefined}
       aria-expanded={item.key === "adjust" ? panel : undefined}
       title={item.title}

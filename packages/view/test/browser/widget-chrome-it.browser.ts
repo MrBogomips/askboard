@@ -52,6 +52,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       "an it-IT plan board shows the Tree's and the Gantt's chrome in Italian and none of the review's English strings",
       async () => {
         const run = await host(dist, ask("it-IT"));
+        // The Tree's toolbar holds all its tools, Undo included, at this width.
+        await run.board.page.setViewportSize({ width: 1600, height: 900 });
         await readyIn(run);
         const tree = treeGridOf(run.board);
         const gantt = ganttOf(run.board, wbsPlan.id);

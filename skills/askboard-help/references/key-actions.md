@@ -40,7 +40,7 @@ Each action an override may name, with its default keys on Linux and, in bracket
 - `edit.cancel`: Cancel the edit, Esc (Esc)
 - `delete`: Delete, Delete and Backspace and Alt+Shift+Delete and Alt+Shift+Backspace (⌦ and ⌫ and ⌥⇧⌦ and ⌥⇧⌫)
 - `adjust.percent`: Adjust by a percentage, % (%); with a selection
-- `undo`: Undo adjust, Ctrl+Z (⌘Z)
+- `undo`: Undo, Ctrl+Z (⌘Z)
 - `keys.open`: Show the keys, ? (?)
 - `toolbar.previous`: Previous tool, ← (←)
 - `toolbar.next`: Next tool, → (→)
