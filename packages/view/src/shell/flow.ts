@@ -3,7 +3,8 @@
 // the command's messages will say once the board page reports it sent, and runs the output: the move
 // (the target's tab or view, its heading, the arrival mark) or the footer with "Continue". It runs at
 // the act, never at the reply, so a focus the user moved during a flight is never taken. Focus for
-// `stay`, `complete` and `send-all` stays with the card (the base's rule, until group 7).
+// `stay` stays with the card (the base's rule); `send-all` asks for the send button and `complete`
+// for the completion panel's heading, once the panel shows (decision 6).
 
 import type { LifecycleBoardState } from "@askboard/contract";
 import { areaOf, type ViewDocument } from "../view-document.ts";
@@ -24,7 +25,7 @@ import {
   nextOfFlow,
   type SentRecords,
 } from "./guided-flow.ts";
-import { type HeadingRequest, requestHeading } from "./heading-request.ts";
+import { type HeadingRequest, requestFocusTo, requestHeading } from "./heading-request.ts";
 import type { HeldKeyGuard } from "./held-key-guard.ts";
 import type { StatusMessages } from "./status-messages.ts";
 import type { Store } from "./store.ts";
@@ -129,6 +130,12 @@ export const createFlow = (deps: FlowDeps): Flow => {
         if (moving?.areaDone !== undefined)
           deps.status.announce(areaDoneMessageOf(moving.areaDone));
         if (target !== undefined) deps.status.announce(nextMessageOf(target));
+      }
+      if (output.kind === "send-all") {
+        return { output, run: () => requestFocusTo(deps.focus, acted, "send") };
+      }
+      if (output.kind === "complete") {
+        return { output, run: () => requestFocusTo(deps.focus, acted, "completion") };
       }
       if (moving === undefined || target === undefined) return { output, run: () => {} };
       if (output.kind === "move") return { output, run: () => goTo(moving.target) };

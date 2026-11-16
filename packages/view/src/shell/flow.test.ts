@@ -166,7 +166,25 @@ describe("an act with the setting Go to the next", () => {
       ),
     );
     expect(run.flow.act("region", "answer", "sent", { revision: false }).kind).toBe("complete");
-    expect(run.focus.get()).toBeUndefined();
+    // The panel shows once the receipts are logged: the request waits for it, and names the question.
+    expect(run.focus.get()).toMatchObject({ id: "region", to: "completion" });
+    expect(run.shown).toEqual([]);
+  });
+
+  test("in All together the last confirm asks for focus on Send", () => {
+    const run = setUp(
+      {
+        delivery: "submitted",
+        work: new Map([["region", { held: { act: "answer" } } as unknown as QuestionWork]]),
+      },
+      stateOf(
+        ["region", ...["payment", "analytics", "rollout", "erp-export"]].map((id) =>
+          id === "region" ? open(id) : answered(id),
+        ),
+      ),
+    );
+    expect(run.flow.act("region", "answer", "held", { revision: false }).kind).toBe("send-all");
+    expect(run.focus.get()).toMatchObject({ id: "region", to: "send" });
   });
 });
 

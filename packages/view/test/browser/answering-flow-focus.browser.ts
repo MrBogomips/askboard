@@ -15,6 +15,7 @@ import {
   singleAnsweringAsk,
 } from "./fixtures/answering-flow-asks.ts";
 import { reviewedAsk } from "./fixtures/approval-asks.ts";
+import { guidanceAsk } from "./fixtures/guidance-asks.ts";
 import { decisionOf } from "./harness/approval-board.ts";
 import {
   eventually,
@@ -221,7 +222,28 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
-      "the last open question: Answer leaves focus on its heading",
+      "the last open question of a board: Answer leaves focus on the completion panel's heading",
+      async () => {
+        const run = await start(lifecycleScenario(guidanceAsk(2), dist));
+        const board = await openBoard(run, ["p1", "p2"]);
+        await answerWithKeys(board, "p1");
+        await actsSent(run, 1);
+        await eventually(() => isFocused(headingOf(board, "p2")), "focus on the p2 heading");
+        await answerWithKeys(board, "p2");
+        await actsSent(run, 2);
+        await eventually(
+          () =>
+            isFocused(
+              board.view.locator("[data-askboard-completion] [data-askboard-completion-heading]"),
+            ),
+          "focus on the panel's heading",
+        );
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a single-question board: Answer leaves focus on its heading, with no panel",
       async () => {
         const run = await start(lifecycleScenario(singleAnsweringAsk, dist));
         const board = await openBoard(run, ["only"]);

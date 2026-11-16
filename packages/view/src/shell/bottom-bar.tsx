@@ -71,6 +71,8 @@ export type BottomBarProps = {
     readonly board: BoardDraft;
     readonly derived: DerivedStore;
   };
+  /** "All together", nothing left to do, acts held: the line beside Send (decision 6). */
+  readonly allReady?: boolean;
   readonly onSelectRecommended: () => void;
   /** The items of a question the card makes read-only; Submit's field block skips them. */
   readonly readOnlyOf?: ReadOnlyOf;
@@ -254,6 +256,11 @@ export const BottomBar = (props: BottomBarProps) => {
           <button type="button" className={BUTTON_LINK} onClick={() => props.onJump(blocked)}>
             {updatesLabel(submit.blocked.length, language)}
           </button>
+        )}
+        {delivery === "immediate" || props.allReady !== true ? null : (
+          <span data-askboard-all-ready="" className="text-body text-foreground-secondary">
+            {text("bar.allReady")}
+          </span>
         )}
         {delivery === "immediate" ? null : (
           <button

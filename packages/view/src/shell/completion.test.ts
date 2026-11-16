@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { LifecycleBoardState, LifecycleQuestionStatus } from "@askboard/contract";
 import type { ViewDocument, ViewQuestion } from "../view-document.ts";
 import type { QuestionWork } from "./board-draft.ts";
-import { completionOf, receiptCountsOf } from "./completion.ts";
+import { type Completion, completionOf, receiptCountsOf, shownCompletionOf } from "./completion.ts";
 
 // The completion panel's model (answering-flow-guidance, design decision 6; requirements
 // "Completion", "Completion with postponed questions" and "All ready, nothing sent").
@@ -256,5 +256,21 @@ describe("done", () => {
         "immediate",
       ),
     ).toEqual({ kind: "none" });
+  });
+});
+
+describe("shownCompletionOf", () => {
+  const done: Completion = { kind: "done", sent: 2, delivered: 0 };
+  const allReady: Completion = { kind: "send-all", count: 2 };
+
+  test("an open board shows what the receipts say", () => {
+    expect(shownCompletionOf(done, { locked: false, snapshot: false })).toBe(done);
+    expect(shownCompletionOf(allReady, { locked: false, snapshot: false })).toBe(allReady);
+  });
+
+  test("a locked board and an opened Snapshot show none", () => {
+    expect(shownCompletionOf(done, { locked: true, snapshot: false })).toEqual({ kind: "none" });
+    expect(shownCompletionOf(done, { locked: false, snapshot: true })).toEqual({ kind: "none" });
+    expect(shownCompletionOf(allReady, { locked: true, snapshot: true })).toEqual({ kind: "none" });
   });
 });

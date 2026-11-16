@@ -480,7 +480,9 @@ export const QuestionCard = (props: CardProps) => {
   const revisionNow = status?.state === "answered" || status?.state === "declined";
   const runFlow = (act: FlowAct, result: ActResult, undo = false, defer = false) => {
     const { output, run } = flow.act(question.id, act, result, { revision: revisionNow, undo });
-    moved.current = output.kind === "move" || output.kind === "footer";
+    // "complete" waits for the panel, which shows once the receipts are logged: the heading keeps
+    // the focus until then, so it never falls to the page.
+    moved.current = output.kind !== "stay" && output.kind !== "complete";
     if (defer) deferred.current = run;
     else run();
   };

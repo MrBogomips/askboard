@@ -104,3 +104,12 @@ export const completionOf = (
   const { sent, delivered } = receiptCountsOf(document, state);
   return sent === questions.length ? { kind: "done", sent, delivered } : NONE;
 };
+
+/**
+ * What the board shows of a completion: none on a locked board (closed, discarded or moved) and in
+ * an opened Snapshot, whatever the receipts say (Completion; NFR-10).
+ */
+export const shownCompletionOf = (
+  completion: Completion,
+  board: { readonly locked: boolean; readonly snapshot: boolean },
+): Completion => (board.locked || board.snapshot ? NONE : completion);

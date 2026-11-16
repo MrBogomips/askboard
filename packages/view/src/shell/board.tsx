@@ -53,10 +53,15 @@ import {
 import { BottomBar } from "./bottom-bar.tsx";
 import { CARD_ACTS } from "./card-acts.ts";
 import { entriesWithCells } from "./cell-entries.ts";
+import { type Completion, completionOf, receiptCountsOf, shownCompletionOf } from "./completion.ts";
+import { COMPLETION_HEADING, CompletionPanel } from "./completion-panel.tsx";
+import { createDeliveredGate } from "./delivered-messages.ts";
 import type { DraftStore } from "./draft-store.ts";
 import { createFlow, type Flow, type FlowView } from "./flow.ts";
+import { allAnsweredMessagesOf, allReadyMessageOf } from "./flow-messages.ts";
+import { nextOfFlow } from "./guided-flow.ts";
 import type { HeaderData } from "./header-data.ts";
-import { type HeadingRequest, requestHeading } from "./heading-request.ts";
+import { type HeadingRequest, requestFocusTo, requestHeading } from "./heading-request.ts";
 import type { HeldKeyGuard } from "./held-key-guard.ts";
 import { type EntryMarks, Outline, QuestionNavigator } from "./navigators.tsx";
 import type { PresentationControls } from "./presentation-controls.ts";
@@ -277,14 +282,47 @@ const OneQuestionBody = ({
   </div>
 );
 
-// Focus moves to a question's heading once the navigation has rendered (Accessibility Floor).
-const useHeadingFocus = (focus: Store<HeadingRequest | undefined>) => {
+// How long a request for the completion panel's heading waits for the panel, in milliseconds.
+const PANEL_WAIT_MS = 10_000;
+
+// Focus moves to a question's heading once the navigation has rendered (Accessibility Floor), or to
+// the send button; a request for the completion panel's heading waits until the panel shows (the
+// receipts are logged then, decision 6) and is dropped when the user has moved focus off the card
+// the act was taken on, so the move never takes a focus the user chose.
+const useHeadingFocus = (focus: Store<HeadingRequest | undefined>, panelShown: boolean) => {
   const target = useSyncExternalStore(focus.subscribe, focus.get);
+  const waiting = useRef<HeadingRequest | undefined>(undefined);
   useEffect(() => {
     if (target === undefined) return;
+    if (target.to === "completion") {
+      waiting.current = target;
+      const timer = window.setTimeout(() => {
+        if (waiting.current === target) waiting.current = undefined;
+      }, PANEL_WAIT_MS);
+      return () => window.clearTimeout(timer);
+    }
+    waiting.current = undefined;
+    if (target.to === "send") {
+      const send = document.querySelector("[data-askboard-submit]");
+      if (send instanceof HTMLElement) revealAndFocus(send);
+      return;
+    }
     const heading = document.getElementById(questionTextId(target.id));
     if (heading !== null) revealAndFocus(heading, { smooth: target.smooth === true });
   }, [target]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `target` re-runs it when a request lands
+  useEffect(() => {
+    const request = waiting.current;
+    if (request === undefined || !panelShown) return;
+    waiting.current = undefined;
+    const card = document
+      .getElementById(questionTextId(request.id))
+      ?.closest("[data-askboard-question]");
+    const active = document.activeElement;
+    const held = active === null || active === document.body || card?.contains(active) === true;
+    const heading = document.querySelector(COMPLETION_HEADING);
+    if (held && heading instanceof HTMLElement) revealAndFocus(heading);
+  }, [panelShown, target]);
   return (id: string) => requestHeading(focus, id);
 };
 
@@ -335,7 +373,6 @@ export const Board = ({
     context.attention.subscribe,
     context.attention.get,
   );
-  const focusHeading = useHeadingFocus(context.focus);
   // The ladder's inputs, once for every surface: the card's command in flight, and whether a
   // question holds answer work, from the board's revising set and the stores a first draft sits in.
   const revisingSet = useSyncExternalStore(
@@ -359,6 +396,46 @@ export const Board = ({
   };
   const presentation = presentationOf(document);
   const questions = questionsOf(document);
+  // The completion panel, or "All ready" beside Send, from the receipts and the work (decision 6).
+  const completion: Completion = shownCompletionOf(
+    completionOf(
+      document,
+      state,
+      draft.questions,
+      ladder.flightOf,
+      (question) => ladder.revisingOf(question.id),
+      presentation === "single" ? "immediate" : draft.delivery,
+    ),
+    { locked: lock !== undefined, snapshot: context.opened !== undefined },
+  );
+  const panelShown = completion.kind === "done" || completion.kind === "postponed";
+  const focusHeading = useHeadingFocus(context.focus, panelShown);
+  const announced = useRef(completion.kind);
+  useEffect(() => {
+    const before = announced.current;
+    announced.current = completion.kind;
+    if (before === completion.kind) return;
+    if (completion.kind === "done") {
+      for (const message of allAnsweredMessagesOf(completion)) context.status.announce(message);
+    } else if (completion.kind === "send-all") context.status.announce(allReadyMessageOf());
+  }, [completion, context.status]);
+  // The delivered count, said at most once every five seconds, from receipts alone (decision 6).
+  const gate = useMemo(() => createDeliveredGate(), []);
+  const opened = context.opened !== undefined;
+  useEffect(() => {
+    if (opened) return;
+    gate.observe(receiptCountsOf(document, state), Date.now());
+    const due = gate.dueAt();
+    if (due === undefined) return;
+    const timer = window.setTimeout(
+      () => {
+        const message = gate.due(Date.now());
+        if (message !== undefined) context.status.announce(message);
+      },
+      Math.max(0, due - Date.now()) + 25,
+    );
+    return () => window.clearTimeout(timer);
+  }, [document, state, gate, opened, context.status]);
   // What follows an act, asked at the act of the card (answering-flow-guidance, decision 3): the
   // flow reads the board as it stands then, through a ref the render keeps current, and the work
   // afresh from the store, which the act has just changed.
@@ -480,6 +557,10 @@ export const Board = ({
     context.board.setInView,
   );
   const [first] = questions;
+  const panelNode =
+    completion.kind === "done" || completion.kind === "postponed" ? (
+      <CompletionPanel completion={completion} onGoToFirst={go} />
+    ) : null;
   let body: ReactNode;
   if (single || first === undefined) {
     body = (
@@ -492,6 +573,7 @@ export const Board = ({
     const at = questions.findIndex((question) => question.id === shown);
     body = (
       <main className="flex flex-col gap-lg p-lg">
+        {panelNode}
         <OneQuestionBody
           questions={questions}
           current={shown}
@@ -515,6 +597,7 @@ export const Board = ({
       <div className="flex flex-1">
         <Outline groups={groups} current={current} marksOf={marksOf} onJump={go} />
         <main className="flex min-w-0 flex-1 flex-col gap-xl p-lg">
+          {panelNode}
           {presentation === "tabs" ? (
             <TabsBody
               groups={groups}
@@ -585,6 +668,7 @@ export const Board = ({
           delivery={delivery}
           warning={postponedWarningOf(document, state, draft.questions, ladder, language)}
           submit={submit}
+          allReady={completion.kind === "send-all"}
           recommendations={hasRecommendation(document, shownOf)}
           readOnlyOf={readOnlyOf}
           shownOf={shownOf}
@@ -616,9 +700,19 @@ export const Board = ({
           onJump={go}
           // The question in view, else the first, takes the focus once Submit has sent.
           onSubmitted={() => {
-            // The next question to do after the one in view, while one is left (After Submit).
-            const id = target ?? current ?? questions[0]?.id;
-            if (id !== undefined) focusHeading(id);
+            // The next question to do after the one in view, while one is left; else the completion
+            // panel's heading once it shows (Focus after Answer and Submit).
+            const next = nextOfFlow(
+              document,
+              state,
+              context.board.get().questions,
+              ladder,
+              attention.unseen,
+              viewing ?? "",
+            );
+            const id = next?.id ?? current ?? questions[0]?.id;
+            if (next !== undefined && id !== undefined) focusHeading(id);
+            else if (id !== undefined) requestFocusTo(context.focus, id, "completion");
           }}
           snapshot={extras.snapshot}
           snapshotOffer={snapshotOfferOf(lock, connection)}
