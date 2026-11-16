@@ -26,3 +26,5 @@ In code since `answering-flow-visual` (Issues #168 and #213, direction B of the 
 **Deviations from the design.** The stripe's attribute is `data-askboard-stripe` (the badge keeps `data-askboard-state`, which twenty tests count); the Tab rule above; the Snapshot message's live region; "Next to do" is absent, not disabled, with nothing to do (D1); a Draft revision shows no receipt (change 4's rule, which the scenario now follows); "Prefill recommended ({count})" is `bar.selectRecommended`, change 4's string.
 
 **Decisions at the re-base.** `IconNextOpen` stays `arrow-right` (change 4's); a revision reads Draft with no receipt, as in change 4. Sizes on b7da3fea: shell +16,750, accepted up to 17,000.
+
+**Version bound.** On 2026-11-16, rebased onto origin/main dd563708: board protocol 1.12 (main 1.11); no other set widened.

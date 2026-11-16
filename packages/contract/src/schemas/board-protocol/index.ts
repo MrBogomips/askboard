@@ -352,9 +352,9 @@ export type DraftRecord = {
   readonly inView?: string;
   /** By question ID; read as own properties only. */
   readonly questions: Readonly<Record<string, DraftQuestion>>;
-  /** Since 1.12: each question's short number by ID, 1 to `QUESTION_NUMBER_MAX`; read as own properties. */
+  /** Since answering-flow-visual: each question's short number by ID, 1 to `QUESTION_NUMBER_MAX`; read as own properties. */
   readonly numbers?: Readonly<Record<string, number>>;
-  /** Since 1.12: the next number the board gives, above every number held. */
+  /** Since answering-flow-visual: the next number the board gives, above every number held. */
   readonly nextNumber?: number;
 };
 
