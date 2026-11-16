@@ -130,12 +130,30 @@ const expectCardUnderHeader = (board: Board, id: string): Promise<void> =>
 const scrollY = (board: Board): Promise<number> =>
   board.view.locator("body").evaluate((body) => body.ownerDocument.defaultView?.scrollY ?? 0);
 
+/**
+ * Waits until the page stands still: the same scroll position at two reads 150 ms apart. A control
+ * focused by script is scrolled into view by the engine, WebKit with a smooth scroll that outlasts
+ * the next key press; a person presses Enter after the page has stopped, and the move that follows
+ * reads any scroll still under way as the user's own and ends short (answer-moves-to-top).
+ */
+const standingStill = async (board: Board): Promise<void> => {
+  let last = -1;
+  await eventually(async () => {
+    const at = await scrollY(board);
+    const still = at === last;
+    last = at;
+    if (!still) await Bun.sleep(150);
+    return still;
+  }, "the page standing still");
+};
+
 /** Chooses an option and presses the primary, with the keyboard alone. */
 const answerWithKeys = async (board: Board, id: string, label = "Yes"): Promise<void> => {
   await optionOf(board, id, label).focus();
   await board.page.keyboard.press(" ");
   await eventually(() => optionOf(board, id, label).isChecked(), `${label} chosen on ${id}`);
   await answerOf(board, id).focus();
+  await standingStill(board);
   await board.page.keyboard.press("Enter");
 };
 
