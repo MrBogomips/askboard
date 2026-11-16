@@ -103,6 +103,11 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await eventually(() => isFocused(panelHeading(board)), "focus on the panel's heading");
         // The ask pill may read "Answered": the panel's count is the receipts', not the pill's.
         expect(await panelText(board)).not.toMatch(/clos|read|safe/i);
+        // The panel's icon beside its heading, hidden from assistive technology (D11).
+        const icon = panelOf(board).locator("svg");
+        expect(await icon.count()).toBe(1);
+        expect(await icon.getAttribute("aria-hidden")).toBe("true");
+        expect(await icon.getAttribute("class")).toContain("lucide-circle-check-big");
         expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,

@@ -19,6 +19,7 @@ import type { LifecycleBoardState } from "@askboard/contract";
 import { Tabs } from "radix-ui";
 import { type ReactNode, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { questionTextId, useLanguage, useStrings } from "../catalog/port.ts";
+import { IconAreaDone } from "../icons/index.ts";
 import {
   areaOf,
   questionsOf,
@@ -237,11 +238,7 @@ const TabsBody = ({
               </span>
               {open === 0 ? (
                 <>
-                  <span
-                    aria-hidden="true"
-                    data-askboard-tab-done=""
-                    className="mb-0.5 inline-block h-2.5 w-1.5 rotate-45 border-b-2 border-r-2 border-current"
-                  />
+                  <IconAreaDone data-askboard-tab-done="" className="size-3.5 shrink-0" />
                   <span className="sr-only">{text("areas.done")}</span>
                 </>
               ) : (

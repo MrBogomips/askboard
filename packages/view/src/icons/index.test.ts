@@ -6,7 +6,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 // The module's table: export name, Lucide icon (icon-set, design decision 3, DESIGN.md's Icons).
 const TABLE = {
-  IconNextOpen: "arrow-down",
+  IconNextOpen: "arrow-right",
   IconReplies: "message-square-reply",
   IconAgentChanged: "refresh-cw",
   IconExternal: "external-link",
@@ -15,6 +15,17 @@ const TABLE = {
   IconCalendar: "calendar",
   IconDisclosure: "chevron-right",
   IconDragHandle: "grip-vertical",
+  // The ladder's states, the done tab and the completion panel (answering-flow-guidance, D11).
+  IconToDo: "circle",
+  IconDraft: "pencil",
+  IconReady: "package",
+  IconNotSentYet: "hourglass",
+  IconSent: "send",
+  IconDelivered: "check-check",
+  IconPostponed: "clock",
+  IconDeclined: "ban",
+  IconAreaDone: "check",
+  IconComplete: "circle-check-big",
 } as const;
 
 const loadIcons = (): Promise<Record<string, unknown>> => import("./index.ts");
@@ -26,7 +37,7 @@ const markup = async (name: string, props: Record<string, unknown> = {}) => {
 };
 
 describe("the icon module", () => {
-  test("exports the nine names of the table, no more and no fewer", async () => {
+  test("exports the names of the table, no more and no fewer", async () => {
     expect(Object.keys(await loadIcons()).sort()).toEqual(Object.keys(TABLE).sort());
   });
 

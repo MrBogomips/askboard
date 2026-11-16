@@ -6,6 +6,7 @@
 // receipts alone (`completionOf`).
 
 import { useStrings } from "../catalog/port.ts";
+import { IconComplete } from "../icons/index.ts";
 import type { Completion } from "./completion.ts";
 import { BUTTON_SECONDARY, FOCUS_RING } from "./styles.ts";
 
@@ -40,7 +41,10 @@ export const CompletionPanel = ({
     >
       {completion.kind === "done" ? (
         <>
-          <Heading>{text("completion.title")}</Heading>
+          <div className="flex items-center gap-sm">
+            <IconComplete className="size-5 shrink-0 text-success-text" />
+            <Heading>{text("completion.title")}</Heading>
+          </div>
           <p className="text-body text-foreground-secondary">
             {text("completion.counts", { s: completion.sent, d: completion.delivered })}
           </p>

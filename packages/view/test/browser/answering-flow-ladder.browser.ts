@@ -79,7 +79,7 @@ const markerOf = (board: Board, index: number): Locator =>
   board.view
     .getByRole("navigation", { name: "Question navigator" })
     .getByRole("button")
-    .filter({ has: board.view.locator("span") })
+    .filter({ has: board.view.locator("svg[data-askboard-marker]") })
     .nth(index);
 
 /** Waits until a state line holds `state` and reads `label`. */
@@ -95,6 +95,27 @@ const reads = (line: Locator, state: State, label: string): Promise<void> =>
 /** How many elements of the board hold a state. */
 const holding = (board: Board, state: State): Promise<number> =>
   board.view.locator(`[data-askboard-state="${state}"]`).count();
+
+/** The icon a state's marker draws, by its Lucide name (answering-flow-guidance, D11). */
+const ICONS: Readonly<Record<State, string>> = {
+  todo: "circle",
+  draft: "pencil",
+  ready: "package",
+  "not-sent-yet": "hourglass",
+  sent: "send",
+  delivered: "check-check",
+  postponed: "clock",
+  declined: "ban",
+};
+
+/** The state's marker is the state's icon: an svg of that name, hidden from assistive technology. */
+const expectIcon = async (line: Locator, state: State): Promise<void> => {
+  const marker = line.locator(`[data-askboard-marker="${state}"]`);
+  expect(await marker.count()).toBe(1);
+  expect(await marker.evaluate((element) => element.tagName.toLowerCase())).toBe("svg");
+  expect(await marker.getAttribute("aria-hidden")).toBe("true");
+  expect(await marker.getAttribute("class")).toContain(`lucide-${ICONS[state]}`);
+};
 
 const toDo = (board: Board, count: number): Promise<void> =>
   board.header.getByText(`${count} to do`, { exact: true }).waitFor({ timeout: STEP_TIMEOUT_MS });
@@ -549,6 +570,64 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await reads(lineOf(board, "q2"), "delivered", "Delivered to the agent");
         await reads(entryOf(board, "q2"), "delivered", "Delivered to the agent");
         expect(await lineOf(board, "q1").getAttribute("data-askboard-state")).toBe("todo");
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "each state's icon stands beside its label, hidden from assistive technology: on the card's state line and in the outline",
+      async () => {
+        const { run, board } = await open(start);
+        await expectIcon(lineOf(board, "q4"), "todo");
+        await expectIcon(entryOf(board, "q4"), "todo");
+        await choose(board, "q5");
+        await reads(lineOf(board, "q5"), "draft", "Draft");
+        await expectIcon(lineOf(board, "q5"), "draft");
+        await choose(board, "q1");
+        await answerOf(board, "q1").click({ timeout: STEP_TIMEOUT_MS });
+        await reads(lineOf(board, "q1"), "sent", "Sent");
+        await expectIcon(lineOf(board, "q1"), "sent");
+        await postponeOf(board, "q2").click({ timeout: STEP_TIMEOUT_MS });
+        await reads(lineOf(board, "q2"), "postponed", "Postponed");
+        await expectIcon(lineOf(board, "q2"), "postponed");
+        await chooseFromMore(board, "q3", "Decline");
+        await reads(lineOf(board, "q3"), "declined", "Declined");
+        await expectIcon(lineOf(board, "q3"), "declined");
+        await expectIcon(entryOf(board, "q3"), "declined");
+        await run.session.collect();
+        await reads(lineOf(board, "q1"), "delivered", "Delivered to the agent");
+        await expectIcon(lineOf(board, "q1"), "delivered");
+        await expectIcon(entryOf(board, "q1"), "delivered");
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "Ready, not sent has its icon on the card and in the outline",
+      async () => {
+        const { board } = await open(start, { delivery: "submitted" });
+        await choose(board, "q7");
+        await answerOf(board, "q7").click({ timeout: STEP_TIMEOUT_MS });
+        await reads(lineOf(board, "q7"), "ready", "Ready, not sent");
+        await expectIcon(lineOf(board, "q7"), "ready");
+        await expectIcon(entryOf(board, "q7"), "ready");
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "Not sent yet has its icon while the connection is lost",
+      async () => {
+        const { run, board } = await open(start);
+        await run.session.drop();
+        await board
+          .banner("Connection lost, retrying")
+          .first()
+          .waitFor({ timeout: STEP_TIMEOUT_MS });
+        await choose(board, "q5");
+        await answerOf(board, "q5").click({ timeout: STEP_TIMEOUT_MS });
+        await reads(lineOf(board, "q5"), "not-sent-yet", "Not sent yet");
+        await expectIcon(lineOf(board, "q5"), "not-sent-yet");
       },
       TEST_TIMEOUT_MS,
     );

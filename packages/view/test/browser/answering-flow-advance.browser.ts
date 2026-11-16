@@ -419,6 +419,11 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const scope = board.view.getByRole("tab", { name: /Scope/ });
         expect(((await scope.textContent()) ?? "").trim()).toBe("Scopecompleted");
         expect(await scope.locator("[data-askboard-tab-done]").count()).toBe(1);
+        // The done mark is the check icon, hidden from assistive technology (D11).
+        const check = scope.locator("svg[data-askboard-tab-done]");
+        expect(await check.count()).toBe(1);
+        expect(await check.getAttribute("aria-hidden")).toBe("true");
+        expect(await check.getAttribute("class")).toContain("lucide-check");
         expect((await data.textContent()) ?? "").toContain("3 to do");
       },
       TEST_TIMEOUT_MS,

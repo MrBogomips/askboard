@@ -177,6 +177,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           expect(
             await button.evaluate((element) => element.lastElementChild?.tagName.toLowerCase()),
           ).toBe("svg");
+          // The arrow points right: one label, no direction glyph (answering-flow-guidance, D11).
+          expect(await svgs.first().getAttribute("class")).toContain("lucide-arrow-right");
         },
         TEST_TIMEOUT_MS,
       );
