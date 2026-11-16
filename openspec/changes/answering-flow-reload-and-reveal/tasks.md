@@ -62,6 +62,7 @@ Terms:
   - "What a reload keeps": an answered question comes back answered with its receipt, even when the record still held its sent work.
 
   Verify: the wording matches the two requirement names of the delta spec.
+  - Note: review S-5: the "After an answer" sentence now states the halt rule of D2 (a wheel, a touch or a listed key, Tab included, stops the move with no landing; a press or a focus moved off the target once the page has moved), as the delta requirement does; scenario "A key pressed during the move" added.
 - [x] 3.2 `docs/as-built/answering-flow-reload-and-reveal.md`:
   - what was built and where (D1, D2), with the diagnosis in one paragraph citing design.md;
   - the seams added: none exported, or the names 2.2 adds;

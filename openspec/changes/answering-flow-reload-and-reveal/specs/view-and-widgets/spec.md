@@ -16,7 +16,7 @@ When a reload or a takeover restores a draft record whose work on a question equ
 - **THEN** the card reads Draft, and the Tree shows both renamed nodes, editable, as a revision of the logged answer
 
 ### Requirement: The user's scroll during the move
-The move to the next question SHALL treat a change of the page's position during the move as the user's scroll, and stop where it is, only after input from the user during the move: a wheel, a touch, a pointer press, a key that scrolls or moves focus, or a focus moved off the target. A scroll the browser makes on its own SHALL not end the move: it goes on from where the page is and lands as asked (FR-2, NFR-12).
+The move to the next question SHALL stop where it is, with no landing, at its next frame after a wheel, a touch or a key that scrolls or moves focus (Tab included) pressed during the move, and once the page has moved after a pointer press or a focus moved off the target. A key held since before the move SHALL not stop it. Any other movement is the browser's: the move SHALL go on from where the page is and land as asked (FR-2, NFR-12).
 
 #### Scenario: The browser's smooth scroll still runs
 - **WHEN** with "Go to the next", in sections, the page is still running a smooth scroll it started itself when the user presses Enter on question 3's "Send answer"
@@ -25,6 +25,10 @@ The move to the next question SHALL treat a change of the page's position during
 #### Scenario: The user's wheel during the move
 - **WHEN** the user turns the mouse wheel while the move runs
 - **THEN** the move stops, and the page stays where the wheel put it
+
+#### Scenario: A key pressed during the move
+- **WHEN** the user presses Tab while the move runs
+- **THEN** the move stops where the page is at its next frame, no landing follows, and focus is where Tab put it
 
 #### Scenario: A focus moved during the move
 - **WHEN** the user moves focus to another question's heading while the move runs
