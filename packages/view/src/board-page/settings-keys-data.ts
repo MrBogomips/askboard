@@ -69,17 +69,28 @@ const problemText = (warning: SettingWarning, language: Locale): string => {
 };
 
 /** One warning of the keys, worded in full by its code and rule. */
-export const keysWarningText = (warning: SettingWarning, language: Locale, file: string): string =>
-  warning.code === "project-keys-ignored"
-    ? t(language, "settings.warningProjectKeys", { file })
-    : t(language, "settings.warningKeysNotApplied", {
-        file,
-        problem: problemText(warning, language),
-      });
+export const keysWarningText = (
+  warning: SettingWarning,
+  language: Locale,
+  file: string,
+): string => {
+  if (warning.code === "project-keys-ignored") {
+    return t(language, "settings.warningProjectKeys", { file });
+  }
+  if (warning.code === "keys-file-writable-by-others") {
+    return t(language, "settings.warningKeysWritableByOthers", { file });
+  }
+  return t(language, "settings.warningKeysNotApplied", {
+    file,
+    problem: problemText(warning, language),
+  });
+};
 
-/** The warnings that belong to the Keys row: the project's keys ignored, and the user's problems. */
+/** The warnings that belong to the Keys row: the project's keys ignored, the user's problems, and a user file others can write. */
 const isKeysWarning = (warning: SettingWarning): boolean =>
-  warning.code === "project-keys-ignored" || warning.code === "keys-not-applied";
+  warning.code === "project-keys-ignored" ||
+  warning.code === "keys-not-applied" ||
+  warning.code === "keys-file-writable-by-others";
 
 /** The warnings of the message that the Keys row holds, the project's first (`ask-core`'s order). */
 export const keysWarningsOf = (message: SettingsMessage): readonly SettingWarning[] =>

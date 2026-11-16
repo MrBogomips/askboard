@@ -409,6 +409,20 @@ describe("configure-keys.md", () => {
     expect(text).toContain("only when the user asks you to");
   });
 
+  test("names a user file others can write, after the project file's bullet, with chmod go-w", () => {
+    const where = text.slice(text.indexOf("## Where"), text.indexOf("## Format"));
+    const project = where.indexOf("The project file");
+    const writable = where.indexOf("A user file another user can write");
+    expect(writable).toBeGreaterThan(project);
+    expect(where).toContain("`chmod go-w`");
+    expect(where).toContain("its `keys` ignored, with a warning");
+    expect(where).toContain("the next board takes them");
+  });
+
+  test("stays within the help skill's reference budget with that bullet", () => {
+    expect(text.length).toBeLessThanOrEqual(HELP_BUDGETS.reference);
+  });
+
   test("states the notation, the rules, a refused file, and when a change applies", () => {
     for (const part of [
       "`Mod`",

@@ -309,3 +309,24 @@ describe("the most warnings of a row", () => {
     expect(holds(SETTING_ROW_WARNINGS_MAX + 1).ok).toBe(false);
   });
 });
+
+describe("the warning that a user file others can write has its keys ignored (user-keys-writable-by-others)", () => {
+  const writable = { code: "keys-file-writable-by-others", file: "user", key: "keys" };
+
+  test("is the board protocol's minor after palettes' (1.13 to 1.14)", () => {
+    expect(BOARD_PROTOCOL_VERSION).toBe("1.14");
+  });
+
+  test("on the user file and the key keys validates", () => {
+    expect(toPage(withWarning(writable)).ok).toBe(true);
+  });
+
+  test.each([
+    ["a rule", { ...writable, rule: "conflict" }, "/warnings/0"],
+    ["an action", { ...writable, action: "move.top" }, "/warnings/0"],
+  ])("with %s fails", (_, warning, path) => {
+    expect(pathsOf(toPage(withWarning(warning))).some((found) => found.startsWith(path))).toBe(
+      true,
+    );
+  });
+});

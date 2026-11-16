@@ -696,4 +696,6 @@ export const IT_IT = {
     one: "{count} risposta pronta: niente è stato ancora inviato.",
     other: "{count} risposte pronte: niente è stato ancora inviato.",
   },
+  "settings.warningKeysWritableByOthers":
+    "{file} può essere modificato da altri: i tuoi tasti non sono applicati",
 } as const satisfies StringTable;

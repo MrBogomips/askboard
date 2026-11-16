@@ -661,4 +661,6 @@ export const EN_US = {
     one: "{count} answer ready: nothing has been sent yet.",
     other: "{count} answers ready: nothing has been sent yet.",
   },
+  "settings.warningKeysWritableByOthers":
+    "{file} can be written by others: your keys are not applied",
 } as const satisfies StringTable;

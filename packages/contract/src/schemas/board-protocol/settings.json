@@ -346,7 +346,7 @@
       "additionalProperties": false
     },
     "warning": {
-      "description": "unknown-key: a key the configuration does not define; project-editor-ignored: the project file's editor never runs; editor-file-writable-by-others: the user file's editor is ignored; snapshot-folder-replaced: the value leaves the project and the default is in effect; project-keys-ignored: the project file's keys never apply (keyboard-shortcuts-help); keys-not-applied: the user file's keys failed the key-override check and every key is the default, one warning per problem, naming its rule, the action and, where one is at fault, the combination and the other action of a conflict.",
+      "description": "unknown-key: a key the configuration does not define; project-editor-ignored: the project file's editor never runs; editor-file-writable-by-others: the user file's editor is ignored; snapshot-folder-replaced: the value leaves the project and the default is in effect; project-keys-ignored: the project file's keys never apply (keyboard-shortcuts-help); keys-not-applied: the user file's keys failed the key-override check and every key is the default, one warning per problem, naming its rule, the action and, where one is at fault, the combination and the other action of a conflict; keys-file-writable-by-others: the user file can be written by another user, so its keys are ignored and every key is the default (user-keys-writable-by-others).",
       "type": "object",
       "properties": {
         "code": {
@@ -356,7 +356,8 @@
             "editor-file-writable-by-others",
             "snapshot-folder-replaced",
             "project-keys-ignored",
-            "keys-not-applied"
+            "keys-not-applied",
+            "keys-file-writable-by-others"
           ]
         },
         "file": {

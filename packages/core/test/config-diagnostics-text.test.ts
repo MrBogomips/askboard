@@ -161,6 +161,7 @@ describe("over every line given", () => {
     { code: "keys-not-applied", file: "user", key: "keys", rule: "action", action: NAME },
     { code: "project-editor-ignored", file: "project", key: "editor" },
     { code: "editor-file-writable-by-others", file: "user", key: "editor" },
+    { code: "keys-file-writable-by-others", file: "user", key: "keys" },
     { code: "project-keys-ignored", file: "project", key: "keys" },
     {
       code: "keys-not-applied",
@@ -236,6 +237,7 @@ describe("a path that holds controls (X-6)", () => {
     { code: "snapshot-folder-replaced", file: "user", key: "snapshotFolder", value: "/x" },
     { code: "project-editor-ignored", file: "user", key: "editor" },
     { code: "editor-file-writable-by-others", file: "user", key: "editor" },
+    { code: "keys-file-writable-by-others", file: "user", key: "keys" },
     { code: "project-keys-ignored", file: "user", key: "keys" },
     { code: "keys-not-applied", file: "user", key: "keys", rule: "action", action: "x.y" },
   ];
@@ -294,5 +296,16 @@ describe("a path that holds controls (X-6)", () => {
     ).toEqual([
       'AskBoard: ~/.config/askboard/config.json holds the unknown key "fontSize", which is ignored.',
     ]);
+  });
+});
+
+describe("the warning for a user file others can write", () => {
+  test("is one line saying its keys are ignored and every key is the default", () => {
+    const [line] = lines([{ code: "keys-file-writable-by-others", file: "user", key: "keys" }]);
+    expect(
+      lines([{ code: "keys-file-writable-by-others", file: "user", key: "keys" }]),
+    ).toHaveLength(1);
+    expect(line).toContain("can be written by another user");
+    expect(line).toContain("its keys are ignored (every key is the default)");
   });
 });
