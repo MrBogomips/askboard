@@ -59,6 +59,7 @@ import { NO_CHANNEL, openChannel, type ViewChannel } from "./channel.ts";
 import { createDerivedStore } from "./derived-store.ts";
 import { applyDocumentUpdate, carriesNewRestore, connectTracker } from "./document-update.ts";
 import { createDraftStore } from "./draft-store.ts";
+import { createTray } from "./feedback-tray-store.ts";
 import { readyLostMessageOf } from "./flow-messages.ts";
 import { focusOpener } from "./focus-opener.ts";
 import { createSentRecords, type Footer } from "./guided-flow.ts";
@@ -70,6 +71,7 @@ import { startPresentation } from "./presentation-extras.ts";
 import { startPushExtras } from "./push-extras.ts";
 import { createReadyTracker, questionItemsOf } from "./ready-tracker.ts";
 import type { ReasonRequest } from "./reason.ts";
+import type { RemovedNumber } from "./removed-numbers.ts";
 import { prefillReopened } from "./reopen-prefill.ts";
 import { createRevisingSnapshot } from "./revising.ts";
 import { createSizeNotices, settle } from "./size-notices.ts";
@@ -176,6 +178,9 @@ const boot = (): void => {
   const noteSent = createStore<ReadonlyMap<string, string>>(new Map());
   // What the board says to a screen reader about the answering flow (#182).
   const status = createStatusMessages();
+  const tray = createTray();
+  // The numbers of the questions the agent removed while this page is open (decision 6).
+  const removedNumbers = createStore<readonly RemovedNumber[]>([]);
   // The lines for a message too large: a command refused or closed, a draft left out; an act
   // line goes when its question's work changes (oversized-acts, design decisions 2 to 4).
   const notices = createSizeNotices((questionId) => {
@@ -228,7 +233,7 @@ const boot = (): void => {
         focused: () => focusedQuestion(window.document),
         shownQuestion: () => shownQuestionOf(before, board.get().inView),
         // A restore is no news from the agent: the first update after a reload carries it.
-        ...(carriesNewRestore(update.restore, restored) ? {} : { status }),
+        ...(carriesNewRestore(update.restore, restored) ? {} : { status, tray, removedNumbers }),
       });
       // A prefill's mark alone is no unsent work: when the agent moves the question past it, the mark
       // follows, so the change shows at once with no notice (design decision 4).
@@ -336,6 +341,7 @@ const boot = (): void => {
     reasons,
     focus,
     removed,
+    removedNumbers,
     footer,
     recorded,
     guard,
@@ -374,6 +380,7 @@ const boot = (): void => {
     header: startPushExtras(data, channel, hosted, report),
     presentation: controls,
     snapshot: createSnapshotControl(channel),
+    tray,
   };
   createRoot(root).render(
     <BoardLanguage view={view}>

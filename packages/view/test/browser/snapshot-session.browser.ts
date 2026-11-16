@@ -97,6 +97,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
 
     // Picks Light and Comfortable on a board whose system is dark.
     const pickLightAndComfortable = async (board: Awaited<ReturnType<typeof openBoard>>) => {
+      await board.themeControl.click({ timeout: STEP_TIMEOUT_MS });
       await board.view
         .getByRole("radiogroup", { name: "Theme" })
         .getByRole("radio", { name: "Light" })
@@ -120,6 +121,10 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const classes = ((await page.locator("html").getAttribute("class")) ?? "").split(/\s+/);
         expect(classes).toContain("comfortable");
         expect(classes).not.toContain("dark");
+        // The one Theme control; its popover holds the one Theme group.
+        const control = page.locator("[data-askboard-theme]");
+        expect(await control.count()).toBe(1);
+        await control.click({ timeout: STEP_TIMEOUT_MS });
         const group = page.getByRole("radiogroup", { name: "Theme" });
         expect(await group.count()).toBe(1);
         expect(await group.getByRole("radio", { name: "Light" }).getAttribute("aria-checked")).toBe(

@@ -5,7 +5,8 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { KeyOverridesContext } from "../catalog/keys/key-table.tsx";
 import type { BoardPanel } from "./board-keys-panel.tsx";
-import { HeaderActions, type HeaderCounts } from "./header-actions.tsx";
+import { BoardKeysButton } from "./board-keys-panel.tsx";
+import { type HeaderCounts, ProgressRow } from "./progress-row.tsx";
 
 // The header's keys (board-keys, design decision 5; spec: The board's keys are discoverable, The
 // board's keys panel, The user's keys on the board's own keys).
@@ -46,10 +47,17 @@ const draw = (
       createElement(
         KeyOverridesContext.Provider,
         { value: over.overrides },
-        createElement(HeaderActions, {
-          counts: "counts" in over ? over.counts : counts(),
-          keys: over.keys === false ? undefined : { panel, takesEdits: true },
-        }),
+        // The jump is the progress row's, the Keys button the ask row's (answering-flow-visual).
+        ...[
+          "counts" in over
+            ? over.counts === undefined
+              ? null
+              : createElement(ProgressRow, { counts: over.counts, prefill: undefined })
+            : createElement(ProgressRow, { counts: counts(), prefill: undefined }),
+          over.keys === false
+            ? null
+            : createElement(BoardKeysButton, { panel, takesEdits: true, key: "keys" }),
+        ],
       ),
     ),
   );
@@ -70,19 +78,19 @@ describe("Next to do", () => {
 });
 
 describe("the Keys button", () => {
-  test("shows on a live board, after the counts, with ?", () => {
+  test("shows on a live board, as an icon named Keys, after the counts, with ?", () => {
     const html = draw();
-    expect(html).toMatch(/<button[^>]*aria-keyshortcuts="\?"[^>]*>Keys<\/button>/);
-    expect(html.indexOf(">Keys</button>")).toBeGreaterThan(html.indexOf("Next to do"));
+    expect(html).toMatch(/<button[^>]*aria-label="Keys"[^>]*aria-keyshortcuts="\?"/);
+    expect(html.indexOf('aria-label="Keys"')).toBeGreaterThan(html.indexOf("Next to do"));
     expect(html).toContain('aria-haspopup="dialog"');
   });
 
   test("shows on the single-question board, which has no counts", () => {
-    expect(draw({ counts: undefined })).toContain(">Keys</button>");
+    expect(draw({ counts: undefined })).toContain('aria-label="Keys"');
   });
 
   test("none on an ended board", () => {
-    expect(draw({ counts: undefined, keys: false })).not.toContain(">Keys</button>");
+    expect(draw({ counts: undefined, keys: false })).not.toContain('aria-label="Keys"');
   });
 });
 

@@ -84,7 +84,7 @@ describe("the shared hover, cursor and focus layer", () => {
   // The layer is in `@layer base`, so a utility on the element beats it: an item that carries
   // `cursor-default` would never show the pointer (task 7.1's audit).
   test("a menu item's own classes leave the cursor to the layer", async () => {
-    const card = await read("../shell/question-actions.tsx");
+    const card = await read("../shell/card-head.tsx");
     const tree = await read("../../../widgets/src/tree/classes.ts");
     const cardItem = /const MENU_ITEM = `([^`]*)`/.exec(card)?.[1] ?? "";
     const treeItem = /export const MENU_ITEM =((?:\s*"[^"]*"\s*\+?)+);/.exec(tree)?.[1] ?? "";

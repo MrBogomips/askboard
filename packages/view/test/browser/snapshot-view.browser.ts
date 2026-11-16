@@ -220,6 +220,11 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       page.evaluate(() => document.documentElement.classList.contains("comfortable"));
     const theme = (page: Page) => page.getByRole("radiogroup", { name: "Theme" });
     const density = (page: Page) => page.getByRole("radiogroup", { name: "Density" });
+    // The Theme control's popover holds both groups (answering-flow-visual).
+    const openTheme = async (page: Page) => {
+      await page.locator("[data-askboard-theme]").click();
+      await theme(page).waitFor();
+    };
     const checked = (group: Locator, name: string) =>
       group.getByRole("radio", { name, exact: true }).getAttribute("aria-checked");
     const storage = (page: Page) =>
@@ -230,6 +235,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       async () => {
         const first = await open(lifecycleSnapshotData, { colorScheme: "dark" });
         expect(await isDark(first.page)).toBe(true);
+        await openTheme(first.page);
         const light = theme(first.page).getByRole("radio", { name: "Light", exact: true });
         await light.click();
         expect(await isDark(first.page)).toBe(false);
@@ -240,6 +246,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await storage(first.page)).toEqual([]);
         const again = await open(lifecycleSnapshotData, { colorScheme: "dark" });
         expect(await isDark(again.page)).toBe(true);
+        await openTheme(again.page);
         expect(await checked(theme(again.page), "System")).toBe("true");
       },
       TEST_TIMEOUT_MS,
@@ -249,11 +256,27 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       "one toolbar: one Theme group, one density group, no Settings",
       async () => {
         const { page } = await open(lifecycleSnapshotData);
+        expect(await page.locator("[data-askboard-theme]").count()).toBe(1);
+        await openTheme(page);
         expect(await theme(page).count()).toBe(1);
         expect(await density(page).count()).toBe(1);
-        expect(await page.getByText("Theme", { exact: true }).count()).toBe(1);
         expect(await page.getByRole("button", { name: "Settings", exact: true }).count()).toBe(0);
         expect(await page.getByRole("button", { name: "Light", exact: true }).count()).toBe(0);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "no outbox, tray, numbers, Snapshot, Settings or Prefill; the outline and the strip show (answering-flow-visual)",
+      async () => {
+        const { page } = await open(lifecycleSnapshotData);
+        expect(await page.locator("[data-askboard-outbox]").count()).toBe(0);
+        expect(await page.locator("[data-askboard-tray-box]").count()).toBe(0);
+        expect(await page.locator("[data-askboard-number]").count()).toBe(0);
+        expect(await page.locator("[data-askboard-prefill]").count()).toBe(0);
+        expect(await page.getByRole("button", { name: "Snapshot", exact: true }).count()).toBe(0);
+        expect(await page.getByRole("navigation", { name: "Outline" }).count()).toBe(1);
+        expect(await page.locator("[data-askboard-progress-strip]").count()).toBe(1);
       },
       TEST_TIMEOUT_MS,
     );
@@ -263,6 +286,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       async () => {
         const { page } = await open(snapshotToolbarData, { colorScheme: "dark" });
         expect(await isDark(page)).toBe(false);
+        await openTheme(page);
         expect(await checked(theme(page), "Light")).toBe("true");
         expect(await checked(theme(page), "System")).toBe("false");
       },
@@ -283,6 +307,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           { colorScheme: "dark" },
         );
         expect(await isDark(page)).toBe(true);
+        await openTheme(page);
         expect(await checked(theme(page), "System")).toBe("true");
       },
       TEST_TIMEOUT_MS,
@@ -293,6 +318,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       async () => {
         const first = await open(snapshotToolbarData);
         expect(await isComfortable(first.page)).toBe(true);
+        await openTheme(first.page);
         expect(await checked(density(first.page), "Comfortable")).toBe("true");
         await density(first.page).getByRole("radio", { name: "Compact", exact: true }).click();
         expect(await isComfortable(first.page)).toBe(false);
@@ -300,6 +326,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await storage(first.page)).toEqual([]);
         const again = await open(snapshotToolbarData);
         expect(await isComfortable(again.page)).toBe(true);
+        await openTheme(again.page);
         expect(await checked(density(again.page), "Comfortable")).toBe("true");
       },
       TEST_TIMEOUT_MS,

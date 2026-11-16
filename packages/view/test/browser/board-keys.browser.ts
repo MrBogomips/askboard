@@ -37,6 +37,7 @@ import {
   optionOf,
   postponeOf,
   tabTo,
+  viewportBottom,
 } from "./harness/lifecycle-test.ts";
 import { viewSettled } from "./harness/probes.ts";
 import { orderShown, rowOf } from "./harness/ranking-drag.ts";
@@ -97,7 +98,7 @@ const expectClearOfBars = async (board: Board, id: string): Promise<void> => {
   await eventually(() => isFocused(heading), `focus on the ${id} heading`);
   const bounds = {
     header: await boxOf(board.view.getByRole("banner")),
-    bar: await boxOf(board.view.getByRole("contentinfo")),
+    bar: { top: await viewportBottom(board) },
   };
   await eventually(async () => {
     const box = await boxOf(heading);
@@ -296,16 +297,16 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       async () => {
         const { board } = await open(start, "sections");
         expect(await keysButton(board).getAttribute("aria-keyshortcuts")).toBe("?");
-        // After "Next to do" and before the quick toggles' "Settings".
+        // In the ask row, before "Settings".
         const x = async (locator: Locator): Promise<number> => {
           const box = await locator.boundingBox();
           if (box === null) throw new Error(`no box for ${locator}`);
           return box.x;
         };
-        const banner = board.view.getByRole("banner");
-        const jump = banner.locator("[data-askboard-next-to-do]");
-        const settings = banner.getByRole("button", { name: "Settings", exact: true });
-        expect(await x(jump)).toBeLessThan(await x(keysButton(board)));
+        const settings = board.askRow.getByRole("button", { name: "Settings", exact: true });
+        expect(await board.askRow.getByRole("button", { name: "Keys", exact: true }).count()).toBe(
+          1,
+        );
         expect(await x(keysButton(board))).toBeLessThan(await x(settings));
         await keysButton(board).click();
         await boardPanel(board).waitFor({ timeout: STEP_TIMEOUT_MS });
@@ -366,7 +367,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
-      "every other question answered: the jump is disabled, and N is left to the browser",
+      "every other question answered: the jump is absent, and N is left to the browser",
       async () => {
         const run = await start(lifecycleScenario(threeChoicesAsk(), dist));
         const board = await openBoard(run, ["q1", "q2", "q3"]);
@@ -378,7 +379,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await viewSettled(board);
         const option = await focusOption(board, "q1");
         const jump = board.view.getByRole("banner").locator("[data-askboard-next-to-do]");
-        await eventually(() => jump.isDisabled(), "the jump disabled");
+        // With nothing left to do the jump is absent, not disabled (answering-flow-visual, D1).
+        await eventually(async () => (await jump.count()) === 0, "the jump absent");
         await expectKeyIgnored(board, "n", option);
         await expectKeyIgnored(board, "Shift+N", option);
       },

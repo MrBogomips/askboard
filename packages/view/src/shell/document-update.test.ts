@@ -12,7 +12,9 @@ import { createAttention } from "./attention.ts";
 import { connectDrafts, createBoardDraft, moveMarks } from "./board-draft.ts";
 import { applyDocumentUpdate, carriesNewRestore } from "./document-update.ts";
 import { createDraftStore } from "./draft-store.ts";
+import { createTray } from "./feedback-tray-store.ts";
 import type { HeadingRequest } from "./heading-request.ts";
+import type { RemovedNumber } from "./removed-numbers.ts";
 import { createStatusMessages, type StatusMessage } from "./status-messages.ts";
 import { createStore } from "./store.ts";
 
@@ -147,10 +149,61 @@ describe("the status messages of an update (answering-flow-fixes, design decisio
     ]);
   });
 
+  test("the questions added also show in the feedback tray, by ID (answering-flow-visual, D11)", () => {
+    const before = documentOf(plan);
+    const tray = createTray();
+    applyDocumentUpdate(before, documentOf(plan, other, third), {
+      ...setUp(before),
+      status: createStatusMessages(),
+      tray,
+    });
+    expect(tray.get()).toMatchObject([
+      { kind: "added", text: { key: "status.added" }, questions: ["other", "third"] },
+    ]);
+    const none = createTray();
+    applyDocumentUpdate(before, documentOf(plan), {
+      ...setUp(before),
+      status: createStatusMessages(),
+      tray: none,
+    });
+    expect(none.get()).toEqual([]);
+  });
+
   test("several added: the count", () => {
     expect(heard(documentOf(plan), documentOf(plan, other, third))).toEqual([
       { key: "status.added", params: { count: 2 } },
     ]);
+  });
+
+  test("a removed question's number is kept for the outline, with where it stood (design decision 6)", () => {
+    const before = documentOf(plan, other, third);
+    const stores = setUp(before);
+    stores.board.setNumbers({
+      byId: new Map([
+        ["plan", 1],
+        ["other", 2],
+        ["third", 3],
+      ]),
+      next: 4,
+    });
+    const removedNumbers = createStore<readonly RemovedNumber[]>([]);
+    applyDocumentUpdate(before, documentOf(plan, third), { ...stores, removedNumbers });
+    expect(removedNumbers.get()).toEqual([{ number: 2, after: "plan" }]);
+    // A question that never had a number leaves none; a removal at the start stands after nothing.
+    const next = setUp(documentOf(plan, other));
+    const started = createStore<readonly RemovedNumber[]>([]);
+    next.board.setNumbers({
+      byId: new Map([
+        ["plan", 1],
+        ["other", 2],
+      ]),
+      next: 3,
+    });
+    applyDocumentUpdate(documentOf(plan, other), documentOf(other), {
+      ...next,
+      removedNumbers: started,
+    });
+    expect(started.get()).toEqual([{ number: 1 }]);
   });
 
   test("a revision of a question and an unchanged document say nothing", () => {
@@ -159,8 +212,10 @@ describe("the status messages of an update (answering-flow-fixes, design decisio
   });
 
   test("the question in view deleted: the removal is announced", () => {
+    // The message names the removed question by title (answering-flow-visual, spec: "The question in
+    // view removed"); the question navigator's own notice keeps `navigator.removed`.
     expect(heard(documentOf(plan, other), documentOf(plan), "other")).toEqual([
-      { key: "navigator.removed" },
+      { key: "status.removed", params: { title: "Database" } },
     ]);
   });
 
@@ -177,7 +232,7 @@ describe("the status messages of an update (answering-flow-fixes, design decisio
       shownQuestion: () => "plan",
       status,
     });
-    expect(keys).toEqual([{ key: "navigator.removed" }]);
+    expect(keys).toEqual([{ key: "status.removed", params: { title: "Database" } }]);
     expect(stores.removed.get()).toBe(true);
     expect(stores.board.get().inView).toBe("other");
   });

@@ -1,5 +1,5 @@
-// One way to move focus to a heading or a field: first scroll it clear of the sticky header and
-// the bottom action bar, then focus it without the browser's own scroll (answering-flow-fixes,
+// One way to move focus to a heading or a field: first scroll it clear of the sticky header, the
+// strip of tabs and the feedback tray, then focus it without the browser's own scroll (answering-flow-fixes,
 // design decision 2; #180). The browser's focus scroll leaves an element that is already partly in
 // the viewport where it is, which can be under a bar. `revealDelta` is the arithmetic;
 // `revealAndFocus` is the DOM glue, checked in the browser.
@@ -15,8 +15,8 @@ export type Edges = { readonly top: number; readonly bottom: number };
 /**
  * The vertical scroll, in pixels (positive scrolls down), that puts the box wholly within
  * `[inset.top + gap, viewportHeight - inset.bottom - gap]`: 0 for a box already inside, and for a
- * box taller than that span its top at the span's top. The inset is the bars' (`measureInset`),
- * 0 for a bar the view does not have.
+ * box taller than that span its top at the span's top. The inset is the bars' (`measureBoardInset`):
+ * its bottom is 0, the viewport's foot, since the board has no bottom bar.
  */
 export const revealDelta = (
   target: Edges,
@@ -89,7 +89,7 @@ const markArrival = (element: HTMLElement): void => {
   };
 };
 
-const scrollSmoothly = (view: Window, delta: number): void => {
+const scrollSmoothly = (view: Window, delta: number, settle: () => void): void => {
   const frames = scrollFrames(view.scrollY, view.scrollY + delta, SCROLL_MS);
   if (animation !== undefined) view.cancelAnimationFrame(animation);
   const start = view.performance.now();
@@ -105,7 +105,11 @@ const scrollSmoothly = (view: Window, delta: number): void => {
     if (frame === undefined) return;
     view.scrollTo({ top: frame.y, behavior: "instant" });
     last = view.scrollY;
-    animation = frame === frames[frames.length - 1] ? undefined : view.requestAnimationFrame(step);
+    const lastFrame = frame === frames[frames.length - 1];
+    animation = lastFrame ? undefined : view.requestAnimationFrame(step);
+    // The layout may have moved while the scroll ran (a card above settling into its answered look):
+    // the end of the move leaves the element clear of the bars as it was asked to.
+    if (lastFrame) settle();
   };
   animation = view.requestAnimationFrame(step);
 };
@@ -115,7 +119,7 @@ const reducedMotion = (view: Window): boolean =>
   view.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /**
- * Scrolls `element` clear of the bars (the header, the strip of tabs and the bottom bar), and gives
+ * Scrolls `element` clear of the bars (the header, the strip of tabs and the tray), and gives
  * it focus without the browser's own scroll. Instant by default; `smooth` (After an answer's move
  * and "Continue") scrolls in at most `SCROLL_MS` unless the user asks for less motion, and marks
  * the card where it arrives.
@@ -138,5 +142,27 @@ export const revealAndFocus = (
   if (instant && delta !== 0) view?.scrollBy({ top: delta, behavior: "instant" });
   element.focus({ preventScroll: true });
   if (smooth) markArrival(element);
-  if (!instant && view !== null) scrollSmoothly(view, delta);
+  // The layout may move while the move runs or just after it (a card above settling into its
+  // answered look): the end of the move leaves the element clear of the bars as it was asked to.
+  const settle = () => {
+    if (view === null) return;
+    const box = element.getBoundingClientRect();
+    const left = revealDelta(
+      { top: box.top, bottom: box.bottom },
+      measureBoardInset(doc),
+      view.innerHeight,
+      REVEAL_GAP,
+    );
+    if (left !== 0) view.scrollBy({ top: left, behavior: "instant" });
+  };
+  if (!instant && view !== null) {
+    scrollSmoothly(view, delta, settle);
+  } else if (smooth && view !== null) {
+    // An instant move after an act (less motion asked): one settle once the time of the smooth move
+    // has passed, unless the user scrolled meanwhile.
+    const at = view.scrollY;
+    view.setTimeout(() => {
+      if (Math.abs(view.scrollY - at) <= 2) settle();
+    }, SCROLL_MS);
+  }
 };

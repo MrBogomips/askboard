@@ -47,7 +47,7 @@ const ASKER: Asker = { project: "order-service", gitUser: "Sara Rossi" };
 const snapshotButton = (board: Board) => barButton(board, "Snapshot");
 const feedbackOf = (board: Board) => board.view.locator("[data-askboard-snapshot-feedback]");
 
-// Waits until the bar's feedback holds the text.
+// Waits until the tray's Snapshot message holds the text.
 const says = (board: Board, text: string | RegExp, timeout = STEP_TIMEOUT_MS) =>
   feedbackOf(board).filter({ hasText: text }).waitFor({ state: "visible", timeout });
 
@@ -152,7 +152,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
-      "the feedback has a line of its own under the bar's controls, the path cut in the middle with Copy path, and Submit stays on the bar's row",
+      "the outcome shows in the feedback tray under the header, the path cut in the middle with Copy path, and it stays until its close control",
       async () => {
         const run = await start({ ...lifecycleScenario(twoAsk, dist), asker: ASKER });
         const board = await openBoard(run, ["database", "cache"]);
@@ -167,12 +167,14 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(text.startsWith(".askboard/snapshots/")).toBe(true);
         expect(path.endsWith(text.slice(text.indexOf("…") + 1))).toBe(true);
         await feedbackOf(board).getByRole("button", { name: "Copy path" }).waitFor();
-        const feedback = await feedbackOf(board).boundingBox();
-        const bar = await snapshotButton(board).boundingBox();
-        const submit = await board.submit.boundingBox();
-        if (feedback === null || bar === null || submit === null) throw new Error("no box");
-        expect(feedback.y).toBeGreaterThanOrEqual(bar.y + bar.height);
-        expect(Math.abs(bar.y - submit.y)).toBeLessThan(2);
+        const tray = await board.tray("snapshot").boundingBox();
+        const header = await board.header.boundingBox();
+        if (tray === null || header === null) throw new Error("no box");
+        expect(tray.y).toBeGreaterThanOrEqual(header.y + header.height);
+        expect(tray.x + tray.width).toBeLessThanOrEqual(1280);
+        // No timer: it is still there, and its close control removes it.
+        await board.tray("snapshot").getByRole("button", { name: "Close", exact: true }).click();
+        await board.tray("snapshot").waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
         expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,
@@ -218,7 +220,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await snapshotButton(board).click({ force: true, timeout: STEP_TIMEOUT_MS });
         await viewSettled(board);
         expect(snapshotRequests(run)).toBe(0);
-        expect(await feedbackOf(board).textContent()).toBe("");
+        expect(await feedbackOf(board).count()).toBe(0);
         await run.session.restore();
       },
       TEST_TIMEOUT_MS,

@@ -32,6 +32,7 @@ import {
   headingOf,
   lifecycleScenario,
   menuItem,
+  moreOf,
   noteOf,
   openBoard,
   optionOf,
@@ -85,11 +86,18 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           await view.getByText(description, { exact: true }).waitFor();
         }
         await noteOf(board, "database").waitFor();
-        const names = await view.getByRole("button").allTextContents();
-        const order = ["Later", "More", "Send answer"].map((name) => names.indexOf(name));
+        const names = await view.getByRole("button").evaluateAll((buttons) =>
+          buttons.map((button) => {
+            const copy = button.cloneNode(true) as Element;
+            for (const hidden of copy.querySelectorAll('[aria-hidden="true"]')) hidden.remove();
+            return (button.getAttribute("aria-label") ?? copy.textContent ?? "").trim();
+          }),
+        );
+        // More is in the card's head; the primary comes first in the actions row, Later last.
+        const order = ["More", "Send answer", "Later"].map((name) => names.indexOf(name));
         expect(order.every((at) => at >= 0)).toBe(true);
         expect([...order].sort((a, b) => a - b)).toEqual(order);
-        expect(await buttonOf(board, "database", "More").isDisabled()).toBe(false);
+        expect(await moreOf(board, "database").isDisabled()).toBe(false);
       },
       TEST_TIMEOUT_MS,
     );
@@ -143,7 +151,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await optionOf(board, "database", "SQLite").click();
         await answerOf(board, "database").click();
         await outlineSays(board, "database", "Ready, not sent");
-        expect(await postponeOf(board, "database").isDisabled()).toBe(true);
+        // "Later" gives way on an answered question: its card shows "Edit" instead.
+        expect(await postponeOf(board, "database").count()).toBe(0);
         expect(sentActs(run)).toEqual([]);
       },
       TEST_TIMEOUT_MS,
@@ -203,9 +212,10 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await optionOf(board, "database", "SQLite").click();
         await answerOf(board, "database").click();
         await receiptOf(board, "database", "sent").waitFor();
-        await buttonOf(board, "database", "More").click();
+        await moreOf(board, "database").click();
         expect(await menuItem(board, "Decline").getAttribute("aria-disabled")).toBe("true");
-        expect(await postponeOf(board, "database").isDisabled()).toBe(true);
+        // "Later" gives way on an answered question: its card shows "Edit" instead.
+        expect(await postponeOf(board, "database").count()).toBe(0);
         await board.page.keyboard.press("Escape");
         expectNoCspProblem(run);
       },
@@ -232,14 +242,14 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await card(board, "database")
           .getByText("1 message", { exact: true })
           .waitFor({ timeout: STEP_TIMEOUT_MS });
-        await buttonOf(board, "database", "More").click();
+        await moreOf(board, "database").click();
         expect(await menuItem(board, "Explain").getAttribute("aria-disabled")).toBe("true");
         await board.page.keyboard.press("Escape");
         await reply(run, "database", "SQLite keeps it in one file; PostgreSQL scales writes.");
         await card(board, "database")
           .getByText("2 messages", { exact: true })
           .waitFor({ timeout: STEP_TIMEOUT_MS });
-        await buttonOf(board, "database", "More").click();
+        await moreOf(board, "database").click();
         await eventually(
           async () => (await menuItem(board, "Explain").getAttribute("aria-disabled")) === null,
           "Explain enabled again",

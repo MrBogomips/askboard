@@ -63,7 +63,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await actsDone(run, 1);
         await run.session.collect();
         await receiptOf(board, "database", "delivered").waitFor({ timeout: STEP_TIMEOUT_MS });
-        expect(await answerOf(board, "database").isDisabled()).toBe(true);
+        // The answered look: "Edit" stands in place of the primary (answering-flow-visual, D7).
+        expect(await answerOf(board, "database").count()).toBe(0);
+        expect(await board.edit("database").count()).toBe(1);
         await optionOf(board, "database", "SQLite").click();
         expect(await optionOf(board, "database", "SQLite").isChecked()).toBe(true);
         await answerOf(board, "database").click();

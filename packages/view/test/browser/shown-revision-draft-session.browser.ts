@@ -35,6 +35,7 @@ import {
   lifecycleScenario,
   menuItem,
   mirrored,
+  moreOf,
   openBoard,
   promptArmed,
   sentActs,
@@ -199,7 +200,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         // answer is seen through Decline, which the card disables on an answered question; it is
         // not reached on this path.
         await eventually(async () => {
-          await buttonOf(board, "plan", "More").click({ timeout: STEP_TIMEOUT_MS });
+          await moreOf(board, "plan").click({ timeout: STEP_TIMEOUT_MS });
           const disabled = await menuItem(board, "Decline").isDisabled();
           await board.page.keyboard.press("Escape");
           return disabled;

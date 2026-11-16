@@ -52,6 +52,12 @@ const lightNames = (tokens: DesignTokens): string[] =>
 const declarations = (pairs: readonly [string, string][]): string =>
   pairs.map(([name, value]) => `--${name}:${value};`).join("");
 
+/**
+ * The spacing keys that no density changes and a component reads as a variable: the rail's width,
+ * which the rail and its fit test share (answering-flow-visual, design decision 2).
+ */
+const FIXED_SPACING = ["outline-rail"] as const;
+
 /** The compact and the comfortable value of each density-dependent spacing key. */
 const spacingPairs = (spacing: DesignTokens["spacing"]) => {
   const names = Object.keys(spacing).filter((name) => name.endsWith(COMFORTABLE));
@@ -111,6 +117,9 @@ export const tokensCss = (tokens: DesignTokens): string => {
   const sizes = sizePairs(tokens.typography);
   const compact = [
     ...spacing.map((pair): [string, string] => [pair.name, pair.compact]),
+    ...FIXED_SPACING.flatMap((name): [string, string][] =>
+      tokens.spacing[name] === undefined ? [] : [[name, String(tokens.spacing[name])]],
+    ),
     ...sizes.compact,
   ];
   const roomy = [

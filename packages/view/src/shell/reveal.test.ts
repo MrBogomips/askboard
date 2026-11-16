@@ -2,8 +2,9 @@ import { describe, expect, test } from "bun:test";
 import { revealAndFocus, revealDelta } from "./reveal.ts";
 
 // The scroll that clears the sticky bars (answering-flow-fixes, design decision 2; #180): a
-// 800 px viewport between a header 60 px down and a bottom bar 80 px high, with a gap of 8 px, so
-// a box is clear when it lies within [68, 712].
+// 800 px viewport under a header 60 px down and over a bottom inset of 80 px (the arithmetic keeps a
+// bottom inset for the reading panel's sake), with a gap of 8 px, so a box is clear when it lies
+// within [68, 712].
 const INSET = { top: 60, bottom: 80 };
 const VIEWPORT = 800;
 const GAP = 8;
@@ -42,13 +43,14 @@ describe("the scroll that brings a box clear of the bars", () => {
 });
 
 // The DOM glue, against a stand-in document: the real scroll and focus are checked in the browser.
+// There is no bottom bar (answering-flow-visual): the header, the strip of tabs and the tray are the
+// only bars, so the band ends at the viewport's foot less the gap.
 const stubbed = (
   box: { top: number; bottom: number },
-  bars: { header?: number; footer?: number },
+  bars: { header?: number; tray?: number },
 ) => {
   const calls: string[] = [];
   const rect = (edge: number) => ({ getBoundingClientRect: () => ({ top: edge, bottom: edge }) });
-  const footers = bars.footer === undefined ? [] : [rect(bars.footer)];
   const view = {
     innerHeight: VIEWPORT,
     scrollBy: (options: { top: number; behavior: string }) =>
@@ -56,8 +58,13 @@ const stubbed = (
   };
   const doc = {
     defaultView: view,
-    querySelector: () => (bars.header === undefined ? null : rect(bars.header)),
-    querySelectorAll: () => ({ length: footers.length, item: (i: number) => footers[i] ?? null }),
+    querySelector: (selector: string) => {
+      if (selector === "header") return bars.header === undefined ? null : rect(bars.header);
+      if (selector === "[data-askboard-tray-box]") {
+        return bars.tray === undefined ? null : rect(bars.tray);
+      }
+      return null;
+    },
   };
   const element = {
     ownerDocument: doc,
@@ -68,19 +75,25 @@ const stubbed = (
 };
 
 describe("revealing and focusing an element", () => {
-  test("scrolls clear of the bars at once, then focuses without scrolling again", () => {
-    const { calls, element } = stubbed({ top: 700, bottom: 740 }, { header: 60, footer: 720 });
+  test("scrolls clear of the viewport's foot at once, then focuses without scrolling again", () => {
+    const { calls, element } = stubbed({ top: 770, bottom: 810 }, { header: 60 });
     revealAndFocus(element);
-    expect(calls).toEqual(["scrollBy 28 instant", "focus true"]);
+    expect(calls).toEqual(["scrollBy 18 instant", "focus true"]);
   });
 
   test("does not scroll an element already clear", () => {
-    const { calls, element } = stubbed({ top: 200, bottom: 240 }, { header: 60, footer: 720 });
+    const { calls, element } = stubbed({ top: 200, bottom: 240 }, { header: 60 });
     revealAndFocus(element);
     expect(calls).toEqual(["focus true"]);
   });
 
-  test("with neither bar the viewport's edges are the limits", () => {
+  test("clears the tray's bottom edge while it holds a message", () => {
+    const { calls, element } = stubbed({ top: 100, bottom: 140 }, { header: 60, tray: 180 });
+    revealAndFocus(element);
+    expect(calls).toEqual(["scrollBy -88 instant", "focus true"]);
+  });
+
+  test("with no bar the viewport's edges are the limits", () => {
     const { calls, element } = stubbed({ top: -20, bottom: 20 }, {});
     revealAndFocus(element);
     expect(calls).toEqual(["scrollBy -28 instant", "focus true"]);

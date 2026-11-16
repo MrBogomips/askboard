@@ -11,9 +11,11 @@
 import type { PresentationSetting } from "@askboard/contract";
 import { SEGMENT, SEGMENTS } from "../shell/segment-classes.ts";
 import { segmentAfterKey } from "../shell/segment-keys.ts";
+import type { ReferenceInset } from "../view-protocol.ts";
 import { closeIcon } from "./icons.ts";
 import { element } from "./page-chrome.ts";
 import type { PanelControl, PanelData, PanelKeysRow, PanelRow } from "./settings-panel-data.ts";
+import { placementOf } from "./settings-placement.ts";
 
 /** What the panel does with the user's acts. */
 export type PanelActions = {
@@ -23,13 +25,14 @@ export type PanelActions = {
 
 export type SettingsPanel = {
   /** Shows the panel with this content, opening it first if it is closed; undefined closes it. */
-  show(data: PanelData | undefined): void;
+  show(data: PanelData | undefined, inset?: ReferenceInset): void;
 };
 
-// `reading-panel`'s form: at the right edge, from under the context header's two rows down to the
-// bottom action bar, on the popover surface with a left border and the large shadow.
+// `reading-panel`'s form: at the right edge, from under the view's header (its inset, which the
+// view measured) down to the viewport's bottom, on the popover surface with a left border and the
+// large shadow.
 const SHEET =
-  "fixed right-0 top-[calc(var(--header-row)*2)] bottom-[var(--bottom-bar)] z-10 flex w-[560px] max-w-full " +
+  "fixed right-0 bottom-0 z-10 flex w-[560px] max-w-full " +
   "flex-col border-l border-border bg-popover text-foreground shadow-lg";
 const HEADER = "flex items-center justify-between gap-md border-b border-border px-lg py-sm";
 const BODY = "flex min-h-0 flex-1 flex-col gap-lg overflow-y-auto p-lg";
@@ -180,8 +183,16 @@ const focusedSegment = (document: Document, sheet: HTMLElement): string | undefi
     : undefined;
 };
 
-const sheetOf = (document: Document, data: PanelData, actions: PanelActions): HTMLElement => {
+const sheetOf = (
+  document: Document,
+  data: PanelData,
+  actions: PanelActions,
+  inset: ReferenceInset | undefined,
+): HTMLElement => {
   const aside = element(document, "aside", SHEET);
+  const place = placementOf(inset);
+  aside.style.top = place.top;
+  aside.style.bottom = place.bottom;
   aside.setAttribute("aria-label", data.title);
   aside.dataset.askboardSettingsPanel = "";
   const close = element(document, "button", CLOSE);
@@ -211,7 +222,7 @@ export const createSettingsPanel = (
 ): SettingsPanel => {
   let sheet: HTMLElement | undefined;
   return {
-    show: (data) => {
+    show: (data, inset) => {
       if (data === undefined) {
         sheet?.remove();
         sheet = undefined;
@@ -219,7 +230,7 @@ export const createSettingsPanel = (
       }
       const previous = sheet;
       const refocus = previous === undefined ? undefined : focusedSegment(document, previous);
-      const next = sheetOf(document, data, actions);
+      const next = sheetOf(document, data, actions, inset);
       if (previous === undefined) document.body.append(next);
       else previous.replaceWith(next);
       sheet = next;

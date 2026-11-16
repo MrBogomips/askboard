@@ -145,7 +145,7 @@ describe("the shared modules and the chunks that provide them", () => {
   test("the icon module comes from the icons chunk, under the name widgets import it by, with the names its file exports (icon-set, design decision 4)", () => {
     expect(ICONS_MODULE).toBe("@askboard/view/icons");
     expect(ICONS_FILE).toBe(join(VIEW_SRC, "icons/index.ts"));
-    expect(iconExports()).toHaveLength(19);
+    expect(iconExports()).toHaveLength(37);
     expect(modules.get(ICONS_MODULE)).toEqual({ chunk: "icons", names: iconExports() });
     expect(LIBRARY_CHUNKS.icons?.modules).toEqual({ [ICONS_MODULE]: iconExports() });
   });

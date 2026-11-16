@@ -1,20 +1,18 @@
-// The bottom action bar (EXPERIENCE.md, Bottom action bar, Delivery mode switch, Select
-// recommended, Submit and Mode-switch confirmation; DESIGN.md, the same; ask-lifecycle, task 6.6;
-// FR-3, FR-22, AD-20): sticky, on a board of two or more questions it holds the "Delivery" label
-// and the "Immediate | Submitted" switch with its helper text, the postponed warning line, then
-// "Select recommended" (only while a question has a recommendation), "Snapshot" with its feedback
-// (snapshot task 7.1), the count of agent-change notices on held work, which jumps to the first,
-// and "Submit". Switching from submitted to
-// immediate with held work asks first, in a modal Radix Alert Dialog whose scroll lock runs
-// through the view's style-element shim (S-6): confirming sends the held work as Submit does and
-// switches, cancelling stays in submitted delivery; it is blocked as Submit is. On the
-// single-question board the bar shows only the postponed warning line, while there is one, and
-// "Snapshot".
+// The outbox, at the foot of the rail (answering-flow-visual, design decision 3; EXPERIENCE.md,
+// Outbox, Delivery mode switch and Submit and Mode-switch confirmation; DESIGN.md, the same;
+// ask-lifecycle, task 6.6; FR-3, FR-22, AD-20): on a board of two or more questions it holds the
+// "Sending answers" label with the inbox icon, the "One by one | All together" switch with its helper
+// text, the count of agent-change notices on held work, which jumps to the first, and Send. It moved
+// out of the bottom action bar with no change of behaviour. Switching from submitted to immediate
+// with held work asks first, in a modal Radix Alert Dialog whose scroll lock runs through the view's
+// style-element shim (S-6): confirming sends the held work as Send does and switches, cancelling
+// stays in submitted delivery; it is blocked as Send is.
 
 import type { LifecycleBoardState } from "@askboard/contract";
 import { AlertDialog } from "radix-ui";
 import { useRef, useState } from "react";
 import { useLanguage, useStrings } from "../catalog/port.ts";
+import { IconInfo, IconOutbox, IconSendAll } from "../icons/index.ts";
 import type { ViewDocument, ViewQuestion } from "../view-document.ts";
 import type { ViewAct } from "../view-protocol.ts";
 import type { ReadOnlyOf, ShownOf } from "./agent-change.ts";
@@ -23,10 +21,10 @@ import { type Senders, sendSubmit } from "./card-acts.ts";
 import { entriesWithCells } from "./cell-entries.ts";
 import type { DerivedStore } from "./derived-store.ts";
 import type { DraftStore } from "./draft-store.ts";
-import { QuestionMarker } from "./markers.tsx";
+import type { Ledger } from "./ledger.ts";
+import { LedgerCells } from "./ledger-cells.tsx";
+import type { OutboxLine } from "./outbox-line.ts";
 import { ReplacedQuestions } from "./replaced-questions.tsx";
-import { SnapshotButton, SnapshotFeedback } from "./snapshot-button.tsx";
-import type { SnapshotControl, SnapshotOffer } from "./snapshot-control.ts";
 import {
   BUTTON_LINK,
   BUTTON_PRIMARY,
@@ -45,25 +43,15 @@ import {
   updatesLabel,
 } from "./submit.ts";
 
-const Warning = ({ warning }: { readonly warning: string }) => (
-  <span className="flex items-center gap-1.5">
-    <QuestionMarker mark="postponed" />
-    <span className="text-body text-foreground">{warning}</span>
-  </span>
-);
-
-export type BottomBarProps = {
-  readonly single: boolean;
+export type OutboxProps = {
   readonly document: ViewDocument;
   /** The state of the board: the receipts of the answers Submit would replace. */
   readonly state: LifecycleBoardState;
   readonly delivery: Delivery;
-  readonly warning: string | undefined;
+  /** The four counts of the ledger (decision 4) and the line under Send (decision 3). */
+  readonly ledger: Ledger;
+  readonly line: OutboxLine | undefined;
   readonly submit: SubmitState;
-  /** The questions "Prefill recommended" can fill now: the label's count, the button absent at 0. */
-  readonly prefillCount: number;
-  /** A prefill still live: what it filled and "Undo", which clears it (decision 8). */
-  readonly prefilled?: { readonly count: number; readonly onUndo: () => void };
   /** Nothing on the board acts: it moved, or the ask ended. */
   readonly locked: boolean;
   readonly context: Senders & {
@@ -74,9 +62,6 @@ export type BottomBarProps = {
     readonly board: BoardDraft;
     readonly derived: DerivedStore;
   };
-  /** "All together", nothing left to do, acts held: the line beside Send (decision 6). */
-  readonly allReady?: boolean;
-  readonly onSelectRecommended: () => void;
   /** The items of a question the card makes read-only; Submit's field block skips them. */
   readonly readOnlyOf?: ReadOnlyOf;
   /** The question each card shows; Submit's gates read that revision (Issue #92). */
@@ -93,26 +78,10 @@ export type BottomBarProps = {
    * trigger, so Radix restores none).
    */
   readonly onSubmitted?: () => void;
-  /** The bar's Snapshot, and whether the board offers it now. */
-  readonly snapshot: SnapshotControl;
-  readonly snapshotOffer: SnapshotOffer;
 };
 
-export const BottomBar = (props: BottomBarProps) => {
-  const {
-    single,
-    document,
-    state,
-    delivery,
-    warning,
-    submit,
-    prefillCount,
-    locked,
-    context,
-    readOnlyOf,
-    shownOf,
-    load,
-  } = props;
+export const Outbox = (props: OutboxProps) => {
+  const { document, state, delivery, submit, locked, context, readOnlyOf, shownOf, load } = props;
   const [confirming, setConfirming] = useState(false);
   // Submit asks once more when it would replace a verdict the agent has received (design decision 6).
   const [replacing, setReplacing] = useState<
@@ -127,18 +96,6 @@ export const BottomBar = (props: BottomBarProps) => {
   const sent = useRef<"submitted" | "switched" | undefined>(undefined);
   const text = useStrings();
   const language = useLanguage();
-  const snapshot = <SnapshotButton control={props.snapshot} offer={props.snapshotOffer} />;
-  // The feedback has a line of its own under the bar's controls, whatever the path's length.
-  const feedback = <SnapshotFeedback control={props.snapshot} offer={props.snapshotOffer} />;
-  if (single) {
-    return (
-      <footer className="sticky bottom-0 flex min-h-bottom-bar flex-wrap items-center gap-sm border-t border-border bg-card px-lg py-sm">
-        {warning === undefined ? null : <Warning warning={warning} />}
-        <span className="ml-auto flex min-w-0 items-center gap-sm">{snapshot}</span>
-        {feedback}
-      </footer>
-    );
-  }
   // The press of Submit against the held work as it is now.
   const pressNow = () =>
     submitPress(
@@ -209,15 +166,20 @@ export const BottomBar = (props: BottomBarProps) => {
   };
   const [blocked] = submit.blocked;
   return (
-    <footer className="sticky bottom-0 flex min-h-bottom-bar flex-wrap items-center gap-md border-t border-border bg-card px-lg py-sm">
-      <span id="askboard-delivery" className={SECTION_LABEL}>
+    <section
+      data-askboard-outbox=""
+      aria-labelledby="askboard-delivery"
+      className="flex flex-col gap-sm border-t border-border bg-card p-sm"
+    >
+      <span id="askboard-delivery" className={`${SECTION_LABEL} flex items-center gap-1.5`}>
+        <IconOutbox className="size-4" />
         {text("bar.delivery")}
       </span>
-      <fieldset aria-labelledby="askboard-delivery" className={SEGMENTS}>
+      <fieldset aria-labelledby="askboard-delivery" className={`${SEGMENTS} w-full`}>
         <button
           ref={immediateButton}
           type="button"
-          className={SEGMENT}
+          className={`${SEGMENT} flex-1 justify-center`}
           data-askboard-delivery="immediate"
           aria-pressed={delivery === "immediate"}
           disabled={locked || blockedSwitch}
@@ -227,7 +189,7 @@ export const BottomBar = (props: BottomBarProps) => {
         </button>
         <button
           type="button"
-          className={SEGMENT}
+          className={`${SEGMENT} flex-1 justify-center`}
           data-askboard-delivery="submitted"
           aria-pressed={delivery === "submitted"}
           disabled={locked}
@@ -241,62 +203,44 @@ export const BottomBar = (props: BottomBarProps) => {
           ? text("bar.immediateHelp")
           : text("bar.submittedHelp", { submit: text("bar.submitName") })}
       </span>
-      {warning === undefined ? null : <Warning warning={warning} />}
-      <span className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-sm">
-        {props.prefilled === undefined ? null : (
-          <>
-            <span data-askboard-prefilled="" className="text-body text-foreground-secondary">
-              {text("status.prefilled", { count: props.prefilled.count })}
-            </span>
+      <LedgerCells ledger={props.ledger} />
+      {delivery === "immediate" ? null : (
+        <button
+          ref={submitButton}
+          type="button"
+          data-askboard-submit=""
+          className={`${BUTTON_PRIMARY} w-full justify-center gap-1.5`}
+          disabled={submit.disabled}
+          onClick={() => send()}
+        >
+          <IconSendAll className="size-4" />
+          {submit.answers > 0
+            ? text("bar.submit", { count: submit.answers })
+            : text("bar.submitPlain")}
+        </button>
+      )}
+      {props.line === undefined ? null : (
+        <p
+          data-askboard-outbox-line={props.line.kind}
+          data-askboard-all-ready={props.line.kind === "all-ready" ? "" : undefined}
+          className="m-0 flex items-start gap-1.5 text-body text-muted-foreground"
+        >
+          <IconInfo className="mt-0.5 size-4 shrink-0" />
+          {props.line.kind === "updates" ? (
             <button
               type="button"
-              className={BUTTON_SECONDARY}
-              data-askboard-undo=""
-              disabled={locked}
-              onClick={props.prefilled.onUndo}
+              className={`${BUTTON_LINK} h-auto text-left`}
+              onClick={() => props.onJump(blocked ?? "")}
             >
-              {text("bar.undoPrefill")}
+              {updatesLabel(props.line.count, language)}
             </button>
-          </>
-        )}
-        {prefillCount > 0 ? (
-          <button
-            type="button"
-            className={BUTTON_SECONDARY}
-            data-askboard-prefill=""
-            disabled={locked}
-            onClick={props.onSelectRecommended}
-          >
-            {text("bar.selectRecommended", { count: prefillCount })}
-          </button>
-        ) : null}
-        {snapshot}
-        {blocked === undefined ? null : (
-          <button type="button" className={BUTTON_LINK} onClick={() => props.onJump(blocked)}>
-            {updatesLabel(submit.blocked.length, language)}
-          </button>
-        )}
-        {delivery === "immediate" || props.allReady !== true ? null : (
-          <span data-askboard-all-ready="" className="text-body text-foreground-secondary">
-            {text("bar.allReady")}
-          </span>
-        )}
-        {delivery === "immediate" ? null : (
-          <button
-            ref={submitButton}
-            type="button"
-            data-askboard-submit=""
-            className={BUTTON_PRIMARY}
-            disabled={submit.disabled}
-            onClick={() => send()}
-          >
-            {submit.answers > 0
-              ? text("bar.submit", { count: submit.answers })
-              : text("bar.submitPlain")}
-          </button>
-        )}
-      </span>
-      {feedback}
+          ) : props.line.kind === "all-ready" ? (
+            text("bar.allReady")
+          ) : (
+            text("outbox.held", { count: props.line.count })
+          )}
+        </p>
+      )}
       <AlertDialog.Root open={confirming} onOpenChange={setConfirming}>
         <AlertDialog.Portal>
           <AlertDialog.Overlay className="fixed inset-0 z-30 bg-foreground/30" />
@@ -386,6 +330,6 @@ export const BottomBar = (props: BottomBarProps) => {
           </AlertDialog.Content>
         </AlertDialog.Portal>
       </AlertDialog.Root>
-    </footer>
+    </section>
   );
 };

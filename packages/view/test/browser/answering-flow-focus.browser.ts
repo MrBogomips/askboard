@@ -41,6 +41,7 @@ import {
   openBoard,
   optionOf,
   receiptOf,
+  viewportBottom,
 } from "./harness/lifecycle-test.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 
@@ -83,7 +84,7 @@ const expectClearOfBars = async (board: Board, id: string): Promise<void> => {
   await eventually(() => isFocused(heading), `focus on the ${id} heading`);
   const bounds = {
     header: await boxOf(board.view.getByRole("banner")),
-    bar: await boxOf(board.view.getByRole("contentinfo")),
+    bar: { top: await viewportBottom(board) },
   };
   // A scroll the move started finishes within a frame or two: wait for the box to settle in place.
   await eventually(async () => {
@@ -99,7 +100,10 @@ const expectClearOfBars = async (board: Board, id: string): Promise<void> => {
  */
 const hideBehind = async (board: Board, id: string, bar: "bar" | "header"): Promise<void> => {
   const heading = headingOf(board, id);
-  const edge = await boxOf(board.view.getByRole(bar === "bar" ? "contentinfo" : "banner"));
+  const edge =
+    bar === "bar"
+      ? { top: await viewportBottom(board), bottom: await viewportBottom(board) }
+      : await boxOf(board.view.getByRole("banner"));
   const box = await boxOf(heading);
   const target = bar === "bar" ? edge.top + 6 : edge.bottom - 6 - (box.bottom - box.top);
   await heading.evaluate((element, delta) => {
@@ -110,6 +114,9 @@ const hideBehind = async (board: Board, id: string, bar: "bar" | "header"): Prom
     return bar === "bar" ? now.bottom > edge.top : now.top < edge.bottom;
   }, `the ${id} heading behind the ${bar}`);
 };
+
+const scrollOf = (board: Board): Promise<number> =>
+  board.view.locator("body").evaluate((body) => body.ownerDocument.defaultView?.scrollY ?? 0);
 
 /** Chooses an option and presses "Answer", with the keyboard alone. */
 const answerWithKeys = async (board: Board, id: string, label = "Yes"): Promise<void> => {
@@ -131,7 +138,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     const { start } = useEngine(engine);
 
     test(
-      "next open to a heading half behind the bottom bar scrolls it clear",
+      "next open to a heading below the viewport scrolls it clear of the header",
       async () => {
         const { run, board } = await open(start, "sections");
         await nextOpen(board).click({ timeout: STEP_TIMEOUT_MS });
@@ -140,6 +147,52 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await nextOpen(board).click({ timeout: STEP_TIMEOUT_MS });
         await expectClearOfBars(board, "q2");
         expectNoCspProblem(run);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "next open to a heading under where the bottom bar stood: its bottom edge 16 px above the viewport's foot, the view does not scroll and the heading has focus",
+      async () => {
+        const { run, board } = await open(start, "sections");
+        await nextOpen(board).click({ timeout: STEP_TIMEOUT_MS });
+        await expectClearOfBars(board, "q1");
+        const heading = headingOf(board, "q2");
+        const foot = await viewportBottom(board);
+        const box = await boxOf(heading);
+        await heading.evaluate(
+          (element, delta) => {
+            element.ownerDocument.defaultView?.scrollBy(0, delta);
+          },
+          box.bottom - (foot - 16),
+        );
+        await eventually(async () => {
+          const now = await boxOf(heading);
+          return Math.abs(now.bottom - (foot - 16)) < 1;
+        }, "the q2 heading 16 px above the foot");
+        const before = await scrollOf(board);
+        await nextOpen(board).click({ timeout: STEP_TIMEOUT_MS });
+        await eventually(() => isFocused(heading), "focus on the q2 heading");
+        expect(await scrollOf(board)).toBe(before);
+        expectNoCspProblem(run);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a message in the tray: an outline jump lands the heading wholly below the tray's bottom edge, with focus",
+      async () => {
+        const { board } = await open(start, "sections");
+        await board.prefill.click({ timeout: STEP_TIMEOUT_MS });
+        const tray = board.view.locator("[data-askboard-tray-box]");
+        await tray.waitFor({ timeout: STEP_TIMEOUT_MS });
+        await outlineEntry(board, "q6").click({ timeout: STEP_TIMEOUT_MS });
+        const heading = headingOf(board, "q6");
+        await eventually(() => isFocused(heading), "focus on the q6 heading");
+        await eventually(async () => {
+          const trayBox = await boxOf(tray);
+          return (await boxOf(heading)).top >= trayBox.bottom;
+        }, "the q6 heading below the tray");
       },
       TEST_TIMEOUT_MS,
     );
@@ -158,7 +211,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
 
     for (const presentation of ["sections", "tabs"] as const) {
       test(
-        `an outline jump in ${presentation} puts a heading half behind a bar between the header and the bottom bar`,
+        `an outline jump in ${presentation} puts a heading half behind the header, or below the viewport's foot, between the header and the foot`,
         async () => {
           const { board } = await open(start, presentation);
           await hideBehind(board, "q2", "bar");
@@ -309,7 +362,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           if (active instanceof HTMLElement) active.blur();
         });
         const header = await boxOf(board.view.getByRole("banner"));
-        const bar = await boxOf(board.view.getByRole("contentinfo"));
+        const bar = { top: await viewportBottom(board) };
         const line = header.bottom + (bar.top - header.bottom) / 3;
         const q5 = await boxOf(card(board, "q5"));
         await board.view

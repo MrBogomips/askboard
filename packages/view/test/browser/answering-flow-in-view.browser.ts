@@ -28,6 +28,7 @@ import {
   openBoard,
   optionOf,
   sentDrafts,
+  viewportBottom,
 } from "./harness/lifecycle-test.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 
@@ -84,7 +85,7 @@ const scrollBy = (board: Board, delta: number): Promise<void> =>
 /** Scrolls so that the question's card crosses the reading line, a third down the band. */
 const scrollToLine = async (board: Board, id: string): Promise<void> => {
   const header = await boxOf(board.view.getByRole("banner"));
-  const bar = await boxOf(board.view.getByRole("contentinfo"));
+  const bar = { top: await viewportBottom(board) };
   const line = header.bottom + (bar.top - header.bottom) / 3;
   const card = await boxOf(board.question(id));
   await scrollBy(board, card.top - (line - 20));

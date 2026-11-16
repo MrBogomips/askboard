@@ -8,7 +8,6 @@
 import { describe, expect, test } from "bun:test";
 import {
   BOARD_DOCUMENT_VERSION,
-  BOARD_PROTOCOL_VERSION,
   CONFIGURATION_VERSION,
   INPUT_FORMAT_VERSION,
   LOCAL_API_VERSION,
@@ -39,7 +38,6 @@ describe("the output format's minor for the Kanban's order", () => {
       input: INPUT_FORMAT_VERSION,
       envelopes: TOOL_ENVELOPES_VERSION,
       document: BOARD_DOCUMENT_VERSION,
-      protocol: BOARD_PROTOCOL_VERSION,
       snapshot: SNAPSHOT_DATA_VERSION,
       manifest: VIEW_MANIFEST_VERSION,
       configuration: CONFIGURATION_VERSION,
@@ -49,7 +47,6 @@ describe("the output format's minor for the Kanban's order", () => {
       input: "1.13",
       envelopes: "1.14",
       document: "1.12",
-      protocol: "1.11",
       snapshot: "1.3",
       manifest: "1.1",
       configuration: "1.2",

@@ -38,11 +38,13 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const board = await openBoard(run, ["database", "cache"]);
         await answerOf(board, "database").waitFor({ timeout: STEP_TIMEOUT_MS });
         const header = board.view.getByRole("banner");
+        // Theme and Density are in the Theme control's popover.
+        await board.themeControl.click({ timeout: STEP_TIMEOUT_MS });
         for (const [group, chosen, other] of [
           ["Theme", "System", "Dark"],
           ["Density", "Compact", "Comfortable"],
         ] as const) {
-          const radios = header.getByRole("radiogroup", { name: group });
+          const radios = board.view.getByRole("radiogroup", { name: group });
           expect(await underline(radios.getByRole("radio", { name: chosen }))).toEqual(CHOSEN);
           const resting = await underline(radios.getByRole("radio", { name: other }));
           expect(resting.width).toBe("2px");
@@ -53,7 +55,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const delivery = board.view.getByRole("group", { name: /sending answers/i });
         const pressed = delivery.locator('[aria-pressed="true"]');
         expect(await underline(pressed)).toEqual(CHOSEN);
-        // The settings panel, on the board page.
+        // The Theme popover closes with Escape; the settings panel is on the board page.
+        await board.page.keyboard.press("Escape");
         await header.getByRole("button", { name: "Settings", exact: true }).click();
         const panel = board.page
           .getByRole("complementary", { name: "Settings" })

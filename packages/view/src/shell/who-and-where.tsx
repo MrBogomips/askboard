@@ -69,7 +69,7 @@ const Path = ({ value }: { readonly value: string }) => (
  * Text capped with an ellipsis. When it is cut, it takes the keyboard focus and shows its full
  * text in a tooltip on hover and on focus; when it fits, it is plain text.
  */
-const Clipped = ({
+export const Clipped = ({
   children,
   className,
 }: {

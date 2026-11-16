@@ -1,0 +1,1422 @@
+<!doctype html>
+<html lang="it" data-palette="carta">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AskBoard · Proposta B «Cabina» 1.1.0</title>
+<!--
+  Mockup of Proposal B "Cabina" for the AskBoard answering flow (Issue #168), version 1.1.0.
+  1.1.0 settles the open points of direction B: "Carta" drawn on B's layout (the default), the accepted wording
+  of the review report section 4, one question per view, the single-question board, the rail width, the homes of
+  the postponed warning and of the "updates need a choice" link, stable short question numbers, and the ask pill
+  as the PO decided on Issue #213 (option 1: it says what the user answered; delivery only in the receipts). The alternatives the PO must choose between are reachable from the mockup strip.
+  Self-contained: no network, system fonts, inline SVG icons from Lucide (ISC; some derived from Feather, MIT).
+  Colour tokens use the product's role names so they can move into DESIGN.md.
+-->
+<style>
+/* ===================== Palettes: role tokens (light on :root[data-palette], dark with .dark) ===================== */
+/* "Carta": the product's palette today (DESIGN.md colors, light and dark), the default. success-foreground is not in
+   DESIGN.md: white on light and the dark background on dark, as its destructive-foreground does. */
+:root[data-palette="carta"]{
+  --background:#f7f5f0; --card:#fffdf9; --muted:#f0ece4; --popover:#fffdf9;
+  --border:#e3ddd2; --border-strong:#8f877a;
+  --foreground:#2b2722; --foreground-secondary:#554e45; --muted-foreground:#6b6358;
+  --primary:#0b6e7f; --primary-hover:#085866; --primary-subtle:#e3f0f0; --primary-text:#0a6474; --primary-foreground:#ffffff; --ring:#2a8a9a;
+  --success:#3d7a35; --success-subtle:#ecf3e4; --success-text:#2f6428; --success-foreground:#ffffff;
+  --warning:#a87410; --warning-subtle:#fbf1da; --warning-text:#7a5006;
+  --destructive:#b42335; --destructive-subtle:#fbeaeb; --destructive-text:#9b1d2d;
+  --info:#1b7f8f; --info-subtle:#e3f0f0; --info-text:#0a6474;
+  --agent:#4057b2; --agent-subtle:#eceff9; --agent-text:#34489a;
+  --change:#a3336f; --change-subtle:#f9ecf2; --change-text:#8a2a5d;
+  --shadow: 0 1px 2px rgba(43, 39, 34, 0.06);
+}
+:root[data-palette="carta"].dark{
+  --background:#1b1916; --card:#23201c; --muted:#161411; --popover:#2c2925;
+  --border:#3a352f; --border-strong:#7a7266;
+  --foreground:#ebe6dd; --foreground-secondary:#c8c0b4; --muted-foreground:#a39a8d;
+  --primary:#5fb4c2; --primary-hover:#82c6d1; --primary-subtle:#183033; --primary-text:#6fc0cd; --primary-foreground:#10201f; --ring:#82c6d1;
+  --success:#79b56b; --success-subtle:#1f2b1b; --success-text:#9fcd92; --success-foreground:#1b1916;
+  --warning:#ddb04a; --warning-subtle:#33280f; --warning-text:#e9c46a;
+  --destructive:#e0626e; --destructive-subtle:#3b1c20; --destructive-text:#f09aa2;
+  --info:#5fb4c2; --info-subtle:#183033; --info-text:#82c6d1;
+  --agent:#8b9fe8; --agent-subtle:#222943; --agent-text:#b0bef2;
+  --change:#db7fb2; --change-subtle:#3a1f2e; --change-text:#eeaacf;
+  --shadow: 0 1px 2px rgba(10, 9, 8, 0.40);
+}
+:root[data-palette="grafite"]{
+  --background:#f3f4f6; --card:#ffffff; --muted:#eaecef; --popover:#ffffff;
+  --border:#dadee3; --border-strong:#7a848f;
+  --foreground:#15181c; --foreground-secondary:#363d45; --muted-foreground:#545d67;
+  --primary:#0a6f74; --primary-hover:#085a5e; --primary-subtle:#e0f0f0; --primary-text:#07656a; --primary-foreground:#ffffff; --ring:#0b7f85;
+  --success:#2b7a44; --success-subtle:#e4f2e8; --success-text:#1f6235; --success-foreground:#ffffff;
+  --warning:#946500; --warning-subtle:#faf0d8; --warning-text:#744f00;
+  --destructive:#bf3328; --destructive-subtle:#fbe9e7; --destructive-text:#a32a20;
+  --info:#1867a0; --info-subtle:#e2eef7; --info-text:#145a8c;
+  --agent:#4c52c4; --agent-subtle:#ecedfb; --agent-text:#3d43a6;
+  --change:#a3336f; --change-subtle:#f9ecf2; --change-text:#8a2a5d;
+  --shadow: 0 1px 2px rgb(16 20 24 / .06), 0 1px 1px rgb(16 20 24 / .04);
+}
+:root[data-palette="grafite"].dark{
+  --background:#111316; --card:#191c20; --muted:#1f2328; --popover:#22262b;
+  --border:#2b3036; --border-strong:#6b757f;
+  --foreground:#e6e9ec; --foreground-secondary:#c2c8ce; --muted-foreground:#9aa3ad;
+  --primary:#3cc2bc; --primary-hover:#62d2cd; --primary-subtle:#14302f; --primary-text:#5fd0ca; --primary-foreground:#081414; --ring:#5fd0ca;
+  --success:#62c46a; --success-subtle:#16291a; --success-text:#86d78b; --success-foreground:#08140c;
+  --warning:#e0aa3e; --warning-subtle:#2d2412; --warning-text:#ebc06a;
+  --destructive:#f0766b; --destructive-subtle:#331a18; --destructive-text:#f59a91;
+  --info:#5aaee0; --info-subtle:#132534; --info-text:#86c4ea;
+  --agent:#9196f0; --agent-subtle:#23253f; --agent-text:#b5b9f7;
+  --change:#db7fb2; --change-subtle:#3a1f2e; --change-text:#eeaacf;
+  --shadow: 0 1px 2px rgb(0 0 0 / .4);
+}
+:root[data-palette="nordico"]{
+  --background:#eceff4; --card:#f8fafc; --muted:#e2e7ee; --popover:#fbfcfd;
+  --border:#d2d9e4; --border-strong:#717d96;
+  --foreground:#222936; --foreground-secondary:#394356; --muted-foreground:#515c70;
+  --primary:#3d6391; --primary-hover:#32537a; --primary-subtle:#dce5f0; --primary-text:#355984; --primary-foreground:#ffffff; --ring:#4a74a5;
+  --success:#3a7849; --success-subtle:#e0eee3; --success-text:#2d673b;
+  --success-foreground:#ffffff;
+  --warning:#866718; --warning-subtle:#f2e9d1; --warning-text:#6c5214;
+  --destructive:#b0433a; --destructive-subtle:#f5e2df; --destructive-text:#973a31;
+  --info:#2c6c8b; --info-subtle:#dbeaf0; --info-text:#235b75;
+  --agent:#4f57b6; --agent-subtle:#e5e6f5; --agent-text:#42499e;
+  --change:#8b4d84; --change-subtle:#f0e3ee; --change-text:#784072;
+  --shadow: 0 1px 2px rgb(46 52 64 / .07);
+}
+:root[data-palette="nordico"].dark{
+  --background:#232933; --card:#2c3340; --muted:#323a47; --popover:#38404f;
+  --border:#414a5b; --border-strong:#7e8aa2;
+  --foreground:#e7ebf1; --foreground-secondary:#d3d9e3; --muted-foreground:#adb7c8;
+  --primary:#8ab0d6; --primary-hover:#a3c2e0; --primary-subtle:#36465b; --primary-text:#a2c2e2; --primary-foreground:#1d232d; --ring:#a3c2e0;
+  --success:#92d1a0; --success-subtle:#2d4235; --success-text:#acdeb7; --success-foreground:#1d232d;
+  --warning:#e6c27a; --warning-subtle:#47402b; --warning-text:#efd49c;
+  --destructive:#ec8f86; --destructive-subtle:#4b3135; --destructive-text:#f3aea7;
+  --info:#88c0d0; --info-subtle:#2d4550; --info-text:#abd6e1;
+  --agent:#a5abf0; --agent-subtle:#393c5c; --agent-text:#c3c7f6;
+  --change:#d4a2cc; --change-subtle:#48394a; --change-text:#e4c2de;
+  --shadow: 0 1px 2px rgb(0 0 0 / .3);
+}
+:root[data-palette="contrasto"]{
+  --background:#ffffff; --card:#ffffff; --muted:#efefef; --popover:#ffffff;
+  --border:#6b6b6b; --border-strong:#000000;
+  --foreground:#000000; --foreground-secondary:#1a1a1a; --muted-foreground:#303030;
+  --primary:#0038b8; --primary-hover:#002a8c; --primary-subtle:#e5ecff; --primary-text:#0032a6; --primary-foreground:#ffffff; --ring:#0038b8;
+  --success:#00652a; --success-subtle:#e2f4e8; --success-text:#005221; --success-foreground:#ffffff;
+  --warning:#734b00; --warning-subtle:#fff0d4; --warning-text:#5a3a00;
+  --destructive:#a8001e; --destructive-subtle:#fde6ea; --destructive-text:#8a0019;
+  --info:#004c85; --info-subtle:#e0eefa; --info-text:#003d6b;
+  --agent:#3528b0; --agent-subtle:#ebeaff; --agent-text:#2a1f94;
+  --change:#85004f; --change-subtle:#fbe5f2; --change-text:#6e0042;
+  --shadow: none;
+}
+:root[data-palette="contrasto"].dark{
+  --background:#000000; --card:#0a0a0a; --muted:#171717; --popover:#121212;
+  --border:#9a9a9a; --border-strong:#ffffff;
+  --foreground:#ffffff; --foreground-secondary:#f2f2f2; --muted-foreground:#d6d6d6;
+  --primary:#ffd23f; --primary-hover:#ffe27a; --primary-subtle:#302800; --primary-text:#ffdd5c; --primary-foreground:#000000; --ring:#ffd23f;
+  --success:#5cf08a; --success-subtle:#002810; --success-text:#7df5a2; --success-foreground:#000000;
+  --warning:#ffb84d; --warning-subtle:#331f00; --warning-text:#ffcb7a;
+  --destructive:#ff6b6b; --destructive-subtle:#3a0008; --destructive-text:#ff9a9a;
+  --info:#6ec6ff; --info-subtle:#00233a; --info-text:#9ad7ff;
+  --agent:#b8b3ff; --agent-subtle:#1d1a40; --agent-text:#d0ccff;
+  --change:#ff8ccf; --change-subtle:#3a0026; --change-text:#ffb0dd;
+  --shadow: none;
+}
+:root{
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --radius: 4px;
+  --hdr-h: 84px;
+  --mock-h: 0px;
+  --legend-w: 0px;
+  --rail-w: 268px;
+  --t: 180ms;
+  color-scheme: light;
+}
+:root.dark{ color-scheme: dark; }
+:root[data-palette="contrasto"]{ --hair: 1px; }
+:root[data-palette="contrasto"] .card, :root[data-palette="contrasto"] .btn{ border-width: 1.5px; }
+
+/* ===================== Base ===================== */
+*{ box-sizing: border-box; }
+html, body{ margin: 0; }
+body{ background: var(--background); color: var(--foreground); font: 13px/1.45 var(--font-sans); -webkit-font-smoothing: antialiased; }
+button, input, textarea{ font: inherit; color: inherit; }
+.mono{ font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.sr-only{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0; }
+.ic{ flex: none; display: inline-block; vertical-align: -3px; }
+:focus{ outline: none; }
+:focus-visible{ outline: 2px solid var(--ring); outline-offset: 2px; border-radius: 3px; }
+[data-palette="contrasto"] :focus-visible{ outline-width: 3px; }
+kbd{ font: 500 10.5px/1 var(--font-mono); display:inline-flex; align-items:center; justify-content:center; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 3px;
+  border: 1px solid var(--border-strong); color: var(--muted-foreground); background: var(--card); letter-spacing: .02em; }
+.btn-primary kbd{ background: transparent; border-color: color-mix(in srgb, var(--primary-foreground) 55%, transparent); color: var(--primary-foreground); }
+.label{ font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted-foreground); }
+
+/* Buttons */
+.btn{ display:inline-flex; align-items:center; gap:6px; height:28px; padding:0 10px; border-radius: var(--radius); border:1px solid var(--border); background: var(--card);
+  color: var(--foreground); font-size:12.5px; font-weight:500; cursor:pointer; white-space:nowrap; transition: background var(--t), border-color var(--t), color var(--t); }
+.btn:hover{ background: var(--muted); border-color: var(--border-strong); }
+.btn .ic{ color: var(--muted-foreground); }
+.btn-primary{ background: var(--primary); border-color: var(--primary); color: var(--primary-foreground); }
+.btn-primary .ic{ color: var(--primary-foreground); }
+.btn-primary:hover{ background: var(--primary-hover); border-color: var(--primary-hover); }
+.btn-primary[aria-disabled="true"]{ background: var(--muted); border: 1px dashed var(--border-strong); color: var(--muted-foreground); cursor: not-allowed; }
+.btn-primary[aria-disabled="true"] .ic, .btn-primary[aria-disabled="true"] kbd{ color: var(--muted-foreground); border-color: var(--border-strong); }
+.btn-ghost{ border-color: transparent; background: transparent; }
+.btn-ghost:hover{ background: var(--muted); border-color: transparent; }
+.btn-icon{ width:28px; padding:0; justify-content:center; }
+.btn-sm{ height:24px; padding:0 8px; font-size:12px; }
+.btn[aria-pressed="true"]{ background: var(--primary-subtle); border-color: var(--primary); color: var(--primary-text); }
+.btn[aria-pressed="true"] .ic{ color: var(--primary-text); }
+.linkbtn{ border:0; background:none; padding:0; color: var(--primary-text); font-weight:500; cursor:pointer; font-size:12px; display:inline-flex; align-items:center; gap:4px; }
+.linkbtn:hover{ text-decoration: underline; text-underline-offset: 2px; }
+
+/* Segmented control (radix ToggleGroup-like) */
+.seg{ display:inline-flex; padding:2px; gap:2px; background: var(--muted); border:1px solid var(--border); border-radius: 5px; }
+.seg button{ height:24px; padding:0 9px; border:1px solid transparent; border-radius:3px; background:transparent; font-size:12px; font-weight:500; color: var(--muted-foreground); cursor:pointer; white-space:nowrap; }
+.seg button:hover{ color: var(--foreground); }
+.seg button[aria-checked="true"]{ background: var(--card); color: var(--foreground); border-color: var(--border-strong); box-shadow: var(--shadow); }
+.seg.full{ display:flex; } .seg.full button{ flex:1; }
+
+/* ===================== Board frame ===================== */
+#app{ padding-top: var(--mock-h); margin-right: var(--legend-w); min-height: 100vh; }
+#hdr{ position: sticky; top: var(--mock-h); z-index: 20; height: var(--hdr-h); background: var(--card); border-bottom: 1px solid var(--border); box-shadow: var(--shadow); }
+.hrow{ display:flex; align-items:center; gap:12px; padding: 0 16px; }
+.hrow1{ height: 40px; border-bottom: 1px solid var(--border); }
+.hrow2{ height: 43px; }
+.brand{ display:flex; align-items:baseline; gap:10px; min-width:0; }
+.brand h1{ margin:0; font-size:14.5px; font-weight:650; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; letter-spacing:-.005em; }
+.brand .askid{ font-size:11.5px; color: var(--muted-foreground); }
+.pill{ display:inline-flex; align-items:center; gap:6px; height:22px; padding:0 8px; border-radius:11px; font-size:12px; font-weight:500; white-space:nowrap; }
+.pill-agent{ background: var(--agent-subtle); color: var(--agent-text); }
+.pill-agent .dot{ width:6px; height:6px; border-radius:50%; background: var(--agent); }
+.spacer{ flex:1; }
+.tools{ display:flex; align-items:center; gap:4px; }
+.vsep{ width:1px; height:20px; background: var(--border); flex:none; }
+
+/* Progress strip */
+.progress{ display:flex; align-items:center; gap:10px; min-width:0; }
+.strip{ display:flex; gap:8px; align-items:stretch; }
+.strip .grp{ display:flex; gap:2px; }
+.segm{ position:relative; width:30px; height:24px; border:0; padding:0; border-radius:3px; background: var(--muted); color: var(--muted-foreground); cursor:pointer; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+.segm::after{ content:""; position:absolute; left:0; right:0; bottom:0; height:3px; background: var(--bar, var(--border-strong)); }
+.segm:hover{ filter: brightness(.96); }
+:root.dark .segm:hover{ filter: brightness(1.15); }
+.segm[aria-current="true"]{ box-shadow: inset 0 0 0 1.5px var(--foreground); }
+.segm .newdot{ position:absolute; top:2px; right:2px; width:6px; height:6px; border-radius:50%; background: var(--info); }
+.count{ font-size:12.5px; white-space:nowrap; color: var(--foreground-secondary); }
+.count b{ font-family: var(--font-mono); font-weight:600; color: var(--foreground); }
+
+/* State ladder visual vocabulary */
+.st-todo{ --tone: var(--muted-foreground); --tone-bg: var(--muted); --bar: var(--border-strong); }
+.st-draft{ --tone: var(--primary-text); --tone-bg: var(--primary-subtle); --bar: repeating-linear-gradient(90deg, var(--primary) 0 4px, transparent 4px 7px); --vbar: repeating-linear-gradient(180deg, var(--primary) 0 5px, transparent 5px 9px); }
+.st-held{ --tone: var(--primary-text); --tone-bg: var(--primary-subtle); --bar: var(--primary); --vbar: var(--primary); }
+.st-sent{ --tone: var(--success-text); --tone-bg: var(--success-subtle); --bar: repeating-linear-gradient(90deg, var(--success) 0 4px, transparent 4px 7px); --vbar: repeating-linear-gradient(180deg, var(--success) 0 5px, transparent 5px 9px); }
+.st-delivered{ --tone: var(--success-text); --tone-bg: var(--success-subtle); --bar: var(--success); --vbar: var(--success); }
+.st-postponed{ --tone: var(--muted-foreground); --tone-bg: var(--muted); --bar: repeating-linear-gradient(90deg, var(--muted-foreground) 0 2px, transparent 2px 4px); --vbar: repeating-linear-gradient(180deg, var(--muted-foreground) 0 2px, transparent 2px 4px); }
+.st-declined{ --tone: var(--muted-foreground); --tone-bg: var(--muted); --bar: var(--muted-foreground); --vbar: var(--muted-foreground); }
+.segm{ background: var(--tone-bg); color: var(--tone); }
+.stbadge{ display:inline-flex; align-items:center; gap:5px; height:20px; padding:0 7px; border-radius:3px; font-size:11.5px; font-weight:600; color: var(--tone); background: var(--tone-bg); white-space:nowrap; }
+.badge{ display:inline-flex; align-items:center; gap:4px; height:18px; padding:0 6px; border-radius:3px; font-size:11px; font-weight:600; white-space:nowrap; }
+.badge-rec{ background: var(--agent-subtle); color: var(--agent-text); }
+.badge-new{ background: var(--info-subtle); color: var(--info-text); }
+
+/* Layout */
+.body{ display:flex; align-items:flex-start; }
+#rail{ position: sticky; top: calc(var(--mock-h) + var(--hdr-h)); height: calc(100vh - var(--mock-h) - var(--hdr-h)); width: var(--rail-w); flex:none; display:flex; flex-direction:column;
+  border-right: 1px solid var(--border); background: var(--background); }
+.outline{ flex:1; overflow:auto; padding: 10px 8px 12px; }
+.outline .label{ padding: 2px 8px 6px; display:flex; justify-content:space-between; }
+.oarea{ margin-top: 2px; }
+.oarea-h{ display:flex; justify-content:space-between; align-items:baseline; padding: 5px 8px 2px; font-size:12px; font-weight:650; color: var(--foreground); }
+.oarea-h .mono{ font-size:11px; font-weight:500; color: var(--muted-foreground); }
+.oitem{ position:relative; display:grid; grid-template-columns: 16px 1fr auto; column-gap:8px; align-items:center; width:100%; text-align:left; padding: 3px 8px; border:0; border-radius:3px; background:transparent; cursor:pointer; color: var(--foreground); }
+.oitem:hover{ background: var(--muted); }
+.oitem[aria-current="true"]{ background: var(--card); box-shadow: inset 2px 0 0 var(--primary), 0 0 0 1px var(--border); }
+.oitem .ic{ color: var(--tone); }
+.oitem .t{ font-size:12.5px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.oitem .qid{ font: 11px var(--font-mono); color: var(--muted-foreground); }
+.oitem .s{ grid-column: 2 / 4; font-size:11.5px; color: var(--tone); margin-top:-1px; display:flex; gap:6px; align-items:center; }
+
+/* Outbox */
+.outbox{ flex:none; border-top: 1px solid var(--border-strong); background: var(--card); padding: 10px 12px 12px; position:relative; }
+.outbox h2{ margin:0 0 8px; display:flex; align-items:center; gap:6px; }
+.outbox h2:focus-visible{ outline-offset: 3px; }
+.ledger{ display:grid; grid-template-columns: repeat(4, 1fr); border:1px solid var(--border); border-radius: var(--radius); margin: 10px 0 8px; overflow:hidden; }
+.cell{ padding: 6px 6px 5px; border-left: 1px solid var(--border); position:relative; }
+.cell:first-child{ border-left:0; }
+.cell .n{ display:flex; align-items:center; gap:5px; font: 600 15px/1.1 var(--font-mono); color: var(--tone); }
+.cell .n .ic{ color: var(--tone); }
+.cell .l{ font-size:11px; color: var(--muted-foreground); margin-top:2px; white-space:nowrap; }
+.cell.off .n{ color: var(--muted-foreground); }
+.cell::after{ content:""; position:absolute; left:0; right:0; bottom:0; height:2px; background: var(--bar); opacity:.9; }
+.cell.pulse{ animation: pulse 700ms ease-out; }
+@keyframes pulse{ 0%{ background: var(--tone-bg); } 30%{ background: var(--tone-bg); box-shadow: inset 0 0 0 1.5px var(--tone); } 100%{ background: transparent; box-shadow: none; } }
+.helper{ font-size:12px; color: var(--muted-foreground); margin: 6px 0 0; line-height:1.4; }
+.sendrow{ display:flex; flex-direction:column; gap:6px; }
+.sendrow .btn{ width:100%; justify-content:center; height:32px; font-size:13px; }
+.sendrow .note{ font-size:12px; color: var(--foreground-secondary); display:flex; gap:6px; align-items:flex-start; }
+.sendrow .note .ic{ color: var(--primary-text); margin-top:1px; }
+.none{ font-size:12px; color: var(--muted-foreground); display:flex; align-items:center; gap:6px; height:32px; justify-content:center; border:1px dashed var(--border); border-radius: var(--radius); }
+
+/* Main */
+#main{ flex:1; min-width:0; padding: 14px 24px 45vh; }
+.col{ max-width: 920px; margin: 0 auto; }
+@media (min-width: 1600px){ .col{ max-width: 1060px; } }
+.area{ margin-bottom: 18px; }
+.area-h{ display:flex; align-items:baseline; gap:10px; padding: 4px 2px 8px; border-bottom: 1px solid var(--border); margin-bottom: 8px; }
+.area-h h2{ margin:0; font-size:13px; font-weight:650; }
+.area-h .mono{ font-size:11.5px; color: var(--muted-foreground); }
+.area-h .done{ display:inline-flex; gap:4px; align-items:center; font-size:11.5px; font-weight:600; color: var(--success-text); }
+
+/* Card */
+.card{ scroll-margin-top: calc(var(--mock-h) + var(--hdr-h) + 12px); position:relative; background: var(--card); border:1px solid var(--border); border-radius: var(--radius); padding: 10px 14px 12px 18px; margin-bottom: 8px; transition: border-color var(--t), box-shadow var(--t); }
+.card::before{ content:""; position:absolute; left:-1px; top:-1px; bottom:-1px; width:4px; border-radius: var(--radius) 0 0 var(--radius); background: var(--vbar, var(--border)); }
+.card.st-todo::before{ background: var(--border); }
+.card.focusin{ border-color: var(--border-strong); }
+.card.arrive{ animation: arrive 1600ms ease-out; }
+@keyframes arrive{ 0%,35%{ box-shadow: 0 0 0 2px var(--ring); } 100%{ box-shadow: 0 0 0 2px transparent; } }
+.chead{ display:flex; align-items:center; gap:8px; min-height:22px; }
+.chead .qid{ font: 500 11.5px var(--font-mono); color: var(--muted-foreground); }
+.chip{ display:inline-flex; align-items:center; height:20px; padding:0 7px; border-radius:3px; background: var(--muted); border:1px solid var(--border); font-size:11.5px; font-weight:600; color: var(--foreground-secondary); max-width: 220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.card h3{ margin: 6px 0 8px; font-size:15px; line-height:1.35; font-weight:640; letter-spacing:-.005em; scroll-margin-top: calc(var(--mock-h) + var(--hdr-h) + 18px); }
+.card h3:focus-visible{ outline-offset: 3px; }
+.opts{ display:flex; flex-direction:column; gap:3px; }
+.opt{ position:relative; display:flex; align-items:center; gap:10px; min-height:34px; padding: 5px 10px; border:1px solid var(--border); border-radius: var(--radius); cursor:pointer; background: var(--card); transition: border-color var(--t), background var(--t); }
+.opt:hover{ border-color: var(--border-strong); }
+.opt input{ appearance:none; margin:0; width:14px; height:14px; border-radius:50%; border:1.5px solid var(--border-strong); background: var(--card); flex:none; display:grid; place-content:center; cursor:pointer; }
+.opt input:checked{ border-color: var(--primary); }
+.opt input:checked::after{ content:""; width:6px; height:6px; border-radius:50%; background: var(--primary); }
+.opt:has(input:checked){ border-color: var(--primary); background: var(--primary-subtle); }
+.opt:has(input:focus-visible){ outline: 2px solid var(--ring); outline-offset: 1px; }
+.opt input:focus-visible{ outline:none; }
+.opt .ol{ font-weight:550; white-space:nowrap; }
+.opt .od{ color: var(--muted-foreground); font-size:12.5px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.opt .end{ margin-left:auto; display:flex; align-items:center; gap:10px; flex:none; }
+.locked .opt{ cursor:default; }
+.locked .opt:hover{ border-color: var(--border); }
+.locked .opt.chosen{ border-color: var(--tone); background: var(--tone-bg); }
+.locked .opt:not(.chosen) .ol, .locked .opt:not(.chosen) .od{ color: var(--muted-foreground); }
+.locked .opt:not(.chosen){ border-style: dashed; background: transparent; }
+.opt .chk{ width:14px; height:14px; display:grid; place-content:center; color: var(--tone); flex:none; }
+.opt .dim{ width:14px; height:14px; border-radius:50%; border:1.5px dashed var(--border); flex:none; }
+.fields{ display:grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
+.field label{ display:block; font-size:12px; font-weight:550; margin-bottom:4px; color: var(--foreground-secondary); }
+.field label .req{ color: var(--muted-foreground); font-weight:400; }
+.field input{ width:100%; height:30px; padding: 0 8px; border:1px solid var(--border-strong); border-radius: var(--radius); background: var(--card); }
+.field input:focus-visible{ outline: 2px solid var(--ring); outline-offset: 0; border-color: var(--ring); }
+.field input[aria-invalid="true"]{ border-color: var(--destructive); }
+.field .hint{ font-size:11.5px; color: var(--muted-foreground); margin-top:3px; }
+.field .err{ font-size:11.5px; color: var(--destructive-text); margin-top:3px; display:flex; gap:4px; align-items:center; font-weight:500; }
+.field .val{ height:30px; display:flex; align-items:center; padding: 0 8px; border:1px dashed var(--border); border-radius: var(--radius); color: var(--foreground); }
+.noteln{ margin-top:6px; }
+.notebox textarea{ width:100%; min-height:52px; margin-top:6px; padding:6px 8px; border:1px solid var(--border-strong); border-radius: var(--radius); background: var(--card); resize: vertical; }
+.cacts{ display:flex; align-items:center; gap:8px; margin-top:10px; flex-wrap:wrap; }
+.reason{ display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:500; color: var(--muted-foreground); }
+.reason.err{ color: var(--destructive-text); }
+.hintpre{ display:inline-flex; gap:5px; align-items:center; font-size:12px; color: var(--agent-text); }
+.revnote{ margin-top:8px; font-size:12px; color: var(--foreground-secondary); display:flex; gap:6px; align-items:center; }
+.stateline{ display:flex; align-items:center; gap:10px; margin-top:10px; font-size:12.5px; }
+.stateline .sum{ color: var(--foreground-secondary); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.stateline .sum b{ color: var(--foreground); font-weight:600; }
+.stateline time{ font: 11.5px var(--font-mono); color: var(--muted-foreground); }
+
+/* After-answer footer: the B signature */
+.afoot{ display:flex; align-items:center; gap:10px; margin: 10px -14px -12px -18px; padding: 8px 14px 8px 18px; border-top: 1px solid var(--border); background: var(--tone-bg); border-radius: 0 0 var(--radius) var(--radius); }
+.afoot .what{ display:flex; align-items:center; gap:6px; font-weight:650; color: var(--tone); white-space:nowrap; }
+.afoot .dotsep{ color: var(--muted-foreground); }
+.afoot .nxt{ color: var(--foreground); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.afoot .nxt .mono{ color: var(--muted-foreground); font-size:11.5px; }
+.afoot .why{ display:inline-flex; align-items:center; gap:4px; font-size:11.5px; font-weight:600; color: var(--info-text); }
+.afoot .btn-primary{ height:30px; padding: 0 12px; }
+.afoot .btn-primary:focus{ outline: 2px solid var(--ring); outline-offset: 2px; }
+.afoot .done-area{ display:inline-flex; gap:4px; align-items:center; color: var(--success-text); font-weight:600; }
+
+/* Card menu */
+.menu{ position:absolute; right:10px; top:34px; z-index:15; min-width: 170px; background: var(--popover); border:1px solid var(--border-strong); border-radius: var(--radius); box-shadow: 0 6px 20px rgb(0 0 0 / .18); padding:4px; }
+.menu button{ display:flex; width:100%; gap:8px; align-items:center; height:28px; padding: 0 8px; border:0; background:none; border-radius:3px; cursor:pointer; font-size:12.5px; text-align:left; }
+.menu button:hover, .menu button:focus-visible{ background: var(--muted); outline:none; }
+.menu .ic{ color: var(--muted-foreground); }
+
+/* Navigator (one per view) */
+.qnav{ display:flex; align-items:center; gap:8px; padding: 2px 0 10px; }
+.qnav .pos{ font-size:12.5px; color: var(--foreground-secondary); }
+.qnav .pos b{ font-family: var(--font-mono); color: var(--foreground); }
+
+/* Completion panel */
+.done-panel{ position:relative; border:1px solid var(--border); border-radius: var(--radius); background: var(--card); padding: 14px 16px; margin-bottom: 14px; display:grid; grid-template-columns: 28px 1fr auto; gap: 4px 12px; align-items:start; }
+.done-panel.ok{ border-color: var(--success); box-shadow: inset 4px 0 0 var(--success); }
+.done-panel.open{ border-color: var(--border-strong); box-shadow: inset 4px 0 0 var(--muted-foreground); }
+.done-panel .ic{ margin-top:1px; }
+.done-panel.ok > .ic{ color: var(--success-text); }
+.done-panel.open > .ic{ color: var(--muted-foreground); }
+.done-panel h2{ margin:0; font-size:15px; font-weight:650; scroll-margin-top: calc(var(--mock-h) + var(--hdr-h) + 18px); }
+.done-panel p{ margin: 2px 0 0; color: var(--foreground-secondary); }
+.done-panel .counts{ display:flex; gap:14px; margin-top:8px; flex-wrap:wrap; }
+.done-panel .counts span{ display:inline-flex; align-items:center; gap:6px; font-size:12.5px; }
+.done-panel .counts b{ font-family: var(--font-mono); font-size:14px; }
+
+/* Popovers (settings, keys, theme) */
+.pop{ position:absolute; z-index:40; right:12px; top: 38px; width: 300px; background: var(--popover); border:1px solid var(--border-strong); border-radius: 6px; box-shadow: 0 10px 30px rgb(0 0 0 / .22); padding: 12px; }
+.pop h3{ margin: 0 0 8px; font-size:12.5px; }
+.pop .row{ margin-bottom:10px; }
+.pop .row .label{ display:block; margin-bottom:5px; }
+.keys{ width:100%; border-collapse:collapse; font-size:12.5px; }
+.keys td{ padding: 5px 0; border-top: 1px solid var(--border); vertical-align: middle; }
+.keys td:last-child{ text-align:right; white-space:nowrap; }
+.keys kbd{ margin-left:2px; }
+
+/* Toasts */
+#toasts{ position: fixed; z-index: 30; top: calc(var(--mock-h) + var(--hdr-h) + 10px); right: calc(var(--legend-w) + 18px); display:flex; flex-direction:column; gap:8px; width: 380px; pointer-events:none; }
+.toast{ pointer-events:auto; display:flex; align-items:center; gap:10px; padding: 9px 10px 9px 12px; background: var(--popover); border:1px solid var(--border-strong); border-radius: 6px; box-shadow: 0 8px 24px rgb(0 0 0 / .18); font-size:12.5px; animation: tin 200ms ease-out; }
+.toast .ic.lead{ color: var(--primary-text); }
+.toast.info .ic.lead{ color: var(--info-text); }
+.toast .msg{ flex:1; }
+@keyframes tin{ from{ opacity:0; transform: translateY(-4px); } to{ opacity:1; transform:none; } }
+
+/* Dialog */
+.scrim{ position:fixed; inset:0; z-index:60; background: rgb(0 0 0 / .45); display:grid; place-items:center; }
+.dialog{ width: 440px; background: var(--popover); border:1px solid var(--border-strong); border-radius: 6px; padding: 16px; box-shadow: 0 20px 50px rgb(0 0 0 / .35); }
+.dialog h2{ margin:0 0 6px; font-size:15px; }
+.dialog p{ margin: 0 0 14px; color: var(--foreground-secondary); }
+.dialog .acts{ display:flex; justify-content:flex-end; gap:8px; }
+
+/* ===================== Annotations ===================== */
+.anno{ display:none; }
+body.annos .anno{ display:inline-flex; position:absolute; z-index:12; top:-9px; left:-9px; width:18px; height:18px; border-radius:50%; align-items:center; justify-content:center;
+  background:#ffd23f; color:#1a1400; border: 1.5px solid #1a1400; font: 700 10.5px/1 var(--font-mono); box-shadow: 0 1px 3px rgb(0 0 0 / .35); pointer-events:none; }
+.rel{ position:relative; }
+body.annos .anno.in{ top:6px; left:auto; right:8px; }
+body.annos .anno.r{ left:auto; right:-9px; }
+body.annos .anno.r150{ left:auto; right:150px; }
+#legend{ display:none; }
+body.annos #legend{ display:block; position:fixed; z-index:50; right:0; top: var(--mock-h); bottom:0; width: 320px; overflow:auto; background:#1d1d1f; color:#f1f1f1; border-left: 3px dashed #ffd23f; padding: 14px 14px 24px; font: 12px/1.45 var(--font-sans); }
+#legend h2{ margin: 0 0 4px; font-size:13px; color:#ffd23f; }
+#legend p.sub{ margin:0 0 10px; color:#bdbdbd; font-size:11.5px; }
+#legend ol{ list-style:none; padding:0; margin:0; }
+#legend li{ display:grid; grid-template-columns: 22px 1fr; gap:8px; padding: 7px 0; border-top: 1px solid #333; }
+#legend li .n{ width:18px; height:18px; border-radius:50%; background:#ffd23f; color:#1a1400; font: 700 10.5px/18px var(--font-mono); text-align:center; }
+#legend li .f{ display:block; margin-top:2px; font: 11px var(--font-mono); color:#9fd3ff; }
+
+/* ===================== Mockup controls (not part of the board) ===================== */
+#mock{ position: fixed; z-index: 70; top:0; left:0; right:0; background: repeating-linear-gradient(135deg, #1b1b1d 0 14px, #202023 14px 28px); color:#eee; border-bottom: 3px dashed #ffd23f; font: 12px/1.3 var(--font-sans); }
+#mock .in{ display:flex; flex-wrap:wrap; align-items:center; gap: 8px 16px; padding: 8px 14px; }
+#mock .tag{ font: 700 11px var(--font-mono); letter-spacing:.08em; color:#1a1400; background:#ffd23f; padding: 3px 7px; border-radius: 3px; }
+#mock .tagnote{ color:#cfcfcf; font-size:11.5px; }
+#mock .grp{ display:flex; align-items:center; gap:6px; }
+#mock .grp > span{ color:#bdbdbd; font-size:11px; text-transform:uppercase; letter-spacing:.06em; }
+#mock .mseg{ display:inline-flex; border:1px solid #555; border-radius:4px; overflow:hidden; }
+#mock .mseg button{ background:#2a2a2d; color:#ddd; border:0; border-left:1px solid #444; padding: 4px 8px; font: 12px var(--font-sans); cursor:pointer; }
+#mock .mseg button:first-child{ border-left:0; }
+#mock .mseg button[aria-pressed="true"]{ background:#ffd23f; color:#1a1400; font-weight:600; }
+#mock .mbtn{ background:#2a2a2d; color:#eee; border:1px solid #666; border-radius:4px; padding: 4px 9px; font: 12px var(--font-sans); cursor:pointer; }
+#mock .mbtn:hover{ border-color:#ffd23f; }
+#mock .mbtn:disabled{ opacity:.45; cursor:default; }
+#mock button:focus-visible{ outline: 2px solid #ffd23f; outline-offset: 2px; }
+#mock.collapsed{ display:none; }
+#mockhandle{ position: fixed; z-index: 70; right: 10px; bottom: 10px; display:none; background:#1d1d1f; color:#ffd23f; border: 2px dashed #ffd23f; border-radius: 4px; padding: 4px 9px; font: 700 11px var(--font-mono); cursor:pointer; letter-spacing:.06em; }
+#mockhandle.on{ display:block; }
+body.clean #mockhandle{ display:none; }
+
+/* ===================== 1.1.0 additions ===================== */
+/* Ledger in two rows of two, for a narrow rail */
+.ledger.two{ grid-template-columns: 1fr 1fr; }
+.ledger.two .cell:nth-child(3){ border-left:0; }
+.ledger.two .cell:nth-child(n+3){ border-top: 1px solid var(--border); }
+.ledger .cell .l{ overflow:hidden; text-overflow: ellipsis; }
+/* Postponed warning: a fixed line with the postponed marker, no fill, no warning colour, no dismiss (DESIGN, Bottom action bar) */
+.hrow1 .brand{ flex: 0 1 auto; min-width: 0; }
+.hrow1 .brand .askid{ white-space: nowrap; }
+.hrow1 > .rel:not(.brand), .hrow1 > .pill{ flex: none; }
+.ppwarn{ flex: 0 0 auto; display:inline-flex; align-items:center; gap:6px; min-width:0; font-size:12.5px; color: var(--foreground); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ppwarn .ic{ color: var(--muted-foreground); }
+.ppwarn span{ overflow:hidden; text-overflow:ellipsis; }
+.outbox .ppwarn{ white-space:normal; align-items:flex-start; margin-top:8px; font-size:12px; }
+.outbox .ppwarn .ic{ margin-top:1px; }
+/* Ask pill: what the user has answered (AD-10; #213 answered with option 1). It never carries a delivery count and never
+   uses the delivery icons (send, check-check): delivery is said only by the receipts, the ledger and the completion line. */
+.pill-ask{ border:1px solid var(--border); background: var(--muted); color: var(--foreground-secondary); }
+.pill-ask.partial{ background: var(--card); border-color: var(--border-strong); color: var(--foreground); }
+.pill-ask.answered{ background: var(--success-subtle); border-color: transparent; color: var(--success-text); }
+.pill-ask .ic{ color: currentColor; }
+/* Agent-change notice on a card, and the outbox line that counts them */
+.chg{ margin-top:10px; border:1px solid var(--agent); border-radius: var(--radius); background: var(--agent-subtle); padding: 8px 10px; display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; }
+.chg .t{ display:inline-flex; align-items:center; gap:6px; font-weight:600; color: var(--agent-text); }
+.chg .t .ic{ color: var(--agent-text); }
+.chg .sub{ color: var(--foreground-secondary); font-size:12px; }
+.chg .acts{ display:flex; gap:6px; margin-left:auto; }
+.updates{ display:flex; align-items:flex-start; gap:6px; margin-top:6px; font-size:12px; }
+.updates .ic{ color: var(--agent-text); margin-top:1px; }
+.updates .linkbtn{ text-align:left; color: var(--agent-text); }
+.oitem .flag{ display:inline-flex; align-items:center; gap:3px; color: var(--agent-text); font-weight:600; }
+/* Removed by the agent: a gap left in the fixed numbers */
+.gapnote{ font: 11px var(--font-mono); color: var(--muted-foreground); padding: 0 8px 2px 32px; }
+/* Single-question board: one header row, no rail */
+#app.solo{ --hdr-h: 41px; }
+#app.solo .hrow1{ border-bottom: 0; }
+#app.solo #main{ padding-bottom: 24px; }
+/* Rail with the outbox only (variant of one question per view) */
+#rail.onlybox .outbox{ border-top:0; }
+#rail[hidden]{ display:none; }
+/* Mockup strip, second row: the points to decide; "*" marks the recommended option */
+#mock .in2{ border-top: 1px dashed #555; padding-top:6px; }
+#mock .in2 > .grp > span{ color:#ffd23f; }
+#mock .mseg button[data-rec="1"]::after{ content:" *"; color:#ffd23f; }
+#mock .mseg button[data-rec="1"][aria-pressed="true"]::after{ color:#1a1400; }
+
+/* ===================== Motion ===================== */
+@media (prefers-reduced-motion: reduce){
+  *, *::before, *::after{ animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  .card.arrive{ box-shadow: 0 0 0 2px var(--ring); }
+}
+</style>
+</head>
+<body>
+<div id="mock" role="region" aria-label="Mockup controls"></div>
+<button id="mockhandle" type="button"></button>
+<aside id="legend" aria-label="Annotations"></aside>
+<div id="app">
+  <header id="hdr"></header>
+  <div class="body">
+    <nav id="rail"></nav>
+    <main id="main"></main>
+  </div>
+</div>
+<div id="toasts"></div>
+<div id="live" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+<div id="dialog-root"></div>
+
+<script>
+"use strict";
+const ICONS = {"pencil":"<path d=\"M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z\" /> <path d=\"m15 5 4 4\" />",
+"package":"<path d=\"M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z\" /> <path d=\"M12 22V12\" /> <polyline points=\"3.29 7 12 12 20.71 7\" /> <path d=\"m7.5 4.27 9 5.15\" />",
+"send":"<path d=\"M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z\" /> <path d=\"m21.854 2.147-10.94 10.939\" />",
+"check-check":"<path d=\"M18 6 7 17l-5-5\" /> <path d=\"m22 10-7.5 7.5L13 16\" />",
+"circle":"<circle cx=\"12\" cy=\"12\" r=\"10\" />",
+"circle-dashed":"<path d=\"M10.1 2.182a10 10 0 0 1 3.8 0\" /> <path d=\"M13.9 21.818a10 10 0 0 1-3.8 0\" /> <path d=\"M17.609 3.721a10 10 0 0 1 2.69 2.7\" /> <path d=\"M2.182 13.9a10 10 0 0 1 0-3.8\" /> <path d=\"M20.279 17.609a10 10 0 0 1-2.7 2.69\" /> <path d=\"M21.818 10.1a10 10 0 0 1 0 3.8\" /> <path d=\"M3.721 6.391a10 10 0 0 1 2.7-2.69\" /> <path d=\"M6.391 20.279a10 10 0 0 1-2.69-2.7\" />",
+"clock":"<circle cx=\"12\" cy=\"12\" r=\"10\" /> <path d=\"M12 6v6l4 2\" />",
+"ban":"<circle cx=\"12\" cy=\"12\" r=\"10\" /> <path d=\"M4.929 4.929 19.07 19.071\" />",
+"bell-dot":"<path d=\"M10.268 21a2 2 0 0 0 3.464 0\" /> <path d=\"M11.68 2.009A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673c-.824-.85-1.678-1.731-2.21-3.348\" /> <circle cx=\"18\" cy=\"5\" r=\"3\" />",
+"sparkles":"<path d=\"M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z\" /> <path d=\"M20 2v4\" /> <path d=\"M22 4h-4\" /> <circle cx=\"4\" cy=\"20\" r=\"2\" />",
+"circle-alert":"<circle cx=\"12\" cy=\"12\" r=\"10\" /> <line x1=\"12\" x2=\"12\" y1=\"8\" y2=\"12\" /> <line x1=\"12\" x2=\"12.01\" y1=\"16\" y2=\"16\" />",
+"arrow-right":"<path d=\"M5 12h14\" /> <path d=\"m12 5 7 7-7 7\" />",
+"arrow-left":"<path d=\"m12 19-7-7 7-7\" /> <path d=\"M19 12H5\" />",
+"undo-2":"<path d=\"M9 14 4 9l5-5\" /> <path d=\"M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11\" />",
+"camera":"<path d=\"M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z\" /> <circle cx=\"12\" cy=\"13\" r=\"3\" />",
+"settings":"<path d=\"M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915\" /> <circle cx=\"12\" cy=\"12\" r=\"3\" />",
+"keyboard":"<path d=\"M10 8h.01\" /> <path d=\"M12 12h.01\" /> <path d=\"M14 8h.01\" /> <path d=\"M16 12h.01\" /> <path d=\"M18 8h.01\" /> <path d=\"M6 8h.01\" /> <path d=\"M7 16h10\" /> <path d=\"M8 12h.01\" /> <rect width=\"20\" height=\"16\" x=\"2\" y=\"4\" rx=\"2\" />",
+"ellipsis":"<circle cx=\"12\" cy=\"12\" r=\"1\" /> <circle cx=\"19\" cy=\"12\" r=\"1\" /> <circle cx=\"5\" cy=\"12\" r=\"1\" />",
+"chevron-down":"<path d=\"m6 9 6 6 6-6\" />",
+"chevron-up":"<path d=\"m18 15-6-6-6 6\" />",
+"chevron-right":"<path d=\"m9 18 6-6-6-6\" />",
+"chevron-left":"<path d=\"m15 18-6-6 6-6\" />",
+"palette":"<path d=\"M12 22a1 1 0 0 1 0-20 10 9 0 0 1 10 9 5 5 0 0 1-5 5h-2.25a1.75 1.75 0 0 0-1.4 2.8l.3.4a1.75 1.75 0 0 1-1.4 2.8z\" /> <circle cx=\"13.5\" cy=\"6.5\" r=\".5\" fill=\"currentColor\" /> <circle cx=\"17.5\" cy=\"10.5\" r=\".5\" fill=\"currentColor\" /> <circle cx=\"6.5\" cy=\"12.5\" r=\".5\" fill=\"currentColor\" /> <circle cx=\"8.5\" cy=\"7.5\" r=\".5\" fill=\"currentColor\" />",
+"languages":"<path d=\"m5 8 6 6\" /> <path d=\"m4 14 6-6 2-3\" /> <path d=\"M2 5h12\" /> <path d=\"M7 2h1\" /> <path d=\"m22 22-5-10-5 10\" /> <path d=\"M14 18h6\" />",
+"info":"<circle cx=\"12\" cy=\"12\" r=\"10\" /> <path d=\"M12 16v-4\" /> <path d=\"M12 8h.01\" />",
+"x":"<path d=\"M18 6 6 18\" /> <path d=\"m6 6 12 12\" />",
+"check":"<path d=\"M20 6 9 17l-5-5\" />",
+"message-square-reply":"<path d=\"M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z\" /> <path d=\"m10 8-3 3 3 3\" /> <path d=\"M17 14v-1a2 2 0 0 0-2-2H7\" />",
+"corner-down-left":"<path d=\"M20 4v7a4 4 0 0 1-4 4H4\" /> <path d=\"m9 10-5 5 5 5\" />",
+"inbox":"<polyline points=\"22 12 16 12 14 15 10 15 8 12 2 12\" /> <path d=\"M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z\" />",
+"panel-left":"<rect width=\"18\" height=\"18\" x=\"3\" y=\"3\" rx=\"2\" /> <path d=\"M9 3v18\" />",
+"list-checks":"<path d=\"M13 5h8\" /> <path d=\"M13 12h8\" /> <path d=\"M13 19h8\" /> <path d=\"m3 17 2 2 4-4\" /> <path d=\"m3 7 2 2 4-4\" />",
+"circle-check-big":"<path d=\"M21.801 10A10 10 0 1 1 17 3.335\" /> <path d=\"m9 11 3 3L22 4\" />",
+"triangle-alert":"<path d=\"m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3\" /> <path d=\"M12 9v4\" /> <path d=\"M12 17h.01\" />",
+"eye":"<path d=\"M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0\" /> <circle cx=\"12\" cy=\"12\" r=\"3\" />",
+"eye-off":"<path d=\"M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49\" /> <path d=\"M14.084 14.158a3 3 0 0 1-4.242-4.242\" /> <path d=\"M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143\" /> <path d=\"m2 2 20 20\" />",
+"sliders-horizontal":"<path d=\"M10 5H3\" /> <path d=\"M12 19H3\" /> <path d=\"M14 3v4\" /> <path d=\"M16 17v4\" /> <path d=\"M21 12h-9\" /> <path d=\"M21 19h-5\" /> <path d=\"M21 5h-7\" /> <path d=\"M8 10v4\" /> <path d=\"M8 12H3\" />",
+"rows-3":"<rect width=\"18\" height=\"18\" x=\"3\" y=\"3\" rx=\"2\" /> <path d=\"M21 9H3\" /> <path d=\"M21 15H3\" />",
+"square":"<rect width=\"18\" height=\"18\" x=\"3\" y=\"3\" rx=\"2\" />",
+"layers":"<path d=\"M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z\" /> <path d=\"M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12\" /> <path d=\"M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17\" />",
+"bot":"<path d=\"M12 8V4H8\" /> <rect width=\"16\" height=\"12\" x=\"4\" y=\"8\" rx=\"2\" /> <path d=\"M2 14h2\" /> <path d=\"M20 14h2\" /> <path d=\"M15 13v2\" /> <path d=\"M9 13v2\" />",
+"flag-triangle-right":"<path d=\"M6 22V2.8a.8.8 0 0 1 1.17-.71l11.38 5.69a.8.8 0 0 1 0 1.44L6 15.5\" />",
+"loader-circle":"<path d=\"M21 12a9 9 0 1 1-6.219-8.56\" />"};
+const isMac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+const MOD = isMac ? "⌘" : "Ctrl";
+
+/* ===================== Strings: board (IT/EN) ===================== */
+const STR = {
+  it: {
+    st_todo: "Da fare", st_draft: "Bozza", st_held: "Pronta, non inviata", st_sent: "Inviata", st_delivered: "Consegnata all'agente",
+    st_postponed: "Rimandata", st_declined: "Rifiutata", st_new: "Nuova", st_changed: "Aggiornata dall'agente", recommended: "Consigliata",
+    mode_label: "Invio delle risposte", mode_one: "Una alla volta", mode_all: "Tutte insieme",
+    help_one: "Ogni risposta parte appena la invii.", help_all: "Le risposte restano qui finché non premi «Invia le risposte».",
+    send_answer: "Invia risposta", confirm: "Conferma", edit: "Modifica", later: "Più tardi",
+    send_n: n => n === 1 ? "Invia 1 risposta" : `Invia ${n} risposte`,
+    todo_count: (n, m) => m ? `<b>${n}</b> da fare (di cui ${m} ${m === 1 ? "rimandata" : "rimandate"})` : `<b>${n}</b> da fare`,
+    next_todo: "Prossima da fare", prefill: n => `Precompila le consigliate (${n})`,
+    more: "Altro", explain: "Spiega", decline: "Rifiuta", accept_rec: "Accetta la consigliata",
+    choose_option: "Scegli un'opzione", fix_field: f => `Correggi prima ${f}.`, fill_field: f => `Completa prima ${f}.`,
+    next_is: "Prossima:", continue: "Continua", all_ready: "Tutte pronte: niente è stato ancora inviato",
+    nothing_left: "Nessuna domanda da fare", see_summary: "Vedi il riepilogo",
+    area_done: a => `${a} completata`, new_from_agent: "Nuova dall'agente",
+    led_draft: "Bozze", led_held: "Pronte", led_sent: "Inviate", led_delivered: "Consegnate",
+    led_held_off: "Non usato in «Una alla volta»",
+    nothing_ready: "Nessuna risposta pronta", ready_note: n => `${n === 1 ? "1 risposta pronta" : n + " risposte pronte"}: niente è stato ancora inviato.`,
+    live_sent: (a, t, i, n) => `Risposta inviata: ${a}.` + (t ? ` Prossima: ${t}, ${i} di ${n}.` : ""),
+    live_held: (a, t, i, n) => `Risposta pronta, non inviata: ${a}.` + (t ? ` Prossima: ${t}, ${i} di ${n}.` : ""),
+    live_postponed: (q, t) => `Rimandata.` + (t ? ` Prossima: ${t}.` : ""),
+    live_declined: q => `Rifiutata: ${q}.`,
+    live_delivered: list => `Consegnata all'agente: ${list}.`,
+    prefill_done: n => `${n} ${n === 1 ? "domanda precompilata" : "domande precompilate"}. Niente è stato inviato.`,
+    undo: "Annulla", prefill_undone: "Precompilazione annullata.",
+    sent_n: n => n === 1 ? "1 risposta inviata." : `${n} risposte inviate.`,
+    added: "L'agente ha aggiunto 1 domanda", go: "Vai", dismiss: "Chiudi",
+    done_title: "Tutte le domande hanno una risposta.",
+    done_line: (s, d) => `${s} inviate, ${d} consegnate all'agente.`, done_declined: n => ` ${n} ${n === 1 ? "rifiutata" : "rifiutate"}.`,
+    done_counts_sent: "inviate", done_counts_delivered: "consegnate all'agente", done_counts_declined: "rifiutate",
+    remaining_postponed: n => n === 1 ? "Resta 1 rimandata." : `Restano ${n} rimandate.`,
+    postponed_note: "Chiudendo perdi questa richiesta.",
+    go_first: "Vai alla prima",
+    note_add: "Nota per l'agente", note_ph: "Facoltativa",
+    q_of: (i, n) => `Domanda <b>${i}</b> di <b>${n}</b>`, prev: "Precedente", next: "Successiva",
+    settings: "Impostazioni", after_answer: "Dopo la risposta", after_next: "Vai alla prossima", after_stay: "Resta qui",
+    after_help: "«Resta qui» mostra lo stato e aspetta «Continua». «Vai alla prossima» sposta la vista da sola.",
+    snapshot: "Snapshot", snapshot_done: "Snapshot salvato in .askboard/snapshots/.", keys: "Tasti", theme: "Tema", palette: "Palette", scheme: "Schema", light: "Chiaro", dark: "Scuro",
+    agent_working: "Agente: al lavoro",
+    revising: "Revisione: l'agente tiene la risposta precedente finché non invii questa.",
+    prefilled: "precompilata dalla consigliata",
+    sw_title: "Passare a «Una alla volta»?", sw_body: n => `${n === 1 ? "1 risposta è pronta" : n + " risposte sono pronte"}, non ${n === 1 ? "inviata" : "inviate"}. Con «Una alla volta» ${n === 1 ? "viene inviata" : "vengono inviate"} adesso.`,
+    sw_go: "Invia e passa", cancel: "Annulla",
+    outline: "Indice", progress: "Avanzamento", questions: n => `${n} ${n === 1 ? "domanda" : "domande"}`, todo_short: n => `${n} da fare`,
+    explain_sent: "Richiesta di spiegazione inviata all'agente.",
+    f_team: "Team", f_email: "Email", required: "obbligatorio", err_pattern: "Non è nella forma attesa: nome@dominio.it", err_required: "Campo obbligatorio",
+    k_title: "Tasti della board", k_send: "Conferma o invia la domanda attiva", k_next: "Prossima da fare", k_prev: "Precedente da fare", k_cont: "Continua (sul pulsante)", k_note: "Questi tasti non agiscono dentro un campo di testo. «Invia N risposte» non ha un tasto.",
+    answer_of: "Risposta:", sent_at: "inviata", tab_close: "",
+    send_change: "Invia la modifica", live_change: "Modifica inviata.", live_single: "Risposta inviata.",
+    pp_warn: n => n === 1 ? "Hai 1 domanda rimandata: chiudendo perdi questa richiesta" : `Hai ${n} domande rimandate: chiudendo perdi questa richiesta`,
+    updates: n => n === 1 ? "1 aggiornamento richiede una scelta" : `${n} aggiornamenti richiedono una scelta`,
+    chg_title: "L'agente ha aggiornato questa domanda", chg_show: "Mostra la modifica dell'agente", chg_reload: "Ricarica, perdendo il mio lavoro", chg_keep: "Tieni le mie",
+    chg_sub: "La tua risposta pronta resta qui finché non scegli.",
+    removed: t => `Domanda rimossa dall'agente: ${t}.`, gap: n => `${n} rimossa dall'agente`,
+    ask_waiting: "In attesa", ask_partial: (a, t) => `Risposte parziali ${a}/${t}`, ask_answered: "Con risposta",
+    ask_pp: n => `, ${n} ${n === 1 ? "rimandata" : "rimandate"}`, ask_label: "Richiesta",
+    agent_waiting: "Agente: attende la tua risposta",
+    // mockup chrome
+    m_tag: "MOCKUP", m_note: "Controlli della dimostrazione: non fanno parte della board.",
+    m_palette: "Palette", m_scheme: "Schema", m_lang: "Lingua", m_mode: "Invio (scelto dall'agente)", m_pres: "Presentazione",
+    m_sections: "Sezioni", m_single: "Una per vista", m_solo: "Domanda singola", m_annos: "Annotazioni", m_on: "Sì", m_off: "No",
+    m_add: "Simula: l'agente aggiunge una domanda", m_reset: "Ricomincia", m_hide: "Nascondi", m_show: "MOCKUP ▴",
+    m_remove: "Simula: l'agente toglie una domanda", m_update: "Simula: l'agente aggiorna una domanda pronta", m_collect: "Simula: l'agente raccoglie",
+    m_points: "Da decidere (* = raccomandata)", m_rail: "Rail", m_ledger: "Registro", m_l4: "4 colonne", m_l2: "2×2",
+    m_ov: "Una per vista", m_ov_full: "Indice e invio", m_ov_box: "Solo invio",
+    m_pp: "Avviso rimandate", m_pp_h1: "Intestazione", m_pp_h2: "Riga avanzamento", m_pp_box: "Registro",
+    m_nums: "Numeri", m_n_fixed: "Fissi", m_n_pos: "Per posizione", m_n_none: "Nessuno",
+    m_rcpt: "Ricevute", m_rcpt_auto: "Automatiche", m_rcpt_paused: "L'agente non raccoglie",
+    m_after: "Dopo la risposta",
+    lg_title: "Annotazioni · Proposta B «Cabina» 1.1.0", lg_sub: "I numeri sulla board rimandano qui; F-xx sono i rilievi della valutazione 1.0.0.",
+  },
+  en: {
+    st_todo: "To do", st_draft: "Draft", st_held: "Ready, not sent", st_sent: "Sent", st_delivered: "Delivered to the agent",
+    st_postponed: "Postponed", st_declined: "Declined", st_new: "New", st_changed: "Updated by the agent", recommended: "Recommended",
+    mode_label: "Sending answers", mode_one: "One by one", mode_all: "All together",
+    help_one: "Each answer goes to the agent as soon as you send it.", help_all: "Answers stay here until you press \"Send answers\".",
+    send_answer: "Send answer", confirm: "Confirm", edit: "Edit", later: "Later",
+    send_n: n => n === 1 ? "Send 1 answer" : `Send ${n} answers`,
+    todo_count: (n, m) => m ? `<b>${n}</b> to do (${m} postponed)` : `<b>${n}</b> to do`,
+    next_todo: "Next to do", prefill: n => `Prefill recommended (${n})`,
+    more: "More", explain: "Explain", decline: "Decline", accept_rec: "Accept recommended",
+    choose_option: "Choose an option", fix_field: f => `Correct ${f} first.`, fill_field: f => `Complete ${f} first.`,
+    next_is: "Next:", continue: "Continue", all_ready: "All ready: nothing has been sent yet",
+    nothing_left: "Nothing left to do", see_summary: "See the summary",
+    area_done: a => `${a} completed`, new_from_agent: "New from the agent",
+    led_draft: "Drafts", led_held: "Ready", led_sent: "Sent", led_delivered: "Delivered",
+    led_held_off: "Not used in \"One by one\"",
+    nothing_ready: "No answers ready", ready_note: n => `${n === 1 ? "1 answer ready" : n + " answers ready"}: nothing has been sent yet.`,
+    live_sent: (a, t, i, n) => `Answer sent: ${a}.` + (t ? ` Next: ${t}, ${i} of ${n}.` : ""),
+    live_held: (a, t, i, n) => `Answer ready, not sent: ${a}.` + (t ? ` Next: ${t}, ${i} of ${n}.` : ""),
+    live_postponed: (q, t) => `Postponed.` + (t ? ` Next: ${t}.` : ""),
+    live_declined: q => `Declined: ${q}.`,
+    live_delivered: list => `Delivered to the agent: ${list}.`,
+    prefill_done: n => `${n} ${n === 1 ? "question" : "questions"} prefilled. Nothing has been sent.`,
+    undo: "Undo", prefill_undone: "Prefill undone.",
+    sent_n: n => n === 1 ? "1 answer sent." : `${n} answers sent.`,
+    added: "The agent added 1 question", go: "Go", dismiss: "Close",
+    done_title: "Every question has an answer.",
+    done_line: (s, d) => `${s} sent, ${d} delivered to the agent.`, done_declined: n => ` ${n} declined.`,
+    done_counts_sent: "sent", done_counts_delivered: "delivered to the agent", done_counts_declined: "declined",
+    remaining_postponed: n => n === 1 ? "1 postponed remains." : `${n} postponed remain.`,
+    postponed_note: "Closing loses this ask.",
+    go_first: "Go to the first",
+    note_add: "Note for the agent", note_ph: "Optional",
+    q_of: (i, n) => `Question <b>${i}</b> of <b>${n}</b>`, prev: "Previous", next: "Next",
+    settings: "Settings", after_answer: "After answering", after_next: "Go to the next", after_stay: "Stay here",
+    after_help: "\"Stay here\" shows the state and waits for \"Continue\". \"Go to the next\" moves the view by itself.",
+    snapshot: "Snapshot", snapshot_done: "Snapshot saved in .askboard/snapshots/.", keys: "Keys", theme: "Theme", palette: "Palette", scheme: "Scheme", light: "Light", dark: "Dark",
+    agent_working: "Agent: Working",
+    revising: "Revision: the agent keeps the previous answer until you send this one.",
+    prefilled: "prefilled from the recommendation",
+    sw_title: "Switch to \"One by one\"?", sw_body: n => `${n === 1 ? "1 answer is" : n + " answers are"} ready, not sent. With "One by one" ${n === 1 ? "it is" : "they are"} sent now.`,
+    sw_go: "Send and switch", cancel: "Cancel",
+    outline: "Outline", progress: "Progress", questions: n => `${n} ${n === 1 ? "question" : "questions"}`, todo_short: n => `${n} to do`,
+    explain_sent: "Explanation request sent to the agent.",
+    f_team: "Team", f_email: "Email", required: "required", err_pattern: "Not in the expected form: name@domain.com", err_required: "Required field",
+    k_title: "Board keys", k_send: "Confirm or send the active question", k_next: "Next to do", k_prev: "Previous to do", k_cont: "Continue (on the button)", k_note: "These keys do nothing inside a text field. \"Send N answers\" has no key.",
+    answer_of: "Answer:", sent_at: "sent", tab_close: "",
+    send_change: "Send the change", live_change: "Change sent.", live_single: "Answer sent.",
+    pp_warn: n => n === 1 ? "You have 1 postponed question: closing loses this ask" : `You have ${n} postponed questions: closing loses this ask`,
+    updates: n => n === 1 ? "1 update needs a choice" : `${n} updates need a choice`,
+    chg_title: "The agent updated this", chg_show: "Show the agent's change", chg_reload: "Reload, losing my work", chg_keep: "Keep mine",
+    chg_sub: "Your ready answer stays here until you choose.",
+    removed: t => `Question removed by the agent: ${t}.`, gap: n => `${n} removed by the agent`,
+    ask_waiting: "Waiting", ask_partial: (a, t) => `Partly answered ${a}/${t}`, ask_answered: "Answered",
+    ask_pp: n => `, ${n} postponed`, ask_label: "Ask",
+    agent_waiting: "Agent: Waiting for your answer",
+    m_tag: "MOCKUP", m_note: "Demo controls: not part of the board.",
+    m_palette: "Palette", m_scheme: "Scheme", m_lang: "Language", m_mode: "Sending (agent's choice)", m_pres: "Presentation",
+    m_sections: "Sections", m_single: "One per view", m_solo: "Single question", m_annos: "Annotations", m_on: "On", m_off: "Off",
+    m_add: "Simulate: the agent adds a question", m_reset: "Start over", m_hide: "Hide", m_show: "MOCKUP ▴",
+    m_remove: "Simulate: the agent removes a question", m_update: "Simulate: the agent updates a ready question", m_collect: "Simulate: the agent collects",
+    m_points: "To decide (* = recommended)", m_rail: "Rail", m_ledger: "Ledger", m_l4: "4 columns", m_l2: "2×2",
+    m_ov: "One per view", m_ov_full: "Outline and outbox", m_ov_box: "Outbox only",
+    m_pp: "Postponed warning", m_pp_h1: "Header", m_pp_h2: "Progress row", m_pp_box: "Outbox",
+    m_nums: "Numbers", m_n_fixed: "Fixed", m_n_pos: "By position", m_n_none: "None",
+    m_rcpt: "Receipts", m_rcpt_auto: "Automatic", m_rcpt_paused: "The agent does not collect",
+    m_after: "After answering",
+    lg_title: "Annotations · Proposal B \"Cabina\" 1.1.0", lg_sub: "The numbers on the board point here; F-xx are the findings of assessment 1.0.0.",
+  },
+};
+const PALETTES = [["carta", "Carta"], ["nordico", "Nordico"], ["grafite", "Grafite"], ["contrasto", "Contrasto"]];
+const STATE_ICON = { todo: "circle", draft: "pencil", held: "package", sent: "send", delivered: "check-check", postponed: "clock", declined: "ban" };
+
+/* ===================== Sample board (agent content: Italian, shown as text) ===================== */
+const AREAS = [{ id: "arch", name: "Architettura" }, { id: "rel", name: "Rilascio" }, { id: "cost", name: "Costi" }];
+function sampleQuestions() {
+  return [
+    { id: "q1", area: "arch", chip: "Database", title: "Quale database usa il servizio ordini?", rec: "pg", options: [
+      ["pg", "PostgreSQL", "Relazionale, con gli strumenti che il team usa già."], ["sqlite", "SQLite", "Incorporato, un solo file."], ["dynamo", "DynamoDB", "Chiave-valore gestito."]] },
+    { id: "q2", area: "arch", chip: "Cache", title: "Il servizio ordini deve mettere in cache le letture?", rec: "redis", options: [
+      ["redis", "Redis davanti al database", "Condivisa tra le istanze, scadenza a 60 s."], ["mem", "Cache in memoria", "Per istanza, nessun servizio in più."], ["none", "Nessuna cache per ora", "Si misura il carico dopo il lancio."]] },
+    { id: "q3", area: "arch", chip: "Coda", title: "Come passano gli ordini al magazzino?", options: [
+      ["mq", "Coda di messaggi", "RabbitMQ, consegna almeno una volta."], ["http", "Chiamata HTTP sincrona", "Semplice, ma il magazzino deve rispondere."], ["outbox", "Tabella outbox con polling", "Nessun servizio nuovo, ritardo fino a 5 s."]] },
+    { id: "q4", area: "rel", chip: "Catalogo", title: "Il catalogo prodotti va migrato prima del lancio?", options: [
+      ["all", "Sì, migrazione completa", "Circa 42.000 prodotti, due giorni di lavoro."], ["active", "Solo i prodotti attivi", "Circa 9.000, mezza giornata."], ["no", "No, resta sul sistema attuale", "Letto tramite l'API esistente."]] },
+    { id: "q5", area: "rel", chip: "Rollout", title: "Con quale strategia si fa il rollout?", rec: "canary", options: [
+      ["canary", "Canary 5% → 50% → 100%", "Un giorno per passo, rollback automatico."], ["bg", "Blue/green", "Due ambienti completi, passaggio in un colpo."], ["night", "Tutto insieme di notte", "Finestra 02:00–04:00, rollback manuale."]] },
+    { id: "q6", area: "rel", chip: "Flag", title: "Le nuove funzioni partono dietro un feature flag?", options: [
+      ["allf", "Sì, tutte", "Si accendono per gruppi di clienti."], ["checkout", "Solo il nuovo checkout", "Il resto parte acceso."], ["noflag", "No", "Nessun flag, meno codice da togliere."]] },
+    { id: "q7", area: "cost", chip: "Budget", title: "Quale tetto di spesa mensile per l'infrastruttura?", rec: "b1500", options: [
+      ["b800", "Fino a 800 €", "Basta senza cache condivisa."], ["b1500", "Fino a 1.500 €", "Copre Redis e il canary."], ["b3000", "Fino a 3.000 €", "Margine per due regioni."]] },
+    { id: "q8", area: "cost", chip: "Monitoraggio", title: "Chi riceve gli avvisi di produzione?", kind: "fields" },
+    { id: "q9", area: "cost", chip: "Regione", title: "In quale regione cloud gira il servizio?", options: [
+      ["mil", "EU Milano", "Più vicina ai clienti, meno servizi gestiti."], ["fra", "EU Francoforte", "Tutti i servizi, latenza +12 ms."], ["irl", "EU Irlanda", "Prezzi più bassi, latenza +28 ms."]] },
+  ].map((q, i) => ({ kind: "choice", ...q, num: i + 1, sel: null, state: "todo", prefilled: false, isNew: false, note: "", noteOpen: false, fields: { team: "", email: "" }, sentAt: null, revising: false, decline: false, touched: false, changed: false }));
+}
+// The single-question board: an ask with one question (EXP Presentations, "Single-question board").
+function soloQuestions() {
+  return sampleQuestions().slice(0, 1).map(x => ({ ...x, area: "solo", rec: null }));
+}
+const ADDED = { id: "q10", area: "rel", after: "q6", chip: "Staging", title: "Serve un ambiente di staging dedicato per il servizio ordini?", options: [
+  ["ded", "Sì, dedicato", "Copia ridotta della produzione, circa 120 € al mese."], ["shared", "Condiviso con gli altri servizi", "Nessun costo in più, dati misti."], ["nostg", "No", "Si prova in produzione dietro flag."]] };
+
+/* ===================== State ===================== */
+const S = {
+  lang: "it", palette: "carta", dark: false, mode: "one", pres: "sections", annos: false,
+  after: "next", // PO, 2026-11-14: default "Vai alla prossima"
+  qs: sampleQuestions(), current: "q1", just: null, prefillUndo: null, toasts: [], pop: null, menu: null, dialog: null,
+  added: false, removed: null, mockOpen: true, ledgerPrev: null, receipts: {},
+  // 1.1.0: the points to decide, each set to the recommended option
+  railW: 256, ledger: "4", oneView: "full", ppHome: "h1", nums: "fixed", rcpt: "auto", multi: null,
+};
+const REC = { railW: "256", ledger: "4", oneView: "full", ppHome: "h1", nums: "fixed", rcpt: "" };
+const T = () => STR[S.lang];
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const ic = (n, s = 16, cls = "") => `<svg class="ic ${cls}" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n] || ""}</svg>`;
+const anno = (n, pos = "") => `<span class="anno ${pos}" aria-hidden="true">${n}</span>`;
+const q = id => S.qs.find(x => x.id === id);
+const idx = id => S.qs.findIndex(x => x.id === id);
+const areaName = id => AREAS.find(a => a.id === id).name;
+// Short question numbers. "fixed": given at first display, never reused (a new question takes the next free number,
+// a removed one leaves a gap); "position": by board position (1.0.0, renumbers under the user); "none": no numbers.
+const qnum = x => S.pres === "solo" || S.nums === "none" ? "" : (S.lang === "it" ? "D" : "Q") + (S.nums === "fixed" ? x.num : idx(x.id) + 1);
+const areasOn = () => S.pres === "solo" ? [] : AREAS;
+const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+const isTodo = x => x.state === "todo" || x.state === "draft" || x.state === "postponed";
+const stLabel = st => T()["st_" + st];
+
+/* ===================== Derived ===================== */
+function counts() {
+  const c = { todo: 0, draft: 0, held: 0, sent: 0, delivered: 0, postponed: 0, declined: 0 };
+  S.qs.forEach(x => c[x.state]++);
+  return c;
+}
+function todoCount() { const c = counts(); return { n: c.todo + c.draft + c.postponed, m: c.postponed }; }
+function prefillEligible() { return S.qs.filter(x => x.state === "todo" && x.rec && !x.sel && !x.touched); }
+function validation(x) {
+  if (x.kind === "fields") {
+    const f = x.fields, t = T();
+    const emailBad = f.email.trim() && !/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(f.email.trim());
+    if (emailBad) return { ok: false, reason: t.fix_field(t.f_email), err: true, field: "email" };
+    if (!f.team.trim()) return { ok: false, reason: t.fill_field(t.f_team), err: false, field: "team" };
+    return { ok: true };
+  }
+  if (!x.sel) return { ok: false, reason: T().choose_option, err: false };
+  return { ok: true };
+}
+function answerText(x) {
+  if (x.decline) return T().st_declined;
+  if (x.kind === "fields") return [x.fields.team, x.fields.email].filter(Boolean).join(" · ");
+  const o = x.options.find(o => o[0] === x.sel); return o ? o[1] : "";
+}
+// Next question to do, from `fromId` in board order, wrapping once. A question the agent just added goes first, with its reason.
+function nextTodo(fromId, dir = 1) {
+  const list = S.qs, n = list.length, start = fromId ? idx(fromId) : -1;
+  const order = []; for (let k = 1; k <= n; k++) order.push(list[(start + dir * k + n * 2) % n]);
+  const cand = order.filter(x => x.id !== fromId && isTodo(x));
+  if (dir === 1) { const nw = cand.find(x => x.isNew); if (nw) return { q: nw, reason: "new" }; }
+  const plain = cand.find(x => x.state !== "postponed"); if (plain) return { q: plain };
+  const pp = cand.find(x => x.state === "postponed"); if (pp) return { q: pp };
+  return null;
+}
+function isComplete() { return !S.qs.some(x => x.state === "todo" || x.state === "draft" || x.state === "held") && S.qs.some(x => ["sent", "delivered", "declined"].includes(x.state)); }
+
+/* ===================== Live region ===================== */
+let liveTimer = null;
+function say(msg) { const el = document.getElementById("live"); el.textContent = ""; clearTimeout(liveTimer); liveTimer = setTimeout(() => { el.textContent = msg; }, 60); }
+
+/* ===================== Theme ===================== */
+function applyTheme() {
+  const r = document.documentElement;
+  r.dataset.palette = S.palette; r.classList.toggle("dark", S.dark); r.lang = S.lang === "it" ? "it" : "en";
+  document.body.classList.toggle("annos", S.annos);
+  r.style.setProperty("--legend-w", S.annos ? "320px" : "0px");
+}
+
+/* ===================== Render: mockup strip, legend ===================== */
+function mseg(key, opts, cur) { return `<div class="mseg" role="group">${opts.map(([v, l]) => `<button type="button" data-mock="${key}" data-v="${v}" data-rec="${REC[key] === String(v) ? 1 : 0}" aria-pressed="${String(cur) === String(v)}">${esc(l)}</button>`).join("")}</div>`; }
+function renderMock() {
+  const t = T(), m = document.getElementById("mock"), h = document.getElementById("mockhandle");
+  m.classList.toggle("collapsed", !S.mockOpen); h.classList.toggle("on", !S.mockOpen); h.textContent = t.m_show;
+  m.innerHTML = `<div class="in">
+    <span class="tag">${t.m_tag}</span><span class="tagnote">${t.m_note}</span><button type="button" class="mbtn" data-mock-act="hide">${t.m_hide} ▾</button>
+    <div class="grp"><span>${t.m_palette}</span>${mseg("palette", PALETTES, S.palette)}</div>
+    <div class="grp"><span>${t.m_scheme}</span>${mseg("dark", [["false", t.light], ["true", t.dark]], S.dark)}</div>
+    <div class="grp"><span>${t.m_lang}</span>${mseg("lang", [["it", "IT"], ["en", "EN"]], S.lang)}</div>
+    <div class="grp"><span>${t.m_mode}</span>${mseg("mode", [["one", t.mode_one], ["all", t.mode_all]], S.mode)}</div>
+    <div class="grp"><span>${t.m_pres}</span>${mseg("pres", [["sections", t.m_sections], ["single", t.m_single], ["solo", t.m_solo]], S.pres)}</div>
+    <div class="grp"><span>${t.m_after}</span>${mseg("after", [["next", t.after_next], ["stay", t.after_stay]], S.after)}</div>
+    <div class="grp"><span>${t.m_annos}</span>${mseg("annos", [["true", t.m_on], ["false", t.m_off]], S.annos)}</div>
+    <button type="button" class="mbtn" data-mock-act="reset">${t.m_reset}</button>
+  </div>
+  <div class="in in2">
+    <span class="tagnote">${t.m_points}</span>
+    <div class="grp"><span>${t.m_rail}</span>${mseg("railW", [["212", "212"], ["240", "240"], ["256", "256"], ["268", "268"]], S.railW)}</div>
+    <div class="grp"><span>${t.m_ledger}</span>${mseg("ledger", [["4", t.m_l4], ["2", t.m_l2]], S.ledger)}</div>
+    <div class="grp"><span>${t.m_ov}</span>${mseg("oneView", [["full", t.m_ov_full], ["box", t.m_ov_box]], S.oneView)}</div>
+    <div class="grp"><span>${t.m_pp}</span>${mseg("ppHome", [["h1", t.m_pp_h1], ["h2", t.m_pp_h2], ["box", t.m_pp_box]], S.ppHome)}</div>
+    <div class="grp"><span>${t.m_nums}</span>${mseg("nums", [["fixed", t.m_n_fixed], ["position", t.m_n_pos], ["none", t.m_n_none]], S.nums)}</div>
+    <div class="grp"><span>${t.m_rcpt}</span>${mseg("rcpt", [["auto", t.m_rcpt_auto], ["paused", t.m_rcpt_paused]], S.rcpt)}</div>
+    <button type="button" class="mbtn" data-mock-act="collect" ${counts().sent ? "" : "disabled"}>${t.m_collect}</button>
+    <button type="button" class="mbtn" data-mock-act="add" ${S.added || S.pres === "solo" ? "disabled" : ""}>${t.m_add}</button>
+    <button type="button" class="mbtn" data-mock-act="remove" ${S.removed || S.pres === "solo" ? "disabled" : ""}>${t.m_remove}</button>
+    <button type="button" class="mbtn" data-mock-act="update" ${S.mode === "all" && S.qs.some(x => x.state === "held" && !x.changed) ? "" : "disabled"}>${t.m_update}</button>
+  </div>`;
+  document.documentElement.style.setProperty("--mock-h", S.mockOpen ? m.offsetHeight + "px" : "0px");
+}
+const LEGEND = [
+  [1, "Striscia di avanzamento: un segmento per domanda, cliccabile, con icona e lo stesso stato del registro. Sostituisce la pillola «Risposte parziali».", "Progress strip: one clickable segment per question, with an icon and the same state as the ledger. Replaces the \"Partly answered\" pill.", "F-05 F-14 F-22 D-6"],
+  [2, "«N da fare (di cui M rimandate)»: le rimandate non spariscono in «aperte».", "\"N to do (M postponed)\": postponed questions no longer hide inside \"open\".", "F-14 F-15"],
+  [3, "«Prossima da fare», tasto N: un solo posto in ogni presentazione, parte dalla domanda attiva, porta la domanda sotto le barre.", "\"Next to do\", key N: one place in every presentation, starts from the active question, brings it clear of the bars.", "F-03 F-04 F-07 F-15 F-25"],
+  [4, "«Precompila le consigliate (N)» accanto all'avanzamento: solo bozze, conta, messaggio e Annulla; sparisce a zero.", "\"Prefill recommended (N)\" beside progress: drafts only, a count, a message and Undo; gone at zero.", "F-16 F-17"],
+  [5, "Indice con lo stato in icona e testo; l'evidenza segue la domanda in vista, non l'ultimo salto.", "Outline with state as icon and text; the highlight follows the question in view, not the last jump.", "F-04 F-22 D-2"],
+  [6, "Registro d'uscita: Bozze · Pronte · Inviate · Consegnate. Il viaggio della risposta verso l'agente in un solo posto; il numero pulsa quando cambia.", "Outbox ledger: Drafts · Ready · Sent · Delivered. The answer's journey to the agent in one place; a count pulses when it changes.", "F-10 F-11 F-14"],
+  [7, "Modalità detta con il «quando» («Una alla volta | Tutte insieme») e una spiegazione in entrambe.", "The mode says \"when\" (\"One by one | All together\"), with a helper line in both.", "F-10 F-12 D-3"],
+  [8, "«Invia N risposte» con il conteggio, solo in «Tutte insieme»; nessuna barra in basso.", "\"Send N answers\" with its count, only in \"All together\"; no bottom bar.", "F-13 F-21 F-23"],
+  [9, "Bordo di stato sulla card (tratteggiato = in viaggio, pieno = arrivato) e stato in testo.", "State stripe on the card (dashed = on its way, solid = arrived) and the state in words.", "F-22 F-11"],
+  [10, "Azione principale sotto le opzioni; il verbo dice cosa succede («Invia risposta» / «Conferma»); se bloccata, il motivo è scritto accanto.", "Primary action under the options; the verb says what happens (\"Send answer\" / \"Confirm\"); when blocked, the reason is written beside it.", "F-19 F-20 F-11 F-21"],
+  [11, "«Più tardi» al posto di «Rinvia» (che si legge anche «invia di nuovo»).", "\"Later\" replaces \"Postpone\"/\"Rinvia\" (which also reads \"send again\" in Italian).", "F-21"],
+  [12, "Dopo la risposta: stato, «Prossima: …» e «Continua» con il fuoco. Niente scorre finché non continui; il fuoco non cade mai sul documento.", "After answering: the state, \"Next: …\" and a focused \"Continue\". Nothing scrolls until you continue; focus never drops to the page.", "F-01 F-02 F-03"],
+  [13, "«Accetta la consigliata» sulla riga dell'opzione consigliata; sparisce dopo la risposta.", "\"Accept recommended\" on the recommended option's row; gone once answered.", "F-18"],
+  [14, "Riepilogo finale contato sugli stati veri: inviate e consegnate; le rimandate lo tengono aperto. Non dice mai che l'agente ha letto.", "Completion counted by true states: sent and delivered; postponed ones keep it open. It never says the agent read anything.", "F-05 F-14 D-6"],
+  [15, "Una domanda aggiunta dall'agente: avviso che non prende il fuoco, con «Vai»; la «Prossima» la propone con il motivo.", "A question added by the agent: a notice that takes no focus, with \"Go\"; \"Next\" offers it with the reason.", "F-08"],
+  [16, "Una sola regione live, educata, per tutto il flusso; la pillola dell'agente non annuncia più ogni cambio. Movimento solo CSS, spento con riduzione movimento.", "One polite live region for the whole flow; the agent pill stops announcing each change. CSS-only motion, off under reduced motion.", "F-24 F-26"],
+  [17, "«Modifica» esplicita, al posto del secondo clic silenzioso su «Rispondi».", "An explicit \"Edit\", instead of a silent second press on \"Answer\".", "F-11 F-19"],
+  [18, "Fine area detta nel piè di card («Architettura completata · Prossima: Catalogo»).", "End of an area said in the card footer (\"Architettura completed · Next: Catalogo\").", "F-06"],
+  [19, "In «Una per vista» il registro resta nel rail, allo stesso posto; la «Prossima da fare» resta solo nell'intestazione.", "In \"One per view\" the ledger stays in the rail, in the same place; \"Next to do\" stays only in the header.", "F-07 D-1"],
+  [20, "Snapshot, tasti, tema e impostazioni passano agli strumenti dell'intestazione: niente barra in basso che va a capo.", "Snapshot, keys, theme and settings move to the header tools: no bottom bar that wraps.", "F-23"],
+  [21, "1.1.0 · Avviso delle rimandate nella prima riga dell'intestazione: posto fisso, presente su ogni board (anche la domanda singola), il titolo si accorcia e niente si sposta.", "1.1.0 · Postponed warning in the header's first row: a fixed slot on every board (the single question too); the title shortens and nothing moves.", "EXP 244 · F-23 · 6.4.3"],
+  [22, "1.1.0 · «N aggiornamenti richiedono una scelta» sotto «Invia N risposte», che resta bloccato; il link porta alla prima domanda da decidere.", "1.1.0 · \"N updates need a choice\" under \"Send N answers\", which stays blocked; the link goes to the first question to decide.", "EXP Submit · F-16 · 6.4.3"],
+  [23, "1.1.0 · Numeri brevi fissi: dati alla prima visualizzazione, mai riusati. Una domanda aggiunta prende il primo numero libero (D10), una tolta lascia un vuoto.", "1.1.0 · Fixed short numbers: given at first display, never reused. An added question takes the next free number (Q10); a removed one leaves a gap.", "6.4.6"],
+  [24, "1.1.0 · Domanda singola: niente rail, registro, striscia, conteggio, salto, modalità o precompila; dopo l'invio parla solo lo stato della card.", "1.1.0 · Single question: no rail, ledger, strip, count, jump, mode or prefill; after the send only the card's state speaks.", "EXP 93 · 3.4"],
+  [25, "1.1.0 · Larghezza del rail: il registro, la modalità e «Invia N risposte» devono stare senza tagli a 1280 px.", "1.1.0 · Rail width: the ledger, the mode and \"Send N answers\" must fit unclipped at 1280 px.", "6.4.2"],
+  [26, "1.1.0 · #213 (PO: opzione 1): la pillola dice cosa hai risposto, come oggi; non conta mai le consegne e non usa le loro icone. Cosa l'agente ha ricevuto lo dicono solo le ricevute: card, registro, riepilogo.", "1.1.0 · #213 (PO: option 1): the pill says what you answered, as today; it never counts deliveries or uses their icons. What the agent received is said only by the receipts: cards, ledger, completion line.", "#213 · AD-10 · D-6"],
+];
+function renderLegend() {
+  const t = T(), en = S.lang === "en";
+  document.getElementById("legend").innerHTML = `<h2>${t.lg_title}</h2><p class="sub">${t.lg_sub}</p><ol>${LEGEND.map(([n, it, enT, f]) => `<li><span class="n">${n}</span><span>${esc(en ? enT : it)}<span class="f">${f}</span></span></li>`).join("")}</ol>`;
+}
+
+/* ===================== Render: header ===================== */
+// Delivery counts, from the receipts only (fail closed): "s" counts the answers the board sent, "d" only those whose
+// receipt says received. (The mockup gives declines no receipt, so they stay out of both.)
+function delivery() { const c = counts(); return { s: c.sent + c.delivered, d: c.delivered }; }
+// The ask pill: the ask state as AD-10 defines it, what the user has answered (#213, PO: option 1). A ready answer does
+// not move it; it never says anything about delivery.
+function askPill() {
+  const t = T(), c = counts(), total = S.qs.length, answered = c.sent + c.delivered + c.declined, open = c.todo + c.draft + c.held;
+  let cls = "", icon = "circle", txt = t.ask_waiting;
+  if (answered && open) { cls = "partial"; icon = "circle-dashed"; txt = t.ask_partial(answered, total); }
+  else if (answered) { cls = "answered"; icon = "check"; txt = t.ask_answered + (c.postponed ? t.ask_pp(c.postponed) : ""); }
+  return `<span class="pill pill-ask ${cls}" role="img" aria-label="${t.ask_label}: ${txt}" title="${t.ask_label}: ${txt}">${ic(icon, 12)}${txt}</span>`;
+}
+function ppWarn(home) {
+  const pp = counts().postponed;
+  if (!pp || S.ppHome !== home && !(home === "h1" && S.pres === "solo")) return "";
+  return `<span class="ppwarn rel" data-ppwarn>${anno(21)}${ic("clock", 14)}<span>${T().pp_warn(pp)}</span></span>`;
+}
+function renderHeader() {
+  const t = T(), tc = todoCount(), pe = prefillEligible().length, solo = S.pres === "solo", c = counts();
+  document.getElementById("app").classList.toggle("solo", solo);
+  const groups = areasOn().map(a => `<div class="grp" role="group" aria-label="${esc(a.name)}">${S.qs.filter(x => x.area === a.id).map(x => {
+    const n = qnum(x), lab = `${n ? n + " " : ""}${esc(x.chip)}: ${stLabel(x.state)}`;
+    return `<button type="button" class="segm st-${x.state}" data-go="${x.id}" data-fk="seg-${x.id}" aria-current="${x.id === S.current}" title="${lab}${x.isNew ? " · " + t.st_new : ""}" aria-label="${lab}${x.isNew ? ", " + t.st_new : ""}">${ic(STATE_ICON[x.state], 13)}${x.isNew ? '<span class="newdot"></span>' : ""}</button>`; }).join("")}</div>`).join("");
+  const pop = S.pop ? renderPop() : "";
+  const pill = `<span class="rel">${anno(26)}${askPill()}</span>`;
+  const countTxt = t.todo_count(tc.n, tc.m);
+  const agent = tc.n || c.held ? t.agent_waiting : t.agent_working;
+  document.getElementById("hdr").innerHTML = `
+  <div class="hrow hrow1">
+    <div class="brand rel">${solo ? anno(24) : ""}<h1>${solo ? "Servizio ordini: database" : "Servizio ordini: decisioni di lancio"}</h1><span class="askid mono">${solo ? "ordini-db-3p9" : "ordini-lancio-7k2"}</span></div>
+    ${pill}
+    <span class="pill pill-agent rel">${anno(16)}<span class="dot" aria-hidden="true"></span>${agent}</span>
+    ${ppWarn("h1")}
+    <span class="spacer"></span>
+    <div class="tools rel">${anno(20)}
+      <button type="button" class="btn btn-ghost" data-act="snapshot" data-fk="snapshot">${ic("camera")}${t.snapshot}</button>
+      <button type="button" class="btn btn-ghost btn-icon" data-act="pop" data-v="keys" data-fk="pop-keys" aria-label="${t.keys}" title="${t.keys}" aria-expanded="${S.pop === "keys"}">${ic("keyboard")}</button>
+      <button type="button" class="btn btn-ghost btn-icon" data-act="pop" data-v="theme" data-fk="pop-theme" aria-label="${t.theme}" title="${t.theme}" aria-expanded="${S.pop === "theme"}">${ic("palette")}</button>
+      <button type="button" class="btn btn-ghost btn-icon" data-act="pop" data-v="settings" data-fk="pop-settings" aria-label="${t.settings}" title="${t.settings}" aria-expanded="${S.pop === "settings"}">${ic("settings")}</button>
+    </div>
+    ${pop}
+  </div>
+  ${solo ? "" : `<div class="hrow hrow2">
+    <div class="progress">
+      <span class="label">${t.progress}</span>
+      <div class="strip rel" role="group" aria-label="${t.progress}">${anno(1)}${groups}</div>
+      <span class="count rel" data-count>${anno(2, "r")}${countTxt}</span>
+    </div>
+    ${tc.n || pe ? `<span class="vsep"></span>` : ""}
+    ${tc.n ? `<button type="button" class="btn rel" data-act="next" data-fk="nexttodo" aria-keyshortcuts="N">${anno(3)}${ic("arrow-right")}${t.next_todo}<kbd>N</kbd></button>` : ""}
+    ${pe ? `<button type="button" class="btn rel" data-act="prefill" data-fk="prefill">${anno(4)}${ic("sparkles")}${t.prefill(pe)}</button>` : ""}
+    <span class="spacer"></span>
+    ${ppWarn("h2")}
+  </div>`}`;
+}
+function renderPop() {
+  const t = T();
+  if (S.pop === "settings") return `<div class="pop" role="dialog" aria-label="${t.settings}"><h3>${t.settings}</h3>
+    <div class="row"><span class="label">${t.after_answer}</span>
+    <div class="seg full" role="radiogroup" aria-label="${t.after_answer}">
+      <button type="button" role="radio" aria-checked="${S.after === "stay"}" data-act="after" data-v="stay" data-fk="after-stay">${t.after_stay}</button>
+      <button type="button" role="radio" aria-checked="${S.after === "next"}" data-act="after" data-v="next" data-fk="after-next">${t.after_next}</button></div>
+    <p class="helper">${t.after_help}</p></div></div>`;
+  if (S.pop === "theme") return `<div class="pop" role="dialog" aria-label="${t.theme}"><h3>${t.theme}</h3>
+    <div class="row"><span class="label">${t.palette}</span><div class="seg full" role="radiogroup">${PALETTES.map(([v, l]) => `<button type="button" role="radio" aria-checked="${S.palette === v}" data-act="palette" data-v="${v}" data-fk="pal-${v}">${l}</button>`).join("")}</div></div>
+    <div class="row"><span class="label">${t.scheme}</span><div class="seg full" role="radiogroup"><button type="button" role="radio" aria-checked="${!S.dark}" data-act="scheme" data-v="light" data-fk="sch-l">${t.light}</button><button type="button" role="radio" aria-checked="${S.dark}" data-act="scheme" data-v="dark" data-fk="sch-d">${t.dark}</button></div></div></div>`;
+  if (S.pop === "keys") return `<div class="pop" role="dialog" aria-label="${t.k_title}"><h3>${t.k_title}</h3><table class="keys">
+    <tr><td>${t.k_send}</td><td><kbd>${MOD}</kbd><kbd>↵</kbd></td></tr>
+    <tr><td>${t.k_cont}</td><td><kbd>↵</kbd></td></tr>
+    <tr><td>${t.k_next}</td><td><kbd>N</kbd></td></tr>
+    <tr><td>${t.k_prev}</td><td><kbd>⇧</kbd><kbd>N</kbd></td></tr>
+</table><p class="helper">${t.k_note}</p></div>`;
+  return "";
+}
+
+/* ===================== Render: rail (outline + outbox) ===================== */
+function renderRail() {
+  const t = T(), c = counts(), rail = document.getElementById("rail"), solo = S.pres === "solo";
+  document.documentElement.style.setProperty("--rail-w", S.railW + "px");
+  rail.hidden = solo; rail.className = "";
+  if (solo) { rail.innerHTML = ""; S.ledgerPrev = null; return; }
+  const withOutline = !(S.pres === "single" && S.oneView === "box");
+  rail.classList.toggle("onlybox", !withOutline);
+  const items = AREAS.map(a => {
+    const qs = S.qs.filter(x => x.area === a.id), left = qs.filter(isTodo).length;
+    const gap = S.removed && S.removed.area === a.id && S.nums === "fixed" ? `<div class="gapnote">${esc(t.gap((S.lang === "it" ? "D" : "Q") + S.removed.num))}</div>` : "";
+    return `<div class="oarea"><div class="oarea-h"><span>${esc(a.name)}</span><span class="mono">${left ? t.todo_short(left) : ic("check", 12)}</span></div>
+      ${qs.map(x => `<button type="button" class="oitem st-${x.state} rel" data-go="${x.id}" data-fk="out-${x.id}" aria-current="${x.id === S.current}">
+        ${x.id === "q10" ? anno(23, "r") : ""}${ic(STATE_ICON[x.state], 14)}<span class="t">${esc(x.chip)}</span><span class="qid">${qnum(x)}</span>
+        <span class="s">${stLabel(x.state)}${x.isNew ? ` <span class="badge badge-new">${ic("bell-dot", 11)}${t.st_new}</span>` : ""}${x.changed ? ` <span class="flag">${ic("bot", 12)}${t.st_changed}</span>` : ""}</span></button>`).join("")}${gap}</div>`;
+  }).join("");
+  const cell = (st, label, n, off) => `<div class="cell st-${st}${off ? " off" : ""}" data-cell="${st}" ${off ? `title="${esc(t.led_held_off)}"` : ""}><div class="n">${ic(STATE_ICON[st], 13)}<span>${off ? "–" : n}</span></div><div class="l" title="${esc(label)}">${label}</div></div>`;
+  const changed = S.qs.filter(x => x.changed && x.state === "held");
+  const blocked = changed.length > 0;
+  const updates = blocked ? `<div class="updates rel" data-updates>${anno(22)}${ic("bot", 14)}<button type="button" class="linkbtn" data-act="go" data-v="${changed[0].id}" data-fk="updates">${t.updates(changed.length)}${ic("arrow-right", 13)}</button></div>` : "";
+  const send = S.mode === "all"
+    ? (c.held ? `<div class="sendrow"><button type="button" class="btn btn-primary rel" data-act="sendall" data-fk="sendall" ${blocked ? 'aria-disabled="true" aria-describedby="upd-why"' : ""}>${anno(8)}${ic("send")}${t.send_n(c.held)}</button>
+        ${blocked ? `<span id="upd-why" class="sr-only">${t.updates(changed.length)}</span>` : `<div class="note">${ic("info", 14)}<span>${t.ready_note(c.held)}</span></div>`}${updates}</div>`
+      : `<div class="none rel">${anno(8)}${ic("package", 14)}${t.nothing_ready}</div>`)
+    : "";
+  rail.innerHTML = `
+    ${withOutline ? `<div class="outline rel" aria-label="${t.outline}">${anno(5, "in")}<div class="label"><span>${t.outline}</span></div>${items}</div>` : ""}
+    <section class="outbox rel" aria-labelledby="obx-h">${anno(6, "in")}${anno(25, "r")}
+      <h2 id="obx-h" class="label" tabindex="-1" data-fk="obx-h">${ic("inbox", 14)}${t.mode_label}</h2>
+      <div class="seg full rel" role="radiogroup" aria-label="${t.mode_label}">${anno(7)}
+        <button type="button" role="radio" aria-checked="${S.mode === "one"}" data-act="mode" data-v="one" data-fk="mode-one">${t.mode_one}</button>
+        <button type="button" role="radio" aria-checked="${S.mode === "all"}" data-act="mode" data-v="all" data-fk="mode-all">${t.mode_all}</button>
+      </div>
+      <p class="helper">${S.mode === "one" ? t.help_one : t.help_all}</p>
+      <div class="ledger ${S.ledger === "2" ? "two" : ""}" role="group" aria-label="${t.mode_label}">
+        ${cell("draft", t.led_draft, c.draft)}${cell("held", t.led_held, c.held, S.mode === "one" && !c.held)}${cell("sent", t.led_sent, c.sent + c.delivered)}${cell("delivered", t.led_delivered, c.delivered)}
+      </div>
+      ${send}
+      ${ppWarn("box")}
+    </section>`;
+  // pulse cells whose count rose
+  const now = { draft: c.draft, held: c.held, sent: c.sent + c.delivered, delivered: c.delivered };
+  if (S.ledgerPrev) for (const k in now) if (now[k] > S.ledgerPrev[k]) { const el = document.querySelector(`[data-cell="${k}"]`); if (el) el.classList.add("pulse"); }
+  S.ledgerPrev = now;
+}
+
+/* ===================== Render: main ===================== */
+function renderCard(x, opts = {}) {
+  const t = T(), v = validation(x), locked = ["held", "sent", "delivered", "declined"].includes(x.state);
+  const primaryLabel = primaryOf(x);
+  const a1 = opts.first ? anno(9) : "";
+  let body = "";
+  if (x.kind === "choice") {
+    body = `<div class="opts ${locked ? "locked" : ""}" role="radiogroup" aria-labelledby="h-${x.id}">${x.options.map(([id, label, desc], i) => {
+      const chosen = x.sel === id, isRec = x.rec === id;
+      const accept = isRec && !locked && x.sel !== id && x.state !== "declined"
+        ? `<button type="button" class="linkbtn rel" data-act="accept" data-q="${x.id}" data-fk="acc-${x.id}">${opts.first || x.id === "q2" ? anno(13) : ""}${ic("check", 13)}${t.accept_rec}</button>` : "";
+      const ctl = locked ? (chosen ? `<span class="chk">${ic("check", 14)}</span>` : `<span class="dim"></span>`)
+        : `<input type="radio" name="r-${x.id}" value="${id}" ${chosen ? "checked" : ""} data-q="${x.id}" data-fk="opt-${x.id}-${id}" aria-label="${esc(label)}">`;
+      return `<label class="opt ${chosen ? "chosen" : ""}">${ctl}<span class="ol">${esc(label)}</span><span class="od">${esc(desc)}</span>
+        <span class="end">${isRec ? `<span class="badge badge-rec">${ic("sparkles", 11)}${t.recommended}</span>` : ""}${accept}</span></label>`;
+    }).join("")}</div>`;
+  } else {
+    const f = x.fields, emailBad = v.field === "email" && v.err;
+    body = locked ? `<div class="fields"><div class="field"><label>${t.f_team}</label><div class="val">${esc(f.team)}</div></div><div class="field"><label>${t.f_email}</label><div class="val">${esc(f.email) || "—"}</div></div></div>`
+    : `<div class="fields">
+      <div class="field"><label for="f-team">${t.f_team} <span class="req">(${t.required})</span></label>
+        <input id="f-team" data-field="team" data-q="${x.id}" data-fk="fld-team" value="${esc(f.team)}" placeholder="Piattaforma" aria-required="true" autocomplete="off"></div>
+      <div class="field"><label for="f-email">${t.f_email}</label>
+        <input id="f-email" data-field="email" data-q="${x.id}" data-fk="fld-email" value="${esc(f.email)}" placeholder="reperibilita@esempio.it" ${emailBad ? 'aria-invalid="true" aria-describedby="e-email"' : ""} autocomplete="off">
+        <div data-err="email">${emailBad ? `<div class="err" id="e-email">${ic("circle-alert", 13)}${t.err_pattern}</div>` : `<div class="hint">nome@dominio.it</div>`}</div></div>
+    </div>`;
+  }
+  const num = qnum(x);
+  const head = `<div class="chead">${num ? `<span class="qid rel">${opts.first ? anno(23) : ""}${num}</span>` : ""}<span class="chip">${esc(x.chip)}</span>
+    ${x.isNew ? `<span class="badge badge-new rel">${opts.newAnno ? anno(15) : ""}${ic("bell-dot", 11)}${t.st_new}</span>` : ""}
+    <span class="spacer"></span>
+    <span class="stbadge rel" data-stb>${a1}${ic(STATE_ICON[x.state], 13)}${stLabel(x.state)}</span>
+    <button type="button" class="btn btn-ghost btn-icon btn-sm" data-act="menu" data-q="${x.id}" data-fk="more-${x.id}" aria-label="${t.more}" title="${t.more}" aria-haspopup="menu" aria-expanded="${S.menu === x.id}">${ic("ellipsis")}</button>
+  </div>`;
+  const menu = S.menu === x.id ? `<div class="menu" role="menu"><button type="button" role="menuitem" data-act="explain" data-q="${x.id}" data-fk="mi-explain">${ic("message-square-reply", 14)}${t.explain}</button><button type="button" role="menuitem" data-act="decline" data-q="${x.id}" data-fk="mi-decline">${ic("ban", 14)}${t.decline}</button></div>` : "";
+  let foot = "";
+  if (S.just && S.just.qid === x.id) foot = renderFooter(x);
+  else if (locked) foot = `<div class="stateline rel">${opts.first ? anno(17, "r") : ""}<span class="sum">${t.answer_of} <b>${esc(answerText(x))}</b></span>${x.sentAt ? `<time>${x.sentAt}</time>` : ""}<span class="spacer"></span>
+      <button type="button" class="btn btn-sm" data-act="edit" data-q="${x.id}" data-fk="edit-${x.id}">${ic("pencil", 14)}${t.edit}</button></div>`;
+  else foot = renderActs(x, v, primaryLabel, opts);
+  const note = locked ? (x.note ? `<div class="revnote">${ic("message-square-reply", 14)}${esc(x.note)}</div>` : "") : (x.noteOpen
+      ? `<div class="notebox"><textarea data-note="${x.id}" data-fk="note-${x.id}" placeholder="${t.note_ph}" aria-label="${t.note_add}">${esc(x.note)}</textarea></div>`
+      : `<div class="noteln"><button type="button" class="linkbtn" data-act="note" data-q="${x.id}" data-fk="noteb-${x.id}">+ ${t.note_add}</button></div>`);
+  const rev = x.revising && !locked ? `<div class="revnote">${ic("info", 14)}${t.revising}</div>` : "";
+  const chg = x.changed ? `<div class="chg" role="group" aria-label="${esc(t.chg_title)}"><span class="t">${ic("bot", 14)}${t.chg_title}</span><span class="sub">${t.chg_sub}</span>
+    <span class="acts"><button type="button" class="btn btn-sm" data-act="chg-show" data-q="${x.id}">${ic("eye", 14)}${t.chg_show}</button><button type="button" class="btn btn-sm" data-act="chg-reload" data-q="${x.id}" data-fk="chg-reload-${x.id}">${t.chg_reload}</button><button type="button" class="btn btn-sm" data-act="chg-keep" data-q="${x.id}" data-fk="chg-keep-${x.id}">${t.chg_keep}</button></span></div>` : "";
+  return `<article class="card st-${x.state}" id="c-${x.id}" data-card="${x.id}">${head}${menu}
+    <h3 id="h-${x.id}" tabindex="-1" data-fk="head-${x.id}">${esc(x.title)}</h3>${chg}${body}${note}${rev}${foot}</article>`;
+}
+function primaryOf(x) {
+  const t = T();
+  if (S.mode === "all") return t.confirm;
+  return x.revising ? t.send_change : t.send_answer;
+}
+function renderActs(x, v, primaryLabel, opts) {
+  const t = T();
+  const pre = x.prefilled && x.state === "draft" ? `<span class="hintpre">${ic("sparkles", 13)}${t.prefilled}</span>` : "";
+  return `<div class="cacts">
+    <button type="button" class="btn btn-primary rel" data-act="primary" data-q="${x.id}" data-fk="primary-${x.id}" ${v.ok ? "" : `aria-disabled="true" aria-describedby="why-${x.id}"`} aria-keyshortcuts="${isMac ? "Meta" : "Control"}+Enter">${opts.first ? anno(10) : ""}${ic(S.mode === "one" ? "send" : "package")}${primaryLabel}<kbd>${MOD}↵</kbd></button>
+    ${v.ok ? "" : `<span class="reason ${v.err ? "err" : ""}" id="why-${x.id}">${ic("circle-alert", 14)}${esc(v.reason)}</span>`}
+    ${pre}
+    <span class="spacer"></span>
+    <button type="button" class="btn rel" data-act="later" data-q="${x.id}" data-fk="later-${x.id}" aria-pressed="${x.state === "postponed"}">${opts.first ? anno(11) : ""}${ic("clock")}${t.later}</button>
+  </div>`;
+}
+function renderFooter(x) {
+  const t = T(), j = S.just;
+  let target = "";
+  if (j.next) {
+    const n = q(j.next);
+    const areaDone = j.areaDone ? `<span class="done-area">${ic("check", 14)}${esc(t.area_done(areaName(x.area)))}</span><span class="dotsep">·</span>` : "";
+    const why = j.reason === "new" ? ` <span class="why">${ic("bell-dot", 12)}${t.new_from_agent}</span>` : "";
+    const ap = j.areaDone ? ` <span class="mono">(${esc(areaName(n.area))})</span>` : "";
+    target = `${areaDone}<span class="nxt">${t.next_is} <b>${esc(n.chip)}</b> <span class="mono">${qnum(n)}</span>${ap}${n.state === "postponed" ? ` <span class="mono">· ${t.st_postponed}</span>` : ""}</span>${why}`;
+  } else if (j.to === "sendall") target = `<span class="nxt">${t.all_ready}</span>`;
+  else target = `<span class="nxt">${t.nothing_left}</span>`;
+  const btnLabel = j.to === "complete" ? t.see_summary : t.continue;
+  return `<div class="afoot rel" data-foot>${anno(12)}${j.areaDone ? anno(18, "r150") : ""}
+    <span class="what">${ic(STATE_ICON[x.state], 15)}${stLabel(x.state)}</span><span class="dotsep">·</span>${target}
+    <span class="spacer"></span>
+    <button type="button" class="btn btn-sm" data-act="edit" data-q="${x.id}" data-fk="edit-${x.id}">${ic("pencil", 14)}${t.edit}</button>
+    <button type="button" class="btn btn-primary" data-act="continue" data-fk="continue">${btnLabel}<kbd>↵</kbd></button></div>`;
+}
+function renderDone() {
+  const t = T(), c = counts();
+  if (S.pres === "solo" || !isComplete()) return ""; // the single-question board: one card is its own summary
+  const dl = delivery(), pp = c.postponed;
+  const line = `${t.done_line(dl.s, dl.d)}${c.declined ? t.done_declined(c.declined) : ""}`;
+  if (pp) {
+    const first = S.qs.find(x => x.state === "postponed");
+    return `<section class="done-panel open rel" aria-labelledby="done-h">${anno(14)}${ic("clock", 20)}<div><h2 id="done-h" tabindex="-1" data-fk="done-h">${t.remaining_postponed(pp)} ${t.postponed_note}</h2><p>${line}</p></div>
+      <button type="button" class="btn btn-primary" data-act="go" data-v="${first.id}" data-fk="done-first">${ic("arrow-right")}${t.go_first}</button></section>`;
+  }
+  return `<section class="done-panel ok rel" aria-labelledby="done-h">${anno(14)}${ic("circle-check-big", 20)}<div><h2 id="done-h" tabindex="-1" data-fk="done-h">${t.done_title}</h2><p>${line}</p></div><span></span></section>`;
+}
+function renderMain() {
+  const t = T(); let html = "";
+  if (S.pres === "solo") {
+    html = S.qs.map(x => renderCard(x, { first: true })).join("");
+    document.getElementById("main").innerHTML = `<div class="col" style="max-width:none">${html}</div>`;
+    return;
+  }
+  if (S.pres === "single") {
+    const cur = S.current === "__done" ? null : q(S.current) || S.qs[0];
+    const i = cur ? idx(cur.id) + 1 : S.qs.length;
+    html = `<div class="qnav rel">${anno(19)}<span class="pos">${cur ? t.q_of(i, S.qs.length) + ` · ${esc(areaName(cur.area))}` : ""}</span><span class="spacer"></span>
+      <button type="button" class="btn btn-sm" data-act="step" data-v="-1" data-fk="prev" ${i <= 1 ? "disabled" : ""}>${ic("chevron-left", 14)}${t.prev}</button>
+      <button type="button" class="btn btn-sm" data-act="step" data-v="1" data-fk="nextq" ${i >= S.qs.length ? "disabled" : ""}>${t.next}${ic("chevron-right", 14)}</button></div>`;
+    html += renderDone();
+    if (cur) html += renderCard(cur, { first: true, newAnno: true });
+  } else {
+    html = renderDone();
+    let first = true, newAnno = true;
+    for (const a of AREAS) {
+      const qs = S.qs.filter(x => x.area === a.id), left = qs.filter(isTodo).length;
+      if (!qs.length) continue;
+      html += `<section class="area" aria-labelledby="a-${a.id}"><div class="area-h"><h2 id="a-${a.id}">${esc(a.name)}</h2><span class="mono">${t.questions(qs.length)}</span>${left ? `<span class="mono">· ${t.todo_short(left)}</span>` : `<span class="done">${ic("check", 13)}${esc(t.area_done(a.name))}</span>`}</div>
+        ${qs.map(x => { const h = renderCard(x, { first, newAnno: x.isNew && newAnno }); if (x.isNew) newAnno = false; first = false; return h; }).join("")}</section>`;
+    }
+  }
+  document.getElementById("main").innerHTML = `<div class="col">${html}</div>`;
+}
+function renderToasts() {
+  const t = T();
+  document.getElementById("toasts").innerHTML = S.toasts.map(x => `<div class="toast ${x.kind || ""}">${ic(x.icon || "info", 16, "lead")}<span class="msg">${esc(x.msg)}</span>
+    ${x.action ? `<button type="button" class="btn btn-sm" data-act="${x.action}" data-v="${x.v || ""}" data-fk="toast-${x.action}">${x.action === "undo" ? ic("undo-2", 14) : ic("arrow-right", 14)}${x.actionLabel}</button>` : ""}
+    <button type="button" class="btn btn-ghost btn-icon btn-sm" data-act="dismiss" data-v="${x.id}" aria-label="${t.dismiss}">${ic("x", 14)}</button></div>`).join("");
+}
+function renderDialog() {
+  const t = T(), root = document.getElementById("dialog-root");
+  if (!S.dialog) { root.innerHTML = ""; return; }
+  const n = counts().held;
+  root.innerHTML = `<div class="scrim"><div class="dialog" role="alertdialog" aria-modal="true" aria-labelledby="dl-h" aria-describedby="dl-b">
+    <h2 id="dl-h">${t.sw_title}</h2><p id="dl-b">${t.sw_body(n)}</p>
+    <div class="acts"><button type="button" class="btn" data-act="dl-cancel" data-fk="dl-cancel">${t.cancel}</button><button type="button" class="btn btn-primary" data-act="dl-go" data-fk="dl-go">${ic("send")}${t.sw_go}</button></div></div></div>`;
+}
+
+/* ===================== Render orchestration with focus restore ===================== */
+function render(focusKey) {
+  const ae = document.activeElement, fk = focusKey || (ae && ae.dataset && ae.dataset.fk), selEnd = ae && ae.selectionEnd;
+  applyTheme(); renderMock(); renderLegend(); renderHeader(); renderRail(); renderMain(); renderToasts(); renderDialog();
+  if (fk) { const el = document.querySelector(`[data-fk="${fk}"]`); if (el) { el.focus({ preventScroll: true }); if (typeof selEnd === "number" && el.setSelectionRange && !focusKey) try { el.setSelectionRange(selEnd, selEnd); } catch (e) {} } }
+  observeCards();
+}
+// Light update while typing in a field: keep the input, refresh what depends on it.
+function renderLive(x) {
+  renderHeader(); renderRail();
+  const card = document.getElementById("c-" + x.id); if (!card) return;
+  card.className = `card st-${x.state} focusin`;
+  card.querySelector("[data-stb]").innerHTML = `${ic(STATE_ICON[x.state], 13)}${stLabel(x.state)}`;
+  const v = validation(x), acts = card.querySelector(".cacts");
+  if (acts) acts.outerHTML = renderActs(x, v, primaryOf(x), { first: idx(x.id) === 0 });
+  if (x.kind === "fields") {
+    const t = T(), bad = v.field === "email" && v.err, inp = card.querySelector("#f-email");
+    card.querySelector('[data-err="email"]').innerHTML = bad ? `<div class="err" id="e-email">${ic("circle-alert", 13)}${t.err_pattern}</div>` : `<div class="hint">nome@dominio.it</div>`;
+    if (bad) { inp.setAttribute("aria-invalid", "true"); inp.setAttribute("aria-describedby", "e-email"); } else { inp.removeAttribute("aria-invalid"); inp.removeAttribute("aria-describedby"); }
+  }
+}
+
+/* ===================== Current question follows the view (sections) ===================== */
+let io = null, inView = new Set();
+// 1.1.0: the observer reports only the cards whose visibility changed, so the set of cards in the band is kept across
+// callbacks and the topmost one is chosen (1.0.0 took the topmost of the changed entries only, which could skip one).
+function observeCards() {
+  if (io) io.disconnect();
+  inView = new Set();
+  if (S.pres !== "sections") return;
+  const cs = getComputedStyle(document.documentElement);
+  const top = (parseInt(cs.getPropertyValue("--mock-h")) || 0) + (parseInt(cs.getPropertyValue("--hdr-h")) || 84) + 12;
+  io = new IntersectionObserver(entries => {
+    entries.forEach(e => e.isIntersecting ? inView.add(e.target) : inView.delete(e.target));
+    const vis = [...inView].filter(el => el.isConnected && el.getBoundingClientRect().bottom > top + 80).sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
+    if (!vis.length) return;
+    const id = vis[0].dataset.card; if (id === S.current) return;
+    S.current = id; markCurrent();
+  }, { rootMargin: `-${top}px 0px -55% 0px` });
+  document.querySelectorAll("[data-card]").forEach(c => io.observe(c));
+}
+function markCurrent() {
+  document.querySelectorAll(".oitem, .segm").forEach(el => el.setAttribute("aria-current", String(el.dataset.go === S.current)));
+}
+
+/* ===================== Navigation ===================== */
+function arrive(el) { if (!el) return; el.classList.remove("arrive"); void el.offsetWidth; el.classList.add("arrive"); setTimeout(() => el.classList.remove("arrive"), 1700); }
+function goTo(id, opts = {}) {
+  const x = q(id); if (!x) return;
+  if (x.isNew) x.isNew = false;
+  S.current = id;
+  if (opts.clearJust !== false) S.just = null;
+  render(`head-${id}`);
+  const h = document.getElementById("h-" + id), card = document.getElementById("c-" + id);
+  if (S.pres === "sections" && card) card.scrollIntoView({ behavior: reduced() ? "auto" : "smooth", block: "start" });
+  if (S.pres === "single") window.scrollTo({ top: 0 });
+  if (h) h.focus({ preventScroll: true });
+  arrive(card); markCurrent();
+}
+function goNext(dir = 1) {
+  const from = document.activeElement && document.activeElement.closest ? (document.activeElement.closest("[data-card]") || {}).dataset : null;
+  const n = nextTodo((from && from.card) || S.current, dir);
+  if (n) goTo(n.q.id);
+}
+function goDone() {
+  if (S.pres === "single") S.current = "__done";
+  S.just = null; render("done-h");
+  const h = document.getElementById("done-h");
+  if (h) { h.scrollIntoView({ behavior: reduced() ? "auto" : "smooth", block: "start" }); h.focus({ preventScroll: true }); arrive(h.closest(".done-panel")); }
+}
+
+/* ===================== Acts ===================== */
+function stamp() { const d = new Date(); return d.toTimeString().slice(0, 5); }
+function scheduleReceipt(x) {
+  clearTimeout(S.receipts[x.id]);
+  if (S.rcpt === "paused") return; // the agent has not collected: no receipt, the answer stays "Inviata"
+  S.receipts[x.id] = setTimeout(() => {
+    if (x.state !== "sent") return;
+    x.state = "delivered"; pendingDelivered.push(x.chip); flushDelivered();
+  }, 3600 + Math.round(Math.random() * 900));
+}
+let pendingDelivered = [], deliveredTimer = null;
+function flushDelivered() {
+  clearTimeout(deliveredTimer);
+  deliveredTimer = setTimeout(() => { if (!pendingDelivered.length) return; say(T().live_delivered(pendingDelivered.join(", "))); pendingDelivered = []; render(); }, 120);
+}
+function primary(id) {
+  const x = q(id), v = validation(x), t = T();
+  if (!v.ok) { const el = document.querySelector(x.kind === "fields" ? `[data-field="${v.field}"]` : `[data-fk^="opt-${x.id}"]`); say(v.reason); if (el) el.focus(); return; }
+  const wasRevision = x.revising;
+  x.touched = true; x.prefilled = false; x.decline = false; x.revising = false;
+  if (S.mode === "one") { x.state = "sent"; x.sentAt = stamp(); scheduleReceipt(x); } else { x.state = "held"; x.sentAt = null; }
+  afterAct(x, wasRevision);
+}
+function afterAct(x, noAdvance) {
+  const t = T(), ans = x.state === "postponed" ? "" : answerText(x);
+  if (noAdvance) { // revising an earlier answer: no advance (brief 1.3.4)
+    S.just = null; say(x.state === "held" ? t.live_held(ans) : t.live_change); render(`edit-${x.id}`); return;
+  }
+  if (S.pres === "solo") { // single-question board: the card's state, one message, focus on the card heading; no footer, no panel
+    S.just = null;
+    say(x.state === "postponed" ? t.live_postponed(x.chip, "") : x.state === "declined" ? t.live_declined(x.chip) : t.live_single);
+    render(`head-${x.id}`); return;
+  }
+  const n = nextTodo(x.id), areaDone = !S.qs.some(y => y.area === x.area && isTodo(y));
+  const total = S.qs.length;
+  let to = "q";
+  if (!n) to = S.mode === "all" && counts().held ? "sendall" : (isComplete() ? "complete" : "none");
+  S.just = { qid: x.id, next: n ? n.q.id : null, reason: n ? n.reason : null, areaDone: areaDone && n && n.q.area !== x.area, to };
+  const nm = n ? n.q.chip : "", ni = n ? idx(n.q.id) + 1 : 0;
+  let msg = x.state === "postponed" ? t.live_postponed(x.chip, nm) : x.state === "declined" ? t.live_declined(x.chip) : (x.state === "held" ? t.live_held : t.live_sent)(ans, nm, ni, total);
+  if (S.just.areaDone) msg += " " + t.area_done(areaName(x.area)) + ".";
+  if (to === "sendall") msg += " " + t.all_ready + ".";
+  say(msg);
+  if (S.after === "next") { doContinue(); return; }
+  render("continue");
+}
+function doContinue() {
+  const j = S.just; if (!j) return;
+  if (j.next) goTo(j.next);
+  else if (j.to === "sendall") { S.just = null; render("sendall"); arrive(document.querySelector('[data-fk="sendall"]')); }
+  else if (j.to === "complete") goDone();
+  else { S.just = null; render(); }
+}
+function sendAll() {
+  const held = S.qs.filter(x => x.state === "held"); if (!held.length) return;
+  if (held.some(x => x.changed)) { say(T().updates(held.filter(x => x.changed).length)); return; } // blocked while an update needs a choice
+  held.forEach(x => { if (x.decline) { x.state = "declined"; } else { x.state = "sent"; scheduleReceipt(x); } x.sentAt = stamp(); });
+  S.just = null;
+  let msg = T().sent_n(held.length);
+  if (isComplete()) { const pp = counts().postponed; msg += " " + (pp ? T().remaining_postponed(pp) + "." : T().done_title + "."); say(msg); goDone(); return; }
+  say(msg); render("obx-h");
+}
+function setMode(m) {
+  if (m === S.mode) return;
+  if (m === "one" && counts().held) { S.dialog = { to: "one" }; render("dl-go"); return; }
+  S.mode = m; S.just = null; render();
+}
+function prefill() {
+  const list = prefillEligible(); if (!list.length) return;
+  list.forEach(x => { x.sel = x.rec; x.state = "draft"; x.prefilled = true; });
+  S.prefillUndo = list.map(x => x.id);
+  const msg = T().prefill_done(list.length);
+  pushToast({ msg, icon: "sparkles", action: "undo", actionLabel: T().undo, key: "prefill" });
+  say(msg); render("toast-undo");
+}
+function undoPrefill() {
+  (S.prefillUndo || []).forEach(id => { const x = q(id); if (x.prefilled && x.state === "draft") { x.sel = null; x.state = "todo"; x.prefilled = false; } });
+  S.prefillUndo = null; S.toasts = S.toasts.filter(t => t.key !== "prefill");
+  say(T().prefill_undone); render("prefill");
+}
+let toastId = 0;
+function pushToast(t) { S.toasts = S.toasts.filter(x => x.key !== t.key); S.toasts.push({ id: ++toastId, ...t }); const id = toastId; setTimeout(() => { S.toasts = S.toasts.filter(x => x.id !== id); renderToasts(); }, t.ttl || 12000); }
+function collectAll() { // the agent calls collect, or the mod pushes: every sent answer gets its receipt
+  const list = S.qs.filter(x => x.state === "sent"); if (!list.length) return;
+  list.forEach(x => { clearTimeout(S.receipts[x.id]); x.state = "delivered"; });
+  say(T().live_delivered(list.map(x => x.chip).join(", "))); render();
+}
+function nextNum() { return Math.max(...S.qs.map(x => x.num), S.removed ? S.removed.num : 0) + 1; }
+function removeQuestion() { // the agent deletes a question the user has not touched: it disappears; its fixed number stays unused
+  if (S.removed) return;
+  const x = S.qs.find(y => ["q3", "q9", "q6"].includes(y.id) && y.state === "todo" && !y.touched) || S.qs.find(y => y.state === "todo" && !y.touched && y.id !== S.current);
+  if (!x) return;
+  S.removed = { id: x.id, num: x.num, area: x.area, chip: x.chip };
+  S.qs.splice(idx(x.id), 1);
+  if (S.current === x.id) S.current = S.qs[0].id;
+  if (S.just && S.just.next === x.id) { const n = nextTodo(S.just.qid); Object.assign(S.just, { next: n ? n.q.id : null, reason: n ? n.reason : null }); }
+  pushToast({ msg: T().removed(x.chip), icon: "info", kind: "info", key: "removed", ttl: 8000 });
+  say(T().removed(x.chip)); render();
+}
+function updateHeld() { // the agent changes a question on which the user holds a ready answer: the notice blocks the send
+  const x = S.qs.find(y => y.state === "held" && !y.changed); if (!x) return;
+  x.changed = true; render();
+}
+function addQuestion() {
+  if (S.added) return; S.added = true;
+  const x = { kind: "choice", ...ADDED, num: nextNum(), sel: null, state: "todo", prefilled: false, isNew: true, note: "", noteOpen: false, fields: {}, sentAt: null, revising: false, decline: false, touched: false, changed: false };
+  S.qs.splice(idx(ADDED.after) + 1, 0, x);
+  if (S.just && !S.just.next) { const n = nextTodo(S.just.qid); if (n) Object.assign(S.just, { next: n.q.id, reason: n.reason, to: "q" }); }
+  else if (S.just) { const n = nextTodo(S.just.qid); if (n) Object.assign(S.just, { next: n.q.id, reason: n.reason }); }
+  pushToast({ msg: T().added, icon: "bell-dot", kind: "info", action: "go", v: x.id, actionLabel: T().go, key: "added" });
+  say(T().added + "."); render();
+}
+
+function setPres(v) {
+  if (v === S.pres) return;
+  Object.values(S.receipts).forEach(clearTimeout);
+  if (v === "solo") { S.multi = { qs: S.qs, mode: S.mode, current: S.current }; S.qs = soloQuestions(); S.mode = "one"; S.current = S.qs[0].id; }
+  else if (S.pres === "solo" && S.multi) { S.qs = S.multi.qs; S.mode = S.multi.mode; S.current = S.multi.current; S.multi = null; }
+  S.qs.filter(x => x.state === "sent").forEach(scheduleReceipt);
+  S.pres = v; S.just = null; S.ledgerPrev = null;
+  if (S.current === "__done" || !q(S.current)) S.current = S.qs[0].id;
+}
+function resetBoard() {
+  Object.values(S.receipts).forEach(clearTimeout);
+  Object.assign(S, { qs: S.pres === "solo" ? soloQuestions() : sampleQuestions(), current: "q1", just: null, prefillUndo: null, toasts: [], added: false, removed: null, menu: null, pop: null, dialog: null, ledgerPrev: null, multi: null });
+  if (S.pres === "solo") S.mode = "one";
+  window.scrollTo(0, 0); render();
+}
+/* ===================== Events ===================== */
+document.addEventListener("click", e => {
+  const m = e.target.closest("[data-mock]");
+  if (m) {
+    const k = m.dataset.mock, v = m.dataset.v;
+    if (k === "palette") S.palette = v; if (k === "dark") S.dark = v === "true"; if (k === "lang") S.lang = v;
+    if (k === "pres") setPres(v);
+    if (k === "annos") S.annos = v === "true";
+    if (k === "after") S.after = v;
+    if (k === "railW") S.railW = Number(v);
+    if (["ledger", "oneView", "ppHome", "nums"].includes(k)) S[k] = v;
+    if (k === "rcpt") { S.rcpt = v; if (v === "auto") S.qs.filter(x => x.state === "sent").forEach(scheduleReceipt); }
+    if (k === "mode") { setMode(v); return; }
+    render(); return;
+  }
+  const ma = e.target.closest("[data-mock-act]");
+  if (ma) {
+    const a = ma.dataset.mockAct;
+    if (a === "add") addQuestion();
+    if (a === "remove") removeQuestion();
+    if (a === "update") updateHeld();
+    if (a === "collect") collectAll();
+    if (a === "reset") resetBoard();
+    if (a === "hide") { S.mockOpen = false; render(); document.getElementById("mockhandle").focus(); }
+    return;
+  }
+  if (e.target.closest("#mockhandle")) { S.mockOpen = true; render(); return; }
+  const b = e.target.closest("[data-act]");
+  if (!b) {
+    if (S.pop && !e.target.closest(".pop")) { S.pop = null; render(); }
+    if (S.menu && !e.target.closest(".menu")) { S.menu = null; render(); }
+    const og = e.target.closest("[data-go]"); if (og) goTo(og.dataset.go);
+    return;
+  }
+  const act = b.dataset.act, id = b.dataset.q, v = b.dataset.v;
+  if (act !== "pop" && !b.closest(".pop")) S.pop = null;
+  if (act !== "menu" && !b.closest(".menu")) S.menu = null;
+  switch (act) {
+    case "primary": if (b.getAttribute("aria-disabled") === "true") { say(validation(q(id)).reason); const x = q(id); const el = document.querySelector(x.kind === "fields" ? `[data-field="${validation(x).field}"]` : `[data-fk^="opt-${x.id}"]`); if (el) el.focus(); return; } primary(id); break;
+    case "accept": { const x = q(id); x.sel = x.rec; x.touched = true; if (x.state === "todo" || x.state === "postponed") x.state = "draft"; primary(id); break; }
+    case "later": { const x = q(id); S.just = null; if (x.state === "postponed") { x.state = x.sel ? "draft" : "todo"; render(); } else { x.state = "postponed"; x.touched = true; afterAct(x); } break; }
+    case "edit": { const x = q(id); S.just = null; if (x.state === "held") { x.state = "draft"; x.decline = false; } else if (["sent", "delivered", "declined"].includes(x.state)) { x.revising = x.state !== "declined"; x.state = x.sel || x.kind === "fields" ? "draft" : "todo"; x.decline = false; clearTimeout(S.receipts[x.id]); } render(x.kind === "fields" ? "fld-team" : (x.sel ? `opt-${x.id}-${x.sel}` : `head-${x.id}`)); break; }
+    case "continue": doContinue(); break;
+    case "next": if (b.getAttribute("aria-disabled") !== "true") goNext(1); break;
+    case "prefill": prefill(); break;
+    case "undo": undoPrefill(); break;
+    case "go": S.toasts = S.toasts.filter(t => t.key !== "added"); goTo(v); break;
+    case "chg-show": pushToast({ msg: T().chg_show + ": " + q(id).chip, icon: "eye", key: "chg", ttl: 3000 }); render(); break;
+    case "chg-keep": { const x = q(id); x.changed = false; render(`primary-${id}`); const nx = S.qs.find(y => y.changed && y.state === "held"); render(nx ? "updates" : "sendall"); break; }
+    case "chg-reload": { const x = q(id); x.changed = false; x.state = "todo"; x.sel = null; x.touched = false; render(`head-${id}`); break; }
+    case "dismiss": S.toasts = S.toasts.filter(t => String(t.id) !== v); renderToasts(); break;
+    case "sendall": sendAll(); break;
+    case "mode": setMode(v); break;
+    case "dl-cancel": S.dialog = null; render("mode-all"); break;
+    case "dl-go": S.dialog = null; S.mode = "one"; sendAll(); if (!isComplete()) render("mode-one"); break;
+    case "menu": S.menu = S.menu === id ? null : id; render(S.menu ? "mi-explain" : `more-${id}`); break;
+    case "explain": S.menu = null; pushToast({ msg: T().explain_sent, icon: "message-square-reply", key: "explain", ttl: 5000 }); say(T().explain_sent); render(`more-${id}`); break;
+    case "decline": { const x = q(id); S.menu = null; x.touched = true; x.prefilled = false; if (S.mode === "one") { x.state = "declined"; x.decline = true; x.sentAt = stamp(); } else { x.state = "held"; x.decline = true; } afterAct(x); break; }
+    case "note": { const x = q(id); x.noteOpen = true; render(`note-${id}`); break; }
+    case "pop": S.pop = S.pop === v ? null : v; render(S.pop ? `pop-${v}` : undefined); break;
+    case "after": S.after = v; render(`after-${v}`); break;
+    case "palette": S.palette = v; render(`pal-${v}`); break;
+    case "scheme": S.dark = v === "dark"; render(v === "dark" ? "sch-d" : "sch-l"); break;
+    case "snapshot": pushToast({ msg: T().snapshot_done, icon: "camera", key: "snap", ttl: 4000 }); render(); break;
+    case "step": { const i = idx(S.current === "__done" ? S.qs[S.qs.length - 1].id : S.current) + Number(v); const x = S.qs[Math.max(0, Math.min(S.qs.length - 1, i))]; goTo(x.id); break; }
+  }
+});
+document.addEventListener("change", e => {
+  const r = e.target;
+  if (r.matches('input[type="radio"][data-q]')) {
+    const x = q(r.dataset.q); x.sel = r.value; x.touched = true; x.prefilled = false;
+    if (x.state === "todo" || x.state === "postponed") x.state = "draft";
+    if (S.just && S.just.qid !== x.id) S.just = null;
+    render(r.dataset.fk);
+  }
+});
+document.addEventListener("input", e => {
+  const f = e.target;
+  if (f.dataset.field) { const x = q(f.dataset.q); x.fields[f.dataset.field] = f.value; x.touched = true; if (x.state === "todo" || x.state === "postponed") x.state = "draft"; if (S.just && S.just.qid !== x.id) { S.just = null; } renderLive(x); }
+  if (f.dataset.note) { q(f.dataset.note).note = f.value; }
+});
+document.addEventListener("focusin", e => {
+  document.querySelectorAll(".card.focusin").forEach(c => c.classList.remove("focusin"));
+  const c = e.target.closest && e.target.closest("[data-card]"); if (c) c.classList.add("focusin");
+});
+const isText = el => el && (el.tagName === "TEXTAREA" || (el.tagName === "INPUT" && !["radio", "checkbox", "button"].includes(el.type)) || el.isContentEditable);
+document.addEventListener("keydown", e => {
+  const mod = isMac ? e.metaKey : e.ctrlKey;
+  if (e.key === "Escape") {
+    if (S.dialog) { S.dialog = null; render("mode-all"); return; }
+    if (S.pop) { const v = S.pop; S.pop = null; render(`pop-${v}`); return; }
+    if (S.menu) { const id = S.menu; S.menu = null; render(`more-${id}`); return; }
+  }
+  if (S.dialog) { // keep focus inside the dialog
+    if (e.key === "Tab") { const f = [...document.querySelectorAll(".dialog button")]; const i = f.indexOf(document.activeElement); e.preventDefault(); f[(i + (e.shiftKey ? -1 : 1) + f.length) % f.length].focus(); }
+    return;
+  }
+  if (e.key === "Enter" && mod && !e.shiftKey && !isText(document.activeElement)) {
+    e.preventDefault();
+    const c = document.activeElement && document.activeElement.closest && document.activeElement.closest("[data-card]");
+    const id = c ? c.dataset.card : (S.pres === "single" ? S.current : null);
+    if (id && q(id) && ["todo", "draft", "postponed"].includes(q(id).state)) primary(id);
+    return;
+  }
+  if ((e.key === "n" || e.key === "N") && !mod && !e.altKey && !isText(document.activeElement)) { e.preventDefault(); goNext(e.shiftKey ? -1 : 1); }
+});
+document.getElementById("mockhandle").addEventListener("keydown", () => {});
+new ResizeObserver(() => { document.documentElement.style.setProperty("--mock-h", S.mockOpen ? document.getElementById("mock").offsetHeight + "px" : "0px"); }).observe(document.getElementById("mock"));
+if (location.hash.includes("clean")) document.body.classList.add("clean");
+// Mockup only: a handle for the screenshot script.
+window.MOCK = { S, render, q, primary, goTo, goDone, sendAll, setPres, resetBoard, addQuestion, removeQuestion, updateHeld, collectAll, prefill, setMode, afterAct, counts };
+render();
+</script>
+</body>
+</html>

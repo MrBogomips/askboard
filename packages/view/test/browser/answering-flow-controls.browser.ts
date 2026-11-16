@@ -31,6 +31,7 @@ import {
   openBoard,
   optionOf,
   postponeOf,
+  viewportBottom,
 } from "./harness/lifecycle-test.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 
@@ -63,7 +64,7 @@ const open = async (
   return { run, board };
 };
 
-const bar = (board: Board): Locator => board.view.getByRole("contentinfo");
+const bar = (board: Board): Locator => board.outbox;
 const helper = (board: Board, text: string): Locator => bar(board).getByText(text, { exact: true });
 const jump = (board: Board): Locator => board.header.locator("[data-askboard-next-to-do]");
 
@@ -254,7 +255,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const ticket = board.question("q4").getByLabel("Ticket");
         await eventually(() => isFocused(ticket), "focus in Ticket");
         const header = await boxOf(board.header);
-        const footer = await boxOf(bar(board));
+        const footer = { top: await viewportBottom(board) };
         const field = await boxOf(ticket);
         expect(field.top).toBeGreaterThanOrEqual(header.bottom);
         expect(field.bottom).toBeLessThanOrEqual(footer.top);

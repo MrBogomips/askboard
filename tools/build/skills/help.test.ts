@@ -133,7 +133,7 @@ describe("SKILL.md", () => {
   });
 
   test("names the acts by their labels on the board, and says Send is absent in One by one", () => {
-    expect(skill).toContain("the bar has no Send");
+    expect(skill).toContain("the outbox has no Send");
     expect(skill).not.toContain("Submit");
     expect(skill).not.toContain("**Postpone.**");
   });

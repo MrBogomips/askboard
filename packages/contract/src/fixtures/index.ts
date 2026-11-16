@@ -350,3 +350,10 @@ export {
   afterAnswerSetting,
   settingsWithAfterAnswer,
 } from "./after-answer.ts";
+
+// The draft record's short question numbers (answering-flow-visual, task 1.1).
+
+export {
+  answeringFlowVisualDraftRecord,
+  answeringFlowVisualNumbers,
+} from "./answering-flow-visual.ts";

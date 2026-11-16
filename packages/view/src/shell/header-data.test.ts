@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { Board, BoardExtras } from "./board.tsx";
 import { NO_CHANNEL } from "./channel.ts";
+import { createTray } from "./feedback-tray-store.ts";
 import { type HeaderData, headerDataOf } from "./header-data.ts";
 import { DEFAULT_PRESENTATION, type PresentationControls } from "./presentation-controls.ts";
 import { createSnapshotControl } from "./snapshot-control.ts";
@@ -51,6 +52,7 @@ describe("the header's store on the board (review M5)", () => {
       header,
       presentation,
       snapshot: createSnapshotControl(NO_CHANNEL),
+      tray: createTray(),
     };
     const props: Pick<Props, "extras"> = { extras };
     // @ts-expect-error: the board takes no header of its own, only its extras

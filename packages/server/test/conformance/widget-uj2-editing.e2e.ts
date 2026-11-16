@@ -97,7 +97,7 @@ const dropBefore = async (board: RealBoard, nodeId: string, targetId: string): P
 
 /** The five edits, on the real board page, with the pointer. */
 const makeTheEdits = async (board: RealBoard): Promise<void> => {
-  // A tall page, so that no handle sits under the board's bar at the bottom of the default one.
+  // A tall page, so that no handle sits at the viewport's foot of the default one.
   await board.page.setViewportSize({ width: 1280, height: 1000 });
   await board.view.getByRole("treegrid").waitFor({ timeout: STEP_TIMEOUT_MS });
   const edge = board.view.getByRole("separator", { name: "Resize the Task column" });

@@ -202,6 +202,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
               .some((frame) => frame.dir === "sent" && frame.text.includes('"density"')),
           "the density command",
         );
+        // The view's own Density control, in the Theme popover, follows the panel's choice.
+        await board.themeControl.click({ timeout: STEP_TIMEOUT_MS });
         expect(
           await board.view
             .getByRole("radiogroup", { name: "Density" })

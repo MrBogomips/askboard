@@ -22,6 +22,7 @@ import {
   answerOf,
   buttonOf,
   headingOf,
+  labelText,
   lifecycleScenario,
   noteOf,
   openBoard,
@@ -37,7 +38,7 @@ const FIRST = ["q1", "q2", "q3", "q4", "q5", "q6", "q7", "q8", "q9"];
 type Start = ReturnType<typeof useEngine>["start"];
 
 /** The text a control shows, as the user reads it. */
-const labelOf = async (control: Locator): Promise<string> => (await control.innerText()).trim();
+const labelOf = (control: Locator): Promise<string> => labelText(control);
 
 /** Waits until a control reads `expected`. */
 const reads = (control: Locator, expected: string): Promise<void> =>
@@ -59,7 +60,7 @@ const open = async (
 const yes = (board: Board, id: string, language: Language = "en-US"): Locator =>
   optionOf(board, id, language === "it-IT" ? "Sì" : "Yes");
 
-const bar = (board: Board): Locator => board.view.getByRole("contentinfo");
+const bar = (board: Board): Locator => board.outbox;
 
 for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
   describe(`${engine}: the wording and the two primaries`, () => {

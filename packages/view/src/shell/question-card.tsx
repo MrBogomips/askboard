@@ -42,6 +42,7 @@ import {
 } from "./agent-change.ts";
 import type { AnswerActs } from "./answer-acts.ts";
 import { answerableOf, answerKeyHandling } from "./answer-key.ts";
+import { answeredLookOf, answerPartsOf } from "./answered-look.ts";
 import { type Attention, useInView } from "./attention.ts";
 import {
   answerContentOf,
@@ -67,6 +68,7 @@ import {
   startFromPrevious,
   startRevision,
 } from "./card-acts.ts";
+import { CardHead } from "./card-head.tsx";
 import { entriesWithCells } from "./cell-entries.ts";
 import { ChangeNotice, ReopenedNotice } from "./change-notice.tsx";
 import type { ViewChannel } from "./channel.ts";
@@ -87,7 +89,7 @@ import {
   shownResultFor,
   statusOf,
 } from "./question-state.ts";
-import { type ReasonRequests, reasonAskedAfter, reasonOf } from "./reason.ts";
+import { nothingChosenOf, type ReasonRequests, reasonAskedAfter, reasonOf } from "./reason.ts";
 import { type RenderContext, RenderItem } from "./renderer.tsx";
 import { carriedOf } from "./reopen-prefill.ts";
 import { revealAndFocus } from "./reveal.ts";
@@ -160,6 +162,8 @@ type CardProps = {
   readonly context: CardContext;
   /** What follows an act: the move to the next question to do, or the footer (decision 3). */
   readonly flow: Flow;
+  /** The board's short numbers: the card's own in its head, the next question's in its footer. */
+  readonly numbers?: ReadonlyMap<string, number> | undefined;
 };
 
 // What the card follows while the board has no results store.
@@ -275,6 +279,7 @@ const useCard = ({ question, state, lock, context }: CardProps) => {
     placement,
     sizeNotice,
     draftLeftOut,
+    entries: heldEntries,
   };
 };
 
@@ -406,6 +411,7 @@ const OpenPrompt = ({
 
 export const QuestionCard = (props: CardProps) => {
   const { question, state, lock, delivery, single, context, ladder, flow, level = 2 } = props;
+  const number = props.numbers?.get(question.id);
   const Heading = level === 3 ? "h3" : "h2";
   const language = useLanguage();
   const text = useStrings();
@@ -428,6 +434,7 @@ export const QuestionCard = (props: CardProps) => {
     sizeNotice,
     draftLeftOut,
     revising,
+    entries,
   } = useCard(props);
   const section = useRef<HTMLElement>(null);
   useInView(section, question.id, context.attention);
@@ -668,6 +675,34 @@ export const QuestionCard = (props: CardProps) => {
         />
       </Fragment>
     ));
+  // The answered look (design decision 7): the answer stands and no revision is in draft. The line
+  // names the answer the card shows, else the draft's (a ready answer).
+  // `revising` is "holds answer work": a held ready answer holds it too and looks answered, its
+  // primary reading "Edit"; any other answered state under edit is a revision in draft.
+  const answered = answeredLookOf(mark, revising && mark !== "ready");
+  const content = card.shown ?? answerContentOf(shown, values, work, results);
+  const answerParts =
+    mark === "declined" ? undefined : answerPartsOf(content.choice, content.other);
+  // "Choose an option" (design decision 9): the primary waits on a choice and nothing else.
+  const nothingChosen =
+    !answered &&
+    !card.canAnswer &&
+    card.phase === "open" &&
+    nothingChosenOf(question, values, work, fieldToFix !== undefined, results, entries);
+  // "Edit" on a sent, delivered or declined answer: focus the chosen option, else the first control;
+  // it sends nothing, and the first edit after it starts the revision (design decision 7).
+  const onEdit = () => {
+    const root = section.current;
+    if (root === null) return;
+    const target =
+      root.querySelector<HTMLElement>(
+        '[role="radio"][data-state="checked"], [role="checkbox"][data-state="checked"]',
+      ) ??
+      root.querySelector<HTMLElement>(
+        'input:not([disabled]), textarea:not([disabled]), [role="radio"], [role="checkbox"]',
+      );
+    if (target !== null) revealAndFocus(target);
+  };
   const contextColumn = (
     <ContextColumn
       questionId={question.id}
@@ -682,6 +717,8 @@ export const QuestionCard = (props: CardProps) => {
     <section
       ref={section}
       data-askboard-question={question.id}
+      data-askboard-stripe={mark}
+      data-askboard-answered={answered ? "" : undefined}
       data-askboard-logged-receipt={loggedReceiptOf(status)}
       aria-busy={load === "loading"}
       aria-labelledby={questionTextId(question.id)}
@@ -712,11 +749,17 @@ export const QuestionCard = (props: CardProps) => {
           }}
         />
       )}
-      {header === undefined ? null : (
-        <div className="flex items-center gap-sm">
-          <span className={CHIP}>{header}</span>
-        </div>
-      )}
+      <CardHead
+        number={single || context.opened !== undefined ? undefined : number}
+        chip={header}
+        mark={mark}
+        opened={opened}
+        locked={lock !== undefined}
+        actions={actions}
+        onExplain={() => explain(question, acting, language)}
+        onDecline={onDecline}
+        onMenuClosed={afterMenu}
+      />
       {split ? (
         <div className="grid grid-cols-[minmax(0,1fr)_360px] items-start gap-4">
           <div className="flex min-w-0 flex-col gap-3">
@@ -751,7 +794,11 @@ export const QuestionCard = (props: CardProps) => {
           />
           <ActionsRow
             opened={opened}
-            mark={mark}
+            questionId={question.id}
+            answered={answered}
+            answerParts={answerParts}
+            nothingChosen={nothingChosen}
+            onEdit={onEdit}
             card={card}
             actions={actions}
             fieldToFix={fieldToFix}
@@ -765,14 +812,15 @@ export const QuestionCard = (props: CardProps) => {
             submitted={!single && delivery === "submitted"}
             onAnswer={onAnswer}
             onPostpone={onPostpone}
-            onExplain={() => explain(question, acting, language)}
-            onDecline={onDecline}
-            onMenuClosed={afterMenu}
           />
           {footer === undefined ? null : (
             <QuestionFooter
               footer={footer}
+              questionId={question.id}
               state={markLabel(mark, language)}
+              mark={mark}
+              number={single ? undefined : props.numbers?.get(footer.target)}
+              onEdit={mark === "sent" ? onEdit : undefined}
               onContinue={() => flow.proceed()}
             />
           )}

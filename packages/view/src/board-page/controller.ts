@@ -39,6 +39,7 @@ import type {
   AnswerReply,
   DraftRestore,
   PanelClosed,
+  ReferenceInset,
   SnapshotFeedback,
   SnapshotRequestReply,
   ViewItemError,
@@ -148,7 +149,7 @@ export type BoardPageDeps = {
    * "Settings", and shown again after each change of the settings while it is open
    * (settings-languages, design decision 10).
    */
-  readonly showSettings?: (panel: PanelData | undefined) => void;
+  readonly showSettings?: (panel: PanelData | undefined, inset?: ReferenceInset) => void;
   /** Reports what the user does not need to see, such as a message the board page refused. */
   readonly log: (text: string, detail?: unknown) => void;
   /** Puts text on the clipboard, on the user's click (F-17). */
@@ -270,6 +271,8 @@ class BoardPageController implements BoardPage {
   // The settings panel: whether it is open, and how many times it has closed (the view focuses
   // "Settings" on each).
   #settingsOpen = false;
+  // Where the view's header ends, as the view measured it when it opened the panel.
+  #settingsInset: ReferenceInset | undefined;
   #settingsClosed = 0;
   // The reading panel's latest closing by the user, which the view acts on once.
   #closed: PanelClosed | undefined;
@@ -419,9 +422,10 @@ class BoardPageController implements BoardPage {
       return {};
     },
     setting: (message) => this.#setting(message),
-    "open-settings": () => {
+    "open-settings": ({ inset }) => {
       this.#deps.readingPanel?.close();
       this.#settingsOpen = true;
+      this.#settingsInset = inset;
       this.#showSettings();
       return {};
     },
@@ -452,6 +456,7 @@ class BoardPageController implements BoardPage {
     if (!this.#settingsOpen || settings === undefined || presentation === undefined) return;
     this.#deps.showSettings?.(
       panelData(settings, presentation, languageOf(document), localeOf(document)),
+      this.#settingsInset,
     );
   }
 

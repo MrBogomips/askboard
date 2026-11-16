@@ -8,6 +8,7 @@ import { type RefObject, useMemo, useRef, useState } from "react";
 import { KeyHint } from "../catalog/keys/key-help.tsx";
 import { buttonRefOf, clickOf, type KeysPanelControl } from "../catalog/keys/keys-button.ts";
 import { useStrings } from "../catalog/port.ts";
+import { IconKeys } from "../icons/index.ts";
 import {
   controlOf,
   type FrameElements,
@@ -74,11 +75,12 @@ export const BoardKeysButton = ({ panel, takesEdits }: BoardKeysProps) => {
     <button
       type="button"
       aria-haspopup="dialog"
-      className={BUTTON_SECONDARY}
+      aria-label={text("keys.button")}
+      className={`${BUTTON_SECONDARY} w-control-height justify-center px-0`}
       ref={buttonRefOf(panel.control, undefined)}
       onClick={clickOf(panel.control, undefined)}
     >
-      {text("keys.button")}
+      <IconKeys className="size-4" />
     </button>
   );
   return (

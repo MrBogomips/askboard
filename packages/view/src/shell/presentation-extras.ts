@@ -6,8 +6,9 @@
 
 import type { Density, ThemePreference } from "@askboard/contract";
 import type { BootData } from "../boot-data.ts";
-import type { ViewMessage, ViewPresentation } from "../view-protocol.ts";
+import type { ReferenceInset, ViewMessage, ViewPresentation } from "../view-protocol.ts";
 import type { ViewChannel } from "./channel.ts";
+import { measureInset } from "./measure-inset.ts";
 import { DEFAULT_PRESENTATION, type PresentationControls } from "./presentation-controls.ts";
 import { createStore } from "./store.ts";
 
@@ -20,6 +21,8 @@ export type PresentationOptions = {
   readonly followDensity?: (density: Density) => void;
   /** What a Snapshot starts in, from its record; the boot block's presentation otherwise. */
   readonly initial?: ViewPresentation;
+  /** Where the settings sheet sits, measured as for the reading panel (design decision 12). */
+  readonly inset?: () => ReferenceInset;
 };
 
 const focusSettings = (): void => {
@@ -29,7 +32,14 @@ const focusSettings = (): void => {
 export const startPresentation = (
   data: BootData,
   channel: ViewChannel,
-  { hosted, report, followTheme, followDensity, initial }: PresentationOptions,
+  {
+    hosted,
+    report,
+    followTheme,
+    followDensity,
+    initial,
+    inset = measureInset,
+  }: PresentationOptions,
 ): PresentationControls => {
   const presentation = createStore(initial ?? data.presentation ?? DEFAULT_PRESENTATION);
   // The settings panel closing gives the focus back to "Settings", once for each closing.
@@ -56,7 +66,7 @@ export const startPresentation = (
       }
     },
     openSettings: () => {
-      if (hosted) report({ type: "open-settings" });
+      if (hosted) report({ type: "open-settings", inset: inset() });
     },
   };
 };

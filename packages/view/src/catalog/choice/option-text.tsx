@@ -44,22 +44,24 @@ export const OptionText = ({
   readonly option: ChoiceOption;
 }) => {
   const text = useStrings();
+  // One flow of text: the label, the badge and the description inline, which wraps and is never cut
+  // (agent content, AD-8; design decision 7).
   return (
-    <span className="flex min-w-0 flex-col gap-0.5">
-      <span className="flex flex-wrap items-center gap-sm">
-        <span id={optionLabelId(itemId, index)} className="text-body-lg text-foreground">
-          {option.label}
-        </span>
-        {option.recommended === true ? (
-          <span className={RECOMMENDED}>{text("question.recommended")}</span>
-        ) : null}
+    <span className="min-w-0 flex-1">
+      <span id={optionLabelId(itemId, index)} className="text-body-lg text-foreground">
+        <bdi className="inline-block max-w-full">{option.label}</bdi>
       </span>
+      {option.recommended === true ? (
+        <span className={`ml-sm align-baseline ${RECOMMENDED}`}>
+          {text("question.recommended")}
+        </span>
+      ) : null}
       {option.description === undefined ? null : (
         <span
           id={optionDescriptionId(itemId, index)}
-          className="text-body text-foreground-secondary"
+          className="ml-sm text-body text-foreground-secondary"
         >
-          {option.description}
+          <bdi className="inline-block max-w-full">{option.description}</bdi>
         </span>
       )}
     </span>

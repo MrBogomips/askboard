@@ -4,6 +4,7 @@ import { lifecycleBoardDocument, plainChoiceBoardDocument } from "@askboard/cont
 import { questionsOf, type ViewArea, type ViewDocument } from "../view-document.ts";
 import type { QuestionWork } from "./board-draft.ts";
 import {
+  askPillIconOf,
   askPillOf,
   endedOf,
   groupsOf,
@@ -135,7 +136,7 @@ describe("counting (EXPERIENCE.md, Counting; FR-24)", () => {
     expect(tabOpenCount(delivery, allOpen, work, none)).toBe(2);
   });
 
-  test("the ask pill shows only what the agent has received", () => {
+  test("the ask pill shows what the user has answered on the board", () => {
     expect(askPillOf(allOpen, undefined)).toEqual({ kind: "waiting", label: "Waiting" });
     const partly = stateOf("partly-answered", [
       answeredAs("region"),
@@ -677,5 +678,20 @@ describe("the header's count names the postponed (answering-flow-guidance, decis
     expect(openLabelOf(4, 2, "it-IT")).toBe("4 da fare (di cui 2 rimandate)");
     expect(openLabelOf(3, 0, "en-US")).toBe("3 to do");
     expect(openLabelOf(3, 0, "it-IT")).toBe("3 da fare");
+  });
+});
+
+describe("askPillIconOf (#213, design decision 14)", () => {
+  test("each kind names its icon from the module", () => {
+    expect(askPillIconOf("waiting")).toBe("circle");
+    expect(askPillIconOf("partial")).toBe("circle-dashed");
+    expect(askPillIconOf("answered")).toBe("check");
+    expect(askPillIconOf("closed")).toBe("lock");
+    expect(askPillIconOf("discarded")).toBe("circle-x");
+  });
+
+  test("never a receipt's icon", () => {
+    const kinds = ["waiting", "partial", "answered", "closed", "discarded"] as const;
+    for (const kind of kinds) expect(["send", "check-check"]).not.toContain(askPillIconOf(kind));
   });
 });

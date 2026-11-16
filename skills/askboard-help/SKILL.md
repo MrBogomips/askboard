@@ -16,10 +16,10 @@ This skill answers a user's questions about using the AskBoard board. The files 
 
 ## The board
 
-- **Send answer.** A question's main button sends its answer. In "One by one" each goes as given and the bar has no Send. In "All together" the button reads "Confirm" and the answer waits, "Ready, not sent", until "Send {count} answers" in the bar sends them all. A bar switch changes the mode.
-- **After answering.** A setting in the settings panel: "Go to the next" (the default) moves on to the next question to do; "Stay here" shows "Continue" on the card.
-- **Prefill recommended.** The bar's button selects each recommended option as a draft; nothing is sent or ready, and "Undo" clears them.
-- **Later.** Postpones a question; it can be undone. One left open when the board closes is lost with the ask, and the bar warns of it.
+- **Send answer.** A question's main button sends its answer. In "One by one" each goes as given and the outbox has no Send. In "All together" the button reads "Confirm" and the answer waits, "Ready, not sent", until the outbox's "Send {count} answers" sends them all. Its switch changes the mode.
+- **After answering.** A setting: "Go to the next" (the default) moves on to the next question to do; "Stay here" shows "Continue" on the card.
+- **Prefill recommended.** The progress row's button drafts each recommended option; nothing is sent or ready, and "Undo" clears them.
+- **Later.** Postpones a question; it can be undone. One left open when the board closes is lost with the ask, and the header warns.
 - **Decline and Explain.** Under "More". "Decline" closes the question as declined, with an optional reason in the note; it can be revised or undone. "Explain" asks the agent why it asks and what changes with each option.
 - **Follow-up questions.** The user can ask the agent a follow-up under each question; the reply comes in the same thread, and a marker shows one out of view.
 - **When the agent changes a question.** With unsent work on it, a notice offers "Keep mine" (the answer is for the earlier version) or "Reload, losing my work" (the agent's version replaces it).

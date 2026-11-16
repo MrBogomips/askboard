@@ -127,6 +127,12 @@ export const headingOf = (board: Board, id: string): Locator =>
     .getByRole("heading", { level: 2 })
     .or(card(board, id).getByRole("heading", { level: 3 }));
 
+/** A card's own "More", in its head: a widget may carry a "More" of its own. */
+export const moreOf = (board: Board, id: string): Locator =>
+  card(board, id)
+    .locator("[data-askboard-card-head]")
+    .getByRole("button", { name: "More", exact: true });
+
 /** An item of the open "More" menu: Explain, or Decline. */
 export const menuItem = (board: Board, name: "Explain" | "Decline"): Locator =>
   board.view
@@ -139,13 +145,36 @@ export const chooseFromMore = async (
   id: string,
   name: "Explain" | "Decline",
 ): Promise<void> => {
-  await buttonOf(board, id, "More").click({ timeout: STEP_TIMEOUT_MS });
+  // The card's own More, in its head: a widget may carry a "More" of its own.
+  await moreOf(board, id).click({ timeout: STEP_TIMEOUT_MS });
   await menuItem(board, name).click({ timeout: STEP_TIMEOUT_MS });
 };
 
-/** The bottom action bar's controls by name. */
+/**
+ * The controls the bottom action bar held, by name: they now sit in the header (the ask row and the
+ * progress row, "Snapshot" and "Select recommended") and in the rail's outbox (the delivery switch,
+ * Send and the notices link).
+ */
 export const barButton = (board: Board, name: string): Locator =>
-  board.view.getByRole("contentinfo").getByRole("button", { name, exact: true });
+  board.header.or(board.outbox).getByRole("button", { name, exact: true });
+
+/**
+ * A control's own text: what it reads, without the key caps and icons that are hidden from assistive
+ * technology (`aria-hidden`) and so are no part of its name (answering-flow-visual, key caps).
+ */
+export const labelText = (control: Locator): Promise<string> =>
+  control.evaluate((element) => {
+    const copy = element.cloneNode(true) as Element;
+    for (const hidden of copy.querySelectorAll('[aria-hidden="true"]')) hidden.remove();
+    return (copy.textContent ?? "").trim();
+  });
+
+/**
+ * The view's viewport bottom, in CSS pixels from its top: the limit below which nothing may sit
+ * (there is no bottom bar; answering-flow-visual).
+ */
+export const viewportBottom = (board: Board): Promise<number> =>
+  board.view.locator("body").evaluate((body) => body.ownerDocument.defaultView?.innerHeight ?? 0);
 
 /** A card's follow-up composer, once its thread is open. */
 export const composerOf = (board: Board, id: string): Locator =>

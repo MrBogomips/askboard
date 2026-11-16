@@ -28,7 +28,10 @@ describe("the primary button", () => {
   test("carries data-askboard-primary, once, on the Answer button", () => {
     const html = draw();
     expect(html.match(/data-askboard-primary/g)?.length).toBe(1);
-    expect(html).toMatch(/<button[^>]*data-askboard-primary[^>]*>Answer<\/button>/);
+    // The key cap is inside the button, hidden from assistive technology (answering-flow-visual).
+    expect(html).toMatch(
+      /<button[^>]*data-askboard-primary[^>]*>Answer<span aria-hidden="true"[^>]*><kbd[^>]*>[^<]*<\/kbd><\/span><\/button>/,
+    );
   });
 
   test("an enabled one carries aria-keyshortcuts Control+Enter Meta+Enter", () => {

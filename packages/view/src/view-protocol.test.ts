@@ -1028,14 +1028,18 @@ describe("the presentation messages the view sends (settings-languages, task 8.3
     }
   });
 
-  test("opening the settings takes no arguments", () => {
-    const message = { type: "open-settings" } as const;
+  test("opening the settings names the view's inset and nothing else (answering-flow-visual, D12)", () => {
+    const message = { type: "open-settings", inset: { top: 96, bottom: 0 } } as const;
     expect(readViewMessage(toolCallOf(message))).toEqual({ ok: true, value: message });
-    const refused = readViewMessage({
-      name: `${VIEW_TOOL_PREFIX}open-settings`,
-      arguments: { panel: "x" },
-    });
-    expect(refused.ok).toBe(false);
+    const refusedAt = (args: Record<string, unknown>) => {
+      const read = readViewMessage({ name: `${VIEW_TOOL_PREFIX}open-settings`, arguments: args });
+      return read.ok ? undefined : read.problems[0]?.path;
+    };
+    expect(refusedAt({})).toBe("/arguments/inset");
+    expect(refusedAt({ inset: { top: -1, bottom: 0 } })).toBe("/arguments/inset");
+    expect(refusedAt({ inset: { top: 0, bottom: 1e9 } })).toBe("/arguments/inset");
+    expect(refusedAt({ inset: { top: 0 } })).toBe("/arguments/inset");
+    expect(refusedAt({ inset: { top: 0, bottom: 0 }, panel: "x" })).toBe("/arguments/panel");
   });
 });
 

@@ -147,8 +147,12 @@ describe("DESIGN.md's tokens as CSS variables", () => {
     expect(css).toContain("--primary:#5fb4c2;");
     expect(css).toContain("--input:var(--border-strong);");
     expect(css).toContain(".comfortable{");
-    expect(css).toContain("--bottom-bar:48px;");
-    expect(css).toContain("--bottom-bar:56px;");
+    // The board has no bottom action bar (answering-flow-visual).
+    expect(css).not.toContain("--bottom-bar");
+    // The rail is 256 px, and the question is 15 px compact and 17 px comfortable (decisions 2 and 8).
+    expect(css).toContain("--outline-rail:256px;");
+    expect(css).toContain("--fs-question:15px;");
+    expect(css).toContain("--fs-question:17px;");
   });
 
   // The Chart's palette (chart-widget, design decision 7): DESIGN's `chart-1` to `chart-5`, light and
