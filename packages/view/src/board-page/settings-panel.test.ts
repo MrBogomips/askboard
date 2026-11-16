@@ -2,7 +2,7 @@
 // measured, so that it starts under the header's last row and runs to the viewport's foot.
 
 import { describe, expect, test } from "bun:test";
-import { placementOf } from "./settings-panel.ts";
+import { placementOf } from "./settings-placement.ts";
 
 describe("the settings sheet's placement", () => {
   test("takes the view's measured inset", () => {

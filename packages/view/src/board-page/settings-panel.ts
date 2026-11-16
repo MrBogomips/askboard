@@ -15,6 +15,7 @@ import type { ReferenceInset } from "../view-protocol.ts";
 import { closeIcon } from "./icons.ts";
 import { element } from "./page-chrome.ts";
 import type { PanelControl, PanelData, PanelKeysRow, PanelRow } from "./settings-panel-data.ts";
+import { placementOf } from "./settings-placement.ts";
 
 /** What the panel does with the user's acts. */
 export type PanelActions = {
@@ -181,14 +182,6 @@ const focusedSegment = (document: Document, sheet: HTMLElement): string | undefi
     ? active.dataset.askboardSegment
     : undefined;
 };
-
-/** The sheet's top and bottom from the view's inset: the header's bottom edge, the viewport's foot. */
-export const placementOf = (
-  inset: ReferenceInset | undefined,
-): { top: string; bottom: string } => ({
-  top: `${inset?.top ?? 0}px`,
-  bottom: `${inset?.bottom ?? 0}px`,
-});
 
 const sheetOf = (
   document: Document,

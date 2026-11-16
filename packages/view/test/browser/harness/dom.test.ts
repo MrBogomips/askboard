@@ -39,4 +39,21 @@ describe("the frame's locators", () => {
     expect(selector(board.tray("added"))).toContain('[data-askboard-tray="added"]');
     expect(selector(board.edit("q2"))).toContain('[data-askboard-edit="q2"]');
   });
+
+  test("the controls of the cards and the header, by hook or role", () => {
+    for (const locator of [
+      board.question("q1"),
+      board.loaded("q1"),
+      board.option("Yes"),
+      board.delivery("submitted"),
+      board.receipt("sent"),
+      board.banner("closed"),
+      board.field("Project"),
+    ]) {
+      expect(selector(locator)).not.toBe("");
+    }
+    expect(selector(board.question("q1"))).toContain('[data-askboard-question="q1"]');
+    expect(selector(board.delivery("submitted"))).toContain('[data-askboard-delivery="submitted"]');
+    expect(selector(board.receipt("sent"))).toContain('[data-askboard-receipt="sent"]');
+  });
 });
