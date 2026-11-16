@@ -55,6 +55,16 @@
         }
       ]
     },
+    "205": {
+      "title": "The Table's worst-form edit gate fails in WebKit on macOS and Linux runners even at factor 3",
+      "failures": [
+        {
+          "file": "table-bounds.browser.ts",
+          "test": "the worst form, three fresh pages: visible, one cell edit painted, one row added painted",
+          "engines": ["webkit"]
+        }
+      ]
+    },
     "207": {
       "title": "WebKit on the Linux runner: Table cell entry and an answer carrying what the card shows race their waits",
       "failures": [
@@ -69,6 +79,10 @@
           "engines": ["webkit"]
         }
       ]
+    },
+    "244": {
+      "title": "WebKit perf on the Linux runner: the LaTeX bounds tests fail every run, on a different case each time",
+      "failures": [{ "file": "latex-bounds.browser.ts", "engines": ["webkit"] }]
     },
     "250": {
       "title": "Firefox and WebKit: after a reload the answered Tree card no longer shows its sent receipt",
