@@ -29,7 +29,7 @@ The user SHALL move a node, with its subtree, by dragging its row's handle. Over
 - **THEN** `billing` precedes `portal` under `build`, and the Gantt plan's tasks follow the Tree's order
 
 #### Scenario: Indenting by drop
-- **WHEN** the user drops `billing` on the middle of `portal`, the pointer more than one indent step right of where the drag started
+- **WHEN** the user drops `billing` on the middle of `portal`, the pointer at least one indent step right of where the drag started
 - **THEN** `billing` is the last child of `portal`, and `portal` is expanded
 
 #### Scenario: Outdenting by drop
@@ -102,8 +102,8 @@ The Tree SHALL keep the user's last 50 edits in memory, each move, drop, indent,
 A drop SHALL put the node inside a row only when the pointer is in the row's middle half and at least one indent step, 16 px, right of where the drag started. The indicator SHALL always show what a drop there does. While the pointer is in the middle half without that offset and a drop inside that row is allowed, the tip under the grid SHALL read "Move right to drop inside." (EXPERIENCE Interaction Primitives, Drag).
 
 #### Scenario: A short drag up from the handle
-- **WHEN** the user drags `trasporto` by its handle straight up one row and releases it over the middle of `imballaggio`, the pointer still over the handle's column
-- **THEN** `trasporto` precedes or follows `imballaggio` as a sibling, as the indicator showed, and is not its child
+- **WHEN** the user drags `reporting` by its handle straight up two rows, the pointer staying 12 px right of the handle's centre, over the middle of `portal`, and releases it in the middle's lower half
+- **THEN** the indicator shows a line above `portal` in the middle's upper half and below it in the lower half, and `reporting` follows `portal` under `build` as its sibling, not its child
 
 #### Scenario: Nesting on purpose
 - **WHEN** the user drags `billing` over the middle of `portal` and moves the pointer right by 16 px or more from where the drag started
