@@ -160,6 +160,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await board.ledger("ready").count()).toBe(1);
         expect(await board.delivery("immediate").isDisabled()).toBe(true);
         expect(await board.delivery("submitted").isDisabled()).toBe(true);
+        // Send takes no input either: absent or disabled.
+        expect((await board.submit.count()) === 0 || (await board.submit.isDisabled())).toBe(true);
       },
       TEST_TIMEOUT_MS,
     );

@@ -180,8 +180,8 @@ export type ViewOpenSettings = { readonly type: "open-settings"; readonly inset:
 
 /**
  * The user clicks a reference, or an excerpt's "Open in reading panel" (excerpts, design decisions
- * 6 and 7): the message names the item and the heights of the view's header and bottom bar, so that
- * the reading panel sits between them. The board page reads the URL or pointer from the board
+ * 6 and 7): the message names the item and the height of the view's header and the viewport's foot (0), so
+ * that the reading panel sits between them. The board page reads the URL or pointer from the board
  * document it holds, never from the message (AD-8).
  */
 export type ViewOpenReference = {
@@ -190,7 +190,7 @@ export type ViewOpenReference = {
   readonly inset: ReferenceInset;
 };
 
-/** The view's header and bottom bar heights in CSS pixels: where the reading panel may sit. */
+/** The view's header height and the viewport's foot (0) in CSS pixels: where the reading panel may sit. */
 export type ReferenceInset = { readonly top: number; readonly bottom: number };
 
 /** The most characters of a URL an open-link message carries (atoms, design decision 6). */
@@ -670,7 +670,7 @@ const inset: FieldCheck = (value) => {
     bound(value.top) &&
     bound(value.bottom)
     ? undefined
-    : `is not the header's and the bottom bar's heights, "top" and "bottom", each from 0 to ${INSET_MAX}`;
+    : `is not the header's height and the viewport's foot (0), "top" and "bottom", each from 0 to ${INSET_MAX}`;
 };
 
 const linkUrl: FieldCheck = (value) =>

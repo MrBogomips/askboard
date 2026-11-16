@@ -25,6 +25,7 @@ import type { Board } from "./harness/dom.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import {
   answerOf,
+  card,
   headingOf,
   lifecycleScenario,
   openBoard,
@@ -83,20 +84,26 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     };
 
     test(
-      "a segment per question; confirming Q1 in All together gives it the ready state and the name 'Q1 Q1: Ready, not sent'",
+      "a segment per question; confirming Q1 in All together gives it the ready state and the name 'Q1 Database: Ready, not sent'",
       async () => {
         const { board } = await open("sections", "submitted");
         for (const id of ALL) expect(await board.strip(id).count()).toBe(1);
-        expect(await board.strip("q1").getAttribute("aria-label")).toBe("Q1 Q1: To do");
+        expect(await board.strip("q1").getAttribute("aria-label")).toBe("Q1 Database: To do");
         await optionOf(board, "q1", "Yes").click({ timeout: STEP_TIMEOUT_MS });
         await answerOf(board, "q1").click({ timeout: STEP_TIMEOUT_MS });
         await eventually(
           async () =>
-            (await board.strip("q1").getAttribute("aria-label")) === "Q1 Q1: Ready, not sent",
+            (await board.strip("q1").getAttribute("aria-label")) === "Q1 Database: Ready, not sent",
           "the segment ready",
         );
         expect(
           ((await outlineEntry(board, "q1").textContent()) ?? "").includes("Ready, not sent"),
+        ).toBe(true);
+        // The card's badge reads the same state, and the strip's name is the number and the chip.
+        expect(
+          ((await card(board, "q1").locator("[data-askboard-state]").textContent()) ?? "").includes(
+            "Ready, not sent",
+          ),
         ).toBe(true);
       },
       TEST_TIMEOUT_MS,

@@ -19,10 +19,10 @@ In code since `answering-flow-visual` (Issues #168 and #213, direction B of the 
 
 **Change 4's parts.** Built on `answering-flow-guidance`'s head b7da3fea: the ladder's icons (the strip, the badge and the outline draw `QuestionMarker`'s icons), the prefill result's "Undo" (a button of the tray's prefill message, `data-askboard-undo`, which takes focus; "Prefill recommended ({count})" is in the progress row), the completion panel in the main content (the outbox's line says "All ready" with `data-askboard-all-ready`) and the reduced-motion rule, which covers the ledger's pulse.
 
-**Corrections.** `answering-flow-fixes.md`'s sentence on the bars (the bottom bar was one) is corrected; `answering-flow-guidance.md`, written by change 4, still names the bottom bar where it describes the prefill and the all-ready line: its archive reads "the outbox and the progress row" for them.
+**Corrections.** `answering-flow-fixes.md`'s sentence on the bars (the bottom bar was one) is corrected.
 
 **Sizes** (`packages/view/chunk-sizes.json`, bytes). On change 4's head b7da3fea: shell 260,749, `icons` 8,837, `board-page` 1,045,253. Now: shell 277,499 (+16,750, within the 17,000 B bound accepted at the re-base), `icons` 13,513 (+4,676), `board-page` 1,051,016 (+5,763).
 
-**Deviations from the design.** The stripe's attribute is `data-askboard-stripe` (the badge keeps `data-askboard-state`, which twenty tests count); the Tab rule above; the Snapshot message's live region; "Next to do" is absent, not disabled, with nothing to do (D1); a Draft revision shows no receipt (change 4's rule; this change's scenario says the receipt stays: reported); the string for "Prefill recommended" is still `bar.selectRecommended` ("Select recommended").
+**Deviations from the design.** The stripe's attribute is `data-askboard-stripe` (the badge keeps `data-askboard-state`, which twenty tests count); the Tab rule above; the Snapshot message's live region; "Next to do" is absent, not disabled, with nothing to do (D1); a Draft revision shows no receipt (change 4's rule, which the scenario now follows); "Prefill recommended ({count})" is `bar.selectRecommended`, change 4's string.
 
 **Decisions at the re-base.** `IconNextOpen` stays `arrow-right` (change 4's); a revision reads Draft with no receipt, as in change 4. Sizes on b7da3fea: shell +16,750, accepted up to 17,000.

@@ -85,7 +85,7 @@ export type Senders = {
   readonly recorded?: SentRecords;
 };
 
-/** What sent a command: a card's own act, or the bottom bar's Submit (oversized-acts). */
+/** What sent a command: a card's own act, or the outbox's Send (oversized-acts). */
 export type SentVia = "answer" | "submit";
 
 // Sends a view message for a command the acts hold; the board page's reply settles its start. A

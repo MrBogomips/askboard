@@ -25,7 +25,15 @@ import {
 } from "./harness/board-test.ts";
 import type { Board } from "./harness/dom.ts";
 import { enginesFrom } from "./harness/engines.ts";
-import { headingOf, lifecycleScenario, openBoard, postponeOf } from "./harness/lifecycle-test.ts";
+import {
+  actsSent,
+  answerOf,
+  headingOf,
+  lifecycleScenario,
+  openBoard,
+  optionOf,
+  postponeOf,
+} from "./harness/lifecycle-test.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 
 const dist = await readViewBuild();
@@ -154,6 +162,37 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await board.view.getByRole("tooltip").waitFor({ timeout: STEP_TIMEOUT_MS });
         const id = board.askRow.locator("[data-askboard-ask-id]");
         expect(await id.locator("bdi").count()).toBe(1);
+        expect(await overflowingRows(board)).toBe(0);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a crowded row at 1280 px: a 120-character title, two postponed questions and 'Partly answered' leave the warning and both pills in full and no row overflowing",
+      async () => {
+        const { run, board } = await open(longTitleAsk(), FIRST_VIEW.sections);
+        let sent = 0;
+        for (const id of ["q3", "q5", "q7", "q8", "q9"]) {
+          await optionOf(board, id, "Yes").click({ timeout: STEP_TIMEOUT_MS });
+          await answerOf(board, id).click({ timeout: STEP_TIMEOUT_MS });
+          sent += 1;
+          await actsSent(run, sent);
+        }
+        for (const id of ["q1", "q2"]) {
+          await postponeOf(board, id).click({ timeout: STEP_TIMEOUT_MS });
+        }
+        const warning = board.askRow.locator("[data-askboard-warning]");
+        await warning.waitFor({ timeout: STEP_TIMEOUT_MS });
+        const pill = board.askRow.locator("[data-askboard-ask-pill]");
+        await eventually(
+          async () => ((await pill.textContent()) ?? "").includes("5"),
+          "the ask pill counting five answers",
+        );
+        const full = (locator: Locator) =>
+          locator.evaluate((element) => element.scrollWidth <= element.clientWidth);
+        expect(await full(warning)).toBe(true);
+        expect(await full(pill)).toBe(true);
+        expect(await full(board.askRow.locator("[data-askboard-agent-pill]"))).toBe(true);
         expect(await overflowingRows(board)).toBe(0);
       },
       TEST_TIMEOUT_MS,

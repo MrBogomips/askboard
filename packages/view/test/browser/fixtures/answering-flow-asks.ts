@@ -17,14 +17,20 @@ const WORDS: Record<Language, { yes: string; no: string; more: string }> = {
 const SPAN = "A reason that fills the line so that each option takes more than one line of text.";
 
 /** A choice question: four options with descriptions, so the card is tall. */
-const choice = (id: string, text: string, language: Language, recommended = false) => {
+const choice = (
+  id: string,
+  text: string,
+  language: Language,
+  recommended = false,
+  header = id.toUpperCase(),
+) => {
   const words = WORDS[language];
   const options = [words.yes, words.no, words.more, `${words.no} ${id}`].map((label, at) => ({
     label,
     description: `${SPAN} ${SPAN}`,
     ...(recommended && at === 0 ? { recommended: true } : {}),
   }));
-  return { type: "question", id, props: { text, header: id.toUpperCase(), options } };
+  return { type: "question", id, props: { text, header, options } };
 };
 
 const field = (id: string, label: string, props: Record<string, unknown> = {}) => ({
@@ -91,8 +97,8 @@ export const answeringAsk = (
   language: Language = "en-US",
   delivery: "immediate" | "submitted" = "immediate",
 ): Ask => {
-  const q = (id: string, recommended = false) =>
-    choice(id, `Is step ${id} needed for the release?`, language, recommended);
+  const q = (id: string, recommended = false, header?: string) =>
+    choice(id, `Is step ${id} needed for the release?`, language, recommended, header);
   return {
     askId: `answering-${presentation}-${language.slice(0, 2)}-${delivery}-a1`,
     title: "Release steps",
@@ -100,7 +106,7 @@ export const answeringAsk = (
     delivery,
     presentation,
     items: [
-      area("scope", "Scope", [q("q1", true), q("q2", true), q("q3")]),
+      area("scope", "Scope", [q("q1", true, "Database"), q("q2", true), q("q3")]),
       area("data", "Data", [fields(language), q("q5", true), tabbed(language)]),
       area("release", "Release", [q("q7", true), q("q8"), q("q9")]),
     ],

@@ -1,7 +1,7 @@
 // The reading panel (excerpts, design decision 7; DESIGN.md, Reading panel; EXPERIENCE.md,
 // Reading panel): a non-modal side sheet on the board page, since the source view cannot be framed
 // inside the sandboxed view (AD-8). It is `{spacing.side-sheet}` wide at the right edge, between
-// the view's header and bottom bar as the view reported them. A header holds the file's path, the
+// the view's header and the viewport's foot as the view reported them. A header holds the file's path, the
 // "Changed since the agent asked" chip, "Open in editor" and the close control; the body is the
 // loading look, one line saying why a source is not shown, or the source view framed at the anchor
 // with an empty `sandbox` and no referrer. The panel reads nothing of the file: the frame fetches
