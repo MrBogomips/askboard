@@ -11,6 +11,8 @@ In code since `e2e-stabilise-answering-flow` (Issues #236, #237, #239, #240, #24
 - #243: no product change; the status reads the removed question's header, "Database", and the test expected "Q1".
 - #239: `clipped`, now `harness/fit.ts` (shared with `palettes-fit`), skips inline boxes in the header and the rail.
 - #240: `tabIntoTree` focuses the heading; `lifecycle-keyboard` starts its Tab to the delivery switch at the header's Keys button (`tabFromHeader`). `palettes.browser.ts`'s contrast case is skipped in Firefox.
+- #238, decided by the PO: `ledger.delivered` in it-IT is "Arrivate" (to review); the rail stays at 256 px; EXPERIENCE.md's outbox ledger row follows.
+- Review fixes: every move ends the one before it, and a move clears only its own deadline and frame (`reveal.ts`); `workOf(drafts, since)` counts work in any record from `since` on.
 
 **Causes found.**
 - 2.1: no engine skipped its frames. The failing "Next to do" went to q2 because a mouse press focused the button and `focusin` set the question in view to q1 before the click.

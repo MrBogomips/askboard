@@ -78,7 +78,16 @@ describe("the questions of a draft that hold work", () => {
       { held: { act: "answer", order: 1 } },
     ];
     for (const kind of kinds) expect(workOf([record(), only(kind)])).toEqual(["plan"]);
-    expect(workOf([only({ note: "x" }), only({})])).toEqual([]);
+    // Drafting and then reverting leaves work in an earlier record: it is reported.
+    expect(workOf([only({ note: "x" }), only({})])).toEqual(["plan"]);
+    expect(workOf([{ type: "draft", record: only({ note: "x" }) }])).toEqual(["plan"]);
+  });
+
+  test("from a record on: work before it is not counted, work in any record since is", () => {
+    const before = only({ note: "x" });
+    expect(workOf([before, only({})], 1)).toEqual([]);
+    expect(workOf([before, only({ other: "y" }), only({})], 1)).toEqual(["plan"]);
+    expect(workOf([], 3)).toEqual([]);
     expect(workOf([{ type: "draft", record: only({ note: "x" }) }])).toEqual(["plan"]);
   });
 });

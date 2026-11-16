@@ -60,6 +60,15 @@ Commit bodies say `Refs #n` for the Issues each group touches.
   - Note: rebased onto `origin/main` fd9e21f5; D8's names unchanged; `validate --all --strict` passes (14 of 14).
 - [ ] 4.4 The train on the branch (AGENTS.md, CI): push, then `gh workflow run e2e.yml --ref worktree-fix-e2e-stabilise -f cadence=nightly`. Read the conclusion and each failure from the run's artifacts. Tests: the full three-engine suite on CI. Verify: no failure of #236, #237, #239 to #243 remains. Any other failure is matched to an open Issue or filed as `source:e2e` (`askboard-backlog`), and listed in the pull request body.
 
+## 5. Pre-PR fixes (the spec review, S-60 to S-68)
+
+- [x] 5.1 S-60: every move cancels the earlier move's frames and deadline, and a move's `finish` clears the deadline and the frame only if they are its own. Tests: "an instant move during a smooth one still ends at its deadline" in `reveal-smooth.test.ts`, red first. Verify: `reveal.ts` keeps 100% line coverage.
+- [x] 5.2 S-61: `workOf(drafts, since = 0)` reports the questions that held work in any record from `since` on, not the latest alone, so drafting then reverting is reported. Tests: `draft-results.test.ts` (`workOf([note, {}])` reports the note; `since`). Verify: the 12 files' Chromium runs pass with the 30 sites on the default. No site needed `since`. D1's text says "latest draft record": it needs amending to "any record".
+- [x] 5.3 S-63: the comments of `use-question-in-view.ts` say the question follows scrolling and focus moves into a card only. Verify: the text.
+- [x] 5.4 S-66: `answering-flow-motion` records the Enter's time and the heading's focus time, bounds the mark's `set` within 50 ms of the focus, and checks the 1,000 to 2,000 ms life in the no-preference case too. Verify: the file passes in the three engines.
+- [x] 5.5 S-67: the as-built note records #238. Verify: `git grep -n Arrivate docs/as-built`.
+- [x] 5.6 S-68: the comment at `reveal.ts` names `e2e-stabilise-answering-flow`. Verify: `git grep -n stabilise packages/view/src/shell/reveal.ts`.
+
 ## Workflow follow-up
 
 - The pull request body says `Closes #236`, `Closes #237`, `Closes #239`, `Closes #240`, `Closes #241`, `Closes #242`, `Closes #243` and `Closes #238`, the train's run and its result, and what is left for the PO.

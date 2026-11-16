@@ -90,7 +90,7 @@ const markArrival = (element: HTMLElement): void => {
 };
 
 /** What the move reads of a run of frames: where it last put the page, and whether it is over. */
-type Move = { last: number; done: boolean };
+type Move = { last: number; done: boolean; frame?: number };
 
 const scrollSmoothly = (view: Window, delta: number, move: Move, finish: () => void): void => {
   const frames = scrollFrames(view.scrollY, view.scrollY + delta, SCROLL_MS);
@@ -110,9 +110,11 @@ const scrollSmoothly = (view: Window, delta: number, move: Move, finish: () => v
     move.last = view.scrollY;
     const lastFrame = frame === frames[frames.length - 1];
     animation = lastFrame ? undefined : view.requestAnimationFrame(step);
+    move.frame = animation;
     if (lastFrame) finish();
   };
   animation = view.requestAnimationFrame(step);
+  move.frame = animation;
 };
 
 /** Whether the user asks for less motion: the scroll is then instant (decision 4; WCAG 2.3.3). */
@@ -121,7 +123,7 @@ const reducedMotion = (view: Window): boolean =>
 
 /**
  * The time after which every move has ended, whatever the engine did with its frames: the smooth
- * move's length and two frames (answering-flow-stabilise, D4).
+ * move's length and two frames (e2e-stabilise-answering-flow, D4).
  */
 export const MOVE_DEADLINE_MS = SCROLL_MS + 2 * FRAME_MS;
 
@@ -173,6 +175,9 @@ export const revealAndFocus = (
   element.focus({ preventScroll: true });
   if (smooth) markArrival(element);
   if (view === null) return;
+  // Every move ends the one before it: its frames and its deadline.
+  if (animation !== undefined) view.cancelAnimationFrame(animation);
+  animation = undefined;
   if (deadline !== undefined) view.clearTimeout(deadline);
   deadline = undefined;
   if (!smooth && resolve === undefined) return;
@@ -180,13 +185,19 @@ export const revealAndFocus = (
   // into its answered look; a re-render): the end of the move leaves the target focused and clear
   // of the bars as it was asked to, unless the user scrolled or moved focus meanwhile.
   const move: Move = { last: view.scrollY, done: false };
+  let own: number | undefined;
   const finish = () => {
     if (move.done) return;
     move.done = true;
-    if (deadline !== undefined) view.clearTimeout(deadline);
-    deadline = undefined;
-    if (animation !== undefined) view.cancelAnimationFrame(animation);
-    animation = undefined;
+    // Only this move's own deadline and frames: a later move has set its own.
+    if (deadline === own) {
+      if (deadline !== undefined) view.clearTimeout(deadline);
+      deadline = undefined;
+    }
+    if (animation !== undefined && animation === move.frame) {
+      view.cancelAnimationFrame(animation);
+      animation = undefined;
+    }
     const userScrolled = Math.abs(view.scrollY - move.last) > 2;
     const target = resolve === undefined ? element : (resolve() ?? element);
     if (!target.isConnected) return;
@@ -196,6 +207,7 @@ export const revealAndFocus = (
     }
     if (!userScrolled) land(view, doc, target);
   };
-  deadline = view.setTimeout(finish, MOVE_DEADLINE_MS);
+  own = view.setTimeout(finish, MOVE_DEADLINE_MS);
+  deadline = own;
   if (!instant) scrollSmoothly(view, delta, move, finish);
 };

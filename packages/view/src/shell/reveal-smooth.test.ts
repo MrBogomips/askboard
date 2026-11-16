@@ -167,7 +167,11 @@ describe("a smooth reveal", () => {
   test("with reduced motion the scroll is at once, and the card is still marked", () => {
     const s = stand({ reduced: true });
     revealAndFocus(s.element, { smooth: true });
-    expect(s.calls).toEqual(["scrollBy 148 instant", "focus true"]);
+    // A frame an earlier test left pending may be cancelled first: the module keeps one.
+    expect(s.calls.filter((call) => call !== "cancelFrame")).toEqual([
+      "scrollBy 148 instant",
+      "focus true",
+    ]);
     expect(s.frames).toEqual([]);
     expect(s.attrs.has(ARRIVED)).toBe(true);
   });
@@ -249,6 +253,18 @@ describe("the end of a move", () => {
     revealAndFocus(s.element, { smooth: true });
     revealAndFocus(s.element, { smooth: true });
     expect(s.timers.filter((timer) => timer.ms === MOVE_DEADLINE_MS)[0]?.cleared).toBe(true);
+  });
+
+  test("an instant move during a smooth one still ends at its deadline", () => {
+    const s = stand();
+    revealAndFocus(s.element, { smooth: true });
+    revealAndFocus(s.element, { resolve: () => s.element });
+    // The earlier move's frame may still run (an engine that does not cancel it in time): it ends
+    // that move and must not clear the deadline of the move that follows.
+    s.frames.shift()?.(16);
+    const own = s.timers.filter((timer) => timer.ms === MOVE_DEADLINE_MS).at(-1);
+    expect(own?.cleared).toBe(false);
+    expect(s.calls).toContain("cancelFrame");
   });
 
   test("an instant move with no resolve sets no deadline", () => {

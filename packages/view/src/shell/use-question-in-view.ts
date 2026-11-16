@@ -1,7 +1,9 @@
 // Keeps the draft's question in view in step with scrolling and focus (answering-flow-fixes,
 // design decision 3; #181). Sections and tabs only: one question per view shows the question it is
 // on. It never reads at mount, so a question in view restored after a reload stays until the user
-// scrolls or moves focus. DOM only, so it is checked in the browser; `questionInView` holds the rule.
+// scrolls or moves focus. It follows a scroll and a focus move into a card; a focus on a control in
+// no card (the header, the rail, the outbox) leaves it alone (e2e-stabilise-answering-flow, D9).
+// DOM only, so it is checked in the browser; `questionInView` holds the rule.
 
 import { useEffect } from "react";
 import { questionInView } from "./in-view.ts";
@@ -35,8 +37,8 @@ const readInView = (doc: Document): string | undefined => {
 };
 
 /**
- * On `scroll` (passive, at most once per animation frame) and `focusin`, sets the question in view
- * when it differs from the draft's.
+ * On `scroll` (passive, at most once per animation frame) and a `focusin` inside a card, sets the
+ * question in view when it differs from the draft's.
  */
 export const useQuestionInView = (
   enabled: boolean,

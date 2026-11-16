@@ -63,10 +63,31 @@ const scrollY = (board: Board): Promise<number> =>
   board.view.locator("body").evaluate((body) => body.ownerDocument.defaultView?.scrollY ?? 0);
 
 type Arrival = {
+  /** When the act (Enter) was pressed, and when the card's heading took the focus. */
+  readonly act?: number;
+  readonly focused?: number;
   readonly set?: number;
   readonly removed?: number;
   readonly name?: string;
   readonly duration?: string;
+};
+
+/** One frame at 60 Hz, with the slack a loaded runner needs. */
+const FRAME_SLACK_MS = 50;
+
+/** The mark is set within a frame of the move (the focus on the card's heading) and after the act. */
+const expectSetWithTheMove = (seen: Arrival): void => {
+  expect(seen.set).toBeDefined();
+  expect(seen.focused).toBeDefined();
+  expect(Math.abs((seen.set ?? 0) - (seen.focused ?? 0))).toBeLessThanOrEqual(FRAME_SLACK_MS);
+  expect((seen.set ?? 0) - (seen.act ?? 0)).toBeGreaterThanOrEqual(0);
+};
+
+/** The mark lives 1.2 s: removed between 1,000 and 2,000 ms after it was set (a loaded runner). */
+const expectLife = (seen: Arrival): void => {
+  const lived = (seen.removed ?? 0) - (seen.set ?? 0);
+  expect(lived).toBeGreaterThanOrEqual(1_000);
+  expect(lived).toBeLessThanOrEqual(2_000);
 };
 
 /**
@@ -79,6 +100,20 @@ const watchArrival = (board: Board, id: string): Promise<void> =>
     const doc = body.ownerDocument;
     const record: { -readonly [K in keyof Arrival]: Arrival[K] } = {};
     (doc.defaultView as unknown as { __arrival: Arrival }).__arrival = record;
+    doc.addEventListener(
+      "keydown",
+      (event) => {
+        if (event.key === "Enter" && record.act === undefined) record.act = performance.now();
+      },
+      true,
+    );
+    doc.addEventListener("focusin", (event) => {
+      const target = event.target as Element;
+      const heading = target.closest(`[data-askboard-question="${questionId}"]`);
+      if (heading !== null && target.matches("h2,h3") && record.focused === undefined) {
+        record.focused = performance.now();
+      }
+    });
     new MutationObserver(() => {
       const card = doc.querySelector(`[data-askboard-question="${questionId}"]`);
       if (card === null) return;
@@ -177,9 +212,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(seen.set).toBeDefined();
         expect(seen.name).toBe("none");
         expect(seen.duration).toBe("0s");
-        const lived = (seen.removed ?? 0) - (seen.set ?? 0);
-        expect(lived).toBeGreaterThanOrEqual(1_000);
-        expect(lived).toBeLessThanOrEqual(2_000);
+        expectSetWithTheMove(seen);
+        expectLife(seen);
         expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,
@@ -263,10 +297,15 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await watchArrival(board, "q4");
         await answerWithKeys(board, "q3");
         await actsSent(run, 1);
-        await eventually(async () => (await arrivalOf(board)).set !== undefined, "the mark set");
+        await eventually(
+          async () => (await arrivalOf(board)).removed !== undefined,
+          "the mark gone",
+        );
         const seen = await arrivalOf(board);
         expect(seen.name).toBe("askboard-arrival");
         expect(seen.duration).toBe("1.2s");
+        expectSetWithTheMove(seen);
+        expectLife(seen);
       },
       TEST_TIMEOUT_MS,
     );
