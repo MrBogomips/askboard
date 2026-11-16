@@ -3,7 +3,13 @@
 // state relies on colour alone. Markers are decoration (`aria-hidden`); their state is always in
 // text beside them.
 
+import { useStrings } from "../catalog/port.ts";
 import {
+  IconAskAnswered,
+  IconAskClosed,
+  IconAskDiscarded,
+  IconAskPartial,
+  IconAskWaiting,
   IconDeclined,
   IconDelivered,
   IconDraft,
@@ -13,46 +19,41 @@ import {
   IconSent,
   IconToDo,
 } from "../icons/index.ts";
-import type { Mark, AskPill as Pill } from "./board-view.ts";
+import { type AskPillIcon, askPillIconOf, type Mark, type AskPill as Pill } from "./board-view.ts";
 
-const PILLS: Readonly<Record<Pill["kind"], { pill: string; marker: string }>> = {
-  waiting: {
-    pill: "border-border bg-muted text-foreground-secondary",
-    // A hollow ring: waiting is neutral grey.
-    marker: "size-2 rounded-full border border-ask-waiting",
-  },
-  partial: {
-    pill: "border-border-strong bg-card text-foreground",
-    // A half-filled dot, so it never reads as a selected control (F-92).
-    marker:
-      "size-2 rounded-full border border-ask-partial bg-linear-to-r from-ask-partial from-50% to-transparent to-50%",
-  },
-  answered: {
-    pill: "border-transparent bg-success-subtle text-success-text",
-    // A filled dot.
-    marker: "size-2 rounded-full bg-ask-answered",
-  },
-  closed: {
-    pill: "border-border-strong bg-muted text-foreground",
-    // A square.
-    marker: "size-2 bg-ask-closed",
-  },
-  discarded: {
-    pill: "border-transparent bg-destructive-subtle text-destructive-text",
-    // A bar.
-    marker: "h-0.5 w-2 bg-ask-discarded",
-  },
+const PILLS: Readonly<Record<Pill["kind"], string>> = {
+  waiting: "border-border bg-muted text-foreground-secondary",
+  partial: "border-border-strong bg-card text-foreground",
+  answered: "border-transparent bg-success-subtle text-success-text",
+  closed: "border-border-strong bg-muted text-foreground",
+  discarded: "border-transparent bg-destructive-subtle text-destructive-text",
 };
 
-/** The ask state pill (State pill). */
+const PILL_ICONS: Readonly<Record<AskPillIcon, typeof IconAskWaiting>> = {
+  circle: IconAskWaiting,
+  "circle-dashed": IconAskPartial,
+  check: IconAskAnswered,
+  lock: IconAskClosed,
+  "circle-x": IconAskDiscarded,
+};
+
+/**
+ * The ask state pill (State pill; #213): an icon and the words, named "Ask: {state}" (`header.askPill`),
+ * which is also its tooltip. The icon is the pill's own, never a receipt's.
+ */
 export const AskPill = ({ pill }: { readonly pill: Pill }) => {
-  const { pill: look, marker } = PILLS[pill.kind];
+  const text = useStrings();
+  const Icon = PILL_ICONS[askPillIconOf(pill.kind)];
+  const name = text("header.askPill", { state: pill.label });
   return (
     <span
       data-askboard-ask-pill={pill.kind}
-      className={`inline-flex shrink-0 items-center gap-1.5 rounded-md border px-1.5 py-0.5 text-badge ${look}`}
+      role="img"
+      aria-label={name}
+      title={name}
+      className={`inline-flex shrink-0 items-center gap-1.5 rounded-md border px-1.5 py-0.5 text-badge ${PILLS[pill.kind]}`}
     >
-      <span aria-hidden="true" className={`shrink-0 ${marker}`} />
+      <Icon className="size-3" />
       {pill.label}
     </span>
   );

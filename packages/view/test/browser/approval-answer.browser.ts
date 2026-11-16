@@ -39,6 +39,7 @@ import {
   headingOf,
   lifecycleScenario,
   loggedReceiptOf,
+  moreOf,
   openBoard,
   optionOf,
   receiptOf,
@@ -291,7 +292,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await dialog(board).waitFor({ timeout: STEP_TIMEOUT_MS });
         await dialog(board).getByRole("button", { name: "Cancel", exact: true }).click();
         await dialog(board).waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
-        await eventually(() => isFocused(buttonOf(board, PLAN, "More")), "focus on More");
+        await eventually(() => isFocused(moreOf(board, PLAN)), "focus on More");
         await hostSettled(board);
         expect(sentActs(run)).toHaveLength(1);
         await chooseFromMore(board, PLAN, "Decline");

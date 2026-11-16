@@ -113,3 +113,50 @@ export const singleAnsweringAsk: Ask = {
   title: "One step",
   items: [choice("only", "Is this step needed?", "en-US", true)],
 };
+
+// answering-flow-visual (task 3.1): the frame's cases. A 120-character title with a 40-character
+// ask ID and a right-to-left override in the title, forty questions in one area for the outline's
+// scroll, and a question the agent adds while the board is open. Neutral content only.
+const LONG_TITLE =
+  "Which of the release steps for the order service are needed before the cut-over, and who owns each of them in the team?";
+
+/** The nine-question board with a 120-character title and U+202E in it, and a 40-character ask ID. */
+export const longTitleAsk = (presentation: Presentation = "sections"): Ask => ({
+  ...answeringAsk(presentation),
+  askId: "long-title-ask-0123456789-0123456789-ab",
+  title: `${LONG_TITLE.slice(0, 118)}‮ok`,
+});
+
+/** Forty questions, in one area, so that the outline overflows the rail at 1280x800. */
+export const fortyAsk = (presentation: Presentation = "sections"): Ask => ({
+  askId: `forty-${presentation}-c3`,
+  title: "Forty steps",
+  presentation,
+  delivery: "submitted",
+  items: [
+    area(
+      "steps",
+      "Steps",
+      Array.from({ length: 40 }, (_, at) => ({
+        type: "question",
+        id: `s${at + 1}`,
+        props: {
+          text: `Is step ${at + 1} of forty needed for the release?`,
+          header: `Step ${at + 1}`,
+          options: [{ label: "Yes" }, { label: "No" }],
+        },
+      })),
+    ),
+  ],
+});
+
+/** The question the agent adds to the nine-question board, after "q9". */
+export const addedQuestion = {
+  type: "question",
+  id: "retention",
+  props: {
+    text: "How long do we keep the release logs?",
+    header: "Retention",
+    options: [{ label: "30 days" }, { label: "90 days" }],
+  },
+};

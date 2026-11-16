@@ -14,10 +14,12 @@ import { dropWork } from "./card-acts.ts";
 import { dropStaleCellEntries } from "./cell-entries.ts";
 import type { DraftStore } from "./draft-store.ts";
 import { dropStaleEntries } from "./entries.ts";
-import { addedMessageOf } from "./flow-messages.ts";
+import type { Tray } from "./feedback-tray-store.ts";
+import { addedMessageOf, cutTitle } from "./flow-messages.ts";
 import { type HeadingRequest, requestHeading } from "./heading-request.ts";
 import type { ReadyTracker } from "./ready-tracker.ts";
 import { questionItemsOf } from "./ready-tracker.ts";
+import { type RemovedNumber, removedNumbersOf } from "./removed-numbers.ts";
 import type { StatusMessages } from "./status-messages.ts";
 import type { Store } from "./store.ts";
 
@@ -49,6 +51,10 @@ export type DocumentUpdate = {
    * question in view (#182). Not given for an update that carries a restore, which is no news.
    */
   readonly status?: Pick<StatusMessages, "announce">;
+  /** The feedback tray: the questions the agent added show there with "Go" (design decision 11). */
+  readonly tray?: Pick<Tray, "show">;
+  /** The numbers of the questions removed while the page is open, for the outline (decision 6). */
+  readonly removedNumbers?: Store<readonly RemovedNumber[]>;
 };
 
 // The agent deleted questions (FR-6; task 6.7): each leaves with its draft; the question in view
@@ -60,13 +66,21 @@ const onRemoval = (before: ViewDocument, after: ViewDocument, stores: DocumentUp
   if (gone.length === 0) return;
   const focused = stores.focused();
   for (const question of gone) dropWork(question, stores);
+  if (stores.removedNumbers !== undefined) {
+    const added = removedNumbersOf(earlier, new Set(now), stores.board.get().numbers);
+    if (added.length > 0) stores.removedNumbers.set([...stores.removedNumbers.get(), ...added]);
+  }
   const ids = earlier.map((question) => question.id);
   const isGone = (id: string | undefined) => gone.some((question) => question.id === id);
   const shown = stores.shownQuestion();
   if (shown !== undefined && isGone(shown)) {
     stores.board.setInView(nextAfterRemoval(ids, now, shown));
     stores.removed.set(true);
-    stores.status?.announce({ key: "navigator.removed" });
+    const removedProps = gone.find((question) => question.id === shown)?.props;
+    stores.status?.announce({
+      key: "status.removed",
+      params: { title: cutTitle(removedProps?.header ?? removedProps?.text ?? "") },
+    });
   }
   if (focused !== undefined && isGone(focused)) {
     const next = nextAfterRemoval(ids, now, focused);
@@ -80,7 +94,13 @@ const onAddition = (before: ViewDocument, after: ViewDocument, stores: DocumentU
   const known = new Set(questionsOf(before).map((question) => question.id));
   const added = questionsOf(after).filter((question) => !known.has(question.id));
   const message = addedMessageOf(added);
-  if (message !== undefined) stores.status.announce(message);
+  if (message === undefined) return;
+  stores.status.announce(message);
+  stores.tray?.show({
+    kind: "added",
+    text: message,
+    questions: added.map((question) => question.id),
+  });
 };
 
 /**

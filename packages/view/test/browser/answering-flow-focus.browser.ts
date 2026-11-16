@@ -41,6 +41,7 @@ import {
   openBoard,
   optionOf,
   receiptOf,
+  viewportBottom,
 } from "./harness/lifecycle-test.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 
@@ -83,7 +84,7 @@ const expectClearOfBars = async (board: Board, id: string): Promise<void> => {
   await eventually(() => isFocused(heading), `focus on the ${id} heading`);
   const bounds = {
     header: await boxOf(board.view.getByRole("banner")),
-    bar: await boxOf(board.view.getByRole("contentinfo")),
+    bar: { top: await viewportBottom(board) },
   };
   // A scroll the move started finishes within a frame or two: wait for the box to settle in place.
   await eventually(async () => {
@@ -99,7 +100,10 @@ const expectClearOfBars = async (board: Board, id: string): Promise<void> => {
  */
 const hideBehind = async (board: Board, id: string, bar: "bar" | "header"): Promise<void> => {
   const heading = headingOf(board, id);
-  const edge = await boxOf(board.view.getByRole(bar === "bar" ? "contentinfo" : "banner"));
+  const edge =
+    bar === "bar"
+      ? { top: await viewportBottom(board), bottom: await viewportBottom(board) }
+      : await boxOf(board.view.getByRole("banner"));
   const box = await boxOf(heading);
   const target = bar === "bar" ? edge.top + 6 : edge.bottom - 6 - (box.bottom - box.top);
   await heading.evaluate((element, delta) => {
@@ -309,7 +313,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           if (active instanceof HTMLElement) active.blur();
         });
         const header = await boxOf(board.view.getByRole("banner"));
-        const bar = await boxOf(board.view.getByRole("contentinfo"));
+        const bar = { top: await viewportBottom(board) };
         const line = header.bottom + (bar.top - header.bottom) / 3;
         const q5 = await boxOf(card(board, "q5"));
         await board.view

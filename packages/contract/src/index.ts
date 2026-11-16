@@ -1215,3 +1215,7 @@ export {
 // The after-answer presentation key's value type (answering-flow-guidance, task 1.1).
 
 export type { AfterAnswer } from "./schemas/configuration/index.ts";
+
+// The short question numbers in the draft record (answering-flow-visual, task 1.1).
+
+export { QUESTION_NUMBER_MAX } from "./lifecycle-constants.ts";

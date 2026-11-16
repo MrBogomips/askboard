@@ -93,13 +93,13 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         // A side sheet at the right edge, as wide as the token says, between the bars.
         const box = await panel.boundingBox();
         const header = await board.header.boundingBox();
-        const footer = await board.view.getByRole("contentinfo").boundingBox();
         const viewport = board.page.viewportSize();
         if (box === null || header === null || viewport === null) throw new Error("no box");
         expect(Math.round(box.width)).toBe(PANEL_WIDTH);
         expect(Math.round(box.x + box.width)).toBe(viewport.width);
         expect(box.y).toBeGreaterThanOrEqual(header.y + header.height - 1);
-        if (footer !== null) expect(box.y + box.height).toBeLessThanOrEqual(footer.y + 1);
+        // No bottom bar: the panel runs to the viewport's foot.
+        expect(box.y + box.height).toBeLessThanOrEqual(viewport.height + 1);
         expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,

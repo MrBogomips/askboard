@@ -2,16 +2,18 @@
 // same; FR-2): with sections or tabs, the outline lists the areas and their questions, each with
 // its marker and state label, the "New" and unread-reply marks and the agent-change flag, and a
 // click or a key jumps to the question, activating its tab; in one question per view, the question
-// navigator says "Question n of m", holds one marker per question, Previous and Next, which stop
-// at the ends; the next-open jump is the header's, on every presentation (answering-flow-fixes,
+// navigator says "Question n of m" with Previous and Next, which stop at the ends (its markers moved
+// to the header's progress strip, answering-flow-visual); the next-open jump is the header's, on every presentation (answering-flow-fixes,
 // #184). Every jump moves focus to the question's heading.
 // Agent strings (area titles, chips, question texts) render as text (AD-8).
 
+import { Fragment } from "react";
 import { useLanguage, useStrings } from "../catalog/port.ts";
 import { IconAgentChanged, IconReplies } from "../icons/index.ts";
 import type { ViewQuestion } from "../view-document.ts";
 import { type Group, type Mark, markLabel } from "./board-view.ts";
 import { QuestionMarker } from "./markers.tsx";
+import type { RemovedNumber } from "./removed-numbers.ts";
 import { BUTTON_SECONDARY, FOCUS_RING, INFO_BADGE, SECTION_LABEL } from "./styles.ts";
 
 /** What a question's navigator entry shows beside its text. */
@@ -54,27 +56,40 @@ const Badges = ({ marks }: { readonly marks: EntryMarks }) => {
 
 const ENTRY = `flex w-full flex-col gap-0.5 rounded-md border-l-2 py-1 pr-1 pl-sm text-left enabled:hover:bg-accent ${FOCUS_RING}`;
 
-/** The outline navigator: a sticky rail of areas and their questions. */
+/** The outline navigator: the areas and their questions, in the rail (`rail.tsx`). */
 export const Outline = ({
   groups,
   current,
   marksOf,
   onJump,
+  numbers,
+  removed = [],
 }: {
   readonly groups: readonly Group[];
   readonly current: string | undefined;
   readonly marksOf: (question: ViewQuestion) => EntryMarks;
   readonly onJump: (questionId: string) => void;
+  /** The questions' short numbers; none shown where the board gives none (a Snapshot). */
+  readonly numbers?: ReadonlyMap<string, number> | undefined;
+  /** The questions the agent removed while the page is open, where each stood (design decision 6). */
+  readonly removed?: readonly RemovedNumber[];
 }) => {
   const text = useStrings();
   const language = useLanguage();
-  return (
-    <nav
-      aria-label={text("outline.label")}
-      className="sticky top-16 flex max-h-[calc(100vh-4rem)] w-[212px] shrink-0 flex-col gap-sm self-start overflow-y-auto border-r border-border p-sm"
+  // Where the agent removed a question: its number, until the page reloads (design decision 6).
+  const removedEntry = (entry: RemovedNumber) => (
+    <li
+      key={`removed-${entry.number}`}
+      data-askboard-outline-removed={entry.number}
+      className="px-sm py-1 text-badge text-muted-foreground"
     >
+      {text("outline.removed", { number: text("question.number", { n: entry.number }) })}
+    </li>
+  );
+  return (
+    <nav aria-label={text("outline.label")} className="flex flex-col gap-sm p-sm">
       <p className={SECTION_LABEL}>{text("outline.label")}</p>
-      {groups.map((group) => (
+      {groups.map((group, at) => (
         <div key={group.id ?? "questions"} className="flex flex-col gap-1">
           {group.title === undefined ? null : (
             <p className="truncate text-body font-semibold text-foreground" title={group.title}>
@@ -82,36 +97,51 @@ export const Outline = ({
             </p>
           )}
           <ul className="flex flex-col gap-1">
+            {at === 0
+              ? removed.filter((entry) => entry.after === undefined).map(removedEntry)
+              : null}
             {group.questions.map((question) => {
               const marks = marksOf(question);
               const label = question.props.header ?? question.props.text;
+              const number = numbers?.get(question.id);
               return (
-                <li key={question.id}>
-                  <button
-                    type="button"
-                    data-askboard-outline={question.id}
-                    aria-current={question.id === current ? "true" : undefined}
-                    onClick={() => onJump(question.id)}
-                    className={`${ENTRY} ${question.id === current ? "border-primary" : "border-transparent"}`}
-                  >
-                    <span className="flex w-full items-center gap-1.5">
-                      <span
-                        className="min-w-0 flex-1 truncate text-body text-foreground"
-                        title={label}
-                      >
-                        {label}
-                      </span>
-                      <Badges marks={marks} />
-                    </span>
-                    <span
-                      data-askboard-state={marks.mark}
-                      className="flex items-center gap-1.5 text-badge text-foreground-secondary"
+                <Fragment key={question.id}>
+                  <li>
+                    <button
+                      type="button"
+                      data-askboard-outline={question.id}
+                      aria-current={question.id === current ? "true" : undefined}
+                      onClick={() => onJump(question.id)}
+                      className={`${ENTRY} ${question.id === current ? "border-primary" : "border-transparent"}`}
                     >
-                      <QuestionMarker mark={marks.mark} />
-                      {markLabel(marks.mark, language)}
-                    </span>
-                  </button>
-                </li>
+                      <span className="flex w-full items-center gap-1.5">
+                        {number === undefined ? null : (
+                          <span
+                            data-askboard-number=""
+                            className="shrink-0 font-mono text-code text-muted-foreground"
+                          >
+                            {text("question.number", { n: number })}
+                          </span>
+                        )}
+                        <span
+                          className="min-w-0 flex-1 truncate text-body text-foreground"
+                          title={label}
+                        >
+                          {label}
+                        </span>
+                        <Badges marks={marks} />
+                      </span>
+                      <span
+                        data-askboard-state={marks.mark}
+                        className="flex items-center gap-1.5 text-badge text-foreground-secondary"
+                      >
+                        <QuestionMarker mark={marks.mark} />
+                        {markLabel(marks.mark, language)}
+                      </span>
+                    </button>
+                  </li>
+                  {removed.filter((entry) => entry.after === question.id).map(removedEntry)}
+                </Fragment>
               );
             })}
           </ul>
@@ -125,19 +155,16 @@ export const Outline = ({
 export const QuestionNavigator = ({
   questions,
   current,
-  marksOf,
   onGo,
   removed,
 }: {
   readonly questions: readonly ViewQuestion[];
   readonly current: number;
-  readonly marksOf: (question: ViewQuestion) => EntryMarks;
   readonly onGo: (questionId: string) => void;
   /** The agent deleted the question in view (F-55). */
   readonly removed: boolean;
 }) => {
   const text = useStrings();
-  const language = useLanguage();
   const previous = questions[current - 1];
   const next = questions[current + 1];
   return (
@@ -147,36 +174,6 @@ export const QuestionNavigator = ({
     >
       <span className="text-control font-semibold text-foreground">
         {text("navigator.position", { current: current + 1, total: questions.length })}
-      </span>
-      <span className="flex items-center gap-0.5 rounded-md border border-border bg-muted p-0.5">
-        {questions.map((question, index) => {
-          const marks = marksOf(question);
-          const label = question.props.header ?? question.props.text;
-          return (
-            <button
-              key={question.id}
-              type="button"
-              aria-label={text("navigator.entry", {
-                number: index + 1,
-                label,
-                mark: markLabel(marks.mark, language),
-              })}
-              data-askboard-state={marks.mark}
-              aria-current={index === current ? "true" : undefined}
-              onClick={() => onGo(question.id)}
-              className={`flex h-6 items-center gap-1 rounded-md px-1.5 ${index === current ? "border-b-2 border-primary bg-card" : ""} ${FOCUS_RING}`}
-            >
-              <QuestionMarker mark={marks.mark} />
-              {marks.isNew ? <span className={INFO_BADGE}>{text("mark.new")}</span> : null}
-              {marks.unread === 0 ? null : (
-                <span className={`${INFO_BADGE} inline-flex items-center gap-0.5`}>
-                  <IconReplies className="size-3" />
-                  {marks.unread}
-                </span>
-              )}
-            </button>
-          );
-        })}
       </span>
       {removed ? (
         <span className="rounded-md border-l-[3px] border-info bg-info-subtle px-sm py-1 text-body text-info-text">

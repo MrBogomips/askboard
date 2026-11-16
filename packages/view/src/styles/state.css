@@ -1,0 +1,55 @@
+/* The state stripe of a question card (answering-flow-visual, design decision 7; DESIGN.md, State
+   stripe): a 4 px edge on the card's left in the state's colour and style, set from
+   `data-askboard-stripe="<ladder state>"`. The pairs were measured at 3:1 or better (settling point
+   1). The stripe is never the state's only sign: the card's badge names the state in text. Unlayered
+   on purpose: the card's `border` utility would otherwise reset the edge. */
+[data-askboard-stripe] {
+  border-left-width: 4px;
+}
+
+[data-askboard-stripe="todo"] {
+  border-left-color: var(--border);
+  border-left-style: solid;
+}
+
+[data-askboard-stripe="draft"] {
+  border-left-color: var(--primary);
+  border-left-style: dashed;
+}
+
+[data-askboard-stripe="ready"] {
+  border-left-color: var(--primary);
+  border-left-style: solid;
+}
+
+[data-askboard-stripe="not-sent-yet"] {
+  border-left-color: var(--muted-foreground);
+  border-left-style: dashed;
+}
+
+[data-askboard-stripe="sent"] {
+  border-left-color: var(--success);
+  border-left-style: dashed;
+}
+
+[data-askboard-stripe="delivered"] {
+  border-left-color: var(--success);
+  border-left-style: solid;
+}
+
+[data-askboard-stripe="postponed"] {
+  border-left-color: var(--muted-foreground);
+  border-left-style: dotted;
+}
+
+[data-askboard-stripe="declined"] {
+  border-left-color: var(--muted-foreground);
+  border-left-style: solid;
+}
+
+/* The answered look: the options that are not the answer are subdued; they stay the real controls,
+   so that any edit starts a revision as it does today. */
+[data-askboard-answered] [role="radio"][data-state="unchecked"],
+[data-askboard-answered] [role="checkbox"][data-state="unchecked"] {
+  opacity: 0.6;
+}

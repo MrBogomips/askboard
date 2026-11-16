@@ -1,11 +1,12 @@
 // The board in the view (ask-lifecycle, design decision 6; EXPERIENCE.md, Board anatomy and
 // Presentations): the context header, then the questions in the presentation the ask requests,
-// then the bottom action bar. One question is the single-question board, whatever the ask
-// requests: the header with the title and the ask state, and one card, with no navigator, count,
-// jump, delivery switch or Submit (FR-22). Two or more show their areas, or their questions as one
-// group, as sections (the default) or tabs, beside the outline navigator, or one question per view
-// under the question navigator (FR-2), and the bottom action bar with the delivery switch,
-// "Select recommended" and Submit (task 6.6). Hidden tabs and hidden questions stay mounted, so
+// beside the rail. One question is the single-question board, whatever the ask requests: the header
+// with the title and the ask state, and one card, with no rail, count, jump, delivery switch or Send
+// (FR-22). Two or more show their areas, or their questions as one group, as sections (the default)
+// or tabs, or one question per view under the question navigator (FR-2), each beside the rail: the
+// outline navigator over the outbox, with the delivery switch and Send (answering-flow-visual,
+// design decisions 2 and 3). The feedback tray shows under the header (decision 11). There is no
+// bottom action bar. Hidden tabs and hidden questions stay mounted, so
 // that they report ready (AD-9). The question in view is the lifecycle draft's, so a reload or a
 // takeover comes back to it (What a reload keeps); when the agent deletes it, one question per
 // view says "Question removed by the agent" and shows the next one (task 6.7). It renders from the
@@ -15,9 +16,17 @@
 // extras: the header also shows who asked and where and the agent status, from push delivery's
 // store (design decision 12).
 
-import type { LifecycleBoardState } from "@askboard/contract";
+import { type LifecycleBoardState, QUESTION_NUMBER_MAX } from "@askboard/contract";
 import { Tabs } from "radix-ui";
-import { type ReactNode, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import {
+  type CSSProperties,
+  type ReactNode,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { questionTextId, useLanguage, useStrings } from "../catalog/port.ts";
 import { IconAreaDone } from "../icons/index.ts";
 import {
@@ -51,13 +60,14 @@ import {
   shownQuestionOf,
   tabOpenCount,
 } from "./board-view.ts";
-import { BottomBar } from "./bottom-bar.tsx";
 import { CARD_ACTS } from "./card-acts.ts";
 import { entriesWithCells } from "./cell-entries.ts";
 import { type Completion, completionOf, receiptCountsOf, shownCompletionOf } from "./completion.ts";
 import { COMPLETION_HEADING, CompletionPanel } from "./completion-panel.tsx";
 import { createDeliveredGate } from "./delivered-messages.ts";
 import type { DraftStore } from "./draft-store.ts";
+import { FeedbackTray } from "./feedback-tray.tsx";
+import { goTargetOf, type Tray } from "./feedback-tray-store.ts";
 import { createFlow, type Flow, type FlowView } from "./flow.ts";
 import {
   allAnsweredMessagesOf,
@@ -68,9 +78,17 @@ import { nextOfFlow } from "./guided-flow.ts";
 import type { HeaderData } from "./header-data.ts";
 import { type HeadingRequest, requestFocusTo, requestHeading } from "./heading-request.ts";
 import type { HeldKeyGuard } from "./held-key-guard.ts";
+import { ledgerOf } from "./ledger.ts";
 import { type EntryMarks, Outline, QuestionNavigator } from "./navigators.tsx";
+import { Outbox } from "./outbox.tsx";
+import { outboxLineOf } from "./outbox-line.ts";
 import type { PresentationControls } from "./presentation-controls.ts";
+import { ProgressStrip } from "./progress-strip.tsx";
+import { stripOf } from "./progress-strip-model.ts";
 import { type CardContext, QuestionCard } from "./question-card.tsx";
+import { numbersOf } from "./question-numbers.ts";
+import { Rail } from "./rail.tsx";
+import type { RemovedNumber } from "./removed-numbers.ts";
 import { revealAndFocus } from "./reveal.ts";
 import { revisingOfBoard } from "./revising.ts";
 import { type SnapshotControl, snapshotOfferOf } from "./snapshot-control.ts";
@@ -91,6 +109,7 @@ import { useBoardKeyTable } from "./use-board-keys.ts";
 import { useHeaderHeight } from "./use-header-height.ts";
 import { useHeldKeyGuard } from "./use-held-key-guard.ts";
 import { useQuestionInView } from "./use-question-in-view.ts";
+import { useScrollPadding } from "./use-scroll-padding.ts";
 
 /** What the board page last told the view, with the latest board document. */
 export type BoardView = {
@@ -110,6 +129,8 @@ type Shared = {
   readonly lock: ViewLock | undefined;
   readonly draft: BoardDraftState;
   readonly context: CardContext;
+  /** The questions' short numbers (design decision 6). */
+  readonly numbers: ReadonlyMap<string, number>;
 };
 
 /** A request to move focus to a question's heading, numbered so that each runs once. */
@@ -122,6 +143,8 @@ export type BoardContext = CardContext & {
   readonly status: StatusMessages;
   /** Keeps a held key's repeats from the card the board moved to (decision 3; NFR-10). */
   readonly guard: HeldKeyGuard;
+  /** The numbers of the questions the agent removed while the page is open (design decision 6). */
+  readonly removedNumbers: Store<readonly RemovedNumber[]>;
 };
 
 /**
@@ -133,8 +156,10 @@ export type BoardExtras = {
   readonly header: Store<HeaderData>;
   /** The quick toggles' presentation, and what they ask for (settings-languages, design 10). */
   readonly presentation: PresentationControls;
-  /** The bottom action bar's Snapshot (snapshot task 7.1). */
+  /** The ask row's Snapshot (snapshot task 7.1). */
   readonly snapshot: SnapshotControl;
+  /** The feedback tray's messages (answering-flow-visual, design decision 11). */
+  readonly tray: Tray;
 };
 
 // Questions the agent changed under the user's work, made on an earlier revision, that wait for
@@ -169,6 +194,7 @@ const Card = ({
     context={shared.context}
     ladder={shared.ladder}
     flow={shared.flow}
+    numbers={shared.numbers}
   />
 );
 
@@ -485,7 +511,26 @@ export const Board = ({
   useEffect(() => {
     if (footerGone) context.footer.set(undefined);
   }, [footerGone, context.footer]);
-  const shared: Shared = { ladder, flow, document, state, lock, draft, context };
+  // Numbers follow board order when the board first shows, and are held from then on: the draft
+  // holds them (and the record mirrors them), so a reload or a takeover keeps each question's.
+  const numbered = numbersOf(
+    draft.numbers !== undefined && draft.nextNumber !== undefined
+      ? { byId: draft.numbers, next: draft.nextNumber }
+      : undefined,
+    questions.map((question) => question.id),
+    QUESTION_NUMBER_MAX,
+  );
+  const numbers = numbered.byId;
+  const numbersKey = `${numbered.next}:${[...numbered.byId].map(([id, n]) => `${id}=${n}`).join(",")}`;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `numbersKey` stands for `numbered`
+  useEffect(() => {
+    context.board.setNumbers(numbered);
+  }, [numbersKey, context.board]);
+  const removedNumbers = useSyncExternalStore(
+    context.removedNumbers.subscribe,
+    context.removedNumbers.get,
+  );
+  const shared: Shared = { ladder, flow, document, state, lock, draft, context, numbers };
   // Submit waits for a held act's question that is loading or failed (Issue #103): the board
   // redraws when any question's status changes, whatever else it reads of the tracker.
   const statuses = useSyncExternalStore(context.tracker.subscribe, () =>
@@ -516,6 +561,19 @@ export const Board = ({
   const nextOpen = target === undefined ? undefined : () => go(target);
   const before = previousOpenFrom(document, state, draft.questions, ladder, viewing);
   const previousOpen = before === undefined ? undefined : () => go(before);
+  // One measurement of the header's height, which the rail, the tray and the strip of tabs read.
+  const headerHeight = useHeaderHeight();
+  // The tray: a Snapshot's outcome shows there while the control has one, and a message about
+  // questions the agent added ends once every one of them has been seen.
+  const snapshotState = useSyncExternalStore(extras.snapshot.subscribe, extras.snapshot.get);
+  useEffect(() => {
+    if (snapshotState.phase !== "idle") extras.tray.show({ kind: "snapshot" });
+  }, [snapshotState, extras.tray]);
+  useEffect(() => {
+    extras.tray.unseenChanged(attention.unseen);
+  }, [attention.unseen, extras.tray]);
+  // A Tab never ends a control under the header, the strip of tabs or the tray.
+  useScrollPadding();
   const panel = useBoardPanel();
   const boardTable = useBoardKeyTable();
   const firstOf = (ids: ReadonlySet<string> | ReadonlyMap<string, number>) =>
@@ -564,74 +622,25 @@ export const Board = ({
     () => context.board.get().inView,
     context.board.setInView,
   );
-  const [first] = questions;
-  const panelNode =
-    completion.kind === "done" || completion.kind === "postponed" ? (
-      <CompletionPanel completion={completion} onGoToFirst={go} />
-    ) : null;
-  let body: ReactNode;
-  if (single || first === undefined) {
-    body = (
-      <main className="flex flex-col gap-lg p-lg">
-        {first === undefined ? null : <Card question={first} shared={shared} />}
-      </main>
-    );
-  } else if (presentation === "one-per-view") {
-    const shown = current ?? first.id;
-    const at = questions.findIndex((question) => question.id === shown);
-    body = (
-      <main className="flex flex-col gap-lg p-lg">
-        {panelNode}
-        <OneQuestionBody
-          questions={questions}
-          current={shown}
-          shared={shared}
-          navigator={
-            <QuestionNavigator
-              questions={questions}
-              current={at}
-              marksOf={marksOf}
-              onGo={go}
-              removed={removed}
-            />
-          }
-        />
-      </main>
-    );
-  } else {
-    const active =
-      (current === undefined ? undefined : areaOf(document, current)?.id) ?? groups[0]?.id ?? "";
-    body = (
-      <div className="flex flex-1">
-        <Outline groups={groups} current={current} marksOf={marksOf} onJump={go} />
-        <main className="flex min-w-0 flex-1 flex-col gap-xl p-lg">
-          {panelNode}
-          {presentation === "tabs" ? (
-            <TabsBody
-              groups={groups}
-              active={active}
-              onActivate={(areaId) => {
-                const area = groups.find((group) => group.id === areaId);
-                const [head] = area?.questions ?? [];
-                if (head !== undefined) context.board.setInView(head.id);
-              }}
-              shared={shared}
-              unseen={attention.unseen}
-            />
-          ) : (
-            groups.map((group) => (
-              <Section key={group.id ?? "questions"} group={group} shared={shared} />
-            ))
-          )}
-        </main>
-      </div>
-    );
-  }
   const delivery = single ? "immediate" : draft.delivery;
   // The items each card makes read-only on a revision it cannot show: no field block counts them.
   const readOnlyOf = readOnlyOfBoard(context.board, context.revisions);
   // The question each card shows: the gates of Submit and "Select recommended" read it (Issue #92).
   const shownOf = shownOfBoard(context.board, context.revisions);
+  const submit = submitStateOf({
+    document,
+    board: draft,
+    delivery,
+    connection,
+    lock,
+    pending: (id) => changed.has(id),
+    sending: (id) => context.acts.of(id, CARD_ACTS) !== undefined,
+    entries: entriesWithCells(context.entries?.record(), context.cellEntries?.record()),
+    results: context.results?.record(),
+    readOnlyOf,
+    shownOf,
+    load: context.tracker.questionStatus,
+  });
   // "Prefill recommended" (decision 8): the questions that can take it, and the batch the last press
   // filled, which lives until the user's next edit or act on the board.
   const skipPrefill = (id: string) => {
@@ -662,15 +671,22 @@ export const Board = ({
   const marks = markOfStores();
   const liveBatch = batch?.mark.every((each, at) => each === marks[at]) ? batch : undefined;
   useEffect(() => {
-    if (batch !== undefined && liveBatch === undefined) setBatch(undefined);
-  }, [batch, liveBatch]);
+    if (batch !== undefined && liveBatch === undefined) {
+      setBatch(undefined);
+      extras.tray.batchEnded();
+    }
+  }, [batch, liveBatch, extras.tray]);
+  const undoNow = useRef<() => void>(() => undefined);
+  // "Undo" clears what the prefill filled, says so, and gives focus to "Prefill recommended".
   const onUndo = () => {
     if (liveBatch === undefined) return;
     setBatch(undefined);
     undoPrefill(liveBatch.items, { draft: context.draft, board: context.board });
+    extras.tray.close("prefill");
     context.status.announce(prefillUndoneMessageOf());
     setFocusing((count) => ({ ...count, prefill: count.prefill + 1 }));
   };
+  undoNow.current = onUndo;
   useEffect(() => {
     if (focusing.undo > 0)
       globalThis.document.querySelector<HTMLElement>("[data-askboard-undo]")?.focus();
@@ -680,106 +696,231 @@ export const Board = ({
       globalThis.document.querySelector<HTMLElement>("[data-askboard-prefill]")?.focus();
     }
   }, [focusing.prefill]);
-  const submit = submitStateOf({
-    document,
-    board: draft,
-    delivery,
-    connection,
-    lock,
-    pending: (id) => changed.has(id),
-    sending: (id) => context.acts.of(id, CARD_ACTS) !== undefined,
-    entries: entriesWithCells(context.entries?.record(), context.cellEntries?.record()),
-    results: context.results?.record(),
-    readOnlyOf,
-    shownOf,
-    load: context.tracker.questionStatus,
+  // Every press says how many were prefilled, none included, in the status region and in the tray;
+  // nothing was sent. "Undo" takes the focus.
+  const selectRecommendedNow = () => {
+    const items = selectRecommended(
+      document,
+      state,
+      { draft: context.draft, board: context.board, shownOf },
+      skipPrefill,
+    );
+    const message = { key: "status.prefilled", params: { count: items.length } } as const;
+    context.status.announce(message);
+    extras.tray.show({ kind: "prefill", text: message, onUndo: () => undoNow.current() });
+    setBatch({ items, mark: markOfStores() });
+    setFocusing((count) => ({ ...count, undo: count.undo + 1 }));
+  };
+  const flightOf = ladder.flightOf;
+  const revisingOf = (question: ViewQuestion) => ladder.revisingOf(question.id);
+  const ledger = ledgerOf(document, state, draft.questions, flightOf, revisingOf, delivery);
+  const outboxLine = outboxLineOf({
+    blocked: submit.blocked,
+    completion,
+    held: submit.answers,
   });
+  const outbox =
+    single || context.opened !== undefined ? undefined : (
+      <Outbox
+        document={document}
+        state={state}
+        delivery={delivery}
+        ledger={ledger}
+        line={outboxLine}
+        submit={submit}
+        readOnlyOf={readOnlyOf}
+        shownOf={shownOf}
+        load={context.tracker.questionStatus}
+        locked={lock !== undefined}
+        context={context}
+        // The card focuses its prompt itself: the heading's focus would run after it (the board's
+        // effect follows the card's) and take it away.
+        onNeedsReason={(id) => {
+          show(id);
+          context.reasons.set({ questionId: id });
+        }}
+        onJump={go}
+        // The question in view, else the first, takes the focus once Submit has sent.
+        onSubmitted={() => {
+          // The next question to do after the one in view, while one is left; else the completion
+          // panel's heading once it shows (Focus after Answer and Submit).
+          const next = nextOfFlow(
+            document,
+            state,
+            context.board.get().questions,
+            ladder,
+            attention.unseen,
+            viewing ?? "",
+          );
+          const id = next?.id ?? current ?? questions[0]?.id;
+          if (next !== undefined && id !== undefined) focusHeading(id);
+          else if (id !== undefined) {
+            // Nothing left to do: the heading of the question in view takes the focus now, never
+            // the disabled Send or the page, and the panel's heading follows once it shows.
+            // Directly, not through the store: two requests in one tick leave only the last.
+            const heading = globalThis.document.getElementById(questionTextId(id));
+            if (heading !== null) revealAndFocus(heading);
+            requestFocusTo(context.focus, id, "completion");
+          }
+        }}
+      />
+    );
+  // A Snapshot has no draft record to hold numbers (AD-20): it shows none.
+  const outlineNumbers = context.opened === undefined ? numbers : undefined;
+  const [first] = questions;
+  const panelNode =
+    completion.kind === "done" || completion.kind === "postponed" ? (
+      <CompletionPanel completion={completion} onGoToFirst={go} />
+    ) : null;
+  let body: ReactNode;
+  if (single || first === undefined) {
+    body = (
+      <main className="flex flex-col gap-lg p-lg">
+        {first === undefined ? null : <Card question={first} shared={shared} />}
+      </main>
+    );
+  } else if (presentation === "one-per-view") {
+    const shown = current ?? first.id;
+    const at = questions.findIndex((question) => question.id === shown);
+    body = (
+      <div className="flex flex-1">
+        <Rail
+          outline={
+            <Outline
+              groups={groups}
+              current={shown}
+              marksOf={marksOf}
+              onJump={go}
+              numbers={outlineNumbers}
+              removed={removedNumbers}
+            />
+          }
+          outbox={outbox}
+        />
+        <main className="flex min-w-0 flex-1 flex-col gap-lg p-lg">
+          {panelNode}
+          <OneQuestionBody
+            questions={questions}
+            current={shown}
+            shared={shared}
+            navigator={
+              <QuestionNavigator questions={questions} current={at} onGo={go} removed={removed} />
+            }
+          />
+        </main>
+      </div>
+    );
+  } else {
+    const active =
+      (current === undefined ? undefined : areaOf(document, current)?.id) ?? groups[0]?.id ?? "";
+    body = (
+      <div className="flex flex-1">
+        <Rail
+          outline={
+            <Outline
+              groups={groups}
+              current={current}
+              marksOf={marksOf}
+              onJump={go}
+              numbers={outlineNumbers}
+              removed={removedNumbers}
+            />
+          }
+          outbox={outbox}
+        />
+        <main className="flex min-w-0 flex-1 flex-col gap-xl p-lg">
+          {panelNode}
+          {presentation === "tabs" ? (
+            <TabsBody
+              groups={groups}
+              active={active}
+              onActivate={(areaId) => {
+                const area = groups.find((group) => group.id === areaId);
+                const [head] = area?.questions ?? [];
+                if (head !== undefined) context.board.setInView(head.id);
+              }}
+              shared={shared}
+              unseen={attention.unseen}
+            />
+          ) : (
+            groups.map((group) => (
+              <Section key={group.id ?? "questions"} group={group} shared={shared} />
+            ))
+          )}
+        </main>
+      </div>
+    );
+  }
+  // The strip reads the numbers computed above for the cards.
+  const strip = (
+    <ProgressStrip
+      groups={stripOf(
+        document,
+        state,
+        draft.questions,
+        flightOf,
+        revisingOf,
+        attention.unseen,
+        outlineNumbers ?? new Map(),
+      )}
+      current={viewing}
+      onGo={go}
+    />
+  );
+  const snapshotOffer = snapshotOfferOf(lock, connection);
   return (
     <div
       data-askboard-ended={endedOf(lock) ? "" : undefined}
+      style={{ "--askboard-header-height": `${headerHeight}px` } as CSSProperties}
       className="group/board flex min-h-screen flex-col"
     >
       <StatusRegion status={context.status} />
       {context.opened === undefined ? null : <SnapshotTopLine opened={context.opened} />}
       <BoardHeader
         title={document.title}
+        askId={document.askId}
         pill={askPillOf(state, lock, language)}
         counts={single || endedOf(lock) ? undefined : counts}
+        strip={strip}
+        prefill={
+          single || context.opened !== undefined || prefillCount === 0
+            ? undefined
+            : { disabled: lock !== undefined, onPress: selectRecommendedNow, count: prefillCount }
+        }
         ended={endedOf(lock)}
         header={extras.header}
         status={context.status}
         controls={extras.presentation}
+        warning={
+          context.opened === undefined
+            ? postponedWarningOf(document, state, draft.questions, ladder, language)
+            : undefined
+        }
+        snapshot={
+          context.opened === undefined
+            ? { control: extras.snapshot, offer: snapshotOffer }
+            : undefined
+        }
         keys={
           endedOf(lock)
             ? undefined
             : { panel, takesEdits: lock === undefined && context.opened === undefined }
         }
       />
-      {body}
-      {context.opened !== undefined ? null : (
-        <BottomBar
-          single={single}
-          document={document}
-          state={state}
-          delivery={delivery}
-          warning={postponedWarningOf(document, state, draft.questions, ladder, language)}
-          submit={submit}
-          allReady={completion.kind === "send-all"}
-          prefillCount={prefillCount}
-          prefilled={
-            liveBatch === undefined ? undefined : { count: liveBatch.items.length, onUndo }
-          }
-          readOnlyOf={readOnlyOf}
-          shownOf={shownOf}
-          load={context.tracker.questionStatus}
-          locked={lock !== undefined}
-          context={context}
-          onSelectRecommended={() => {
-            const items = selectRecommended(
-              document,
-              state,
-              { draft: context.draft, board: context.board, shownOf },
-              skipPrefill,
-            );
-            // Every press says how many were prefilled; nothing was sent. "Undo" takes the focus.
-            context.status.announce({ key: "status.prefilled", params: { count: items.length } });
-            setBatch({ items, mark: markOfStores() });
-            setFocusing((count) => ({ ...count, undo: count.undo + 1 }));
-          }}
-          // The card focuses its prompt itself: the heading's focus would run after it (the board's
-          // effect follows the card's) and take it away.
-          onNeedsReason={(id) => {
-            show(id);
-            context.reasons.set({ questionId: id });
-          }}
-          onJump={go}
-          // The question in view, else the first, takes the focus once Submit has sent.
-          onSubmitted={() => {
-            // The next question to do after the one in view, while one is left; else the completion
-            // panel's heading once it shows (Focus after Answer and Submit).
-            const next = nextOfFlow(
-              document,
-              state,
-              context.board.get().questions,
-              ladder,
-              attention.unseen,
-              viewing ?? "",
-            );
-            const id = next?.id ?? current ?? questions[0]?.id;
-            if (next !== undefined && id !== undefined) focusHeading(id);
-            else if (id !== undefined) {
-              // Nothing left to do: the heading of the question in view takes the focus now, never
-              // the disabled Send or the page, and the panel's heading follows once it shows.
-              // Directly, not through the store: two requests in one tick leave only the last.
-              const heading = globalThis.document.getElementById(questionTextId(id));
-              if (heading !== null) revealAndFocus(heading);
-              requestFocusTo(context.focus, id, "completion");
-            }
-          }}
+      {context.opened === undefined ? (
+        <FeedbackTray
+          tray={extras.tray}
           snapshot={extras.snapshot}
-          snapshotOffer={snapshotOfferOf(lock, connection)}
+          onGo={(ids) => {
+            const id = goTargetOf(
+              { kind: "added", text: { key: "tray.go" }, questions: ids },
+              attention.unseen,
+            );
+            if (id !== undefined) go(id);
+          }}
         />
-      )}
+      ) : null}
+      {body}
     </div>
   );
 };

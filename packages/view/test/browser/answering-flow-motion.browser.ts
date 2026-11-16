@@ -33,6 +33,7 @@ import {
   menuItem,
   openBoard,
   optionOf,
+  viewportBottom,
 } from "./harness/lifecycle-test.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 
@@ -117,11 +118,13 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await answerWithKeys(board, "q3");
         await actsSent(run, 1);
         await eventually(() => isFocused(headingOf(board, "q4")), "focus on the q4 heading");
-        // Instant: the scroll was done before the focus, so nothing moves after it.
-        const bar = await board.view.getByRole("contentinfo").boundingBox();
-        const box = await headingOf(board, "q4").boundingBox();
-        if (bar === null || box === null) throw new Error("no box");
-        expect(box.y + box.height).toBeLessThanOrEqual(bar.y);
+        // Instant: the scroll is done within the time of the smooth move, and nothing moves after it.
+        const foot = await viewportBottom(board);
+        await Bun.sleep(400);
+        const bottom = await headingOf(board, "q4").evaluate(
+          (element) => element.getBoundingClientRect().bottom,
+        );
+        expect(bottom).toBeLessThanOrEqual(foot);
         const at = await scrollY(board);
         await Bun.sleep(400);
         expect(await scrollY(board)).toBe(at);

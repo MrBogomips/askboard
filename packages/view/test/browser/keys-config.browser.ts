@@ -96,7 +96,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await board.view.getByText("To top", { exact: true }).first().waitFor({
           timeout: STEP_TIMEOUT_MS,
         });
-        expect(await board.view.locator("kbd").count()).toBe(0);
+        expect(await board.view.getByRole("tooltip").locator("kbd").count()).toBe(0);
         await board.page.mouse.move(600, 700, { steps: 5 });
         await keysButton(board, "first").click();
         await panel(board).waitFor({ timeout: STEP_TIMEOUT_MS });
@@ -162,7 +162,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await board.view.getByText("Keys", { exact: true }).first().waitFor({
           timeout: STEP_TIMEOUT_MS,
         });
-        expect(await board.view.locator("kbd").count()).toBe(0);
+        expect(await board.view.getByRole("tooltip").locator("kbd").count()).toBe(0);
         await button.click();
         await panel(board).waitFor({ timeout: STEP_TIMEOUT_MS });
         const text = (await panel(board).textContent()) ?? "";

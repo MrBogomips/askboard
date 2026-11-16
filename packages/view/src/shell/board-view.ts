@@ -179,11 +179,26 @@ const counted = (state: LifecycleBoardState, which: string): number =>
   state.questions.filter((question) => question.state === which).length;
 
 /**
- * The ask pill: only what the agent has received (AD-10), so ready answers and held acts do not
- * move it. "Partly answered n/m" counts the answered and declined questions out of all; an
- * answered ask adds its postponed and declined counts ("answered, 1 postponed"). A closed or
- * discarded ask says so.
+ * The ask pill: what the user has answered on the board, as AD-10 defines the ask state, so ready
+ * answers and held acts do not move it; receipts alone say what the agent received (the ledger and
+ * the completion panel). "Partly answered n/m" counts the answered and declined questions out of
+ * all; an answered ask adds its postponed and declined counts ("answered, 1 postponed"). A closed
+ * or discarded ask says so.
  */
+/** The names of the pill's icons in the icon module: never a receipt's (`send`, `check-check`). */
+export type AskPillIcon = "circle" | "circle-dashed" | "check" | "lock" | "circle-x";
+
+const ASK_PILL_ICONS: Readonly<Record<AskPill["kind"], AskPillIcon>> = {
+  waiting: "circle",
+  partial: "circle-dashed",
+  answered: "check",
+  closed: "lock",
+  discarded: "circle-x",
+};
+
+/** The icon of an ask pill kind, by name (design decision 14; settling point 8). */
+export const askPillIconOf = (kind: AskPill["kind"]): AskPillIcon => ASK_PILL_ICONS[kind];
+
 export const askPillOf = (
   state: LifecycleBoardState,
   lock: ViewLock | undefined,

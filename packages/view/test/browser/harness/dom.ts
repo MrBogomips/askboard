@@ -24,7 +24,13 @@
 //   one saying the ask was discarded, and one saying the board moved, with "Continue here";
 // - push delivery's header row of who asked and where carries `data-askboard-header=
 //   "who-and-where"`, its labelled fields a `<dl>` of `<dt>` and `<dd>`; the agent pill is a
-//   `status` reading "Agent: …" (task 8.5).
+//   `status` reading "Agent: …" (task 8.5);
+// - the frame's parts (answering-flow-visual, task 3.1): `data-askboard-ask-row` and
+//   `data-askboard-progress-row` on the header's second and third rows, `data-askboard-rail` on the
+//   rail, `data-askboard-outbox` on the outbox, `data-askboard-ledger="drafts|ready|sent|delivered"`
+//   on its cells, `data-askboard-strip="<questionId>"` on a strip segment,
+//   `data-askboard-tray="<kind>"` on a tray message, `data-askboard-edit="<questionId>"` on a
+//   card's Edit and `data-askboard-theme` on the Theme control.
 
 import type { Frame, FrameLocator, Locator, Page } from "playwright";
 
@@ -76,6 +82,24 @@ export type Board = {
   readonly agentPill: Locator;
   /** The one status region of the answering flow, outside the cards (answering-flow-fixes, #182). */
   readonly status: Locator;
+  /** The header's second row: the title, the pills, the warning and the tools. */
+  readonly askRow: Locator;
+  /** The header's third row: the count, the strip, "Next to do" and "Prefill recommended". */
+  readonly progressRow: Locator;
+  /** The rail: the outline over the outbox. */
+  readonly rail: Locator;
+  /** The outbox at the rail's foot: the delivery switch, Send and the ledger. */
+  readonly outbox: Locator;
+  /** One cell of the outbox's ledger. */
+  ledger(cell: "drafts" | "ready" | "sent" | "delivered"): Locator;
+  /** One segment of the progress strip, by question ID. */
+  strip(questionId: string): Locator;
+  /** A message of the feedback tray, by its kind. */
+  tray(kind: "snapshot" | "prefill" | "added"): Locator;
+  /** A card's "Edit", by question ID. */
+  edit(questionId: string): Locator;
+  /** The ask row's Theme control, whose popover holds Theme and Density. */
+  readonly themeControl: Locator;
 };
 
 export const boardOf = (page: Page): Board => {
@@ -113,6 +137,15 @@ export const boardOf = (page: Page): Board => {
         .filter({ has: view.locator("dt").getByText(label, { exact: true }) })
         .locator("dd"),
     status: view.locator('[role="status"][aria-live="polite"][aria-atomic="true"].sr-only'),
+    askRow: view.locator("[data-askboard-ask-row]"),
+    progressRow: view.locator("[data-askboard-progress-row]"),
+    rail: view.locator("[data-askboard-rail]"),
+    outbox: view.locator("[data-askboard-outbox]"),
+    ledger: (cell) => view.locator(`[data-askboard-ledger="${cell}"]`),
+    strip: (questionId) => view.locator(`[data-askboard-strip="${questionId}"]`),
+    tray: (kind) => view.locator(`[data-askboard-tray="${kind}"]`),
+    edit: (questionId) => view.locator(`[data-askboard-edit="${questionId}"]`),
+    themeControl: view.locator("[data-askboard-theme]"),
     agentPill: view.locator("[data-askboard-agent-pill]").filter({ hasText: /^Agent: / }),
     viewFrame: async () => {
       const content = await (await frame.elementHandle())?.contentFrame();

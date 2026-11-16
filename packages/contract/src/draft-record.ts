@@ -23,6 +23,36 @@ const draftItemsOf = (question: BoardQuestion): ReadonlySet<string> => {
   return new Set([question.id, ...ids]);
 };
 
+// The short numbers (answering-flow-visual, design decision D6): a key naming a question of the
+// ask, each number held once, every number below `nextNumber`. Own-property keys only.
+const numberProblems = (
+  record: DraftRecord,
+  questions: ReadonlyMap<string, unknown>,
+): Problem[] => {
+  const { numbers, nextNumber } = record;
+  if (numbers === undefined) return [];
+  const problems: Problem[] = [];
+  const seen = new Set<number>();
+  let held = 0;
+  for (const [key, number] of Object.entries(numbers)) {
+    if (!questions.has(key)) {
+      const message = `${JSON.stringify(key)} names no question of the ask`;
+      problems.push({ path: `/numbers/${pointerPart(key)}`, message });
+      continue;
+    }
+    if (seen.has(number)) {
+      problems.push({ path: "/numbers", message: `the number ${number} is held twice` });
+    }
+    seen.add(number);
+    held = Math.max(held, number);
+  }
+  if (held > 0 && (nextNumber === undefined || nextNumber <= held)) {
+    const message = `nextNumber must be above the highest number held, ${held}`;
+    problems.push({ path: "/nextNumber", message });
+  }
+  return problems;
+};
+
 /**
  * What a draft record the board protocol accepts says that its ask's board document cannot hold
  * (contract spec, Draft record message): a question key, a question in view, or a value, result, entry or cell entry key that
@@ -60,5 +90,6 @@ export const draftRecordProblems = (
       }
     }
   }
+  problems.push(...numberProblems(record, questions));
   return problems;
 };

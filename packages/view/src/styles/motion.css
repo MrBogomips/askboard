@@ -39,3 +39,20 @@
     }
   }
 }
+
+/* The outbox ledger's pulse (answering-flow-visual, decision 4): a cell whose count rises shows the
+   primary tint for 150 ms. Only where the user has no preference for less motion; the count itself
+   is the information. */
+@layer components {
+  @media (prefers-reduced-motion: no-preference) {
+    [data-askboard-pulse] {
+      animation: askboard-pulse 150ms ease-out;
+    }
+
+    @keyframes askboard-pulse {
+      from {
+        background-color: var(--primary-subtle);
+      }
+    }
+  }
+}

@@ -504,3 +504,76 @@ describe("a board gone past the grace period", () => {
     }
   });
 });
+
+// Board-host spec, Draft mirror (answering-flow-visual, task 1.2): a record with the short numbers
+// goes to ask-core as sent, reaches a board on connect and on takeover, and a number held twice is
+// refused with the held record unchanged.
+const numbered = (): DraftRecord => ({
+  ...draftOf("numbered"),
+  numbers: { database: 1 },
+  nextNumber: 2,
+});
+
+describe("a draft record's short numbers", () => {
+  test("a record holding them is passed to ask-core as sent", async () => {
+    const fake = fakeHostCore();
+    const { host, open } = await hostOf(fake);
+    try {
+      const tab = await open();
+      await types(tab, 2);
+      tab.send(draftMessage(numbered()));
+      await Bun.sleep(30);
+      expect(fake.draft).toEqual(numbered());
+      expect(tab.pending).toEqual([]);
+    } finally {
+      await host.close();
+    }
+  });
+
+  test("a held record with them goes between the board document and the state", async () => {
+    const fake = fakeHostCore({ draft: numbered() });
+    const { host, open } = await hostOf(fake);
+    try {
+      const tab = await open();
+      expect(await types(tab, 3)).toEqual(["board", "draft", "state"]);
+    } finally {
+      await host.close();
+    }
+  });
+
+  test("the older tab's last record reaches the new tab on takeover, numbers included", async () => {
+    const fake = fakeHostCore();
+    const { host, open } = await hostOf(fake);
+    try {
+      const first = await open();
+      await types(first, 2);
+      const second = await open();
+      await first.next();
+      first.send(draftMessage(numbered()));
+      expect(await first.closed()).toBe(BOARD_CLOSE_CODES.moved);
+      await types(second, 1);
+      expect(await second.next()).toEqual(draftMessage(numbered()));
+      expect(fake.draft).toEqual(numbered());
+    } finally {
+      await host.close();
+    }
+  });
+
+  test("a number held twice is refused, naming /numbers, and the held record is unchanged", async () => {
+    const fake = fakeHostCore({ draft: draftOf("held before") });
+    const { host, open } = await hostOf(fake);
+    try {
+      const tab = await open();
+      await types(tab, 3);
+      const twice = { ...draftOf("x"), numbers: { database: 1, other: 1 }, nextNumber: 2 };
+      tab.send(draftMessage(twice));
+      const refused = await tab.next();
+      expect(refused).toMatchObject({ type: "refused", reason: "message" });
+      expect((refused as { detail: string }).detail).toContain("/numbers");
+      expect(fake.draft).toEqual(draftOf("held before"));
+      expect(fake.calls.some(([kind]) => kind === "holdDraft")).toBe(false);
+    } finally {
+      await host.close();
+    }
+  });
+});

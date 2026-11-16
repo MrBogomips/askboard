@@ -27,6 +27,7 @@ import {
   headingOf,
   lifecycleScenario,
   menuItem,
+  moreOf,
   openBoard,
   optionOf,
   postponeOf,
@@ -105,7 +106,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         ]);
 
         // Decline through "More": Enter opens the menu, the arrows move, Enter chooses.
-        await tabTo(board, buttonOf(board, "audit", "More"), { backward: true });
+        await tabTo(board, moreOf(board, "audit"), { backward: true });
         await keyboard.press("Enter");
         await eventually(() => focused(menuItem(board, "Explain")), "focus on Explain");
         await keyboard.press("ArrowDown");

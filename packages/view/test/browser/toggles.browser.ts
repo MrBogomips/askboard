@@ -1,7 +1,8 @@
-// The quick toggles in each engine (settings-languages, task 8.3): header row 2 ends with "Theme"
-// and "System | Light | Dark", "Compact | Comfortable" and "Settings"; a toggle sends the board
-// page's `setting` command and the board changes at once; a key the project sets disables its
-// toggle, whose description names the file and the key.
+// The quick toggles in each engine (settings-languages, task 8.3; answering-flow-visual, task 3.2):
+// the ask row ends with the "Theme" control, whose popover holds "System | Light | Dark" and
+// "Compact | Comfortable", then "Settings"; a toggle sends the board page's `setting` command and the
+// board changes at once; a key the project sets disables its toggle, whose description names the
+// file and the key.
 
 import { describe, expect, test } from "bun:test";
 import { twoAsk } from "./fixtures/lifecycle-asks.ts";
@@ -25,6 +26,12 @@ const density = (board: Board) => board.view.getByRole("radiogroup", { name: "De
 const settingsButton = (board: Board) =>
   board.view.getByRole("banner").getByRole("button", { name: "Settings", exact: true });
 
+/** Opens the Theme popover, which holds the two toggles. */
+const openTheme = async (board: Board): Promise<void> => {
+  await board.themeControl.click({ timeout: STEP_TIMEOUT_MS });
+  await theme(board).waitFor({ timeout: STEP_TIMEOUT_MS });
+};
+
 const hasClass = async (board: Board, side: "page" | "view", name: string) => {
   const classes =
     side === "page"
@@ -46,12 +53,22 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     const { start } = useEngine(engine);
 
     test(
-      "row 2 ends with Theme, its three choices, the two densities and Settings",
+      "the ask row ends with Theme and Settings; the popover holds its three choices and the two densities",
       async () => {
         const run = await start(scenario({ user: file({ theme: "dark" }) }));
         const board = await openBoard(run, ["database", "cache"]);
         await answerOf(board, "database").waitFor({ timeout: STEP_TIMEOUT_MS });
-        await theme(board).waitFor({ timeout: STEP_TIMEOUT_MS });
+        const tools = [
+          (await board.themeControl.boundingBox())?.x ?? 0,
+          (await settingsButton(board).boundingBox())?.x ?? 0,
+        ];
+        expect(tools).toEqual([...tools].sort((a, b) => a - b));
+        const row = await board.askRow.boundingBox();
+        const last = await settingsButton(board).boundingBox();
+        expect((last?.x ?? 0) + (last?.width ?? 0)).toBeLessThanOrEqual(
+          (row?.x ?? 0) + (row?.width ?? 0) + 0.5,
+        );
+        await openTheme(board);
         const labels = async (group: ReturnType<typeof theme>) =>
           group.getByRole("radio").allTextContents();
         expect(await labels(theme(board))).toEqual(["System", "Light", "Dark"]);
@@ -62,20 +79,6 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(
           await density(board).getByRole("radio", { name: "Compact" }).getAttribute("aria-checked"),
         ).toBe("true");
-        const x = async (locator: ReturnType<typeof theme>) =>
-          (await locator.boundingBox())?.x ?? 0;
-        const order = [
-          await x(board.view.getByText("Theme", { exact: true })),
-          await x(theme(board)),
-          await x(density(board)),
-          await x(settingsButton(board)),
-        ];
-        expect(order).toEqual([...order].sort((a, b) => a - b));
-        const row = await board.view.locator("header > div").nth(1).boundingBox();
-        const last = await settingsButton(board).boundingBox();
-        expect((last?.x ?? 0) + (last?.width ?? 0)).toBeLessThanOrEqual(
-          (row?.x ?? 0) + (row?.width ?? 0) + 0.5,
-        );
       },
       TEST_TIMEOUT_MS,
     );
@@ -85,6 +88,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       async () => {
         const run = await start(scenario({ user: file({ theme: "dark" }) }));
         const board = await openBoard(run, ["database", "cache"]);
+        await openTheme(board);
         await theme(board)
           .getByRole("radio", { name: "Light" })
           .click({ timeout: STEP_TIMEOUT_MS });
@@ -112,6 +116,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       async () => {
         const run = await start(scenario({ project: file({ density: "comfortable" }) }));
         const board = await openBoard(run, ["database", "cache"]);
+        await openTheme(board);
         await density(board).waitFor({ timeout: STEP_TIMEOUT_MS });
         for (const radio of await density(board).getByRole("radio").all()) {
           expect(await radio.isDisabled()).toBe(true);
@@ -130,6 +135,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       async () => {
         const run = await start(scenario({}));
         const board = await openBoard(run, ["database", "cache"]);
+        await openTheme(board);
         await theme(board).getByRole("radio", { name: "System" }).focus();
         await board.page.keyboard.press("ArrowRight");
         await board.view

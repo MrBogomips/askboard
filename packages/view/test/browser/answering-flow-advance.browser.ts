@@ -35,6 +35,7 @@ import {
   optionOf,
   postponeOf,
   sentActs,
+  viewportBottom,
 } from "./harness/lifecycle-test.ts";
 import { hostSettled } from "./harness/probes.ts";
 import { readViewBuild } from "./harness/view-build.ts";
@@ -106,7 +107,7 @@ const boxOf = async (locator: Locator): Promise<Box> => {
 const expectBetweenBars = async (board: Board, id: string, top: Locator): Promise<void> => {
   const heading = headingOf(board, id);
   await eventually(() => isFocused(heading), `focus on the ${id} heading`);
-  const bounds = { top: await boxOf(top), bar: await boxOf(board.view.getByRole("contentinfo")) };
+  const bounds = { top: await boxOf(top), bar: { top: await viewportBottom(board) } };
   // A smooth scroll finishes within a quarter of a second: wait for the box to settle in place.
   await eventually(async () => {
     const box = await boxOf(heading);

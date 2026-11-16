@@ -25,6 +25,7 @@ import {
   chooseFromMore,
   focused,
   headingOf,
+  labelText,
   lifecycleScenario,
   loggedReceiptOf,
   noteOf,
@@ -74,13 +75,8 @@ const lineOf = (board: Board, id: string): Locator =>
 const entryOf = (board: Board, id: string): Locator =>
   board.view.locator(`[data-askboard-outline="${id}"] [data-askboard-state]`);
 
-/** The question navigator's marker of the nth question, which names its state in its label. */
-const markerOf = (board: Board, index: number): Locator =>
-  board.view
-    .getByRole("navigation", { name: "Question navigator" })
-    .getByRole("button")
-    .filter({ has: board.view.locator("svg[data-askboard-marker]") })
-    .nth(index);
+/** The progress strip's segment of the nth question (the navigator's markers moved there), whose name ends with its state. */
+const markerOf = (board: Board, index: number): Locator => board.strip(`q${index + 1}`);
 
 /** Waits until a state line holds `state` and reads `label`. */
 const reads = (line: Locator, state: State, label: string): Promise<void> =>
@@ -315,7 +311,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
-      "one question per view: the navigator's markers name the state of each question",
+      "one question per view: the strip's segments name the state of each question",
       async () => {
         const { board } = await open(start, {
           delivery: "submitted",
@@ -323,23 +319,22 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         });
         const first = markerOf(board, 0);
         await eventually(
-          async () => ((await first.getAttribute("aria-label")) ?? "").endsWith(", To do"),
+          async () => ((await first.getAttribute("aria-label")) ?? "").endsWith("To do"),
           "marker 1 reading To do",
         );
         await choose(board, "q1");
         await eventually(
-          async () => ((await first.getAttribute("aria-label")) ?? "").endsWith(", Draft"),
+          async () => ((await first.getAttribute("aria-label")) ?? "").endsWith("Draft"),
           "marker 1 reading Draft",
         );
         await answerOf(board, "q1").click({ timeout: STEP_TIMEOUT_MS });
         await eventually(
-          async () =>
-            ((await first.getAttribute("aria-label")) ?? "").endsWith(", Ready, not sent"),
+          async () => ((await first.getAttribute("aria-label")) ?? "").endsWith("Ready, not sent"),
           "marker 1 reading Ready, not sent",
         );
         // The second question's marker is its own.
         expect(
-          ((await markerOf(board, 1).getAttribute("aria-label")) ?? "").endsWith(", To do"),
+          ((await markerOf(board, 1).getAttribute("aria-label")) ?? "").endsWith("To do"),
         ).toBe(true);
       },
       TEST_TIMEOUT_MS,
@@ -550,7 +545,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await optionOf(board, "q1", "No").check({ timeout: STEP_TIMEOUT_MS });
         await reads(lineOf(board, "q1"), "draft", "Draft");
         expect(await card(board, "q1").locator("[data-askboard-receipt]").count()).toBe(0);
-        expect((await answerOf(board, "q1").innerText()).trim()).toBe("Send the change");
+        expect(await labelText(answerOf(board, "q1"))).toBe("Send the change");
         await answerOf(board, "q1").click({ timeout: STEP_TIMEOUT_MS });
         await reads(lineOf(board, "q1"), "sent", "Sent");
         await eventually(() => focused(headingOf(board, "q1")), "focus on question 1's heading");

@@ -25,7 +25,8 @@ describe("the configuration's minor", () => {
 
 describe("the board protocol's minor", () => {
   test("is the minor answering-flow-guidance holds, and the set carries the constant", () => {
-    expect(BOARD_PROTOCOL_VERSION).toBe("1.11");
+    // Later changes move the minor on: this one's is the floor (answering-flow-visual holds 1.12).
+    expect(Number(BOARD_PROTOCOL_VERSION.split(".")[1])).toBeGreaterThanOrEqual(11);
     expect(versionOf("board-protocol")).toBe(BOARD_PROTOCOL_VERSION);
   });
 

@@ -25,3 +25,9 @@ export const ENTRY_MAX_CHARS = 200;
  * cells of a Table at its bounds, 200 rows of 10 columns, so a Table's entries always fit.
  */
 export const CELL_ENTRIES_MAX = 2_000;
+
+/**
+ * The highest short number the board gives a question (answering-flow-visual, design decision D6):
+ * the draft record's `numbers` hold 1 to this, and `nextNumber` at most one more.
+ */
+export const QUESTION_NUMBER_MAX = 9_999;

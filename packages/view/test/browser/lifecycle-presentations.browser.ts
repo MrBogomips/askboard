@@ -133,7 +133,13 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const board = await openBoard(run, ["q1", "q2", "q3", "q4", "q5"]);
         const navigator = board.view.getByRole("navigation", { name: "Question navigator" });
         await navigator.getByText("Question 1 of 5", { exact: true }).waitFor();
-        expect(await viewText(board, "First area").filter({ visible: true }).count()).toBe(1);
+        // The area's label above the question: the outline in the rail names it too.
+        expect(
+          await viewText(board, "First area")
+            .filter({ visible: true })
+            .locator("xpath=ancestor::main")
+            .count(),
+        ).toBe(1);
         const previous = navigator.getByRole("button", { name: "Previous", exact: true });
         const next = navigator.getByRole("button", { name: "Next", exact: true });
         const nextOpen = board.header.locator("[data-askboard-next-to-do]");
@@ -147,7 +153,12 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await next.click();
         await answerYes(board, "q4");
         await navigator.getByText("Question 4 of 5", { exact: true }).waitFor();
-        expect(await viewText(board, "Second area").filter({ visible: true }).count()).toBe(1);
+        expect(
+          await viewText(board, "Second area")
+            .filter({ visible: true })
+            .locator("xpath=ancestor::main")
+            .count(),
+        ).toBe(1);
         await nextOpen.click();
         await navigator.getByText("Question 5 of 5", { exact: true }).waitFor();
         await eventually(() => isFocused(heading(board, "q5")), "focus on question 5's heading");
@@ -157,7 +168,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await eventually(() => isFocused(heading(board, "q2")), "focus on question 2's heading");
         // Hidden questions stay mounted.
         expect(await card(board, "q5").count()).toBe(1);
-        expect(await board.view.getByRole("navigation", { name: "Outline" }).count()).toBe(0);
+        // The rail holds the outline in one question per view too (answering-flow-visual, D2).
+        expect(await board.rail.getByRole("navigation", { name: "Outline" }).count()).toBe(1);
         // The navigator holds no jump of its own: the header's is the only one.
         expect(await navigator.locator("[data-askboard-next-to-do]").count()).toBe(0);
         expectNoCspProblem(run);

@@ -595,6 +595,23 @@ export const STRING_KEYS = [
   "status.delivered",
   "status.prefillUndone",
   "status.areaDone",
+  // The visual pass (answering-flow-visual, design decision 17).
+  "header.askPill",
+  "progress.label",
+  "progress.segment",
+  "question.number",
+  "outline.removed",
+  "outbox.held",
+  "ledger.drafts",
+  "ledger.ready",
+  "ledger.sent",
+  "ledger.delivered",
+  "ledger.readyOff",
+  "answer.line",
+  "question.chooseOption",
+  "tray.go",
+  "tray.close",
+  "status.removed",
 ] as const;
 
 export type StringKey = (typeof STRING_KEYS)[number];

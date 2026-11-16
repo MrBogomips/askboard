@@ -171,8 +171,12 @@ export type ViewPresentationSetting = Exclude<PresentationSetting, { readonly ke
 /** The view's `setting` message: the keys a view control writes, never `afterAnswer` (decision 9). */
 export type ViewSetting = { readonly type: "setting" } & ViewPresentationSetting;
 
-/** "Settings": the board page opens its settings panel. */
-export type ViewOpenSettings = { readonly type: "open-settings" };
+/**
+ * "Settings": the board page opens its settings panel, and places it at the view's inset, measured
+ * as for `open-reference` (answering-flow-visual, design decision 12); the view protocol is the
+ * view's own, so this carries no version.
+ */
+export type ViewOpenSettings = { readonly type: "open-settings"; readonly inset: ReferenceInset };
 
 /**
  * The user clicks a reference, or an excerpt's "Open in reading panel" (excerpts, design decisions
@@ -689,7 +693,7 @@ const FIELDS: Readonly<Record<ViewMessage["type"], MessageFields>> = {
       value: (value) => (typeof value === "string" ? undefined : "is not a text"),
     },
   },
-  "open-settings": { checks: {} },
+  "open-settings": { checks: { inset } },
   "open-reference": { checks: { itemId, inset } },
   snapshot: { checks: {} },
   "open-link": { checks: { itemId, url: linkUrl } },

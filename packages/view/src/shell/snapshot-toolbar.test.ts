@@ -3,9 +3,9 @@ import { createElement, isValidElement, type ReactElement, type ReactNode } from
 import { renderToStaticMarkup } from "react-dom/server";
 import { LanguageContext } from "../catalog/port.ts";
 import { DEFAULT_PRESENTATION, type PresentationControls } from "./presentation-controls.ts";
-import { QuickToggles } from "./quick-toggles.tsx";
 import { Segmented } from "./segmented.tsx";
 import { createStore } from "./store.ts";
+import { QuickToggles } from "./theme-control.tsx";
 
 // One toolbar in a Snapshot (snapshot-toolbar, design decisions 1 and 5; view spec, The Snapshot
 // view's chrome and Density in a Snapshot). The header draws its toggles through `QuickToggles`
@@ -95,9 +95,8 @@ describe("a Snapshot's toolbar", () => {
     expect(html).not.toContain("disabled");
   });
 
-  test("a hosted board keeps Settings and its lock descriptions", () => {
+  test("a hosted board keeps its lock descriptions", () => {
     const html = toggles("en-US", controlsOf(true, ["density"]));
-    expect(html).toContain("Settings");
     expect(html).toContain("config.json");
   });
 
@@ -152,10 +151,18 @@ describe("a toggle's segments", () => {
 });
 
 describe("the header", () => {
-  test("draws the toggles through QuickToggles once and keeps no Theme control of its own", async () => {
-    const source = await Bun.file(new URL("./board-header.tsx", import.meta.url)).text();
-    expect(source.match(/<QuickToggles /g)).toHaveLength(1);
-    expect(source).not.toContain("ThemeControl");
-    expect(source).not.toContain("theme-control");
+  test("draws the toggles once: the ask row's Theme control holds QuickToggles, the header nothing else", async () => {
+    const read = (name: string) => Bun.file(new URL(`./${name}`, import.meta.url)).text();
+    expect((await read("theme-control.tsx")).match(/<QuickToggles /g)).toHaveLength(1);
+    expect((await read("ask-row.tsx")).match(/<ThemeControl /g)).toHaveLength(1);
+    const header = await read("board-header.tsx");
+    expect(header).not.toContain("QuickToggles");
+    expect(header).not.toContain("ThemeControl");
+  });
+
+  test("Settings is the ask row's, shown on a hosted board only", async () => {
+    const row = await Bun.file(new URL("./ask-row.tsx", import.meta.url)).text();
+    expect(row).toContain("controls.hosted ?");
+    expect(row).toContain("data-askboard-settings");
   });
 });

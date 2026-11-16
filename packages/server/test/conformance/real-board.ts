@@ -91,6 +91,11 @@ export const openRealBoard = async (browser: Browser, link: string): Promise<Rea
       view
         .getByRole("menuitem", { name, exact: true })
         .or(view.getByRole("menuitemcheckbox", { name, exact: true })),
-    barButton: (name) => view.getByRole("contentinfo").getByRole("button", { name, exact: true }),
+    // The controls of the former bottom bar: the outbox in the rail, and the header's rows.
+    barButton: (name) =>
+      view
+        .locator("[data-askboard-outbox]")
+        .or(view.getByRole("banner"))
+        .getByRole("button", { name, exact: true }),
   };
 };

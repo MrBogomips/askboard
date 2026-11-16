@@ -38,6 +38,7 @@ import {
   lifecycleScenario,
   menuItem,
   mirrored,
+  moreOf,
   noteOf,
   openBoard,
   optionOf,
@@ -295,7 +296,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           state: "detached",
           timeout: STEP_TIMEOUT_MS,
         });
-        await buttonOf(board, "cache", "More").click({ timeout: STEP_TIMEOUT_MS });
+        await moreOf(board, "cache").click({ timeout: STEP_TIMEOUT_MS });
         expect(await menuItem(board, "Decline").getAttribute("aria-checked")).toBe("true");
         const before = sentDrafts(run).length;
         await menuItem(board, "Decline").click({ timeout: STEP_TIMEOUT_MS });

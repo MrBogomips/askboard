@@ -58,12 +58,13 @@ describe("the quick toggles' presentation in a hosted view", () => {
     const controls = startPresentation(data(), channel, {
       hosted: true,
       report: (message) => reported.push(message),
+      inset: () => ({ top: 96, bottom: 0 }),
     });
     controls.set({ key: "theme", value: "light" });
     controls.openSettings();
     expect(reported).toEqual([
       { type: "setting", key: "theme", value: "light" },
-      { type: "open-settings" },
+      { type: "open-settings", inset: { top: 96, bottom: 0 } },
     ]);
     expect(controls.presentation.get().theme).toBe("system");
   });

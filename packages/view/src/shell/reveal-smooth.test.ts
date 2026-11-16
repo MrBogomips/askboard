@@ -13,6 +13,8 @@ type Stand = {
   readonly timers: { readonly run: () => void; readonly ms: number; cleared: boolean }[];
   readonly view: { scrollY: number };
   readonly element: HTMLElement;
+  /** Moves the element down by `by` px, as a card above settling into a taller layout does. */
+  readonly shift: (by: number) => void;
 };
 
 const stand = (options: { reduced?: boolean; top?: number; inCard?: boolean } = {}): Stand => {
@@ -46,20 +48,48 @@ const stand = (options: { reduced?: boolean; top?: number; inCard?: boolean } = 
     querySelector: () => null,
     querySelectorAll: () => ({ length: 0, item: () => null }),
   };
+  let moved = 0;
   const card = {
     setAttribute: (name: string) => attrs.add(name),
     removeAttribute: (name: string) => attrs.delete(name),
   };
   const element = {
     ownerDocument: doc,
-    getBoundingClientRect: () => ({ top: options.top ?? 900, bottom: (options.top ?? 900) + 40 }),
+    // The box moves with the scroll, as in a browser: the settle at the end of the move reads it.
+    getBoundingClientRect: () => ({
+      top: (options.top ?? 900) + moved - view.scrollY,
+      bottom: (options.top ?? 900) + 40 + moved - view.scrollY,
+    }),
     focus: (each: { preventScroll: boolean }) => calls.push(`focus ${each.preventScroll}`),
     closest: () => (options.inCard === false ? null : card),
   };
-  return { calls, attrs, frames, timers, view, element: element as unknown as HTMLElement };
+  return {
+    calls,
+    attrs,
+    frames,
+    timers,
+    view,
+    element: element as unknown as HTMLElement,
+    shift: (by) => {
+      moved += by;
+    },
+  };
 };
 
 describe("a smooth reveal", () => {
+  test("a layout that moved during the scroll is settled at its end (answering-flow-visual)", () => {
+    const s = stand();
+    revealAndFocus(s.element, { smooth: true });
+    // The page grows above the element while the frames run: 60 px.
+    s.shift(60);
+    for (let now = 16; s.frames.length > 0 && now <= SCROLL_MS + 32; now += 16) {
+      s.frames.shift()?.(now);
+    }
+    // 148 for the first delta, 60 more once the move has ended.
+    expect(s.view.scrollY).toBe(208);
+    expect(s.calls.at(-1)).toBe("scrollBy 60 instant");
+  });
+
   test("focuses first, then scrolls in frames that end on the target, and marks the card", () => {
     const s = stand();
     revealAndFocus(s.element, { smooth: true });

@@ -5,6 +5,7 @@
 import type { KeyEntry } from "@askboard/contract";
 import type { ReactNode } from "react";
 import { KeyHint } from "../catalog/keys/key-help.tsx";
+import { ButtonKeys } from "./button-keys.tsx";
 import type { CardState } from "./question-state.ts";
 import { BUTTON_ANSWER, BUTTON_ANSWER_PRIMARY } from "./styles.ts";
 
@@ -41,6 +42,7 @@ export const PrimaryButton = ({
       className={single ? BUTTON_ANSWER_PRIMARY : BUTTON_ANSWER}
     >
       {children}
+      <ButtonKeys entry={entry} />
     </button>
   );
   return entry === undefined ? button : <KeyHint entry={entry}>{button}</KeyHint>;

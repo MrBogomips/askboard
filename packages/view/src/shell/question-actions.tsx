@@ -1,15 +1,15 @@
-// The question actions row (EXPERIENCE.md, Question actions, Postpone, More, Decline, Explain and
-// Answer; DESIGN.md, the same; ask-lifecycle, task 6.5): on the left Postpone, a toggle that
-// undoes when pressed again, and "More", a Radix Dropdown Menu, keyboard operable, holding Explain
-// and Decline, which also undoes when chosen again; on the right the delivery receipt and "Answer".
-// After Postpone or Decline, the board moves on or focus goes to the question's heading, as After an
-// answer says (answering-flow-guidance, decision 3; Accessibility Floor, Focus).
-// The menu is not modal, so it locks no scroll and adds no style element.
+// The question actions row (EXPERIENCE.md, Question actions, Postpone and Answer; DESIGN.md, the
+// same; ask-lifecycle, task 6.5; answering-flow-visual, design decision 7): the primary first, beside
+// the options (F-19), with its key cap and the reason it waits on, then "Later" (Postpone, a toggle
+// that undoes when pressed again) at the row's end. "More" is in the card's head. An answered card
+// (the answered look) shows the answer's line and "Edit" in place of the primary and "Later": on a
+// ready answer the primary reads "Edit", otherwise a plain button focuses the answer and sends
+// nothing. After Postpone or Decline, the board moves on or focus goes to the question's heading, as
+// After an answer says (answering-flow-guidance, decision 3; Accessibility Floor, Focus).
 
-import { DropdownMenu } from "radix-ui";
-import { useId, useRef } from "react";
-import { useLanguage, useStrings } from "../catalog/port.ts";
-import { type Mark, markLabel } from "./board-view.ts";
+import { useId } from "react";
+import { useStrings } from "../catalog/port.ts";
+import { IconBlocked, IconEdit } from "../icons/index.ts";
 import type { FieldToFix } from "./field-block.ts";
 import { QuestionMarker } from "./markers.tsx";
 import { PrimaryButton } from "./primary-button.tsx";
@@ -17,27 +17,20 @@ import { primaryLabelOf } from "./primary-label.ts";
 import type { CardActions, CardState } from "./question-state.ts";
 import { SizeLines } from "./size-lines.tsx";
 import type { SizeNotice } from "./size-notices.ts";
-import { BUTTON_LINK_MUTED, BUTTON_SECONDARY, FOCUS_RING } from "./styles.ts";
+import { BUTTON_LINK_MUTED, BUTTON_SECONDARY } from "./styles.ts";
 import { useBoardKeyTable } from "./use-board-keys.ts";
-
-const MENU =
-  "z-20 flex min-w-36 flex-col gap-0.5 rounded-md border border-border bg-popover p-1 text-control text-foreground shadow-md";
-
-const MENU_ITEM = `flex cursor-pointer items-center gap-sm rounded-md px-sm py-1 outline-none select-none data-[highlighted]:bg-accent data-[disabled]:cursor-not-allowed data-[disabled]:text-muted-foreground data-[disabled]:opacity-50 ${FOCUS_RING}`;
-
-// The receipt hook (`data-askboard-receipt`) a state keeps: only the three states of a sent answer.
-const RECEIPT_OF: Readonly<Partial<Record<Mark, "queued" | "sent" | "delivered">>> = {
-  "not-sent-yet": "queued",
-  sent: "sent",
-  delivered: "delivered",
-};
 
 export type ActionsRowProps = {
   /** An opened Snapshot: only the delivery receipt shows. */
   readonly opened?: boolean;
   readonly card: CardState;
-  /** The question's state on the ladder: the state line's label and shape (decision 1). */
-  readonly mark: Mark;
+  /** The answered look: the answer's line and "Edit" in place of the primary and "Later". */
+  readonly questionId: string;
+  readonly answered: boolean;
+  /** The answer the line names; none for a decline. */
+  readonly answerLine: string | undefined;
+  /** The primary waits only on a choice: "Choose an option" describes it (design decision 9). */
+  readonly nothingChosen: boolean;
   readonly actions: CardActions;
   /**
    * While a field blocks, what describes the disabled "Answer" and the field it names: "Correct
@@ -58,23 +51,17 @@ export type ActionsRowProps = {
   /** Pressed on `control`, the button, which a confirmation gives focus back to. */
   readonly onAnswer: (control: HTMLElement) => void;
   readonly onPostpone: () => void;
-  readonly onExplain: () => void;
-  /**
-   * Whether the decline went through; false while a confirmation waits for the user. `control` is
-   * the More menu's trigger, which a confirmation gives focus back to.
-   */
-  readonly onDecline: (control: HTMLElement | undefined) => boolean;
-  /**
-   * Decline went through and the More menu has closed: the card moves on or focuses the heading.
-   * Radix's own focus return to "More" is prevented, so this is where focus goes.
-   */
-  readonly onMenuClosed: () => void;
+  /** "Edit" on a sent, delivered or declined answer: focus the chosen option; send nothing. */
+  readonly onEdit: () => void;
 };
 
 export const ActionsRow = ({
   opened = false,
   card,
-  mark,
+  questionId,
+  answered,
+  answerLine,
+  nothingChosen,
   actions,
   fieldToFix,
   onFixField,
@@ -85,101 +72,58 @@ export const ActionsRow = ({
   submitted,
   onAnswer,
   onPostpone,
-  onExplain,
-  onDecline,
-  onMenuClosed,
+  onEdit,
 }: ActionsRowProps) => {
-  // Decline moves focus to the heading once the menu has closed, instead of back to "More".
-  const toHeading = useRef(false);
   const hintId = useId();
-  const more = useRef<HTMLButtonElement>(null);
   const text = useStrings();
   const answerKey = useBoardKeyTable().find((entry) => entry.action === "board.answer");
-  const language = useLanguage();
-  // The state line: the marker beside its label, the one place a question's marker stands on the
-  // card; a Snapshot keeps it where Answer is hidden (DESIGN.md, Delivery receipt).
-  const stateLine = (
-    <span
-      data-askboard-state={mark}
-      data-askboard-receipt={RECEIPT_OF[mark]}
-      className="flex items-center gap-1.5 text-badge text-muted-foreground"
-    >
-      <QuestionMarker mark={mark} />
-      {markLabel(mark, language)}
-    </span>
-  );
-  if (opened) return stateLine;
+  // What describes the disabled primary: the field to correct, as a link to it, or "Choose an option"
+  // when only a choice is missing; on a locked board the field's text is hidden.
+  const reason =
+    answered || opened ? undefined : fieldToFix !== undefined && !locked ? (
+      <button
+        type="button"
+        id={hintId}
+        className={BUTTON_LINK_MUTED}
+        onClick={() => onFixField(fieldToFix.itemId)}
+      >
+        {fieldToFix.text}
+      </button>
+    ) : fieldToFix !== undefined ? (
+      <span id={hintId} className="sr-only">
+        {fieldToFix.text}
+      </span>
+    ) : nothingChosen && !locked ? (
+      <span id={hintId} className="inline-flex items-center gap-1 text-body text-muted-foreground">
+        <IconBlocked className="size-4 shrink-0" />
+        {text("question.chooseOption")}
+      </span>
+    ) : undefined;
+  if (opened) return null;
   return (
     <>
       <div className="flex flex-wrap items-center gap-md">
-        <button
-          type="button"
-          className={`${BUTTON_SECONDARY} aria-pressed:border-foreground-secondary aria-pressed:font-semibold`}
-          aria-pressed={actions.postponed}
-          data-askboard-postpone=""
-          disabled={!actions.canPostpone}
-          onClick={onPostpone}
-        >
-          {actions.postponed ? <QuestionMarker mark="postponed" inControl /> : null}
-          {text("question.postpone")}
-        </button>
-        <DropdownMenu.Root modal={false}>
-          <DropdownMenu.Trigger ref={more} className={BUTTON_SECONDARY} disabled={locked}>
-            {text("question.more")}
-          </DropdownMenu.Trigger>
-          <DropdownMenu.Portal>
-            <DropdownMenu.Content
-              align="start"
-              sideOffset={4}
-              className={MENU}
-              onCloseAutoFocus={(event) => {
-                if (!toHeading.current) return;
-                toHeading.current = false;
-                event.preventDefault();
-                onMenuClosed();
-              }}
-            >
-              <DropdownMenu.Item
-                className={MENU_ITEM}
-                disabled={!actions.canExplain}
-                onSelect={onExplain}
-              >
-                {text("question.explain")}
-              </DropdownMenu.Item>
-              <DropdownMenu.CheckboxItem
-                className={MENU_ITEM}
-                checked={actions.declined}
-                disabled={!actions.canDecline}
-                onSelect={() => {
-                  toHeading.current = onDecline(more.current ?? undefined);
-                }}
-              >
-                <span aria-hidden="true" className="flex size-3 items-center justify-center">
-                  <DropdownMenu.ItemIndicator>
-                    <QuestionMarker mark="declined" inControl />
-                  </DropdownMenu.ItemIndicator>
-                </span>
-                {text("question.decline")}
-              </DropdownMenu.CheckboxItem>
-            </DropdownMenu.Content>
-          </DropdownMenu.Portal>
-        </DropdownMenu.Root>
-        <span className="ml-auto flex items-center gap-md">
-          {stateLine}
-          {fieldToFix === undefined || locked ? null : (
-            <button
-              type="button"
-              id={hintId}
-              className={BUTTON_LINK_MUTED}
-              onClick={() => onFixField(fieldToFix.itemId)}
-            >
-              {fieldToFix.text}
-            </button>
-          )}
+        {answered && answerLine !== undefined ? (
+          <span data-askboard-answer-line="" className="min-w-0 text-body text-foreground">
+            <bdi>{text("answer.line", { answer: answerLine })}</bdi>
+          </span>
+        ) : null}
+        {answered && !card.ready ? (
+          <button
+            type="button"
+            data-askboard-edit={questionId}
+            className={BUTTON_SECONDARY}
+            disabled={locked}
+            onClick={onEdit}
+          >
+            <IconEdit className="size-4" />
+            {text("question.edit")}
+          </button>
+        ) : (
           <PrimaryButton
             card={card}
             entry={answerKey}
-            describedBy={fieldToFix === undefined ? undefined : hintId}
+            describedBy={reason === undefined ? undefined : hintId}
             single={single}
             submitted={submitted}
             onAnswer={onAnswer}
@@ -196,12 +140,24 @@ export const ActionsRow = ({
               }),
             )}
           </PrimaryButton>
-          {fieldToFix === undefined || !locked ? null : (
-            <span id={hintId} className="sr-only">
-              {fieldToFix.text}
-            </span>
-          )}
-        </span>
+        )}
+        {reason}
+        {answered ? null : (
+          <>
+            <span className="flex-1" />
+            <button
+              type="button"
+              className={`${BUTTON_SECONDARY} aria-pressed:border-foreground-secondary aria-pressed:font-semibold`}
+              aria-pressed={actions.postponed}
+              data-askboard-postpone=""
+              disabled={!actions.canPostpone}
+              onClick={onPostpone}
+            >
+              {actions.postponed ? <QuestionMarker mark="postponed" inControl /> : null}
+              {text("question.postpone")}
+            </button>
+          </>
+        )}
       </div>
       <SizeLines notice={sizeNotice} draftLeftOut={draftLeftOut} />
     </>

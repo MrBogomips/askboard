@@ -15,7 +15,8 @@
 // the draft record (design decisions 1 and 4). Keyboard-shortcuts-help's minor adds the user's key
 // overrides to the settings in effect and two warning codes (design decision 19).
 // The minor of answering-flow-guidance adds the presentation key `afterAnswer` to a board's write and,
-// as an optional row, to the settings in effect (design decision 9).
+// as an optional row, to the settings in effect (design decision 9). The minor of answering-flow-visual
+// adds the short question numbers to the draft record (design decision D6).
 
 import type { EditorOutcome, SourceStatus } from "../../context/resolution.ts";
 import type { KeyOverrideRule } from "../../keys/overrides.ts";
@@ -52,7 +53,7 @@ import state from "./state.json" with { type: "json" };
 import time from "./time.json" with { type: "json" };
 import version from "./version.json" with { type: "json" };
 
-export const BOARD_PROTOCOL_VERSION = "1.11";
+export const BOARD_PROTOCOL_VERSION = "1.12";
 
 export const boardProtocol: SchemaSet = {
   name: "board-protocol",
@@ -351,6 +352,10 @@ export type DraftRecord = {
   readonly inView?: string;
   /** By question ID; read as own properties only. */
   readonly questions: Readonly<Record<string, DraftQuestion>>;
+  /** Since 1.12: each question's short number by ID, 1 to `QUESTION_NUMBER_MAX`; read as own properties. */
+  readonly numbers?: Readonly<Record<string, number>>;
+  /** Since 1.12: the next number the board gives, above every number held. */
+  readonly nextNumber?: number;
 };
 
 /** Both directions: the whole draft record. */

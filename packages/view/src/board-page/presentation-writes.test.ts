@@ -13,7 +13,12 @@ import {
 } from "@askboard/contract";
 import { plainChoiceBoardDocument, settingsWithEveryKey } from "@askboard/contract/fixtures";
 import type { BootData } from "../boot-data.ts";
-import type { ViewMessage, ViewPresentation, ViewUpdate } from "../view-protocol.ts";
+import type {
+  ReferenceInset,
+  ViewMessage,
+  ViewPresentation,
+  ViewUpdate,
+} from "../view-protocol.ts";
 import { type BoardPage, runBoardPage } from "./controller.ts";
 import type { BoardHostMessage } from "./host-messages.ts";
 import type { PanelData } from "./settings-panel-data.ts";
@@ -21,6 +26,7 @@ import type { BoardSocketHandlers } from "./socket.ts";
 import type { ViewReply } from "./view-host.ts";
 
 const version = BOARD_PROTOCOL_VERSION;
+const INSET = { top: 96, bottom: 0 };
 const waiting: BoardState = {
   ask: "waiting",
   questions: [{ itemId: "database", rev: 1, state: "open" }],
@@ -34,6 +40,7 @@ const setUp = async () => {
   const updates: ViewUpdate[] = [];
   const applied: ViewPresentation[] = [];
   const opened: (PanelData | undefined)[] = [];
+  const placed: (ReferenceInset | undefined)[] = [];
   const readingPanelClosed: true[] = [];
   let page: BoardPage | undefined;
   const handles: ((message: ViewMessage) => Promise<ViewReply>)[] = [];
@@ -62,7 +69,10 @@ const setUp = async () => {
     setTitle: () => undefined,
     setLanguage: () => undefined,
     applyPresentation: (presentation) => applied.push(presentation),
-    showSettings: (panel) => opened.push(panel),
+    showSettings: (panel, inset) => {
+      opened.push(panel);
+      placed.push(inset);
+    },
     readingPanel: {
       close: () => readingPanelClosed.push(true),
       itemId: undefined,
@@ -91,6 +101,7 @@ const setUp = async () => {
     updates,
     applied,
     opened,
+    placed,
     readingPanelClosed,
     receive,
     view,
@@ -178,13 +189,21 @@ describe("a toggle's value from the view", () => {
 describe("the settings panel", () => {
   test("opening it closes the reading panel (excerpts)", async () => {
     const run = await setUp();
-    await run.view({ type: "open-settings" });
+    await run.view({ type: "open-settings", inset: INSET });
     expect(run.readingPanelClosed).toHaveLength(1);
+  });
+
+  test("places the sheet at the view's inset, and again at each new data (answering-flow-visual, D12)", async () => {
+    const run = await setUp();
+    await run.view({ type: "open-settings", inset: { top: 112, bottom: 0 } });
+    expect(run.placed).toEqual([{ top: 112, bottom: 0 }]);
+    run.receive(settingsWithEveryKey);
+    expect(run.placed.at(-1)).toEqual({ top: 112, bottom: 0 });
   });
 
   test("opens on the view's Settings with the rows in effect", async () => {
     const run = await setUp();
-    expect(await run.view({ type: "open-settings" })).toEqual({});
+    expect(await run.view({ type: "open-settings", inset: INSET })).toEqual({});
     expect(run.opened).toHaveLength(1);
     expect(run.opened[0]?.title).toBe("Settings");
     expect(run.opened[0]?.controls.map((control) => control.value)).toEqual([
@@ -204,7 +223,7 @@ describe("the settings panel", () => {
 
   test("is shown again after a settings message and after a choice made in it", async () => {
     const run = await setUp();
-    await run.view({ type: "open-settings" });
+    await run.view({ type: "open-settings", inset: INSET });
     expect(run.setPresentation({ key: "density", value: "comfortable" })).toEqual({
       outcome: "sent",
     });
@@ -221,21 +240,21 @@ describe("the settings panel", () => {
 
   test("a project's key is refused when chosen in the panel", async () => {
     const run = await setUp();
-    await run.view({ type: "open-settings" });
+    await run.view({ type: "open-settings", inset: INSET });
     const reply = run.setPresentation({ key: "contextPlacement", value: "beside" });
     expect(reply?.outcome).toBe("refused");
   });
 
   test("closing hides it once and tells the view, which focuses Settings", async () => {
     const run = await setUp();
-    await run.view({ type: "open-settings" });
+    await run.view({ type: "open-settings", inset: INSET });
     run.closeSettings();
     expect(run.opened.at(-1)).toBeUndefined();
     expect(run.updates.at(-1)?.settingsClosed).toBe(1);
     const shown = run.opened.length;
     run.closeSettings();
     expect(run.opened).toHaveLength(shown);
-    await run.view({ type: "open-settings" });
+    await run.view({ type: "open-settings", inset: INSET });
     run.closeSettings();
     expect(run.updates.at(-1)?.settingsClosed).toBe(2);
     run.receive(settingsWithEveryKey);

@@ -30,6 +30,11 @@ const scenario = (config: { user?: unknown; project?: unknown }) => ({
 
 const theme = (board: Board) => board.view.getByRole("radiogroup", { name: "Theme" });
 const density = (board: Board) => board.view.getByRole("radiogroup", { name: "Density" });
+/** Opens the Theme popover, which holds both groups (answering-flow-visual). */
+const openTheme = async (board: Board): Promise<void> => {
+  await board.themeControl.click({ timeout: STEP_TIMEOUT_MS });
+  await theme(board).waitFor({ timeout: STEP_TIMEOUT_MS });
+};
 const settingsButton = (board: Board) =>
   board.view.getByRole("banner").getByRole("button", { name: "Settings", exact: true });
 const panel = (board: Board) => board.page.getByRole("complementary", { name: "Settings" });
@@ -52,6 +57,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const path = run.session.userConfigPath;
         if (path === undefined) throw new Error("the session has no user file");
         const board = await openBoard(run, ["database", "cache"]);
+        await openTheme(board);
         await theme(board).getByRole("radio", { name: "Dark" }).click({ timeout: STEP_TIMEOUT_MS });
         await eventually(async () => (await readUserFile(path)).theme === "dark", "the user file");
         const written = await readUserFile(path);
@@ -75,6 +81,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           .locator('[data-askboard-question="database"]:not([aria-busy="true"])')
           .waitFor({ state: "attached", timeout: LOAD_TIMEOUT_MS });
         expect(await isDark(later)).toBe(true);
+        await later.themeControl.click({ timeout: STEP_TIMEOUT_MS });
         expect(
           await theme(later).getByRole("radio", { name: "Dark" }).getAttribute("aria-checked"),
         ).toBe("true");
@@ -92,6 +99,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const board = await openBoard(run, ["database", "cache"]);
         await chmod(folder, 0o555);
         try {
+          await openTheme(board);
           await density(board)
             .getByRole("radio", { name: "Comfortable" })
             .click({ timeout: STEP_TIMEOUT_MS });
@@ -104,6 +112,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
             "the write error under Density",
           );
           expect((await row.textContent()) ?? "").toContain(path);
+          // Opening the panel dismissed the popover: open it again.
+          await openTheme(board);
           expect(
             await density(board)
               .getByRole("radio", { name: "Comfortable" })
@@ -121,6 +131,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       async () => {
         const run = await start(scenario({ project: { version: "1.0", density: "comfortable" } }));
         const board = await openBoard(run, ["database", "cache"]);
+        await openTheme(board);
         for (const radio of await density(board).getByRole("radio").all()) {
           expect(await radio.isDisabled()).toBe(true);
         }

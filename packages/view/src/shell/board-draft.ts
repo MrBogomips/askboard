@@ -56,6 +56,14 @@ export type BoardDraftState = {
    * work, which is tied to a revision: a placement is no answer work and survives a revision.
    */
   readonly placements?: ReadonlyMap<string, ContextPlacement>;
+  /**
+   * The short numbers the board gave the questions, and the next number never given (answering-flow-
+   * visual, design decision 6): kept beside the question in view, mirrored in the draft record, and
+   * no unsent work. Absent until the board has numbered its questions, and for a record of the
+   * previous minor.
+   */
+  readonly numbers?: ReadonlyMap<string, number>;
+  readonly nextNumber?: number;
 };
 
 export type BoardDraft = {
@@ -80,6 +88,8 @@ export type BoardDraft = {
   /** The board's default placement, the presentation's `contextPlacement` (design decision 1). */
   setDefaultPlacement(placement: ContextPlacement): void;
   setInView(questionId: string | undefined): void;
+  /** Holds the numbers the board gave (`numbersOf`); the same numbers change nothing. */
+  setNumbers(numbers: { readonly byId: ReadonlyMap<string, number>; readonly next: number }): void;
   /** Replaces the whole draft, as a restore does. */
   replace(state: BoardDraftState): void;
   subscribe(listener: () => void): () => void;
@@ -181,6 +191,15 @@ export const createBoardDraft = (delivery: Delivery): BoardDraft => {
       if (questionId === state.inView) return;
       const { inView: _, ...rest } = state;
       set(questionId === undefined ? rest : { ...rest, inView: questionId });
+    },
+    setNumbers: ({ byId, next }) => {
+      const held = state.numbers;
+      const same =
+        held !== undefined &&
+        state.nextNumber === next &&
+        held.size === byId.size &&
+        [...byId].every(([id, number]) => held.get(id) === number);
+      if (!same) set({ ...state, numbers: new Map(byId), nextNumber: next });
     },
     replace: (next) => set({ ...next, questions: new Map(next.questions) }),
     subscribe: (listener) => {
@@ -563,7 +582,25 @@ export const draftRecordOf = (
     board.inView !== undefined && questions.some((question) => question.id === board.inView)
       ? { inView: board.inView }
       : {};
-  return { delivery: board.delivery, ...inView, questions: Object.fromEntries(entries) };
+  // The numbers of the questions still on the board, and the next never given (design decision 6).
+  const numbers =
+    board.numbers === undefined || board.nextNumber === undefined
+      ? {}
+      : {
+          numbers: Object.fromEntries(
+            questions.flatMap((question) => {
+              const number = board.numbers?.get(question.id);
+              return number === undefined ? [] : [[question.id, number] as const];
+            }),
+          ),
+          nextNumber: board.nextNumber,
+        };
+  return {
+    delivery: board.delivery,
+    ...inView,
+    questions: Object.fromEntries(entries),
+    ...numbers,
+  };
 };
 
 const isLabels = (value: unknown): value is readonly string[] =>
@@ -775,7 +812,19 @@ export const restoreDraft = (
     ? { inView: record.inView as string }
     : {};
   const delivery = questions.length === 1 ? "immediate" : record.delivery;
-  board.replace({ delivery, ...inView, questions: work, placements });
+  // The numbers of the questions the board still holds, as the record gave them; a record of the
+  // previous minor has none, and the board then numbers in board order.
+  const onBoard = new Set(questions.map((question) => question.id));
+  const numbers =
+    record.numbers === undefined || record.nextNumber === undefined
+      ? {}
+      : {
+          numbers: new Map(
+            Object.entries(record.numbers).filter(([id]) => onBoard.has(id)),
+          ) as ReadonlyMap<string, number>,
+          nextNumber: record.nextNumber,
+        };
+  board.replace({ delivery, ...inView, questions: work, placements, ...numbers });
 };
 
 /**

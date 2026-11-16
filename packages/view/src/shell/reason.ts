@@ -7,6 +7,8 @@ import { type ComponentFacts, componentFacts, type ReasonStrings } from "../cata
 import { valueItemsOf } from "../nested-items.ts";
 import type { ViewQuestion } from "../view-document.ts";
 import type { AnswerContent } from "../view-protocol.ts";
+import { hasAnswerWork, type QuestionWork } from "./board-draft.ts";
+import type { DraftRecord } from "./draft-store.ts";
 import { shownResultFor } from "./question-state.ts";
 import type { Store } from "./store.ts";
 
@@ -61,3 +63,21 @@ export const reasonAskedAfter = (
  */
 export type ReasonRequest = { readonly questionId: string };
 export type ReasonRequests = Store<ReasonRequest | undefined>;
+
+/**
+ * Whether the primary of a question with options is blocked only because nothing is chosen
+ * (answering-flow-visual, design decision 9; #168): no choice, no "Other..." text, no note, no
+ * widget value, and no field reason to show instead (`fieldBlocks`, change 1's visible reason). A
+ * question without options is never this; its widgets have their own reasons.
+ */
+export const nothingChosenOf = (
+  question: ViewQuestion,
+  values: DraftRecord,
+  work: QuestionWork | undefined,
+  fieldBlocks: boolean,
+  results?: DraftRecord,
+  entries?: DraftRecord,
+): boolean =>
+  question.props.options !== undefined &&
+  !fieldBlocks &&
+  !hasAnswerWork(question, values, work, results, entries);
