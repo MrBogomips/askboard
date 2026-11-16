@@ -1,7 +1,7 @@
 // When "Accept as is" is offered (accept-as-sent, design decisions 1 and 11; EXPERIENCE.md, Question
 // card): pure. The button answers a question with no options with its content as the agent sent it,
 // so it is offered only where there is content to accept, on the revision the agent last sent, and
-// nothing the user changed; the results of input fields (a field check registered) travel with it.
+// nothing the user changed; the results of input fields (the registry's `fieldCheck`) travel with it.
 
 import { elementChanges } from "@askboard/contract";
 import { type ComponentFacts, componentFacts } from "../catalog/port.ts";
@@ -71,7 +71,8 @@ export const onCurrentRevision = ({
 }): boolean => shown.rev === currentRev && shown.rev === namedRev && readOnlyItems.size === 0;
 
 /**
- * Whether every result held belongs to an input field, an item whose type registered a field check
+ * Whether every result held belongs to an input field, an item whose chunk registered `inputField`
+ * (the registry's `fieldCheck`; the Document review's own `check` does not count)
  * (design decision 11, D-A). An Approval's verdict or a Ranking's order beside "accepted as is"
  * would contradict it; a type whose chunk registered nothing is no input field (fail closed).
  */
@@ -79,7 +80,7 @@ export const holdsInputResultsOnly = (
   items: readonly WidgetItem[],
   heldFor: (itemId: string) => boolean,
   factsOf: (type: string) => ComponentFacts | undefined = componentFacts,
-): boolean => items.every((item) => !heldFor(item.id) || factsOf(item.type)?.check !== undefined);
+): boolean => items.every((item) => !heldFor(item.id) || factsOf(item.type)?.inputField === true);
 
 /**
  * Whether the card offers "Accept as is": the question has no options and holds at least one item

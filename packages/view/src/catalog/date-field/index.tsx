@@ -180,4 +180,5 @@ register(DATE_FIELD, DateField, {
   fits: (result, props) =>
     dateFieldResultShape(result) && dateFieldResultProblems(result, props).length === 0,
   check: dateFieldFieldCheck,
+  inputField: true,
 });

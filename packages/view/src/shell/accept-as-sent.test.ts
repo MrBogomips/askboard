@@ -21,10 +21,15 @@ const FACTS = new Map<string, ComponentFacts>([
   ]),
   // The input fields register a field check; the types that give a verdict or an order do not.
   ...WIDGET_TYPES.filter((entry) => entry.fieldCheck !== undefined).map(
-    (entry): [string, ComponentFacts] => [entry.type, { check: entry.fieldCheck }],
+    (entry): [string, ComponentFacts] => [
+      entry.type,
+      { check: entry.fieldCheck, inputField: true },
+    ],
   ),
   ["approval", {}],
   ["ranking", {}],
+  // The Document review registers a check (a detached annotation) and is no input field.
+  ["document-review", { check: () => undefined, revisionBound: true }],
 ]);
 const factsOf = (type: string): ComponentFacts | undefined => FACTS.get(type);
 
@@ -115,6 +120,12 @@ describe("Accept as is is not offered", () => {
       const results = new Map([[item.id, { decision: "reject" }]]);
       expect(acceptAsSentOffered(inputs(questionOf([tree, item]), { results }))).toBe(false);
     }
+  });
+
+  test("with annotations held for a Document review, whose chunk registers a check but is no input field", () => {
+    const review = { type: "document-review", id: "doc", props: { document: "text" } };
+    const results = new Map([[review.id, { annotations: [] }]]);
+    expect(acceptAsSentOffered(inputs(questionOf([tree, review]), { results }))).toBe(false);
   });
 
   test("with a result held for a Tree, which gives none", () => {

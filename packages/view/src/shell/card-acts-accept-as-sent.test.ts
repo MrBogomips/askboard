@@ -9,6 +9,7 @@ import { createDerivedStore } from "./derived-store.ts";
 import { createDraftStore } from "./draft-store.ts";
 import { sentMessageOf } from "./flow-messages.ts";
 import { settle } from "./revision-confirm.ts";
+import { heldWorkOf, submitActsOf } from "./submit.ts";
 import { createStatusMessages } from "./status-messages.ts";
 
 // "Accept as is" takes "Answer"'s path (accept-as-sent, design decision 5): the field checks, the
@@ -138,7 +139,11 @@ describe("Accept as is in immediate delivery", () => {
 
 // The input fields register a field check, the others none.
 const FIELD_FACTS = (type: string) =>
-  ["text-field", "toggle"].includes(type) ? { check: () => undefined } : {};
+  ["text-field", "toggle"].includes(type)
+    ? { check: () => undefined, inputField: true as const }
+    : type === "document-review"
+      ? { check: () => undefined, revisionBound: true as const }
+      : {};
 const withItems = (...items: object[]) =>
   ({
     ...plan,
@@ -163,6 +168,14 @@ describe("Accept as is beside the input fields' results (design decision 11, D-A
     const { sent, results, context } = setUp("immediate", FIELD_FACTS);
     results.set("verdict", { decision: "reject" });
     expect(acceptAsSent(withItems(approval), context)).toBeUndefined();
+    expect(sent).toEqual([]);
+  });
+
+  test("a Document review's annotations, whose chunk registers a check, send nothing", () => {
+    const review = { type: "document-review", id: "doc", props: { document: "text" } };
+    const { sent, results, context } = setUp("immediate", FIELD_FACTS);
+    results.set("doc", { annotations: [] });
+    expect(acceptAsSent(withItems(review), context)).toBeUndefined();
     expect(sent).toEqual([]);
   });
 
@@ -222,6 +235,30 @@ describe("Accept as is only on the current revision (design decision 11, D-B)", 
     expect(acceptAsSent(plan, context)).toBe("held");
     keepMine(revised, context);
     expect(board.work("plan")?.held).toBeUndefined();
+  });
+});
+
+describe("Keep mine on a question with a held acceptance over an undo", () => {
+  test("holds the undo again, which Submit then sends, and sends no answer", () => {
+    const { board, draft, context } = setUp("submitted");
+    board.edit("plan", 1, () => ({ rev: 1, held: { act: "reopen", order: 0 } }));
+    expect(acceptAsSent(plan, context)).toBe("held");
+    expect(board.work("plan")?.held).toMatchObject({ act: "answer", asSent: true });
+    expect(board.work("plan")?.undo).toMatchObject({ act: "reopen" });
+
+    const revised = { ...plan, rev: 2 } as ViewQuestion;
+    keepMine(revised, context);
+    expect(board.work("plan")?.held).toMatchObject({ act: "reopen" });
+    expect(board.work("plan")?.undo).toBeUndefined();
+
+    const document = { items: [revised] } as never;
+    const acts = submitActsOf(
+      heldWorkOf(document, board.get()),
+      draft.record(),
+      new Date("2026-11-16T09:00:00Z"),
+      () => undefined,
+    );
+    expect(acts).toEqual([{ type: "reopen", itemId: "plan" }]);
   });
 });
 

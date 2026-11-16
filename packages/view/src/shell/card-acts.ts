@@ -627,10 +627,10 @@ export const keepMine = (
     const props = draft.valueOf(itemId) ?? nestedItemById(shown.props.items, itemId)?.props;
     cellEntries?.set(itemId, fitCellEntries(held, props));
   }
-  // An acceptance is of the content the agent sent, which "Keep mine" leaves: the mark goes, and
-  // the user answers or accepts again (accept-as-sent, design decision 11, D-B).
+  // An acceptance is of the content the agent sent, which "Keep mine" leaves: the mark goes, an undo
+  // held beneath it is held again, and the user answers or accepts again (accept-as-sent, design decision 11, D-B).
   if (work.held?.asSent === true) {
-    context.board.edit(question.id, work.rev, ({ held: _held, ...rest }) => rest);
+    context.board.edit(question.id, work.rev, releaseHeld);
   }
   sendActs(context, [
     {

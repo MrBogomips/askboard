@@ -104,4 +104,5 @@ register(TEXT_FIELD, TextField, {
   fits: (result, props) =>
     textFieldResultShape(result) && textFieldResultProblems(result, props).length === 0,
   check: checkTextField,
+  inputField: true,
 });

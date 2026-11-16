@@ -157,4 +157,5 @@ register(MONEY_FIELD, MoneyField, {
   fits: (result, props) =>
     moneyFieldResultShape(result) && moneyFieldResultProblems(result, props).length === 0,
   check: moneyFieldFieldCheck,
+  inputField: true,
 });
