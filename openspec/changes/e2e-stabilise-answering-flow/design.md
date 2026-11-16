@@ -34,10 +34,11 @@ Constraints: no full or multi-engine suite runs locally (AGENTS.md, CI). An engi
 
 ### D1. A draft that holds no work (#236)
 
-`harness/draft-results.ts` gains `workOf(drafts)`. It returns the questions of the latest draft record that hold work (an answer, a result, a note, a held act or a change). Each of the 30 sites asserts `workOf(run.drafts)` equal to `[]` in place of `run.drafts` equal to `[]`. A unit test, `harness/draft-results.test.ts`, pins `workOf`:
+`harness/draft-results.ts` gains `workOf(drafts, since = 0)`. It returns the questions that hold work (an answer, a result, a note, a held act or a change) in any draft record since the act: the union over every record from index `since` on, so work mirrored and then cleared is still seen (S-61). Each of the 30 sites asserts `workOf(run.drafts)` equal to `[]` in place of `run.drafts` equal to `[]`. A unit test, `harness/draft-results.test.ts`, pins `workOf`:
 - empty for no draft;
 - empty for a record of numbers alone;
-- non-empty for each kind of work.
+- non-empty for each kind of work;
+- non-empty when an earlier record from `since` on held work that a later one cleared.
 
 *Alternative:* filter number-only drafts out of `run.drafts` in the host. Rejected: it would hide the mirror the spec requires, and other tests read its order.
 
