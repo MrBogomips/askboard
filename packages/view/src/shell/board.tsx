@@ -17,7 +17,7 @@
 
 import type { LifecycleBoardState } from "@askboard/contract";
 import { Tabs } from "radix-ui";
-import { type ReactNode, useEffect, useMemo, useRef, useSyncExternalStore } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { questionTextId, useLanguage, useStrings } from "../catalog/port.ts";
 import {
   areaOf,
@@ -58,7 +58,11 @@ import { COMPLETION_HEADING, CompletionPanel } from "./completion-panel.tsx";
 import { createDeliveredGate } from "./delivered-messages.ts";
 import type { DraftStore } from "./draft-store.ts";
 import { createFlow, type Flow, type FlowView } from "./flow.ts";
-import { allAnsweredMessagesOf, allReadyMessageOf } from "./flow-messages.ts";
+import {
+  allAnsweredMessagesOf,
+  allReadyMessageOf,
+  prefillUndoneMessageOf,
+} from "./flow-messages.ts";
 import { nextOfFlow } from "./guided-flow.ts";
 import type { HeaderData } from "./header-data.ts";
 import { type HeadingRequest, requestFocusTo, requestHeading } from "./heading-request.ts";
@@ -74,7 +78,14 @@ import type { StatusMessages } from "./status-messages.ts";
 import { StatusRegion } from "./status-region.tsx";
 import type { Store } from "./store.ts";
 import { FOCUS_RING, INFO_BADGE } from "./styles.ts";
-import { hasRecommendation, releaseFailed, selectRecommended, submitStateOf } from "./submit.ts";
+import {
+  type PrefillBatch,
+  prefillCountOf,
+  releaseFailed,
+  selectRecommended,
+  submitStateOf,
+  undoPrefill,
+} from "./submit.ts";
 import { useBoardKeyTable } from "./use-board-keys.ts";
 import { useHeaderHeight } from "./use-header-height.ts";
 import { useHeldKeyGuard } from "./use-held-key-guard.ts";
@@ -624,6 +635,54 @@ export const Board = ({
   const readOnlyOf = readOnlyOfBoard(context.board, context.revisions);
   // The question each card shows: the gates of Submit and "Select recommended" read it (Issue #92).
   const shownOf = shownOfBoard(context.board, context.revisions);
+  // "Prefill recommended" (decision 8): the questions that can take it, and the batch the last press
+  // filled, which lives until the user's next edit or act on the board.
+  const skipPrefill = (id: string) => {
+    const question = questions.find((each) => each.id === id);
+    return question === undefined || !takesSelection(context, question, draft, kept, lock);
+  };
+  const prefillCount =
+    lock !== undefined || context.opened !== undefined
+      ? 0
+      : prefillCountOf(
+          document,
+          state,
+          { draft: context.draft, board: context.board, shownOf },
+          skipPrefill,
+        );
+  const [batch, setBatch] = useState<
+    { items: PrefillBatch; mark: readonly unknown[] } | undefined
+  >();
+  const [focusing, setFocusing] = useState({ undo: 0, prefill: 0 });
+  const markOfStores = (): readonly unknown[] => [
+    context.draft.record(),
+    context.results?.record(),
+    context.entries?.record(),
+    context.cellEntries?.record(),
+    context.board.get().questions,
+    context.acts.version(),
+  ];
+  const marks = markOfStores();
+  const liveBatch = batch?.mark.every((each, at) => each === marks[at]) ? batch : undefined;
+  useEffect(() => {
+    if (batch !== undefined && liveBatch === undefined) setBatch(undefined);
+  }, [batch, liveBatch]);
+  const onUndo = () => {
+    if (liveBatch === undefined) return;
+    setBatch(undefined);
+    undoPrefill(liveBatch.items, { draft: context.draft, board: context.board });
+    context.status.announce(prefillUndoneMessageOf());
+    setFocusing((count) => ({ ...count, prefill: count.prefill + 1 }));
+  };
+  useEffect(() => {
+    if (focusing.undo > 0)
+      globalThis.document.querySelector<HTMLElement>("[data-askboard-undo]")?.focus();
+  }, [focusing.undo]);
+  useEffect(() => {
+    if (focusing.prefill > 0) {
+      globalThis.document.querySelector<HTMLElement>("[data-askboard-prefill]")?.focus();
+    }
+  }, [focusing.prefill]);
   const submit = submitStateOf({
     document,
     board: draft,
@@ -669,27 +728,26 @@ export const Board = ({
           warning={postponedWarningOf(document, state, draft.questions, ladder, language)}
           submit={submit}
           allReady={completion.kind === "send-all"}
-          recommendations={hasRecommendation(document, shownOf)}
+          prefillCount={prefillCount}
+          prefilled={
+            liveBatch === undefined ? undefined : { count: liveBatch.items.length, onUndo }
+          }
           readOnlyOf={readOnlyOf}
           shownOf={shownOf}
           load={context.tracker.questionStatus}
           locked={lock !== undefined}
           context={context}
           onSelectRecommended={() => {
-            const count = selectRecommended(
+            const items = selectRecommended(
               document,
               state,
-              { ...context, readOnlyOf, shownOf },
-              (id) => {
-                const question = questions.find((each) => each.id === id);
-                return (
-                  question === undefined || !takesSelection(context, question, draft, kept, lock)
-                );
-              },
+              { draft: context.draft, board: context.board, shownOf },
+              skipPrefill,
             );
-            // Every press says how many were prefilled, none included; nothing was sent.
-            context.status.announce({ key: "status.prefilled", params: { count } });
-            return count;
+            // Every press says how many were prefilled; nothing was sent. "Undo" takes the focus.
+            context.status.announce({ key: "status.prefilled", params: { count: items.length } });
+            setBatch({ items, mark: markOfStores() });
+            setFocusing((count) => ({ ...count, undo: count.undo + 1 }));
           }}
           // The card focuses its prompt itself: the heading's focus would run after it (the board's
           // effect follows the card's) and take it away.

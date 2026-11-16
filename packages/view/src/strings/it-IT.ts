@@ -198,7 +198,7 @@ export const IT_IT = {
   "bar.submitted": "Tutte insieme",
   "bar.immediateHelp": "Ogni risposta parte appena la invii.",
   "bar.submittedHelp": "Le risposte restano qui finché non premi «{submit}».",
-  "bar.selectRecommended": "Seleziona le consigliate",
+  "bar.selectRecommended": "Precompila le consigliate ({count})",
   "bar.updates": {
     one: "{count} aggiornamento richiede una scelta",
     other: "{count} aggiornamenti richiedono una scelta",

@@ -586,7 +586,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
-      "Select recommended marks a question holding that read-only Document review ready, rather than skipping it",
+      "Prefill recommended selects the option of a question holding that read-only Document review, rather than skipping it, and the user's confirm marks it ready",
       async () => {
         const first = database("plan");
         const ask = {
@@ -606,6 +606,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await readOnlyLine(board);
         await eventually(async () => (await detached(board.view).count()) === 1, "the list");
         await board.prefill.click({ timeout: STEP_TIMEOUT_MS });
+        // The prefill fills drafts only: the user confirms each question to make it ready.
+        await answerOf(board, "plan").click({ timeout: STEP_TIMEOUT_MS });
+        await answerOf(board, "other").click({ timeout: STEP_TIMEOUT_MS });
         await mirrored(
           run,
           (record) =>

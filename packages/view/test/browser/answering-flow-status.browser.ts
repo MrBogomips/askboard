@@ -212,13 +212,15 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
-      "Select recommended says how many it prefilled and that nothing was sent, every press, none included",
+      "Prefill recommended says how many it prefilled and that nothing was sent, and its undo says so",
       async () => {
         const { run, board } = await open(start, { delivery: "submitted" });
         await board.prefill.click({ timeout: STEP_TIMEOUT_MS });
         await said(board, "4 questions prefilled. Nothing was sent.");
-        await board.prefill.click({ timeout: STEP_TIMEOUT_MS });
-        await said(board, "0 questions prefilled. Nothing was sent.");
+        // The button goes at 0, so there is no press that prefills none (answering-flow-guidance, D8).
+        expect(await board.prefill.count()).toBe(0);
+        await board.view.locator("[data-askboard-undo]").click({ timeout: STEP_TIMEOUT_MS });
+        await said(board, "Prefill undone.");
         expect(await actsSent(run, 0)).toEqual([]);
       },
       TEST_TIMEOUT_MS,

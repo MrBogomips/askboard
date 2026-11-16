@@ -335,30 +335,28 @@ describe("a failing check, an empty required field and an entry stop Answer and 
   });
 });
 
-describe("Select recommended leaves a blocked question unmarked (design decision 5)", () => {
-  const question = questionOf(arranged({ pattern: "^[A-Z]+$", required: true }));
+describe("Prefill recommended marks nothing ready, whatever a field says (design decision 5; D8)", () => {
   const select = (question: ViewQuestion) => {
     const stores = setUp(question, "submitted");
-    const count = selectRecommended(
+    const batch = selectRecommended(
       documentOf(question),
       openState(question),
-      { ...stores.context, board: stores.board },
+      { draft: stores.values, board: stores.board },
       () => false,
     );
-    return { ...stores, count };
+    return { ...stores, batch };
   };
 
-  test("the selection stays, nothing is marked ready, while a field blocks", () => {
-    const { count, values, board } = select(question);
-    expect(count).toBe(1);
-    expect(values.valueOf("plan")).toEqual(["Yes"]);
-    expect(board.work("plan")?.held).toBeUndefined();
-  });
-
-  test("with every field passing the selection is marked ready for Submit", () => {
-    const open = questionOf(arranged({}));
-    const { board } = select(open);
-    expect(board.work("plan")?.held).toMatchObject({ act: "answer", byRecommended: true });
+  test("the selection stays, nothing is marked ready, while a field blocks and when every field passes", () => {
+    for (const question of [
+      questionOf(arranged({ pattern: "^[A-Z]+$", required: true })),
+      questionOf(arranged({})),
+    ]) {
+      const { batch, values, board } = select(question);
+      expect(batch).toHaveLength(1);
+      expect(values.valueOf("plan")).toEqual(["Yes"]);
+      expect(board.work("plan")?.held).toBeUndefined();
+    }
   });
 });
 
@@ -728,20 +726,17 @@ describe("a read-only item's field check blocks nothing (document-review, design
     expect(accepted.sent).toHaveLength(1);
   });
 
-  test("Select recommended marks the question ready for Submit", () => {
-    const select = (withSet: boolean) => {
-      const stores = setUp(question, "submitted");
-      stores.results.set("plan-owner", "anything");
-      selectRecommended(
-        documentOf(question),
-        openState(question),
-        { ...stores.context, facts: boundOf, ...(withSet ? { readOnlyOf } : {}) },
-        () => false,
-      );
-      return stores.board.work("plan")?.held;
-    };
-    expect(select(false)).toBeUndefined();
-    expect(select(true)).toMatchObject({ act: "answer", byRecommended: true });
+  test("Prefill recommended selects the option and marks nothing ready", () => {
+    const stores = setUp(question, "submitted");
+    stores.results.set("plan-owner", "anything");
+    selectRecommended(
+      documentOf(question),
+      openState(question),
+      { draft: stores.values, board: stores.board },
+      () => false,
+    );
+    expect(stores.values.valueOf("plan")).toEqual(["Yes"]);
+    expect(stores.board.work("plan")?.held).toBeUndefined();
   });
 
   test("Submit stays enabled and sends a held answer whose read-only check fails", () => {
@@ -862,20 +857,19 @@ describe("a detached annotation blocks the answer (document-review, design decis
     expect(stores.sent[0]).toMatchObject({ type: "answer" });
   });
 
-  test("Select recommended marks nothing ready while it stays, and marks once it is deleted", () => {
-    const select = (result: string | undefined) => {
+  test("Prefill recommended selects the option and marks nothing ready, whether or not the review stays", () => {
+    for (const result of ["gone", undefined]) {
       const stores = setUp(titled, "submitted");
       stores.results.set("plan-owner", result);
       selectRecommended(
         documentOf(titled),
         openState(titled),
-        { ...stores.context, facts: reviewOf },
+        { draft: stores.values, board: stores.board },
         () => false,
       );
-      return stores.board.work("plan")?.held;
-    };
-    expect(select("gone")).toBeUndefined();
-    expect(select(undefined)).toMatchObject({ act: "answer", byRecommended: true });
+      expect(stores.values.valueOf("plan")).toEqual(["Yes"]);
+      expect(stores.board.work("plan")?.held).toBeUndefined();
+    }
   });
 
   test("Submit is disabled and refuses to send while it stays, and sends once it is deleted", () => {

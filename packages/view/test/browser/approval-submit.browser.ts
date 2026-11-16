@@ -172,7 +172,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     const { start } = useEngine(engine);
 
     test(
-      "Select recommended selects the recommended option but leaves a question lacking its reason unmarked",
+      "Prefill recommended selects the recommended option and leaves every question unmarked",
       async () => {
         const run = await start(lifecycleScenario(reviewedAsk("submitted"), dist));
         const board = await openBoard(run, [PLAN, REVIEW]);

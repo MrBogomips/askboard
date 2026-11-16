@@ -326,7 +326,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await actsDone(run, 1);
         await run.session.collect();
         await delivered(board, REVIEW).waitFor({ timeout: STEP_TIMEOUT_MS });
-        await optionOf(board, REVIEW, "SQLite").click();
+        // "Accept recommended" is offered while the question is to do or in draft: editing the
+        // delivered answer makes it a draft.
+        await optionOf(board, REVIEW, "DynamoDB").click();
         await accept.click();
         await dialog(board).waitFor({ timeout: STEP_TIMEOUT_MS });
         await dialog(board).getByRole("button", { name: "Cancel", exact: true }).click();

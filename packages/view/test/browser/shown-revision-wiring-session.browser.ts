@@ -31,6 +31,7 @@ import {
   card,
   lifecycleScenario,
   mirrored,
+  noteOf,
   openBoard,
   optionOf,
   sentDrafts,
@@ -143,16 +144,18 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     });
 
     test(
-      "Select recommended shows while the revision the card keeps recommends, though the agent's latest does not",
+      "Prefill recommended shows while the revision the card keeps recommends, though the agent's latest does not",
       async () => {
         const [first] = [database()];
         const run = await start(lifecycleScenario(twoQuestions("kept", first), dist));
         const board = await openBoard(run, ["database", "cache"]);
-        await optionOf(board, "database", "SQLite").click();
+        // A note is the user's work on the question, so the card keeps its revision; no choice is
+        // made, so the question can still take a prefill.
+        await noteOf(board, "database").fill("Ask the platform team.");
         await mirrored(
           run,
-          (record) => record.questions.database?.values?.database !== undefined,
-          "the choice",
+          (record) => record.questions.database?.note === "Ask the platform team.",
+          "the note",
         );
         expect(await board.prefill.count()).toBe(1);
         const options = first.props.options.map(({ recommended: _, ...option }) => option);
@@ -173,7 +176,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
-      "Select recommended stays hidden while the revision the card keeps recommends nothing, though the agent's latest does",
+      "Prefill recommended stays hidden while the revision the card keeps recommends nothing, though the agent's latest does",
       async () => {
         const first = plain("cache", "Should the order service cache reads?", "Cache");
         const ask = {
@@ -183,11 +186,11 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         };
         const run = await start(lifecycleScenario(ask, dist));
         const board = await openBoard(run, ["cache", "audit"]);
-        await optionOf(board, "cache", "No").click();
+        await noteOf(board, "cache").fill("Ask the platform team.");
         await mirrored(
           run,
-          (record) => record.questions.cache?.values?.cache !== undefined,
-          "the choice",
+          (record) => record.questions.cache?.note === "Ask the platform team.",
+          "the note",
         );
         expect(await board.prefill.count()).toBe(0);
         const options = first.props.options.map((option) =>

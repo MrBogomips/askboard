@@ -70,6 +70,7 @@ FRs, journeys and metrics use these terms exactly.
 - **Option** — A choice offered for a question.
 - **Board** — The browser view where the user sees an ask and answers its questions.
 - **Answer** — The user's response to a question, returned to the agent as typed data. It is given only by an explicit act of the user: "Answer" or "Accept recommended" on its question, or Submit in submitted delivery (FR-3, FR-22). Declining a question gives a declined answer (FR-4).
+- **Act names** — The names this document gives the user's acts ("Answer", Submit, "Select recommended", Postpone) name the acts; the labels on the board ("Send answer", "Send {count} answers", "Prefill recommended", "Later") are the ones EXPERIENCE.md's Voice and Tone lists.
 - **Plain question** — A question that AskUserQuestion could also ask: options only, with no widget, molecule or excerpt (§7).
 - **Rich question** — A question that uses widgets, primitives, molecules or excerpts (§7).
 - **Postponed question** — A question the user has chosen to answer later.
@@ -133,7 +134,7 @@ An agent can group the questions of an ask into areas of its choosing. AskBoard 
 
 An agent can ask through AskBoard anything it can ask through AskUserQuestion: single choice, multiple choice, a free-text "Other" answer, an option marked as recommended, a description and a preview of an option, annotations on options, a short header chip that names the question, and a note the user adds to an answer. Option previews are content the agent sends as text or data, never markup. The user can add annotations of their own to any option. The note on an answer is the question's open prompt (FR-7), and the header chip is optional.
 
-A recommended option is labelled as recommended and never selected for the user (NFR-10). The user can accept it on a question with one explicit act, "Accept recommended", which selects it and answers the question as "Answer" does (FR-22). On a board of two or more questions, "Select recommended" selects the recommended option, in one click, on every unanswered question where the user has chosen nothing. It never replaces a choice and sends nothing: the user still confirms each selection with its "Answer", or, in submitted delivery, all of them with Submit.
+A recommended option is labelled as recommended and never selected for the user (NFR-10). The user can accept it on a question with one explicit act, "Accept recommended", which selects it and answers the question as "Answer" does (FR-22). On a board of two or more questions, "Select recommended" (labelled "Prefill recommended" on the board) selects the recommended option, in one click, on every unanswered question where the user has chosen nothing, and only fills drafts, in either delivery mode: it sends nothing and marks nothing ready, and it can be undone. It never replaces a choice: the user still confirms each selection with its "Answer" ("Confirm" in submitted delivery), and Submit sends what the user confirmed.
 
 **Consequences (testable):**
 - Each AskUserQuestion question type listed above can be expressed as an AskBoard question and returns the same information as an answer.
@@ -141,7 +142,7 @@ A recommended option is labelled as recommended and never selected for the user 
 - The user can annotate any option, and the answer returns the user's annotations with the options they belong to (FR-18).
 - When a board opens, no option is selected, recommended or not.
 - "Accept recommended" on a question selects its recommended option and answers the question; in immediate delivery the answer reaches the agent at once.
-- "Select recommended" leaves every question where the user has chosen something, or that is answered, ready, postponed or declined, as it was, and none of its selections reaches the agent until the user confirms it with its "Answer" or, in submitted delivery, with Submit.
+- "Select recommended" leaves every question where the user has chosen something, or that is answered, ready, postponed or declined, as it was; it fills drafts only, in either delivery mode, so none of its selections is ready or reaches the agent until the user confirms it with its "Answer" and, in submitted delivery, sends it with Submit.
 
 #### FR-4: Postponing and declining questions
 
@@ -292,7 +293,7 @@ An agent can build a question from atoms and arrange any items on the board with
 - A question with at least one excerpt that resolves shows split by default (unless the user placed its context inline), with its excerpts and references beside it, although the agent's request holds no layout; a question without one takes the full width.
 - The user can move the context of one question inline, and can set inline as the default, which later boards keep.
 - On a board of two or more questions, the user can reach every question from a navigator and jump to the next open question, unanswered or postponed.
-- A board of one question shows no navigator, no jump to the next open question, no "Select recommended" (FR-3) and no delivery mode switch, and its "Answer" sends the answer at once (FR-22); the user can still postpone or decline the question, write in its open prompt, send follow-ups and take a Snapshot.
+- A board of one question shows no navigator, no jump to the next open question, no "Select recommended" (FR-3, labelled "Prefill recommended") and no delivery mode switch, and its "Answer" sends the answer at once (FR-22); the user can still postpone or decline the question, write in its open prompt, send follow-ups and take a Snapshot.
 
 **Notes:** The set of atoms and layouts, and how layouts organize the whole board, are designed in `ux-askboard-2026-10-27/EXPERIENCE.md` (Board anatomy, Presentations, Composition and Components).
 
@@ -394,11 +395,11 @@ An agent can send an ask and keep working; it waits only when it needs an answer
 
 #### FR-22: Delivery mode
 
-The user chooses, for each board, whether answers go to the agent immediately as each is given, or together when the user submits them. An answer is given only by an explicit act of the user: "Answer" or "Accept recommended" on its question (FR-3), or Submit in submitted delivery. Choosing an option, editing a widget or writing a note only prepares it. In immediate delivery, "Answer" sends the question's answer at once; in submitted delivery, it marks the answer ready, and Submit sends together every ready answer and the recommended options that "Select recommended" selected and the user left in place (FR-3). Postpones and declines follow the same mode (FR-4). While the ask is open, the user can revise an answer already sent; the revision reaches the agent as the delivery mode says, marked as replacing the earlier answer (FR-18).
+The user chooses, for each board, whether answers go to the agent immediately as each is given, or together when the user submits them. An answer is given only by an explicit act of the user: "Answer" or "Accept recommended" on its question (FR-3), or Submit in submitted delivery. Choosing an option, editing a widget or writing a note only prepares it. In immediate delivery, "Answer" sends the question's answer at once; in submitted delivery, it marks the answer ready, and Submit sends together every ready answer, and only those: the drafts "Select recommended" filled go only when the user has confirmed them (FR-3). Postpones and declines follow the same mode (FR-4). While the ask is open, the user can revise an answer already sent; the revision reaches the agent as the delivery mode says, marked as replacing the earlier answer (FR-18).
 
 **Consequences (testable):**
 - In immediate delivery, an answer reaches the agent when the user gives it with "Answer" or "Accept recommended", without the user submitting anything.
-- In submitted delivery, no answer reaches the agent until the user submits; then every ready answer, and the recommended options that "Select recommended" selected and the user left in place, reach it together.
+- In submitted delivery, no answer reaches the agent until the user submits; then every ready answer reaches it together; a recommended option that "Select recommended" selected and the user did not confirm does not.
 - Choosing an option, editing a widget or writing a note sends nothing, and moving through the options with the arrow keys selects nothing; editing a ready question makes it not ready again.
 - The user can switch the delivery mode of a board while answering.
 - Switching from submitted to immediate delivery while ready answers, postpones, declines or notes are held asks the user to confirm sending them now.

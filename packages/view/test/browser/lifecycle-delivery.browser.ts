@@ -186,7 +186,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
-      "Select recommended keeps the user's choice, selects the others' recommendation and sends nothing; Submit sends the selection left in place",
+      "Prefill recommended keeps the user's choice, selects the others' recommendation and sends nothing; Submit sends only what the user confirmed",
       async () => {
         const run = await start(lifecycleScenario(recommendedAsk, dist));
         const board = await openBoard(run, ["database", "flag", "cache"]);
@@ -197,6 +197,10 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await optionOf(board, "database", "PostgreSQL").isChecked()).toBe(false);
         expect(await optionOf(board, "cache", "Yes").isChecked()).toBe(false);
         expect(sentActs(run)).toEqual([]);
+        // The prefill fills drafts only: Submit sends nothing until the user confirms "flag".
+        expect(await board.submit.isDisabled()).toBe(true);
+        await answerOf(board, "flag").click();
+        await eventually(() => board.submit.isEnabled(), "Submit enabled");
         await board.submit.click();
         const [command] = await actsSent(run, 1);
         expect(command?.acts).toEqual([

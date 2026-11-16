@@ -316,10 +316,13 @@ const extrasOf = (
 const OptionsLabel = ({
   question,
   disabled,
+  offered,
   onAccept,
 }: {
   readonly question: ViewQuestion;
   readonly disabled: boolean;
+  /** Whether the question is to do or in draft (a revision being edited included): none once it is answered, ready or declined. */
+  readonly offered: boolean;
   /** Pressed on `control`, the button, which a confirmation gives focus back to. */
   readonly onAccept: (control: HTMLElement) => void;
 }) => {
@@ -329,7 +332,8 @@ const OptionsLabel = ({
       <p className={SECTION_LABEL}>
         {text(question.props.multiSelect === true ? "question.options" : "question.optionsPickOne")}
       </p>
-      {question.props.options?.some((option) => option.recommended === true) !== true ? null : (
+      {!offered ||
+      question.props.options?.some((option) => option.recommended === true) !== true ? null : (
         <button
           type="button"
           className={BUTTON_LINK}
@@ -638,6 +642,7 @@ export const QuestionCard = (props: CardProps) => {
           <OptionsLabel
             question={shown}
             disabled={readOnly || pending || blocked}
+            offered={mark === "todo" || mark === "draft"}
             onAccept={(control) => {
               revise();
               selectRecommendedOption(shown, acting);

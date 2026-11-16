@@ -359,7 +359,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
-      "Select recommended in submitted delivery selects the option but holds nothing while a field holds an entry; Submit then waits",
+      "Prefill recommended in submitted delivery selects the option but holds nothing while a field holds an entry; Submit then waits",
       async () => {
         const ask = {
           askId: "entry-submit-c3d4",

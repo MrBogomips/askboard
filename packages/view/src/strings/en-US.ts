@@ -193,7 +193,7 @@ export const EN_US = {
     one: "You have {count} postponed question: closing loses this ask",
     other: "You have {count} postponed questions: closing loses this ask",
   },
-  "bar.selectRecommended": "Select recommended",
+  "bar.selectRecommended": "Prefill recommended ({count})",
   "bar.updates": { one: "{count} update needs a choice", other: "{count} updates need a choice" },
   "bar.submit": { one: "Send {count} answer", other: "Send {count} answers" },
   "bar.switchTitle": 'Switch to "One by one"?',

@@ -60,7 +60,10 @@ export type BottomBarProps = {
   readonly delivery: Delivery;
   readonly warning: string | undefined;
   readonly submit: SubmitState;
-  readonly recommendations: boolean;
+  /** The questions "Prefill recommended" can fill now: the label's count, the button absent at 0. */
+  readonly prefillCount: number;
+  /** A prefill still live: what it filled and "Undo", which clears it (decision 8). */
+  readonly prefilled?: { readonly count: number; readonly onUndo: () => void };
   /** Nothing on the board acts: it moved, or the ask ended. */
   readonly locked: boolean;
   readonly context: Senders & {
@@ -103,7 +106,7 @@ export const BottomBar = (props: BottomBarProps) => {
     delivery,
     warning,
     submit,
-    recommendations,
+    prefillCount,
     locked,
     context,
     readOnlyOf,
@@ -240,7 +243,23 @@ export const BottomBar = (props: BottomBarProps) => {
       </span>
       {warning === undefined ? null : <Warning warning={warning} />}
       <span className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-sm">
-        {recommendations ? (
+        {props.prefilled === undefined ? null : (
+          <>
+            <span data-askboard-prefilled="" className="text-body text-foreground-secondary">
+              {text("status.prefilled", { count: props.prefilled.count })}
+            </span>
+            <button
+              type="button"
+              className={BUTTON_SECONDARY}
+              data-askboard-undo=""
+              disabled={locked}
+              onClick={props.prefilled.onUndo}
+            >
+              {text("bar.undoPrefill")}
+            </button>
+          </>
+        )}
+        {prefillCount > 0 ? (
           <button
             type="button"
             className={BUTTON_SECONDARY}
@@ -248,7 +267,7 @@ export const BottomBar = (props: BottomBarProps) => {
             disabled={locked}
             onClick={props.onSelectRecommended}
           >
-            {text("bar.selectRecommended")}
+            {text("bar.selectRecommended", { count: prefillCount })}
           </button>
         ) : null}
         {snapshot}
