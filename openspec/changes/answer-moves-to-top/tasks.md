@@ -66,20 +66,20 @@ Terms:
 
 ## 3. Documents and record
 
-- [ ] 3.1 DESIGN.md:
+- [x] 3.1 DESIGN.md:
   - Motion: the move lands the card just under the bars; the mark is the fill and the 4 px edge, held, then faded; forced colours;
   - the "Arrival mark" row of the components table;
   - a `{components.arrival-mark}` token group (fill, edge, width, hold, duration);
   - the Contrast tables regenerated from 2.5.
 
   Verify: `bun run check` reads the tokens (`readDesignTokens` succeeds); the tables match the printout.
-- [ ] 3.2 EXPERIENCE.md:
+- [x] 3.2 EXPERIENCE.md:
   - the "After an answer" row: the card at the top, the page's end, one question per view, and the other jumps unchanged;
   - Accessibility Floor's focus paragraph and "Reduced motion";
   - the Ana walkthrough (#168): question 4's card rises under the header with the mark.
 
   Verify: the wording matches the delta spec's requirement names; `grep -n "2px\|2 px" EXPERIENCE.md` finds no arrival mark.
-- [ ] 3.3 `docs/as-built/answer-moves-to-top.md`: what was built and where (`alignDelta`, `align`, the mark's sheets, the pairs); the seams added (`align`, `alignDelta`, `{components.arrival-mark}`); no versions bound. Correct the 2 px mark sentence of an earlier note, if one says so, and name the correction. Verify: `grep -l "answer-moves-to-top" docs/as-built/` finds the note; `bun run check:agent` passes.
+- [x] 3.3 `docs/as-built/answer-moves-to-top.md`: what was built and where (`alignDelta`, `align`, the mark's sheets, the pairs); the seams added (`align`, `alignDelta`, `{components.arrival-mark}`); no versions bound. Correct the 2 px mark sentence of an earlier note, if one says so, and name the correction. Verify: `grep -l "answer-moves-to-top" docs/as-built/` finds the note; `bun run check:agent` passes.
 
 ## Workflow follow-up
 
