@@ -335,10 +335,12 @@ describe("a user file others can write has its keys ignored (user-keys-writable-
 
   test("no override applies, theme does, and one warning stands on the row", async () => {
     const { settings, diagnosed } = await read(
-      writable({ theme: "dark", keys: { "answer.focus": ["x"] } }),
+      writable({ theme: "dark", keys: { "board.answer": ["Mod+Shift+Enter"] } }),
       undefined,
     );
     expect(settings.values.theme).toBe("dark");
+    // The override passes the key check by itself: only the file's mode drops it.
+    expect(keyOverridesProblems({ "board.answer": ["Mod+Shift+Enter"] })).toEqual([]);
     expect(settings.values.keys).toBeUndefined();
     expect(settings.rows.keys).toEqual({ from: "default", writable: false, warnings: [WARNING] });
     expect(diagnosed.filter((line) => /its keys/.test(line))).toHaveLength(1);

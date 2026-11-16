@@ -9,6 +9,7 @@ Each task writes its tests first and sees them fail before implementing. "The ch
 ## 1. Contract: the warning code (D2)
 
 - [x] 1.1 Tests first in `packages/contract/test/settings-keys-messages.test.ts`: a `settings` message whose Keys row carries `{code: "keys-file-writable-by-others", file: "user", key: "keys"}` passes; the same with `rule` or `action` fails; `BOARD_PROTOCOL_VERSION`'s pin (`draft-record-numbers.test.ts` today) moves to main's minor plus one. Then the enum value and description in `board-protocol/settings.json`, `SettingWarning`'s union, and `BOARD_PROTOCOL_VERSION` with its header sentence. Verify: the cases fail first, then pass; the check passes.
+  - Note: core's typecheck was red at this group's commit (the `WARNINGS` table gains its line in 2.1); the check passed at group 2's commit (cfc38eb9).
 
 ## 2. Core: the rule and stderr (D1, D3, D5)
 
@@ -25,3 +26,8 @@ Each task writes its tests first and sees them fail before implementing. "The ch
 ## 5. Records and the rebase
 
 - [ ] 5.1 Write `docs/as-built/user-keys-writable-by-others.md` (no status). Rebase onto `origin/main` and bind the board protocol at main's minor plus one (askboard-contract-versioning): the constant, its pins, the binding line in design.md D2 and in the note. Verify: borrowed names re-found; no stale number in the diff; the check, `bun run build` and `openspec validate --all --strict --no-interactive` pass.
+
+## 6. Review fixes
+
+- [x] 6.1 S-50: `config-keys.test.ts` uses `board.answer` with `Mod+Shift+Enter`, which the key check accepts, so the test shows a valid override is still dropped from a writable file. Verify: `settings.values.keys` is undefined and the warning is present.
+- [x] 6.2 S-51: note on 1.1 that the check passed at group 2's commit (cfc38eb9). Verify: the note is in `tasks.md`.
