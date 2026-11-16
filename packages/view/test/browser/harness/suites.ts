@@ -142,6 +142,10 @@ export const BROWSER_FILES: Readonly<Record<string, BrowserFileEntry>> = {
   "number-atoms.browser.ts": {},
   "oversized-acts-session.browser.ts": {},
   "palettes.browser.ts": {},
+  "palettes-forced-colors.browser.ts": {
+    engines: ["chromium"],
+    why: "the requirement Forced colours (palettes) names Chromium's forced-colours emulation; the other engines' emulation differs and is left to the end-to-end train",
+  },
   "palettes-fit.browser.ts": {},
   "pick-field.browser.ts": {},
   "presence.browser.ts": {},
