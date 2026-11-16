@@ -170,6 +170,307 @@ colors:
   recommended-subtle-dark: '#222943'  # = agent-subtle
   critical-dark: '#ebe6dd'  # = foreground
   syntax-comment-dark: '#a39a8d'  # = muted-foreground
+# Named palettes besides Carta (whose values are `colors` above). Each group holds every role of
+# `colors`, light, then each with the -dark suffix, and no alias: aliases resolve through var(--target).
+# Derived roles, as Colors > Named palettes says; the build refuses a group that lacks a role or a twin.
+palettes:
+  nordico:
+    background: '#eceff4'
+    card: '#f8fafc'
+    muted: '#e2e7ee'
+    popover: '#fbfcfd'
+    border: '#d2d9e4'
+    border-strong: '#717d96'
+    foreground: '#222936'
+    foreground-secondary: '#394356'
+    muted-foreground: '#515c70'
+    primary-foreground: '#ffffff'
+    primary: '#3d6391'
+    primary-hover: '#32537a'
+    primary-subtle: '#dce5f0'
+    primary-text: '#355984'
+    ring: '#4a74a5'
+    success: '#3a7849'
+    success-subtle: '#e0eee3'
+    success-text: '#2d673b'
+    destructive: '#b0433a'
+    destructive-subtle: '#f5e2df'
+    destructive-text: '#973a31'
+    destructive-foreground: '#ffffff'
+    warning: '#866718'
+    warning-subtle: '#f2e9d1'
+    warning-text: '#6c5214'
+    info: '#2c6c8b'
+    info-subtle: '#dbeaf0'
+    info-text: '#235b75'
+    change: '#8f4b7d'
+    change-foreground: '#ffffff'
+    change-subtle: '#f0e3ee'
+    change-text: '#7c3f6c'
+    agent: '#4f57b6'
+    agent-subtle: '#e5e6f5'
+    agent-text: '#42499e'
+    diff-add: '#e0eee3'
+    diff-add-mark: '#3a7849'
+    diff-del: '#f5e2df'
+    diff-del-mark: '#b0433a'
+    gantt-bar: '#717d96'
+    chart-1: '#2a78d6'
+    chart-2: '#eb6834'
+    chart-3: '#1baf7a'
+    chart-4: '#6250d6'
+    chart-5: '#eda100'
+    syntax-keyword: '#6b3fa0'
+    syntax-string: '#1d6b52'
+    syntax-number: '#9a4a0b'
+    syntax-function: '#2b5c8a'
+    background-dark: '#232933'
+    card-dark: '#2c3340'
+    muted-dark: '#323a47'
+    popover-dark: '#38404f'
+    border-dark: '#414a5b'
+    border-strong-dark: '#7e8aa2'
+    foreground-dark: '#e7ebf1'
+    foreground-secondary-dark: '#d3d9e3'
+    muted-foreground-dark: '#adb7c8'
+    primary-foreground-dark: '#1d232d'
+    primary-dark: '#8ab0d6'
+    primary-hover-dark: '#a3c2e0'
+    primary-subtle-dark: '#36465b'
+    primary-text-dark: '#a2c2e2'
+    ring-dark: '#a3c2e0'
+    success-dark: '#92d1a0'
+    success-subtle-dark: '#2d4235'
+    success-text-dark: '#acdeb7'
+    destructive-dark: '#ec8f86'
+    destructive-subtle-dark: '#4b3135'
+    destructive-text-dark: '#f3aea7'
+    destructive-foreground-dark: '#232933'
+    warning-dark: '#e6c27a'
+    warning-subtle-dark: '#47402b'
+    warning-text-dark: '#efd49c'
+    info-dark: '#88c0d0'
+    info-subtle-dark: '#2d4550'
+    info-text-dark: '#abd6e1'
+    change-dark: '#d4a2cc'
+    change-foreground-dark: '#232933'
+    change-subtle-dark: '#48394a'
+    change-text-dark: '#e4c2de'
+    agent-dark: '#9aaff1'
+    agent-subtle-dark: '#393c5c'
+    agent-text-dark: '#bcc9f7'
+    diff-add-dark: '#2d4235'
+    diff-add-mark-dark: '#acdeb7'
+    diff-del-dark: '#4b3135'
+    diff-del-mark-dark: '#f3aea7'
+    gantt-bar-dark: '#6f7a92'
+    chart-1-dark: '#3987e5'
+    chart-2-dark: '#d95926'
+    chart-3-dark: '#199e70'
+    chart-4-dark: '#9085e9'
+    chart-5-dark: '#c98500'
+    syntax-keyword-dark: '#c3a6f0'
+    syntax-string-dark: '#8fd1b0'
+    syntax-number-dark: '#f0a875'
+    syntax-function-dark: '#8fbde8'
+  grafite:
+    background: '#f3f4f6'
+    card: '#ffffff'
+    muted: '#eaecef'
+    popover: '#ffffff'
+    border: '#dadee3'
+    border-strong: '#7a848f'
+    foreground: '#15181c'
+    foreground-secondary: '#363d45'
+    muted-foreground: '#545d67'
+    primary-foreground: '#ffffff'
+    primary: '#0a6f74'
+    primary-hover: '#085a5e'
+    primary-subtle: '#e0f0f0'
+    primary-text: '#07656a'
+    ring: '#0b7f85'
+    success: '#2b7a44'
+    success-subtle: '#e4f2e8'
+    success-text: '#1f6235'
+    destructive: '#bf3328'
+    destructive-subtle: '#fbe9e7'
+    destructive-text: '#a32a20'
+    destructive-foreground: '#ffffff'
+    warning: '#946500'
+    warning-subtle: '#faf0d8'
+    warning-text: '#744f00'
+    info: '#1867a0'
+    info-subtle: '#e2eef7'
+    info-text: '#145a8c'
+    change: '#a3336f'
+    change-foreground: '#ffffff'
+    change-subtle: '#f9ecf2'
+    change-text: '#8a2a5d'
+    agent: '#4c52c4'
+    agent-subtle: '#ecedfb'
+    agent-text: '#3d43a6'
+    diff-add: '#e4f2e8'
+    diff-add-mark: '#2b7a44'
+    diff-del: '#fbe9e7'
+    diff-del-mark: '#bf3328'
+    gantt-bar: '#7a848f'
+    chart-1: '#2a78d6'
+    chart-2: '#eb6834'
+    chart-3: '#1baf7a'
+    chart-4: '#6250d6'
+    chart-5: '#eda100'
+    syntax-keyword: '#6b3fa0'
+    syntax-string: '#1d6b52'
+    syntax-number: '#9a4a0b'
+    syntax-function: '#2b5c8a'
+    background-dark: '#111316'
+    card-dark: '#191c20'
+    muted-dark: '#1f2328'
+    popover-dark: '#22262b'
+    border-dark: '#2b3036'
+    border-strong-dark: '#6b757f'
+    foreground-dark: '#e6e9ec'
+    foreground-secondary-dark: '#c2c8ce'
+    muted-foreground-dark: '#9aa3ad'
+    primary-foreground-dark: '#081414'
+    primary-dark: '#3cc2bc'
+    primary-hover-dark: '#62d2cd'
+    primary-subtle-dark: '#14302f'
+    primary-text-dark: '#5fd0ca'
+    ring-dark: '#5fd0ca'
+    success-dark: '#62c46a'
+    success-subtle-dark: '#16291a'
+    success-text-dark: '#86d78b'
+    destructive-dark: '#f0766b'
+    destructive-subtle-dark: '#331a18'
+    destructive-text-dark: '#f59a91'
+    destructive-foreground-dark: '#111316'
+    warning-dark: '#e0aa3e'
+    warning-subtle-dark: '#2d2412'
+    warning-text-dark: '#ebc06a'
+    info-dark: '#5aaee0'
+    info-subtle-dark: '#132534'
+    info-text-dark: '#86c4ea'
+    change-dark: '#db7fb2'
+    change-foreground-dark: '#111316'
+    change-subtle-dark: '#3a1f2e'
+    change-text-dark: '#eeaacf'
+    agent-dark: '#9196f0'
+    agent-subtle-dark: '#23253f'
+    agent-text-dark: '#b5b9f7'
+    diff-add-dark: '#16291a'
+    diff-add-mark-dark: '#86d78b'
+    diff-del-dark: '#331a18'
+    diff-del-mark-dark: '#f59a91'
+    gantt-bar-dark: '#6b757f'
+    chart-1-dark: '#3987e5'
+    chart-2-dark: '#d95926'
+    chart-3-dark: '#199e70'
+    chart-4-dark: '#9085e9'
+    chart-5-dark: '#c98500'
+    syntax-keyword-dark: '#c3a6f0'
+    syntax-string-dark: '#8fd1b0'
+    syntax-number-dark: '#f0a875'
+    syntax-function-dark: '#8fbde8'
+  contrasto:
+    background: '#ffffff'
+    card: '#ffffff'
+    muted: '#efefef'
+    popover: '#ffffff'
+    border: '#6b6b6b'
+    border-strong: '#000000'
+    foreground: '#000000'
+    foreground-secondary: '#1a1a1a'
+    muted-foreground: '#303030'
+    primary-foreground: '#ffffff'
+    primary: '#0038b8'
+    primary-hover: '#002a8c'
+    primary-subtle: '#e5ecff'
+    primary-text: '#0032a6'
+    ring: '#0038b8'
+    success: '#00652a'
+    success-subtle: '#e2f4e8'
+    success-text: '#005221'
+    destructive: '#a8001e'
+    destructive-subtle: '#fde6ea'
+    destructive-text: '#8a0019'
+    destructive-foreground: '#ffffff'
+    warning: '#734b00'
+    warning-subtle: '#fff0d4'
+    warning-text: '#5a3a00'
+    info: '#004c85'
+    info-subtle: '#e0eefa'
+    info-text: '#003d6b'
+    change: '#85004f'
+    change-foreground: '#ffffff'
+    change-subtle: '#fbe5f2'
+    change-text: '#6e0042'
+    agent: '#4420ad'
+    agent-subtle: '#ebeaff'
+    agent-text: '#371891'
+    diff-add: '#e2f4e8'
+    diff-add-mark: '#00652a'
+    diff-del: '#fde6ea'
+    diff-del-mark: '#a8001e'
+    gantt-bar: '#767676'
+    chart-1: '#2a78d6'
+    chart-2: '#eb6834'
+    chart-3: '#1baf7a'
+    chart-4: '#6250d6'
+    chart-5: '#eda100'
+    syntax-keyword: '#603393'
+    syntax-string: '#00543d'
+    syntax-number: '#803300'
+    syntax-function: '#194b78'
+    background-dark: '#000000'
+    card-dark: '#0a0a0a'
+    muted-dark: '#171717'
+    popover-dark: '#121212'
+    border-dark: '#9a9a9a'
+    border-strong-dark: '#ffffff'
+    foreground-dark: '#ffffff'
+    foreground-secondary-dark: '#f2f2f2'
+    muted-foreground-dark: '#d6d6d6'
+    primary-foreground-dark: '#000000'
+    primary-dark: '#ffd23f'
+    primary-hover-dark: '#ffe27a'
+    primary-subtle-dark: '#302800'
+    primary-text-dark: '#ffdd5c'
+    ring-dark: '#ffd23f'
+    success-dark: '#5cf08a'
+    success-subtle-dark: '#002810'
+    success-text-dark: '#7df5a2'
+    destructive-dark: '#ff6b6b'
+    destructive-subtle-dark: '#3a0008'
+    destructive-text-dark: '#ff9a9a'
+    destructive-foreground-dark: '#000000'
+    warning-dark: '#ffb84d'
+    warning-subtle-dark: '#331f00'
+    warning-text-dark: '#ffcb7a'
+    info-dark: '#6ec6ff'
+    info-subtle-dark: '#00233a'
+    info-text-dark: '#9ad7ff'
+    change-dark: '#ff8ccf'
+    change-foreground-dark: '#000000'
+    change-subtle-dark: '#3a0026'
+    change-text-dark: '#ffb0dd'
+    agent-dark: '#b4b4ff'
+    agent-subtle-dark: '#1d1a40'
+    agent-text-dark: '#cecdff'
+    diff-add-dark: '#002810'
+    diff-add-mark-dark: '#7df5a2'
+    diff-del-dark: '#3a0008'
+    diff-del-mark-dark: '#ff9a9a'
+    gantt-bar-dark: '#747474'
+    chart-1-dark: '#3987e5'
+    chart-2-dark: '#d95926'
+    chart-3-dark: '#199e70'
+    chart-4-dark: '#9085e9'
+    chart-5-dark: '#c98500'
+    syntax-keyword-dark: '#c3a6f0'
+    syntax-string-dark: '#8fd1b0'
+    syntax-number-dark: '#f0a875'
+    syntax-function-dark: '#8fbde8'
 typography:
   # Compact ramp. Fonts are layered like colours: --font-sans and --font-mono point at the bundled family.
   question:
@@ -709,9 +1010,9 @@ The board is compact and tool-like by default, with a comfortable density that t
 
 **Swap rule.** Components and Tailwind classes read only layer 3. A palette swap re-points the roles at other primitive values and leaves layer 3's names and every component unchanged. The aliases (below the main groups in the YAML) are set in CSS as `var(--target)`, the same in light and dark, and the shadcn aliases keep their targets in every palette. The YAML shows them resolved to hex.
 
-**Modes.** Light is the base scheme, held by the unsuffixed keys, and dark uses the same keys with the `-dark` suffix. The board follows the system preference, and the header's Theme control sets System, Light or Dark (L24, F-78; behaviour in EXPERIENCE.md).
+**Modes.** Light is the base scheme, held by the unsuffixed keys, and dark uses the same keys with the `-dark` suffix. The board follows the system preference, and the header's Theme control sets System, Light or Dark (L24, F-78; behaviour in EXPERIENCE.md). A named palette (Named palettes, below) is a second axis: it changes the values of the same roles in both schemes, and the theme preference does not change when a palette is chosen.
 
-**Dark theme mechanism.** Both token sets become CSS variables, and a `.dark` class on the view root switches from light to dark. No theme library is used: next-themes writes browser storage, which the board's sandboxed view forbids (L160, S-5; AD-8). Canvas components such as the Chart rebuild their theme from the resolved variables on a switch. Diagrams re-render with the dark diagram theme (Diagram theme, below) rather than sitting on a light panel (L160). A Snapshot carries both token sets and a light and a dark render of every diagram. With no board page around it, it opens in the theme the board had when it was taken, System following the viewer's system theme, and the quick toggles switch it without saving (TC §2.2, F-14, F-69). [key-golden](mockups/key-golden.html) shows the board and its diagram in both modes, and [key-snapshot-view](mockups/key-snapshot-view.html) a Snapshot in both system themes.
+**Dark theme mechanism.** Both token sets become CSS variables, and a `.dark` class on the view root switches from light to dark. No theme library is used: next-themes writes browser storage, which the board's sandboxed view forbids (L160, S-5; AD-8). Canvas components such as the Chart rebuild their theme from the resolved variables on a switch. Diagrams re-render with the dark diagram theme (Diagram theme, below) rather than sitting on a light panel (L160). A Snapshot carries both token sets and a light and a dark render of every diagram. With no board page around it, it opens in the theme the board had when it was taken, System following the viewer's system theme, and the quick toggles switch it without saving (TC §2.2, F-14, F-69). [key-golden](mockups/key-golden.html) shows the board and its diagram in both modes, and [key-snapshot-view](mockups/key-snapshot-view.html) a Snapshot in both system themes. A palette other than Carta is the attribute `data-palette` on the same root: its roles are `:root[data-palette="<name>"]` for light and `:root[data-palette="<name>"].dark` for dark, which outrank `:root` and `.dark` by specificity, so Carta, with no attribute, is the base and no rule uses `!important`. A Snapshot inlines Carta's sheet and the one palette its record names, never the others (AD-9); Canvas components and diagrams re-render on a palette switch as on a theme switch.
 
 **shadcn aliases.** `card-foreground`, `popover-foreground`, `secondary-foreground` and `accent-foreground` point at `foreground`; `secondary` and `accent` point at `muted`; `input` points at `border-strong`. They are not in the palette table.
 
@@ -781,6 +1082,23 @@ The first AXFX family palette is variation 3 of the colour page, "Warm Paper & P
 |  | function, class and type names | `syntax-function` † | `#2b5c8a` | `#8fbde8` |
 |  | comments | `syntax-comment` † → `muted-foreground` | `#6b6358` | `#a39a8d` |
 
+### Named palettes
+
+A palette is data: a group of `palettes:` in the YAML holding every role of `colors` and its `-dark` twin, no alias (aliases resolve through `var(--target)`), checked by the token build, which refuses a missing role, a missing twin, a key `colors` lacks and a name the contract does not list. Adding one is a YAML group, a contract enum value and two strings. The default is **Carta**, today's Warm Paper & Petrol, whose values are `colors`; choosing a palette never changes the theme preference.
+
+| Palette | Character |
+|---|---|
+| Carta | Warm paper neutrals with a petrol accent; the default |
+| Nordico | Cool slate neutrals with a muted blue accent, calm and low-glare |
+| Grafite | Neutral grey with a teal accent; the dark-first palette, whose dark scheme is the reference drawing |
+| Contrasto | High contrast: 7:1 text and 4.5:1 marks against their surfaces, light and dark |
+
+**Values.** Nordico, Grafite and Contrasto take every role the colour-and-layout study draws, verbatim (`success-foreground` and the shadow are not roles of this file). The roles the study does not draw are derived the same way in each palette and scheme: `destructive-foreground` and `change-foreground` take the palette's `primary-foreground` in light and its `background` in dark; `diff-add` is `success-subtle` and `diff-del` `destructive-subtle`; the two diff marks are `success` and `destructive` in light and `success-text` and `destructive-text` in dark; `gantt-bar` is `border-strong`; `chart-1` to `chart-5` are Carta's, so the distance rules between series hold unchanged; the `syntax-*` colours are Carta's, darkened (light) or lightened (dark) along their own hue in steps of 2% of OKLab lightness, only until the contrast report shows them at their minimum on `card`, `diff-add` and `diff-del` (only Contrasto's light scheme needed it).
+
+**Contrasto's marks.** The focus ring is 3 px wide and the borders of question cards, buttons and inputs 1.5 px, the other palettes keeping 2 px and 1 px. Under the theme's System, a system that asks for more contrast (`prefers-contrast: more`) puts Contrasto in use whatever palette is chosen; nothing is written to a configuration file.
+
+**Report.** `bun tools/build/contrast.ts` computes the WCAG 2 ratio of every pair of Contrast below and the hue distances of the role rules for each palette and scheme, and prints each pair under its minimum and each rule not met. It reports, it does not block (L27, L28).
+
 ### Colour role rules (valid for any palette)
 
 These rules come from L132 and the colour page's role conventions. A future palette keeps them.
@@ -815,7 +1133,7 @@ Code in Diff review and every source view is highlighted through five tokens, ne
 
 ### Diagram theme
 
-The `diagram` component tokens resolved in light are the light diagram theme, and resolved with their `-dark` values they are the dark diagram theme (F-06). Each render sets them on the renderer: Mermaid's `base` theme with these `themeVariables` (plus `darkMode: true` for the dark render), and PlantUML's skinparams.
+The `diagram` component tokens resolved in light are the light diagram theme, and resolved with their `-dark` values they are the dark diagram theme (F-06). Each render uses the tokens of the palette in effect and re-renders when the palette or the theme changes (the catalog port's `useColourScheme`, which gives `<palette>/<theme>`); a Snapshot's kept renders are those of its palette. Each render sets them on the renderer: Mermaid's `base` theme with these `themeVariables` (plus `darkMode: true` for the dark render), and PlantUML's skinparams.
 
 | `diagram` token | Mermaid | PlantUML skinparam |
 |---|---|---|
@@ -831,6 +1149,10 @@ The `diagram` component tokens resolved in light are the light diagram theme, an
 ### Contrast
 
 The colour page's calculator computed WCAG 2 ratios from the hex values, and the group-B pass added the rows for its new tokens. Every load-bearing pair meets its minimum in both modes. Accessibility is best effort, so a pair below its minimum is reported, not blocking (L27, L28; colour page).
+
+The tables are the output of `bun tools/build/contrast.ts` over the YAML above, to two decimals; the first holds Carta's, and its rows equal the ratios the colour page gave. The last eight rows are the pairs the board's layout adds. Every pair meets its minimum in each palette and scheme, and the build's test fails if one does not.
+
+#### Carta
 
 | Pair | Kind, minimum | Light | Dark |
 |---|---|---|---|
@@ -868,6 +1190,155 @@ The colour page's calculator computed WCAG 2 ratios from the hex values, and the
 | Syntax number (lowest of the three) | text, 4.5:1 | 5.09 | 7.44 |
 | Syntax function (lowest of the three) | text, 4.5:1 | 5.69 | 7.48 |
 | Syntax comment (lowest of the three) | text, 4.5:1 | 4.81 | 5.33 |
+| Ledger count / surface | text, 4.5:1 | 6.95 | 8.98 |
+| Stripe, primary / surface | UI mark, 3:1 | 5.82 | 6.79 |
+| Stripe, success / surface | UI mark, 3:1 | 5.12 | 6.67 |
+| Stripe, muted / surface | UI mark, 3:1 | 5.82 | 5.84 |
+| Segment underline, primary / fill | UI mark, 3:1 | 5.07 | 5.83 |
+| Segment underline, success / fill | UI mark, 3:1 | 4.59 | 6.08 |
+| Border / sunken | UI mark, 3:1 | 3.01 | 3.88 |
+| Ring / page | UI mark, 3:1 | 3.71 | 9.14 |
+
+#### Nordico
+
+| Pair | Kind, minimum | Light | Dark |
+|---|---|---|---|
+| Primary text / page | text, 4.5:1 | 12.67 | 12.22 |
+| Primary text / surface | text, 4.5:1 | 13.95 | 10.61 |
+| Secondary text / surface | text, 4.5:1 | 9.51 | 8.95 |
+| Muted text / page | text, 4.5:1 | 5.85 | 7.23 |
+| Muted text / sunken | text, 4.5:1 | 5.43 | 5.67 |
+| Accent text / surface | text, 4.5:1 | 6.89 | 6.86 |
+| Accent text / pressed fill | text, 4.5:1 | 5.67 | 5.20 |
+| On-accent / accent | text, 4.5:1 | 6.19 | 6.96 |
+| On-danger / danger | text, 4.5:1 | 5.66 | 6.15 |
+| Error text / surface | text, 4.5:1 | 6.77 | 6.90 |
+| Input border / surface | UI mark, 3:1 | 3.95 | 3.65 |
+| Focus ring / surface | UI mark, 3:1 | 4.63 | 6.86 |
+| Hover outline / surface | UI mark, 3:1 | 3.95 | 3.65 |
+| Selected underline / track | UI mark, 3:1 | 4.98 | 5.06 |
+| Change line, pin / surface | UI mark, 3:1 | 5.78 | 5.95 |
+| Change text / change bg | text, 4.5:1 | 6.08 | 6.67 |
+| Pin label / pin | text, 4.5:1 | 6.05 | 6.85 |
+| Success text / subtle | text, 4.5:1 | 5.62 | 7.15 |
+| Danger text / subtle | text, 4.5:1 | 5.67 | 6.38 |
+| Warning text / subtle | text, 4.5:1 | 6.08 | 7.15 |
+| Warning mark / surface | UI mark, 3:1 | 5.06 | 7.47 |
+| Info text / subtle | text, 4.5:1 | 6.03 | 6.46 |
+| Agent text / agent bg | text, 4.5:1 | 6.34 | 6.50 |
+| Agent dot / agent bg | UI mark, 3:1 | 5.03 | 4.95 |
+| Partly answered marker / surface | UI mark, 3:1 | 9.51 | 8.95 |
+| Critical path / surface | UI mark, 3:1 | 13.95 | 10.61 |
+| Critical bar / task bar | UI mark, 3:1 | 3.53 | 3.60 |
+| Text / diff added | text, 4.5:1 | 12.17 | 9.04 |
+| Text / diff removed | text, 4.5:1 | 11.70 | 9.81 |
+| Syntax keyword / surface, diff added, diff removed (lowest) | text, 4.5:1 | 5.92 | 5.17 |
+| Syntax string (lowest of the three) | text, 4.5:1 | 5.13 | 6.13 |
+| Syntax number (lowest of the three) | text, 4.5:1 | 5.01 | 5.44 |
+| Syntax function (lowest of the three) | text, 4.5:1 | 5.61 | 5.46 |
+| Syntax comment (lowest of the three) | text, 4.5:1 | 5.40 | 5.35 |
+| Ledger count / surface | text, 4.5:1 | 6.44 | 8.39 |
+| Stripe, primary / surface | UI mark, 3:1 | 5.92 | 5.60 |
+| Stripe, success / surface | UI mark, 3:1 | 5.07 | 7.16 |
+| Stripe, muted / surface | UI mark, 3:1 | 6.44 | 6.28 |
+| Segment underline, primary / fill | UI mark, 3:1 | 4.87 | 4.24 |
+| Segment underline, success / fill | UI mark, 3:1 | 4.42 | 6.10 |
+| Border / sunken | UI mark, 3:1 | 3.33 | 3.30 |
+| Ring / page | UI mark, 3:1 | 4.21 | 7.90 |
+
+#### Grafite
+
+| Pair | Kind, minimum | Light | Dark |
+|---|---|---|---|
+| Primary text / page | text, 4.5:1 | 16.18 | 15.27 |
+| Primary text / surface | text, 4.5:1 | 17.81 | 14.03 |
+| Secondary text / surface | text, 4.5:1 | 10.99 | 10.13 |
+| Muted text / page | text, 4.5:1 | 6.08 | 7.28 |
+| Muted text / sunken | text, 4.5:1 | 5.65 | 6.18 |
+| Accent text / surface | text, 4.5:1 | 6.82 | 9.25 |
+| Accent text / pressed fill | text, 4.5:1 | 5.81 | 7.61 |
+| On-accent / accent | text, 4.5:1 | 5.93 | 8.60 |
+| On-danger / danger | text, 4.5:1 | 5.65 | 6.65 |
+| Error text / surface | text, 4.5:1 | 7.22 | 8.07 |
+| Input border / surface | UI mark, 3:1 | 3.80 | 3.64 |
+| Focus ring / surface | UI mark, 3:1 | 4.79 | 9.25 |
+| Hover outline / surface | UI mark, 3:1 | 3.80 | 3.64 |
+| Selected underline / track | UI mark, 3:1 | 5.01 | 7.25 |
+| Change line, pin / surface | UI mark, 3:1 | 6.44 | 6.26 |
+| Change text / change bg | text, 4.5:1 | 7.12 | 7.97 |
+| Pin label / pin | text, 4.5:1 | 6.44 | 6.81 |
+| Success text / subtle | text, 4.5:1 | 6.36 | 8.86 |
+| Danger text / subtle | text, 4.5:1 | 6.16 | 7.62 |
+| Warning text / subtle | text, 4.5:1 | 6.47 | 8.95 |
+| Warning mark / surface | UI mark, 3:1 | 5.10 | 8.13 |
+| Info text / subtle | text, 4.5:1 | 6.20 | 8.27 |
+| Agent text / agent bg | text, 4.5:1 | 7.08 | 7.99 |
+| Agent dot / agent bg | UI mark, 3:1 | 5.46 | 5.56 |
+| Partly answered marker / surface | UI mark, 3:1 | 10.99 | 10.13 |
+| Critical path / surface | UI mark, 3:1 | 17.81 | 14.03 |
+| Critical bar / task bar | UI mark, 3:1 | 4.68 | 3.85 |
+| Text / diff added | text, 4.5:1 | 15.40 | 12.61 |
+| Text / diff removed | text, 4.5:1 | 15.19 | 13.24 |
+| Syntax keyword / surface, diff added, diff removed (lowest) | text, 4.5:1 | 6.30 | 7.34 |
+| Syntax string (lowest of the three) | text, 4.5:1 | 5.47 | 8.72 |
+| Syntax number (lowest of the three) | text, 4.5:1 | 5.33 | 7.73 |
+| Syntax function (lowest of the three) | text, 4.5:1 | 5.97 | 7.77 |
+| Syntax comment (lowest of the three) | text, 4.5:1 | 5.71 | 6.01 |
+| Ledger count / surface | text, 4.5:1 | 7.35 | 9.86 |
+| Stripe, primary / surface | UI mark, 3:1 | 5.93 | 7.84 |
+| Stripe, success / surface | UI mark, 3:1 | 5.29 | 7.83 |
+| Stripe, muted / surface | UI mark, 3:1 | 6.69 | 6.69 |
+| Segment underline, primary / fill | UI mark, 3:1 | 5.06 | 6.45 |
+| Segment underline, success / fill | UI mark, 3:1 | 4.58 | 7.04 |
+| Border / sunken | UI mark, 3:1 | 3.21 | 3.37 |
+| Ring / page | UI mark, 3:1 | 4.35 | 10.07 |
+
+#### Contrasto
+
+| Pair | Kind, minimum | Light | Dark |
+|---|---|---|---|
+| Primary text / page | text, 7:1 | 21.00 | 21.00 |
+| Primary text / surface | text, 7:1 | 21.00 | 19.80 |
+| Secondary text / surface | text, 7:1 | 17.40 | 17.68 |
+| Muted text / page | text, 7:1 | 13.20 | 14.45 |
+| Muted text / sunken | text, 7:1 | 11.48 | 12.34 |
+| Accent text / surface | text, 7:1 | 10.46 | 14.85 |
+| Accent text / pressed fill | text, 7:1 | 8.86 | 11.02 |
+| On-accent / accent | text, 7:1 | 9.30 | 14.54 |
+| On-danger / danger | text, 7:1 | 7.82 | 7.57 |
+| Error text / surface | text, 7:1 | 10.03 | 9.75 |
+| Input border / surface | UI mark, 4.5:1 | 21.00 | 19.80 |
+| Focus ring / surface | UI mark, 4.5:1 | 9.30 | 13.71 |
+| Hover outline / surface | UI mark, 4.5:1 | 21.00 | 19.80 |
+| Selected underline / track | UI mark, 4.5:1 | 8.09 | 12.41 |
+| Change line, pin / surface | UI mark, 4.5:1 | 9.95 | 9.34 |
+| Change text / change bg | text, 7:1 | 10.10 | 10.35 |
+| Pin label / pin | text, 7:1 | 9.95 | 9.90 |
+| Success text / subtle | text, 7:1 | 8.23 | 11.79 |
+| Danger text / subtle | text, 7:1 | 8.44 | 8.74 |
+| Warning text / subtle | text, 7:1 | 9.15 | 10.53 |
+| Warning mark / surface | UI mark, 4.5:1 | 7.68 | 11.52 |
+| Info text / subtle | text, 7:1 | 9.46 | 10.40 |
+| Agent text / agent bg | text, 7:1 | 10.43 | 10.83 |
+| Agent dot / agent bg | UI mark, 4.5:1 | 8.63 | 8.57 |
+| Partly answered marker / surface | UI mark, 4.5:1 | 17.40 | 17.68 |
+| Critical path / surface | UI mark, 4.5:1 | 21.00 | 19.80 |
+| Critical bar / task bar | UI mark, 4.5:1 | 4.62 | 4.67 |
+| Text / diff added | text, 7:1 | 18.34 | 16.02 |
+| Text / diff removed | text, 7:1 | 17.68 | 17.75 |
+| Syntax keyword / surface, diff added, diff removed (lowest) | text, 7:1 | 7.39 | 7.65 |
+| Syntax string (lowest of the three) | text, 7:1 | 7.57 | 9.09 |
+| Syntax number (lowest of the three) | text, 7:1 | 7.39 | 8.06 |
+| Syntax function (lowest of the three) | text, 7:1 | 7.63 | 8.09 |
+| Syntax comment (lowest of the three) | text, 7:1 | 11.11 | 11.02 |
+| Ledger count / surface | text, 7:1 | 9.42 | 14.57 |
+| Stripe, primary / surface | UI mark, 4.5:1 | 9.30 | 13.71 |
+| Stripe, success / surface | UI mark, 4.5:1 | 7.25 | 13.47 |
+| Stripe, muted / surface | UI mark, 4.5:1 | 13.20 | 13.62 |
+| Segment underline, primary / fill | UI mark, 4.5:1 | 7.87 | 10.18 |
+| Segment underline, success / fill | UI mark, 4.5:1 | 6.34 | 10.90 |
+| Border / sunken | UI mark, 4.5:1 | 18.26 | 17.93 |
+| Ring / page | UI mark, 4.5:1 | 9.30 | 14.54 |
 
 Two distinguishability checks have no WCAG minimum (F-51). Change against critical is 2.30:1 in light and 2.20:1 in dark, and the hues differ, so a user-changed critical task stays readable. Change against danger is 1.01:1 in light and 1.25:1 in dark: colour alone cannot tell the two apart. They never meet on one element, and each carries its own shape or text (Colour role rules, User-change hue and Danger).
 

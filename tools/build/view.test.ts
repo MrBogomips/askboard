@@ -7,6 +7,7 @@ import {
   type BoardState,
   cspHashSource,
   type ManifestChunk,
+  PALETTES,
   VIEW_MANIFEST_FILE,
   type ViewManifest,
 } from "@askboard/contract";
@@ -33,13 +34,14 @@ import {
   sourcesToFetch,
   targetOf,
 } from "../../packages/view/src/assemble/index.ts";
+import { paletteOfStyle, paletteStylePath } from "../../packages/view/src/palettes.ts";
 import { questionsOf, type ViewDocument } from "../../packages/view/src/view-document.ts";
 import { hostOnlyNeedProblems, styleUrlProblems } from "./checks.ts";
 import { bundleChunk } from "./chunks.ts";
 import { KATEX_VERSION } from "./katex-version.ts";
 import { FONT_LICENCES, type FontLicence, type FontLicences } from "./licences.ts";
 import { hashProblems, listedFiles } from "./manifest.ts";
-import { ROOT, SIZES_FILE } from "./paths.ts";
+import { DESIGN_FILE, ROOT, SIZES_FILE } from "./paths.ts";
 import {
   LIBRARY_CHUNKS,
   portExports,
@@ -48,6 +50,7 @@ import {
 } from "./shared-modules.ts";
 import { formatSizes, readSizes, sizeProblems } from "./sizes.ts";
 import { CHUNK_STYLESHEETS } from "./stylesheets.ts";
+import { paletteCss, readDesignTokens } from "./tokens.ts";
 import { buildView, main } from "./view.ts";
 
 // One real build into a scratch folder, recording its sizes into a scratch file: the checks below
@@ -1527,5 +1530,102 @@ describe("package stylesheets in a chunk (latex-kanban-timeline, design decision
     ];
     expect(files.length).toBeGreaterThan(3);
     for (const { path } of files) expect(styleUrlProblems(path, await text(path))).toEqual([]);
+  });
+});
+
+// The named palettes in the build (palettes, task 2.4, design decision D4): one sheet per palette
+// besides Carta, listed after the shell's own; the board page's styles carry them all, the shell's
+// own none.
+describe("the palette stylesheets", () => {
+  const NAMED = PALETTES.filter((name) => name !== "carta");
+  const designTokens = async () => readDesignTokens(await Bun.file(DESIGN_FILE).text());
+
+  test("the shell lists its own styles, then one file per palette besides Carta, in the contract's order", () => {
+    const styles = chunkNamed("shell").styles;
+    expect(styles.map((file) => file.path)).toEqual([
+      "chunks/shell.css",
+      ...NAMED.map((name) => paletteStylePath(name)),
+    ]);
+    expect(styles.slice(1).map((file) => paletteOfStyle(file.path))).toEqual(NAMED);
+  });
+
+  test("each palette's file is that palette's CSS from DESIGN.md, and nothing else", async () => {
+    const tokens = await designTokens();
+    for (const name of NAMED) {
+      expect(await text(paletteStylePath(name))).toBe(paletteCss(tokens, name).trim());
+    }
+  });
+
+  test("the shell's own sheet holds Carta's tokens and no palette's: only Contrasto's marks name the attribute", async () => {
+    const css = await text("chunks/shell.css");
+    expect(css).toContain("--background:#f7f5f0");
+    expect(css).not.toMatch(/data-palette[^{]*\{[^}]*--background/);
+    expect(css).toMatch(/data-palette="?contrasto"?\] :focus-visible\{outline-width:3px\}/);
+  });
+
+  test("the board page's styles carry every palette", async () => {
+    const [file] = manifest.boardPage.styles;
+    const css = await text(file?.path ?? "");
+    // Tailwind's minifier drops the quotes of a plain attribute value.
+    for (const name of NAMED) expect(css).toMatch(new RegExp(`data-palette="?${name}"?\\]`));
+    expect(css).toContain("--background:#f7f5f0");
+  });
+
+  test("no other chunk carries a palette", async () => {
+    for (const [name, chunk] of Object.entries(manifest.chunks)) {
+      if (name === "shell") continue;
+      for (const file of chunk.styles) expect(await text(file.path)).not.toContain("data-palette");
+    }
+  });
+
+  test("a palette sheet passes the build's inline-safety checks: no @import, no url()", async () => {
+    for (const name of NAMED) {
+      const css = await text(paletteStylePath(name));
+      expect(css).not.toContain("@import");
+      expect(css).not.toContain("url(");
+      expect(styleUrlProblems(name, css)).toEqual([]);
+    }
+  });
+
+  test("a board inlines the shell's sheets with every palette, a Snapshot one, and the policy hashes what is inlined", async () => {
+    const data = {
+      document: plainChoiceBoardDocument,
+      state: { ask: "waiting", questions: [{ itemId: "database", rev: 1, state: "open" }] },
+    } as unknown as Parameters<typeof assemble>[0];
+    const sources: Record<string, string> = {};
+    for (const file of sourcesToFetch(selectChunks(data.document, manifest))) {
+      sources[file.sha256] = await text(file.path);
+    }
+    const board = assemble(data, manifest, sources);
+    expect(board.srcdoc.match(/<style>/g)?.length).toBe(
+      selectChunks(data.document, manifest).flatMap(({ chunk }) => chunk.styles).length,
+    );
+    for (const name of NAMED) expect(board.srcdoc).toContain(`data-palette="${name}"`);
+    const snapshot = {
+      ...lifecycleSnapshotData,
+      snapshot: {
+        ...lifecycleSnapshotData.snapshot,
+        presentation: { theme: "dark", density: "compact", palette: "grafite" },
+      },
+    } as typeof lifecycleSnapshotData;
+    const kept: Record<string, string> = {};
+    for (const file of sourcesToFetch(
+      selectChunks(snapshot.document, manifest, targetOf(snapshot)),
+    )) {
+      kept[file.sha256] = await text(file.path);
+    }
+    const licences: Record<string, string> = {};
+    for (const chunk of Object.values(manifest.chunks)) {
+      for (const notice of chunk.licences) licences[notice.path] = await text(notice.path);
+    }
+    const { srcdoc, policy } = assemble(snapshot, manifest, { chunks: kept, licences });
+    expect(srcdoc).toContain('data-palette="grafite"');
+    expect(srcdoc).not.toContain('data-palette="nordico"');
+    expect(srcdoc).not.toContain('data-palette="contrasto"');
+    const styles = [...srcdoc.matchAll(/<style>([\s\S]*?)<\/style>/g)].map((m) => m[1] ?? "");
+    const hashed = styles.map((css) =>
+      cspHashSource(createHash("sha256").update(css).digest("hex")),
+    );
+    for (const hash of hashed) expect(policy).toContain(hash);
   });
 });

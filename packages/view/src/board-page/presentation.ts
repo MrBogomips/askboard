@@ -8,13 +8,14 @@ import type { ViewPresentation } from "../view-protocol.ts";
 
 /** The presentation a settings message gives: each key's value in effect, and the fixed ones. */
 export const presentationOf = (message: SettingsMessage): ViewPresentation => {
-  const { theme, density, contextPlacement, afterAnswer } = message.keys;
+  const { theme, density, contextPlacement, afterAnswer, palette } = message.keys;
   const locked = PRESENTATION_KEYS.filter((key) => message.keys[key]?.writable === false);
   return {
     theme: theme.value ?? "system",
     density: density.value ?? "compact",
     contextPlacement: contextPlacement.value ?? "beside",
     afterAnswer: afterAnswer?.value ?? "next",
+    palette: palette?.value ?? "carta",
     locked,
   };
 };

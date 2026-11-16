@@ -39,6 +39,12 @@ export const STRING_KEYS = [
   "toggles.compact",
   "toggles.comfortable",
   "toggles.settings",
+  "toggles.palette",
+  "toggles.paletteCarta",
+  "toggles.paletteNordico",
+  "toggles.paletteGrafite",
+  "toggles.paletteContrasto",
+  "toggles.paletteSystemContrast",
   // The settings panel.
   "settings.title",
   "settings.close",

@@ -91,6 +91,12 @@ const CHOICES: Readonly<Record<PresentationKey, readonly (readonly [string, Stri
     ["next", "settings.goToNext"],
     ["stay", "settings.stayHere"],
   ],
+  palette: [
+    ["carta", "toggles.paletteCarta"],
+    ["nordico", "toggles.paletteNordico"],
+    ["grafite", "toggles.paletteGrafite"],
+    ["contrasto", "toggles.paletteContrasto"],
+  ],
 };
 
 const LABELS: Readonly<Record<PresentationKey, StringKey>> = {
@@ -98,6 +104,7 @@ const LABELS: Readonly<Record<PresentationKey, StringKey>> = {
   density: "toggles.density",
   contextPlacement: "settings.contextPlacement",
   afterAnswer: "settings.afterAnswer",
+  palette: "toggles.palette",
 };
 
 const ROWS: readonly (readonly [Exclude<ConfigurationKey, "keys" | PresentationKey>, StringKey])[] =

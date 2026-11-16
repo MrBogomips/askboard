@@ -351,6 +351,15 @@ export {
   settingsWithAfterAnswer,
 } from "./after-answer.ts";
 
+// The palette key's fixtures (palettes, task 1.1).
+
+export {
+  palettesConfiguration,
+  palettesSaved,
+  palettesSetting,
+  settingsWithPalette,
+} from "./palettes.ts";
+
 // The draft record's short question numbers (answering-flow-visual, task 1.1).
 
 export {

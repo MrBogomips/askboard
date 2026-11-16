@@ -1,0 +1,17 @@
+/* Contrasto's marks (palettes, design decision D8): the focus ring is 3 px wide and the borders of
+   question cards, buttons and inputs 1.5 px, the other palettes keeping 2 px and 1 px. The sheet
+   sits outside Tailwind's layers, so it wins over `outline-2` and `border`, and it is scoped to the
+   palette's attribute. Widths only, never colour: the palette's tokens stay the one source of
+   colour. A button, input or text area is widened only when it carries the `border` class, so a
+   borderless button stays borderless. No component is edited. */
+
+:root[data-palette="contrasto"] :focus-visible {
+  outline-width: 3px;
+}
+
+:root[data-palette="contrasto"] [data-askboard-question],
+:root[data-palette="contrasto"] button.border,
+:root[data-palette="contrasto"] input.border,
+:root[data-palette="contrasto"] textarea.border {
+  border-width: 1.5px;
+}

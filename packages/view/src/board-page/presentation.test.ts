@@ -20,6 +20,7 @@ describe("the presentation a settings message gives", () => {
       density: "compact",
       contextPlacement: "inline",
       afterAnswer: "next",
+      palette: "carta",
       locked: ["contextPlacement"],
     });
   });

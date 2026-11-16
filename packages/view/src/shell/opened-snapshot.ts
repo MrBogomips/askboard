@@ -5,7 +5,7 @@
 
 import type { SnapshotRecord } from "@askboard/contract";
 import { UNSENT_WORK_NOTE } from "../snapshot-line.ts";
-import { isPresentation, type ViewPresentation } from "../view-protocol.ts";
+import { isPresentation, PALETTE_NAMES, type ViewPresentation } from "../view-protocol.ts";
 import { DEFAULT_PRESENTATION } from "./presentation-controls.ts";
 
 /** The record the boot block holds when the page is a Snapshot. */
@@ -54,7 +54,21 @@ export const snapshotTitleOf = (askTitle: string): string => `Snapshot · ${askT
 export const snapshotPresentationOf = (opened: OpenedSnapshot): ViewPresentation => {
   const recorded: unknown = opened.presentation;
   if (typeof recorded !== "object" || recorded === null) return DEFAULT_PRESENTATION;
-  const { theme, density } = recorded as { theme?: unknown; density?: unknown };
-  const candidate = { theme, density, contextPlacement: "beside", afterAnswer: "next", locked: [] };
+  const { theme, density, palette } = recorded as {
+    theme?: unknown;
+    density?: unknown;
+    palette?: unknown;
+  };
+  // A record written before palettes names none, and a hand-edited file may name one the page does
+  // not know: both open in Carta, the theme and density keeping their own check.
+  const known = PALETTE_NAMES.includes(palette) ? palette : "carta";
+  const candidate = {
+    theme,
+    density,
+    contextPlacement: "beside",
+    afterAnswer: "next",
+    palette: known,
+    locked: [],
+  };
   return isPresentation(candidate) ? candidate : DEFAULT_PRESENTATION;
 };

@@ -4,8 +4,9 @@
 // follows the `.dark` class the board page sets, not the media query (renderer row 15).
 
 import { dirname, join } from "node:path";
+import { PALETTES } from "@askboard/contract";
 import { BASE_CSS, DESIGN_FILE, resolveFromView } from "./paths.ts";
-import { readDesignTokens, themeCss, tokensCss } from "./tokens.ts";
+import { checkPalettes, paletteCss, readDesignTokens, themeCss, tokensCss } from "./tokens.ts";
 
 export type StylePlan = "document" | "utilities";
 
@@ -22,27 +23,45 @@ export const PREFLIGHT_FILE = join(TAILWIND_DIR, "preflight.css");
 
 const TOKENS = "tokens.css";
 const THEME = "theme.css";
+const PALETTES_FILE = "palettes.css";
 
-/** Writes the tokens and the theme from DESIGN.md into the build's work folder. */
-export const writeTokenFiles = async (work: string): Promise<void> => {
+/**
+ * Writes the tokens, the theme and the palettes from DESIGN.md into the build's work folder, and
+ * returns each named palette's CSS, which the view build writes as the shell's own sheets (D4).
+ * The palettes are checked against the contract's list first (D3).
+ */
+export const writeTokenFiles = async (
+  work: string,
+): Promise<{ readonly palettes: Readonly<Record<string, string>> }> => {
   const tokens = readDesignTokens(await Bun.file(DESIGN_FILE).text());
+  checkPalettes(tokens, PALETTES);
+  const palettes = Object.fromEntries(
+    PALETTES.filter((name) => name !== "carta").map((name) => [name, paletteCss(tokens, name)]),
+  );
   await Bun.write(join(work, TOKENS), tokensCss(tokens));
+  await Bun.write(join(work, PALETTES_FILE), Object.values(palettes).join(""));
   await Bun.write(join(work, THEME), themeCss(tokens));
+  return { palettes };
 };
 
 const quoted = (path: string) => JSON.stringify(path);
 
-/** Tailwind's input for one chunk, scanning only `sources` for utilities. */
+/**
+ * Tailwind's input for one chunk, scanning only `sources` for utilities. The board page's carries
+ * every palette after the tokens (it never goes into a Snapshot); the shell's are separate files.
+ */
 export const tailwindInput = (
   plan: StylePlan,
   sources: readonly string[],
   work: string,
+  options: { readonly palettes?: boolean } = {},
 ): string => {
   const document =
     plan === "document"
       ? [
           `@import ${quoted(PREFLIGHT_FILE)} layer(base);`,
           `@import ${quoted(join(work, TOKENS))};`,
+          ...(options.palettes === true ? [`@import ${quoted(join(work, PALETTES_FILE))};`] : []),
           `@import ${quoted(BASE_CSS)};`,
         ]
       : [];

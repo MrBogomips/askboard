@@ -640,6 +640,7 @@ describe("the settings in the model (settings-languages, task 8.2)", () => {
       density: "compact",
       contextPlacement: "inline",
       afterAnswer: "next",
+      palette: "carta",
       locked: ["contextPlacement"],
     });
   });
