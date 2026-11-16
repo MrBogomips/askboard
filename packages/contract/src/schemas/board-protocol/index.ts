@@ -18,7 +18,8 @@
 // as an optional row, to the settings in effect (design decision 9). The minor of answering-flow-visual
 // adds the short question numbers to the draft record (design decision D6). The minor of palettes
 // adds the presentation key `palette` to a board's write and, as an optional row, to the settings in
-// effect (design decision D1).
+// effect (design decision D1). The minor of
+// user-keys-writable-by-others adds the warning code `keys-file-writable-by-others`.
 
 import type { EditorOutcome, SourceStatus } from "../../context/resolution.ts";
 import type { KeyOverrideRule } from "../../keys/overrides.ts";
@@ -523,7 +524,8 @@ export type SettingWarningCode =
   | "editor-file-writable-by-others"
   | "snapshot-folder-replaced"
   | "project-keys-ignored"
-  | "keys-not-applied";
+  | "keys-not-applied"
+  | "keys-file-writable-by-others";
 
 export type SettingWarning = {
   readonly code: SettingWarningCode;

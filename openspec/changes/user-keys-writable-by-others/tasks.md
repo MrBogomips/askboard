@@ -8,7 +8,7 @@ Each task writes its tests first and sees them fail before implementing. "The ch
 
 ## 1. Contract: the warning code (D2)
 
-- [ ] 1.1 Tests first in `packages/contract/test/settings-keys-messages.test.ts`: a `settings` message whose Keys row carries `{code: "keys-file-writable-by-others", file: "user", key: "keys"}` passes; the same with `rule` or `action` fails; `BOARD_PROTOCOL_VERSION`'s pin (`draft-record-numbers.test.ts` today) moves to main's minor plus one. Then the enum value and description in `board-protocol/settings.json`, `SettingWarning`'s union, and `BOARD_PROTOCOL_VERSION` with its header sentence. Verify: the cases fail first, then pass; the check passes.
+- [x] 1.1 Tests first in `packages/contract/test/settings-keys-messages.test.ts`: a `settings` message whose Keys row carries `{code: "keys-file-writable-by-others", file: "user", key: "keys"}` passes; the same with `rule` or `action` fails; `BOARD_PROTOCOL_VERSION`'s pin (`draft-record-numbers.test.ts` today) moves to main's minor plus one. Then the enum value and description in `board-protocol/settings.json`, `SettingWarning`'s union, and `BOARD_PROTOCOL_VERSION` with its header sentence. Verify: the cases fail first, then pass; the check passes.
 
 ## 2. Core: the rule and stderr (D1, D3, D5)
 
