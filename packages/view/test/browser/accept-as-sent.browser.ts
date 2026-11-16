@@ -19,6 +19,8 @@
 // (i) revising an accepted answer: "Edit", a Tree edit and "Answer" replace it;
 // (j) not on a kept revision: a Kanban question with a note on revision 1, the agent's change, a
 //     reload and "Keep mine" show revision 2 read-only and no button, and nothing is sent;
+// (l) the same without a reload, on a Tree: a node moved, the agent's revision, "Keep mine" (the card
+//     still shows revision 1), the node moved back to where revision 1 had it: no button;
 // (k) after "Reload, losing my work" the card shows revision 2 and offers the button again, which
 //     answers naming revision 2.
 //
@@ -469,6 +471,64 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const [event] = await collectedAnswers(run);
         expect(event).toMatchObject({ itemId: "plan", rev: 2, asSent: true });
         expect(event).not.toHaveProperty("note");
+        expectNoCspProblem(run);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "(l) not on a kept revision, without a reload: a Tree edited, the agent's revision and Keep mine, then the node moved back to where revision 1 had it, offers no Accept as is",
+      async () => {
+        const { run, board } = await open(askOf("accept-kept-l2m3", [treeQuestion()]), ["plan"]);
+        const tree = treeGridOf(board);
+        await acceptOf(board).waitFor({ timeout: STEP_TIMEOUT_MS });
+        await tree.cell("ux", 0).click({ timeout: STEP_TIMEOUT_MS });
+        await pressIn(board, "Alt+Shift+ArrowDown");
+        await eventually(async () => (await acceptOf(board).count()) === 0, "no Accept as is");
+        // A note keeps the work, and with it revision 1, once the Tree equals what was sent again:
+        // with no work left the card would show the current revision, which is another case.
+        await noteOf(board, "plan").fill(NOTE);
+        await mirrored(
+          run,
+          (record) =>
+            record.questions.plan?.values?.wbs !== undefined &&
+            record.questions.plan?.note === NOTE,
+          "the move and the note",
+        );
+        // The agent changes another node's label: revision 2, which the page sees.
+        const [design, ...rest] = wbs.props.nodes;
+        const children = (design?.children ?? []).map((node) =>
+          node.id === "architecture" ? { ...node, label: "Architecture, revised" } : node,
+        );
+        await run.session.update([
+          {
+            action: "change",
+            itemId: wbs.id,
+            props: { ...wbs.props, nodes: [{ ...design, children }, ...rest] },
+          },
+        ]);
+        const notice = card(board, "plan").locator('[data-askboard-notice="agent-change"]');
+        await notice.waitFor({ timeout: STEP_TIMEOUT_MS });
+        await notice
+          .getByRole("button", { name: "Keep mine", exact: true })
+          .click({ timeout: STEP_TIMEOUT_MS });
+        await notice.waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
+        // The card still shows revision 1, with the user's move; moved back, it equals revision 1.
+        await tree.cell("ux", 0).click({ timeout: STEP_TIMEOUT_MS });
+        await pressIn(board, "Alt+Shift+ArrowUp");
+        const shownIds = async () =>
+          tree.rows.evaluateAll((rows) => rows.map((row) => row.getAttribute("data-node-id")));
+        await eventually(async () => {
+          const ids = await shownIds();
+          return ids.indexOf("ux") < ids.indexOf("architecture");
+        }, "ux back before architecture");
+        // The card still shows revision 1 (the agent's label is not on it), and offers nothing.
+        expect(((await tree.row("architecture").textContent()) ?? "").includes("revised")).toBe(
+          false,
+        );
+        await quiet("an absent button has no probe: the page stays as it is");
+        expect(await acceptOf(board).count()).toBe(0);
+        expect(answersOf(run)).toEqual([]);
         expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,
