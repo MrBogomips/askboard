@@ -78,6 +78,7 @@ describe("the fields the view boots from, as the table of update fields marks th
       density: "comfortable",
       contextPlacement: "inline",
       afterAnswer: "next",
+      palette: "carta",
       locked: [],
     },
   };
@@ -144,6 +145,7 @@ describe("the presentation in the block (settings-languages, task 8.2)", () => {
     density: "comfortable",
     contextPlacement: "inline",
     afterAnswer: "next",
+    palette: "carta",
     locked: ["density"],
   } as const;
 

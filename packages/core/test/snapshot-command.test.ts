@@ -231,10 +231,11 @@ describe("the presentation a Snapshot records", () => {
     const { core, written } = await withSettings({ user: { version: v } });
     await core.writeSetting({ key: "theme", value: "light" });
     await core.writeSetting({ key: "density", value: "comfortable" });
+    await core.writeSetting({ key: "palette", value: "nordico" });
     await core.snapshot(LIFECYCLE_ID, BOARD);
     expect(written[0]?.snapshot).toMatchObject({
       takenBy: "user",
-      presentation: { theme: "light", density: "comfortable" },
+      presentation: { theme: "light", density: "comfortable", palette: "nordico" },
     });
     valid(written[0]);
   });
@@ -253,7 +254,7 @@ describe("the presentation a Snapshot records", () => {
     expect(written[0]?.snapshot).toEqual({
       takenAt: expect.any(String),
       takenBy: "agent",
-      presentation: { theme: "dark", density: "compact" },
+      presentation: { theme: "dark", density: "compact", palette: "carta" },
     });
     valid(written[0]);
   });
@@ -261,10 +262,12 @@ describe("the presentation a Snapshot records", () => {
   test("the project file's light stands over the user file's dark", async () => {
     const { core, written } = await withSettings({
       user: { version: v, theme: "dark" },
-      project: { version: v, theme: "light" },
+      project: { version: v, theme: "light", palette: "contrasto" },
     });
     await core.snapshot(LIFECYCLE_ID, AGENT);
-    expect(written[0]?.snapshot).toMatchObject({ presentation: { theme: "light" } });
+    expect(written[0]?.snapshot).toMatchObject({
+      presentation: { theme: "light", palette: "contrasto" },
+    });
   });
 
   test("the configuration cannot give the settings: the Snapshot is written with no presentation, and the failure is reported once", async () => {
@@ -297,7 +300,7 @@ describe("the presentation a Snapshot records", () => {
     const { core, written, reported } = await lifecycleWith(fakeWriter(), { config });
     expect(await core.snapshot(LIFECYCLE_ID, AGENT)).toMatchObject({ outcome: "saved" });
     expect(written[0]?.snapshot).toMatchObject({
-      presentation: { theme: "system", density: "comfortable" },
+      presentation: { theme: "system", density: "comfortable", palette: "carta" },
     });
     expect(reported).toEqual([]);
     valid(written[0]);

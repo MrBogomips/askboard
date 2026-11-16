@@ -114,6 +114,10 @@
             },
             "density": {
               "enum": ["compact", "comfortable"]
+            },
+            "palette": {
+              "description": "Added since palettes: optional, so a record written before stays valid; a Snapshot opens in this palette.",
+              "enum": ["carta", "nordico", "grafite", "contrasto"]
             }
           },
           "required": ["theme", "density"],

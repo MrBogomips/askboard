@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import { PALETTES } from "@askboard/contract";
 import { DESIGN_FILE } from "./paths.ts";
-import { readDesignTokens, themeCss, tokensCss } from "./tokens.ts";
+import { checkPalettes, paletteCss, readDesignTokens, themeCss, tokensCss } from "./tokens.ts";
 
 const DESIGN = `---
 name: Test
@@ -178,6 +179,103 @@ describe("DESIGN.md's tokens as CSS variables", () => {
     const theme = themeCss(readDesignTokens(await Bun.file(DESIGN_FILE).text()));
     for (const at of [1, 2, 3, 4, 5]) {
       expect(theme).toContain(`--color-chart-${at}:var(--chart-${at});`);
+    }
+  });
+});
+
+// The named palettes (palettes, task 2.1, design decisions D2 and D3): `palettes:` holds one group
+// per palette but Carta, each with every role of `colors` and its `-dark` twin, and CSS under
+// `:root[data-palette]`.
+const WITH_PALETTE = DESIGN.replace(
+  "typography:",
+  `palettes:
+  nordico:
+    background: '#eceff4'
+    foreground: '#222936'
+    muted: '#e2e7ee'
+    background-dark: '#232933'
+    foreground-dark: '#e7ebf1'
+    muted-dark: '#323a47'
+typography:`,
+);
+
+describe("the named palettes", () => {
+  const tokens = readDesignTokens(WITH_PALETTE);
+
+  test("readDesignTokens returns each palette's keys; a file without the group has none", () => {
+    expect(Object.keys(tokens.palettes)).toEqual(["nordico"]);
+    expect(tokens.palettes.nordico?.background).toBe("#eceff4");
+    expect(readDesignTokens(DESIGN).palettes).toEqual({});
+  });
+
+  test("paletteCss writes the light roles on :root[data-palette] and the dark ones on its .dark form", () => {
+    const css = paletteCss(tokens, "nordico");
+    expect(css).toBe(
+      ':root[data-palette="nordico"]{--background:#eceff4;--foreground:#222936;--muted:#e2e7ee;}\n' +
+        ':root[data-palette="nordico"].dark{--background:#232933;--foreground:#e7ebf1;--muted:#323a47;}\n',
+    );
+  });
+
+  test("a palette holds roles only: no density variable, no alias, no color-scheme", () => {
+    const css = paletteCss(tokens, "nordico");
+    expect(css).not.toContain("color-scheme");
+    expect(css).not.toContain("--sm");
+    expect(css).not.toContain("var(");
+  });
+
+  test("a missing dark twin fails, naming the palette and the key", () => {
+    const missing = readDesignTokens(WITH_PALETTE.replace("    muted-dark: '#323a47'\n", ""));
+    expect(() => paletteCss(missing, "nordico")).toThrow('"nordico"');
+    expect(() => checkPalettes(missing, ["carta", "nordico"])).toThrow('"muted-dark"');
+  });
+
+  test("a role of colors the palette lacks fails, naming it", () => {
+    const lacking = readDesignTokens(
+      WITH_PALETTE.replace("    muted: '#e2e7ee'\n", "").replace("    muted-dark: '#323a47'\n", ""),
+    );
+    expect(() => checkPalettes(lacking, ["carta", "nordico"])).toThrow('"muted"');
+  });
+
+  test("a key colors lacks fails, naming it", () => {
+    const extra = readDesignTokens(
+      WITH_PALETTE.replace("    muted: '#e2e7ee'", "    sparkle: '#ffffff'\n    muted: '#e2e7ee'"),
+    );
+    expect(() => checkPalettes(extra, ["carta", "nordico"])).toThrow('"sparkle"');
+  });
+
+  test("an alias set by a palette fails, naming the palette and the alias", () => {
+    const aliased = readDesignTokens(
+      WITH_PALETTE.replace("    muted: '#e2e7ee'", "    accent: '#e2e7ee'\n    muted: '#e2e7ee'"),
+    );
+    expect(() => checkPalettes(aliased, ["carta", "nordico"])).toThrow('"nordico"');
+    expect(() => checkPalettes(aliased, ["carta", "nordico"])).toThrow('"accent"');
+  });
+
+  test("a palette the contract does not name fails, and so does one it names without a group", () => {
+    expect(() => checkPalettes(tokens, ["carta"])).toThrow('"nordico"');
+    expect(() => checkPalettes(tokens, ["carta", "nordico", "grafite"])).toThrow('"grafite"');
+    expect(() => paletteCss(tokens, "inchiostro")).toThrow('"inchiostro"');
+    expect(() => paletteCss(tokens, 'carta"] body{')).toThrow();
+  });
+
+  test("a palette that is whole passes, and carta needs no group", () => {
+    expect(() => checkPalettes(tokens, ["carta", "nordico"])).not.toThrow();
+  });
+
+  test("Carta's stylesheet is unchanged: tokensCss ignores the palettes", () => {
+    expect(tokensCss(tokens)).toBe(tokensCss(readDesignTokens(DESIGN)));
+  });
+
+  test("the real DESIGN.md holds a whole group for every palette the contract names but Carta", async () => {
+    const real = readDesignTokens(await Bun.file(DESIGN_FILE).text());
+    expect(() => checkPalettes(real, PALETTES)).not.toThrow();
+    expect(Object.keys(real.palettes)).toEqual(PALETTES.filter((name) => name !== "carta"));
+    for (const name of PALETTES) {
+      if (name === "carta") continue;
+      const css = paletteCss(real, name);
+      expect(css).toContain(`:root[data-palette="${name}"]{`);
+      expect(css).toContain(`:root[data-palette="${name}"].dark{`);
+      expect(css).not.toContain("!important");
     }
   });
 });

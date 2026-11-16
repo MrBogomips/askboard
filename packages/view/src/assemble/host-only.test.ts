@@ -65,7 +65,7 @@ describe("the selection's host-only chunks (design decision 4, Selection)", () =
   });
 
   test("a Snapshot takes none", () => {
-    expect(targetOf(plain)).toEqual({ output: "snapshot", renders: [] });
+    expect(targetOf(plain)).toEqual({ output: "snapshot", renders: [], palette: "carta" });
     expect(names(targetOf(plain))).toEqual(["react", "radix", "shell", "choice"]);
   });
 

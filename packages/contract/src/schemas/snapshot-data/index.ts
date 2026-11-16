@@ -5,6 +5,7 @@
 // Snapshot-toolbar's minor adds the record's optional presentation, the theme and density a board
 // would open with (design decision 2).
 // Reopen-start-from-answer's minor admits the board state's `unchanged` (design decision 7).
+// The minor of palettes adds the optional `palette` to the record's presentation (design decision D6).
 
 import type { OriginMessage } from "../../push/messages.ts";
 import type { SchemaSet } from "../../versions.ts";
@@ -15,7 +16,7 @@ import type { QuestionProps } from "../input/index.ts";
 import type { DiscardedEvent, OutputEvent } from "../output/index.ts";
 import snapshotData from "./snapshot-data.json" with { type: "json" };
 
-export const SNAPSHOT_DATA_VERSION = "1.3";
+export const SNAPSHOT_DATA_VERSION = "1.4";
 
 export const SNAPSHOT_DATA_ID = "urn:askboard:snapshot-data:snapshot-data";
 
@@ -27,8 +28,12 @@ export const snapshotDataSet: SchemaSet = {
   schemas: [snapshotData],
 };
 
-/** Since snapshot-toolbar: the theme and density a board would open with (AD-14). */
-export type SnapshotPresentation = Pick<ConfigurationValues, "theme" | "density">;
+/**
+ * Since snapshot-toolbar: the theme and density a board would open with (AD-14); since palettes also
+ * the palette, absent in an earlier record.
+ */
+export type SnapshotPresentation = Pick<ConfigurationValues, "theme" | "density"> &
+  Partial<Pick<ConfigurationValues, "palette">>;
 
 /**
  * When the Snapshot was taken, and by whom (FR-19 for the user's); since snapshot-toolbar also the

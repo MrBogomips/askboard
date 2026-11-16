@@ -126,6 +126,7 @@ describe("a toggle's value from the view", () => {
       density: "comfortable",
       contextPlacement: "inline",
       afterAnswer: "next",
+      palette: "carta",
       locked: ["contextPlacement"],
     });
     expect(run.updates.at(-1)?.presentation?.density).toBe("comfortable");
@@ -211,6 +212,7 @@ describe("the settings panel", () => {
       "compact",
       "inline",
       "next",
+      "carta",
     ]);
   });
 

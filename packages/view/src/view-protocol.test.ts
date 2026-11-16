@@ -843,6 +843,7 @@ describe("the presentation in an update (settings-languages, task 8.2)", () => {
     density: "comfortable",
     contextPlacement: "beside",
     afterAnswer: "next",
+    palette: "carta",
     locked: ["theme", "contextPlacement"],
   } as const;
 

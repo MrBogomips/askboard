@@ -87,6 +87,25 @@
           },
           "required": ["value"]
         },
+        "palette": {
+          "description": "Optional: a row arrives in the minor that adds the key (palettes, design decision D1), and a new required row would be a major.",
+          "type": "object",
+          "$ref": "#/$defs/row",
+          "properties": {
+            "value": {
+              "$ref": "urn:askboard:configuration:config#/properties/palette"
+            },
+            "other": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "$ref": "urn:askboard:configuration:config#/properties/palette"
+                }
+              }
+            }
+          },
+          "required": ["value"]
+        },
         "defaultLanguage": {
           "type": "object",
           "$ref": "#/$defs/row",
@@ -263,7 +282,7 @@
       "type": "object",
       "properties": {
         "key": {
-          "enum": ["theme", "density", "contextPlacement", "afterAnswer"]
+          "enum": ["theme", "density", "contextPlacement", "afterAnswer", "palette"]
         },
         "outcome": {
           "enum": ["saved", "refused", "failed"]

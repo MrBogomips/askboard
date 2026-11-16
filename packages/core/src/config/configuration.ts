@@ -60,7 +60,7 @@ export class Configuration {
   }
 
   /**
-   * The theme and density a board would open with now, for a Snapshot's record (snapshot-toolbar,
+   * The theme, density and palette a board would open with now, for a Snapshot's record (snapshot-toolbar,
    * design decision 3): read after every write already requested, each key's default (the settings
    * in effect hold it) when no file sets it. It is undefined when the session has no
    * configuration port (no settings to read), and rejects as `forBoard` does; the caller decides
@@ -70,7 +70,7 @@ export class Configuration {
     await this.#writes;
     if (this.#ports.config === undefined) return undefined;
     const { values } = await this.forBoard();
-    return { theme: values.theme, density: values.density };
+    return { theme: values.theme, density: values.density, palette: values.palette };
   }
 
   /** Writes one presentation key into the user file, unless the project file sets it. */

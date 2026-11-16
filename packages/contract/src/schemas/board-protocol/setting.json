@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:askboard:board-protocol:setting",
   "title": "Setting",
-  "description": "board page to board-host: the user changed one presentation key on the board, which the session process writes into the user file (AD-14, FR-35). Only theme, density, contextPlacement and afterAnswer, each with a value the configuration schema allows; board-host refuses anything else with reason message, and nothing is written. ask-core checks the key again before it writes (settings-languages, design decision 6).",
+  "description": "board page to board-host: the user changed one presentation key on the board, which the session process writes into the user file (AD-14, FR-35). Only theme, density, contextPlacement, afterAnswer and palette, each with a value the configuration schema allows; board-host refuses anything else with reason message, and nothing is written. ask-core checks the key again before it writes (settings-languages, design decision 6).",
   "type": "object",
   "properties": {
     "version": {
@@ -12,7 +12,7 @@
       "const": "setting"
     },
     "key": {
-      "enum": ["theme", "density", "contextPlacement", "afterAnswer"]
+      "enum": ["theme", "density", "contextPlacement", "afterAnswer", "palette"]
     },
     "value": {
       "description": "The key's new value, checked against that key's values below."
@@ -65,9 +65,25 @@
         }
       },
       "else": {
-        "properties": {
-          "value": {
-            "$ref": "urn:askboard:configuration:config#/properties/afterAnswer"
+        "if": {
+          "properties": {
+            "key": {
+              "const": "afterAnswer"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "value": {
+              "$ref": "urn:askboard:configuration:config#/properties/afterAnswer"
+            }
+          }
+        },
+        "else": {
+          "properties": {
+            "value": {
+              "$ref": "urn:askboard:configuration:config#/properties/palette"
+            }
           }
         }
       }

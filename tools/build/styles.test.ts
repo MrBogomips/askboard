@@ -27,6 +27,19 @@ describe("Tailwind's input per chunk", () => {
     expect(input).toContain(DARK_VARIANT);
   });
 
+  test("the board page's input adds the palettes after the tokens; a chunk's input has none", () => {
+    const page = tailwindInput("document", ["/a/page.tsx"], work, { palettes: true });
+    const tokens = page.indexOf(JSON.stringify(join(work, "tokens.css")));
+    const palettes = page.indexOf(JSON.stringify(join(work, "palettes.css")));
+    expect(tokens).toBeGreaterThan(-1);
+    expect(palettes).toBeGreaterThan(tokens);
+    expect(page.indexOf(JSON.stringify(BASE_CSS))).toBeGreaterThan(palettes);
+    expect(tailwindInput("document", ["/a/shell/index.tsx"], work)).not.toContain("palettes.css");
+    expect(tailwindInput("utilities", ["/a/x.tsx"], work, { palettes: true })).not.toContain(
+      "palettes.css",
+    );
+  });
+
   test("a component's input has only its utilities, on the same theme and dark variant", () => {
     const input = tailwindInput("utilities", ["/a/choice/index.tsx"], work);
     expect(input).not.toContain("preflight.css");
@@ -71,6 +84,16 @@ describe("Tailwind's input per chunk", () => {
     expect(css).toContain("cursor:not-allowed");
     expect(css).toContain("[data-editable]");
     expect(css).toContain("var(--hover-outline)");
+  });
+
+  test("writeTokenFiles gives each palette's CSS and writes them together as palettes.css", async () => {
+    const written = await writeTokenFiles(work);
+    expect(Object.keys(written.palettes)).toEqual(["nordico", "grafite", "contrasto"]);
+    const all = await Bun.file(join(work, "palettes.css")).text();
+    for (const [name, css] of Object.entries(written.palettes)) {
+      expect(css).toContain(`:root[data-palette="${name}"]{`);
+      expect(all).toContain(css);
+    }
   });
 
   test("a failing run names the input", async () => {

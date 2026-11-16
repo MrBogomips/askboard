@@ -24,6 +24,7 @@ export const DEFAULT_PRESENTATION: ViewPresentation = {
   density: "compact",
   contextPlacement: "beside",
   afterAnswer: "next",
+  palette: "carta",
   locked: [],
 };
 

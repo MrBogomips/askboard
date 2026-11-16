@@ -145,6 +145,46 @@ describe("writing a presentation key", () => {
     });
   });
 
+  test("palette grafite is written beside the user file's other keys, and the row follows", async () => {
+    const user = { version: v, theme: "light", editor: ["code", "{file}"] };
+    const fakes = withConfig({ user });
+    const outcome = await fakes.core.writeSetting({ key: "palette", value: "grafite" });
+    expect(outcome).toEqual({ key: "palette", outcome: "saved" });
+    expect(fakes.written).toEqual([asJson({ ...user, palette: "grafite" })]);
+    expect((await fakes.core.settingsForBoard()).rows.palette).toEqual({
+      value: "grafite",
+      from: "user",
+      writable: true,
+    });
+  });
+
+  test("a project-set palette refuses the write and the row is read-only", async () => {
+    const fakes = withConfig({
+      user: { version: v },
+      project: { version: v, palette: "contrasto" },
+    });
+    const outcome = await fakes.core.writeSetting({ key: "palette", value: "carta" });
+    expect(outcome).toEqual({ key: "palette", outcome: "refused", reason: "set-by-project" });
+    expect(fakes.written).toEqual([]);
+    expect((await fakes.core.settingsForBoard()).rows.palette).toMatchObject({
+      value: "contrasto",
+      from: "project",
+      writable: false,
+    });
+  });
+
+  test("a palette the contract does not name is refused as invalid and nothing is written", async () => {
+    const fakes = withConfig({ user: { version: v } });
+    for (const value of ["inchiostro", 'carta"] body{', 3]) {
+      const outcome = await fakes.core.writeSetting({
+        key: "palette",
+        value,
+      } as PresentationSetting);
+      expect(outcome).toEqual({ key: "palette", outcome: "refused", reason: "invalid" });
+    }
+    expect(fakes.written).toEqual([]);
+  });
+
   test("afterAnswer back is refused as invalid and nothing is written", async () => {
     const fakes = withConfig({ user: { version: v } });
     const outcome = await fakes.core.writeSetting({
@@ -343,7 +383,11 @@ describe("the presentation now", () => {
 
   test("with no file is the defaults", async () => {
     const { settings } = configuration({});
-    expect(await settings.presentationNow()).toEqual({ theme: "system", density: "compact" });
+    expect(await settings.presentationNow()).toEqual({
+      theme: "system",
+      density: "compact",
+      palette: "carta",
+    });
   });
 
   test("with no port is none: there are no settings to read", async () => {
@@ -355,7 +399,11 @@ describe("the presentation now", () => {
     const { settings } = configuration({
       user: { version: v, theme: "light", density: "comfortable" },
     });
-    expect(await settings.presentationNow()).toEqual({ theme: "light", density: "comfortable" });
+    expect(await settings.presentationNow()).toEqual({
+      theme: "light",
+      density: "comfortable",
+      palette: "carta",
+    });
   });
 
   test("takes the project file's theme over the user's", async () => {
@@ -363,14 +411,22 @@ describe("the presentation now", () => {
       user: { version: v, theme: "dark", density: "comfortable" },
       project: { version: v, theme: "light" },
     });
-    expect(await settings.presentationNow()).toEqual({ theme: "light", density: "comfortable" });
+    expect(await settings.presentationNow()).toEqual({
+      theme: "light",
+      density: "comfortable",
+      palette: "carta",
+    });
   });
 
   test("follows a user file changed after the first read", async () => {
     const { settings, setUser } = configuration({ user: { version: v, theme: "light" } });
     expect((await settings.presentationNow())?.theme).toBe("light");
     setUser({ version: v, theme: "dark", density: "comfortable" });
-    expect(await settings.presentationNow()).toEqual({ theme: "dark", density: "comfortable" });
+    expect(await settings.presentationNow()).toEqual({
+      theme: "dark",
+      density: "comfortable",
+      palette: "carta",
+    });
   });
 
   test("includes a write started and not awaited, even when the file takes time to replace", async () => {
@@ -392,12 +448,20 @@ describe("the presentation now", () => {
     const writing = settings.write({ key: "theme", value: "dark" });
     const reading = settings.presentationNow();
     proceed();
-    expect(await reading).toEqual({ theme: "dark", density: "compact" });
+    expect(await reading).toEqual({
+      theme: "dark",
+      density: "compact",
+      palette: "carta",
+    });
     expect((await writing).outcome).toBe("saved");
   });
 
   test("with a user file that fails its check is the defaults", async () => {
     const { settings } = configuration({ user: "{ not json" });
-    expect(await settings.presentationNow()).toEqual({ theme: "system", density: "compact" });
+    expect(await settings.presentationNow()).toEqual({
+      theme: "system",
+      density: "compact",
+      palette: "carta",
+    });
   });
 });

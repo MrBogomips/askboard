@@ -35,6 +35,7 @@ const dark: ViewPresentation = {
   density: "comfortable",
   contextPlacement: "inline",
   afterAnswer: "next",
+  palette: "carta",
   locked: ["density"],
 };
 

@@ -29,7 +29,7 @@ import {
 } from "./board-host/helpers.ts";
 
 // Board-host spec, A board writes only presentation keys (settings-languages, task 5.2): a
-// `setting` for anything but `theme`, `density`, `contextPlacement` or `afterAnswer` with a schema value is a
+// `setting` for anything but `theme`, `density`, `contextPlacement`, `afterAnswer` or `palette` with a schema value is a
 // `message` refusal and neither configuration file changes; a valid one reaches ask-core, and the
 // board hears the settings as read now, with the write's outcome.
 
@@ -111,6 +111,8 @@ describe("a board writes only presentation keys", () => {
     ["theme", "sepia"],
     ["theme", { dark: true }],
     ["afterAnswer", "back"],
+    ["palette", "inchiostro"],
+    ["palette", 'carta"] body{'],
   ])("%s %p is refused as a message, and neither file changes", async (key, value) => {
     const { board, bytes, fixture } = await liveBoard();
     const before = bytes();
@@ -158,6 +160,19 @@ describe("a board writes only presentation keys", () => {
       keys: { afterAnswer: { value: "stay", from: "user", writable: true } },
     });
     expect(JSON.parse(readFileSync(user, "utf8"))).toEqual({ ...USER_FILE, afterAnswer: "stay" });
+    expect(fixture.reported).toEqual([]);
+  });
+
+  test("palette grafite is written into the user file and its row comes back", async () => {
+    const { board, user, fixture } = await liveBoard();
+    board.send(setting("palette", "grafite"));
+    const settings = (await board.nextSettings()) as Record<string, unknown>;
+    expect(validateBoardMessage("toPage", settings).ok).toBe(true);
+    expect(settings).toMatchObject({
+      write: { key: "palette", outcome: "saved" },
+      keys: { palette: { value: "grafite", from: "user", writable: true } },
+    });
+    expect(JSON.parse(readFileSync(user, "utf8"))).toEqual({ ...USER_FILE, palette: "grafite" });
     expect(fixture.reported).toEqual([]);
   });
 

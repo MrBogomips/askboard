@@ -39,6 +39,13 @@ export const IT_IT = {
   "toggles.compact": "Compatta",
   "toggles.comfortable": "Comoda",
   "toggles.settings": "Impostazioni",
+  "toggles.palette": "Palette",
+  "toggles.paletteCarta": "Carta",
+  "toggles.paletteNordico": "Nordico",
+  "toggles.paletteGrafite": "Grafite",
+  "toggles.paletteContrasto": "Contrasto",
+  // To review (palettes, design decision D6).
+  "toggles.paletteSystemContrast": "Il sistema chiede più contrasto: è in uso Contrasto.",
   "settings.title": "Impostazioni",
   "settings.close": "Chiudi le impostazioni",
   "settings.contextPlacement": "Posizione del contesto",

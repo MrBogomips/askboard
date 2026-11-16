@@ -37,7 +37,7 @@ describe("the sets reopen-start-from-answer widens", () => {
       snapshot: SNAPSHOT_DATA_VERSION,
     }).toEqual({
       protocol: true,
-      snapshot: "1.3",
+      snapshot: "1.4",
     });
     expect(setOf("board-protocol").version).toBe(BOARD_PROTOCOL_VERSION);
     expect(setOf("snapshot-data").version).toBe(SNAPSHOT_DATA_VERSION);
