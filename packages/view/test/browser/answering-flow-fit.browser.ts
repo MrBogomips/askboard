@@ -49,6 +49,10 @@ const clipped = (board: Board): Promise<string[]> =>
     for (const element of doc.querySelectorAll(scoped.join(", "))) {
       if (element.closest("[data-askboard-outbox]") !== null) continue;
       const style = view.getComputedStyle(element);
+      // An inline box (the ask row's `bdi`, which isolates agent text) has no client width by CSSOM
+      // and Firefox gives it a scroll width: the pill around it, which carries the ellipsis, is
+      // what is measured (#239).
+      if (style.display === "inline") continue;
       const scrolls = style.overflowX === "auto" || style.overflowX === "scroll";
       if (wide(element) && style.textOverflow !== "ellipsis" && !scrolls) {
         found.push(`frame ${named(element)}`);
@@ -87,6 +91,30 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         }
       }
     }
+  });
+
+  describe(`${engine}: the measure of the frame's fit`, () => {
+    const { start } = useEngine(engine);
+
+    test(
+      "a header box that overflows with no ellipsis is counted, and an inline box inside a pill is not",
+      async () => {
+        const run = await start(
+          lifecycleScenario(answeringAsk("sections", "en-US", "submitted"), dist),
+        );
+        const board = await openBoard(run, ALL);
+        expect(await clipped(board)).toEqual([]);
+        await board.view.locator("body").evaluate((body) => {
+          const header = body.ownerDocument.querySelector("header");
+          const box = body.ownerDocument.createElement("div");
+          box.style.cssText = "width: 20px; white-space: nowrap";
+          box.textContent = "a label that is far wider than its box";
+          header?.append(box);
+        });
+        expect(await clipped(board)).toEqual(["frame div[a label that is far wider than]"]);
+      },
+      TEST_TIMEOUT_MS,
+    );
   });
 
   describe(`${engine}: the ledger's pulse`, () => {

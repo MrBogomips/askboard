@@ -53,9 +53,32 @@ const outlineSays = (board: Board, id: string, label: string) =>
     .getByText(label, { exact: true })
     .waitFor({ timeout: STEP_TIMEOUT_MS });
 
+/**
+ * Tab from the header's Keys button to the target, the way a keyboard user reaches the rail's
+ * delivery switch: the header, the outline, then the outbox come before the cards. Not forward from
+ * the last card: Firefox starts a Tab that leaves the page at the top of the visible area, which
+ * is the engine's rule, not the board's order (#240).
+ */
+const tabFromHeader = async (board: Board, target: Locator): Promise<void> => {
+  await board.view.getByRole("button", { name: "Keys", exact: true }).focus();
+  await tabTo(board, target, { max: 40 });
+};
+
 for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
   describe(`${engine}: the keyboard core`, () => {
     const { start } = useEngine(engine);
+
+    test(
+      "Tab from the header reaches the delivery switch within 30 presses",
+      async () => {
+        const run = await start(lifecycleScenario(submittedAsk, dist));
+        const board = await openBoard(run, QUESTIONS);
+        await board.view.getByRole("button", { name: "Keys", exact: true }).focus();
+        await tabTo(board, board.delivery("immediate"), { max: 30 });
+        expect(await ringShown(board.delivery("immediate"))).toBe(true);
+      },
+      TEST_TIMEOUT_MS,
+    );
 
     test(
       "with the keyboard alone the user answers, postpones, sends a follow-up, declines, submits and switches delivery; focus moves to the next question to do after Postpone, and, with nothing left to do, goes to Send",
@@ -139,7 +162,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         );
 
         // The delivery switch: with nothing held, Enter switches at once.
-        await tabTo(board, board.delivery("immediate"), { max: 120 });
+        await tabFromHeader(board, board.delivery("immediate"));
         await keyboard.press("Enter");
         await eventually(
           async () => (await board.delivery("immediate").getAttribute("aria-pressed")) === "true",
@@ -180,7 +203,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await actsSent(run, 1);
         await keep.waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
         await eventually(async () => !(await board.submit.isDisabled()), "Submit");
-        await tabTo(board, board.delivery("immediate"));
+        await tabFromHeader(board, board.delivery("immediate"));
         await keyboard.press("Enter");
         const dialog = board.view.getByRole("alertdialog");
         await dialog.waitFor({ timeout: STEP_TIMEOUT_MS });
@@ -193,7 +216,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await keyboard.press("Escape");
         await dialog.waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
         expect(sentActs(run)).toHaveLength(1);
-        await tabTo(board, board.delivery("immediate"));
+        await tabFromHeader(board, board.delivery("immediate"));
         await keyboard.press("Enter");
         await tabTo(board, dialog.getByRole("button", { name: "Send and switch" }));
         await keyboard.press("Enter");

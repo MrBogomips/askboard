@@ -89,11 +89,14 @@ export const treeFocus = async (board: Board): Promise<FocusAt> =>
   });
 
 /**
- * Tabs into the Tree from its question's text, as a keyboard user does: a click on the text sets
- * where Tab starts, then Tab is pressed until the focus is in the treegrid, at most six times (the header ends with the Keys button, board-keys).
+ * Tabs into the Tree from its question's text, as a keyboard user does: the heading takes the
+ * focus, which sets where Tab starts, then Tab is pressed until the focus is in the treegrid, at
+ * most six times. The heading is focused and not clicked: after a click Firefox starts Tab at the
+ * top of the visible page, through the header's five stops, which is the engine's own rule and
+ * not the board's order (#240).
  */
 export const tabIntoTree = async (board: Board, questionText: string): Promise<FocusAt> => {
-  await board.view.getByRole("heading", { name: questionText }).click();
+  await board.view.getByRole("heading", { name: questionText }).focus();
   for (let presses = 0; presses < 6; presses += 1) {
     await board.page.keyboard.press("Tab");
     const at = await treeFocus(board);
@@ -160,7 +163,7 @@ export const toolFocus = async (board: Board): Promise<string | undefined> =>
 
 /** Tabs into the Tree's toolbar from its question's text, as `tabIntoTree` does into the tree. */
 export const tabIntoToolbar = async (board: Board, questionText: string): Promise<string> => {
-  await board.view.getByRole("heading", { name: questionText }).click();
+  await board.view.getByRole("heading", { name: questionText }).focus();
   for (let presses = 0; presses < 6; presses += 1) {
     await board.page.keyboard.press("Tab");
     const tool = await toolFocus(board);
