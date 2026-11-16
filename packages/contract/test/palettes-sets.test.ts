@@ -40,9 +40,10 @@ const file = (fields: Record<string, unknown>) => ({ version: "1.0", ...fields }
 const clone = <T>(value: T): Record<string, any> => JSON.parse(JSON.stringify(value));
 
 describe("the minors", () => {
-  test("configuration 1.3, board protocol 1.13, Snapshot data 1.4, each set at its constant", () => {
+  test("configuration 1.3, board protocol at least 1.13, Snapshot data 1.4, each set at its constant", () => {
     expect(CONFIGURATION_VERSION).toBe("1.3");
-    expect(BOARD_PROTOCOL_VERSION).toBe("1.13");
+    // Later changes move the minor on: palettes' is the floor.
+    expect(Number(BOARD_PROTOCOL_VERSION.split(".")[1])).toBeGreaterThanOrEqual(13);
     expect(SNAPSHOT_DATA_VERSION).toBe("1.4");
     expect(versionOf("configuration")).toBe(CONFIGURATION_VERSION);
     expect(versionOf("board-protocol")).toBe(BOARD_PROTOCOL_VERSION);

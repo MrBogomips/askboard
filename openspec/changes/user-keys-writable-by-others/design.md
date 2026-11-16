@@ -29,7 +29,7 @@ Constraints: AD-14, AD-8, NFR-5, NFR-10 (fail closed: an ignored `keys` leaves e
 
 ### D2. A new warning code, the board protocol's next minor
 
-`settings.json`'s warning enum gains `keys-file-writable-by-others`, its `description` gains the code's meaning, and `SettingWarning["code"]` gains it. The `else` branch already refuses `rule`, `action`, `binding` and `with` on it. A new enum value is minor-compatible, so the board protocol moves to the **next minor after main's**, bound at the rebase task (askboard-contract-versioning, Rules 1 and 2): the constant, one header sentence naming this change, the version test, and the earlier exact pins. No other set changes: the configuration file's schema and the Snapshot data do not carry warnings.
+`settings.json`'s warning enum gains `keys-file-writable-by-others`, its `description` gains the code's meaning, and `SettingWarning["code"]` gains it. The `else` branch already refuses `rule`, `action`, `binding` and `with` on it. A new enum value is minor-compatible, so the board protocol moves to the **next minor after main's**, bound at the rebase task (askboard-contract-versioning, Rules 1 and 2): the constant, one header sentence naming this change, the version test, and the earlier exact pins. Bound on 2026-11-16, rebased onto origin/main e799b351: board protocol 1.14 (main 1.13). No other set changes: the configuration file's schema and the Snapshot data do not carry warnings.
 
 *Alternative.* Reusing `editor-file-writable-by-others` with `key: "keys"` avoids the minor, but its name, its stderr line and the panel's string all say "its editor is ignored", and the Keys row would not hold it.
 

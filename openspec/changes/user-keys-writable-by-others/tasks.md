@@ -25,7 +25,7 @@ Each task writes its tests first and sees them fail before implementing. "The ch
 
 ## 5. Records and the rebase
 
-- [ ] 5.1 Write `docs/as-built/user-keys-writable-by-others.md` (no status). Rebase onto `origin/main` and bind the board protocol at main's minor plus one (askboard-contract-versioning): the constant, its pins, the binding line in design.md D2 and in the note. Verify: borrowed names re-found; no stale number in the diff; the check, `bun run build` and `openspec validate --all --strict --no-interactive` pass.
+- [x] 5.1 Write `docs/as-built/user-keys-writable-by-others.md` (no status). Rebase onto `origin/main` and bind the board protocol at main's minor plus one (askboard-contract-versioning): the constant, its pins, the binding line in design.md D2 and in the note. Verify: borrowed names re-found; no stale number in the diff; the check, `bun run build` and `openspec validate --all --strict --no-interactive` pass.
 
 ## 6. Review fixes
 
