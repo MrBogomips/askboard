@@ -93,7 +93,7 @@ OpenSpec 2.0.0, schema `spec-driven`; run it as `npx --yes @fission-ai/openspec@
 
 ## Agent harness
 
-Project agents design, implement and review OpenSpec changes, and each task group is reviewed as it lands.
+Project agents design, implement and review OpenSpec changes: one implementer runs a change's task groups in sequence, and the change is reviewed once, before its pull request.
 
 - OpenSpec owns the artifacts; `askboard-architect` writes them only through the `openspec-*` skills. The apply step reads `operations.apply.guidance` in `openspec/config.yaml` and delegates through the `askboard-delivery` skill, which holds the flow and each agent's job.
 - There is no gate on every prompt: use `askboard-delivery` to propose, apply, review, rebase or prepare the pull request of a change; answer questions and make small fixes directly.
@@ -138,7 +138,8 @@ bun tools/release/version.ts <x.y.z>                 # one version in every mani
 
 ## CI
 
-- Run `bun run test:e2e:smoke` before every pull request that touches the view, the server or the conformance suite, and `bun run test:e2e` before one that changes the harness, the runner or a widget's rendering. A new browser file is listed in `packages/view/test/browser/harness/suites.ts` or a test fails.
+- A change runs no full or multi-engine e2e suite locally: its new browser files are checked in Chromium only, and CI's smoke run on the pull request is its e2e gate (informative; read the conclusion with `gh pr checks`, not the log). A new browser file is listed in `packages/view/test/browser/harness/suites.ts` or a test fails.
+- The e2e train runs the full three-engine suite on CI: `e2e.yml`'s nightly cadence on `main`, nightly or dispatched after a batch of merges. Its failures become `source:e2e` Issues, fixed in one stabilisation change; changes in flight never stop for them. A change that alters the runner, the browser harness or a widget's rendering dispatches a train on its branch before merge: `gh workflow run e2e.yml --ref <branch> -f cadence=nightly` (the PO's answer on #227, 2026-11-16).
 - No ruleset requires a status yet: check that `openspec`, `check` and `codex` are green before merging. The e2e statuses are not required (the PO's answer, 2026-11-14).
 - On a Mac, WebKit's keyboard cases need keyboard navigation on (System Settings > Keyboard > Keyboard navigation), or they fail with "ten presses of Tab never reached Answer".
 - Workflows, cadence, runners and releases: `.github/AGENTS.md`.

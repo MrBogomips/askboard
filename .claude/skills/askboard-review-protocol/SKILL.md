@@ -1,6 +1,6 @@
 ---
 name: askboard-review-protocol
-description: The review protocol for AskBoard OpenSpec changes - how to pin the review target (worktree, base..head SHAs, change, scope), group checkpoints versus pre-PR reviews versus fix re-reviews, what not to report, adversarial self-verification of each finding, the S-n/X-n finding format and severities, and how the coordinating session turns findings into tasks. Use it whenever an AskBoard change, task group, fix range or pull request is reviewed for spec conformance or security, by a reviewer agent or by the session that requests the review and folds its findings in. Not for reviewing code outside this repository.
+description: The review protocol for AskBoard OpenSpec changes - how to pin the review target (worktree, base..head SHAs, change, scope), the one pre-PR review and the re-review of its M and H fixes, what not to report, adversarial self-verification of each finding, the S-n/X-n finding format and severities, and how the coordinating session turns findings into tasks. Use it whenever an AskBoard change, fix range or pull request is reviewed for spec conformance or security, by a reviewer agent or by the session that requests the review and folds its findings in. Not for reviewing code outside this repository.
 ---
 
 # Reviewing an AskBoard change
@@ -18,7 +18,7 @@ A review needs four facts:
 | Worktree | absolute path |
 | Range | base and head as commit SHAs, not branch names that move |
 | Change | the OpenSpec change id |
-| Scope | task groups (for example "group 3"), a fix range, or "whole change" |
+| Scope | "whole change", or a fix range |
 
 Check them with commands run in the worktree:
 
@@ -47,13 +47,14 @@ Both reviewers did this on their own in the first evaluation (2026-11-06).
 
 ## 2. Kinds of review
 
-| Kind | Range | Reads | Default effort |
+| Kind | Range | Reads | Effort |
 |---|---|---|---|
-| Group checkpoint | the group's commits | the group's tasks, the requirements and decisions they cite, the diff, the code the diff reaches | spec medium, security high |
-| Fix re-review | the fix commits | each finding being fixed, its fix and its test | as the original |
-| Pre-PR | merge base with `origin/main` to head | the whole change, the seams between groups, the documents, the Issue links | spec high, security xhigh |
+| Pre-PR | merge base with `origin/main` to head | the whole change, the seams between groups, the documents, the Issue links | spec medium; security high, only when the diff touches the paths `askboard-delivery` lists |
+| Fix re-review | the fix commits | each M and H finding being fixed, its fix and its test | as the pre-PR |
 
-A fix re-review reports each finding as closed or still open, plus anything the fix broke.
+A change is reviewed once, before its pull request: there are no group checkpoints (the PO's answer
+on #227, 2026-11-16). A fix re-review reports each M and H finding as closed or still open, plus
+anything the fix broke; L findings are not re-reviewed.
 
 A range that touches a widget's keys also checks that the key table (`KEY_VOCABULARY`, `keyTableProblems`), the handler (`keyActionOf` over `useKeyTable`), the tooltips (`KeyHint`), the keys panel (`KeysButton`, `KeysPanelBody`), the references and `askboard-help` agree, and that a key outside the vocabulary carries the PO's recorded approval; a disagreement is an M finding citing decision 15 of `keyboard-shortcuts-help`.
 
@@ -65,8 +66,8 @@ several changes and this is not the last. A missing or wrong link is an L findin
 ## 3. What not to report
 
 - Formatting and lint that Biome enforces, and type errors: `bun run check` catches them.
-- Items the change already accepted or deferred: read the change's `tasks.md` notes and its "Fixes
-  from review" groups, and design.md's Risks and Open Questions. Report one again only when the range
+- Items the change already accepted or deferred: read the change's `tasks.md` notes, its as-built note and
+  its "Fixes from review" groups, and design.md's Risks and Open Questions. Report one again only when the range
   makes it worse, and say how.
 - Items an Issue already holds: search before reporting
   (`gh issue list --repo MrBogomips/askboard --state all --search "<key words> in:title,body"`),
@@ -127,13 +128,14 @@ review:
 
 - folds H and M findings into the change through `/openspec-update-change`, as fix tasks with tests first, in a
   "Fixes from review" group, with the finding IDs in the task text (E4 did this with M1 to M7);
-- folds each L finding, or defers it: records it in `tasks.md` with a reason and opens an Issue for
-  it (`type:defect`, the finding's severity, `source:review`, its areas; the finding ID, the change and the
-  range in its Origin; the `askboard-backlog` skill), so it outlives the archived change. A finding the PO
-  accepts as deferred, at any severity, becomes an Issue the same way;
+- fixes each L finding in the same round, accepts it in the as-built note with a reason, or defers
+  it to an Issue (`type:defect`, the finding's severity, `source:review`, its areas; the finding ID, the
+  change and the range in its Origin; the `askboard-backlog` skill), so it outlives the archived change. A
+  finding the PO accepts as deferred, at any severity, becomes an Issue the same way;
 - when two reviews disagree, keeps both views with their source and decides by the rule they cite, or
   asks the PO; it never drops a finding silently;
-- asks for a fix re-review of the fix range once the fixes are in.
+- asks for a fix re-review of the M and H findings once the fixes are in. There is one fix round:
+  an M or H finding still open after it goes to the PO, with its Issue.
 
 ## 7. Patterns that recur
 

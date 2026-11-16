@@ -1,6 +1,6 @@
 ---
 name: askboard-contract-versioning
-description: Keeps concurrent AskBoard OpenSpec changes from colliding on the versions of the contract package's schema sets (input format, output format, tool envelopes, board document, board protocol, view manifest, Snapshot data, configuration, local API, session file) and on the seam names one change borrows from another. Use it whenever you design, implement, rebase or review an AskBoard change that adds or edits a schema under packages/contract, moves a *_VERSION or *_FORMAT constant, adds a board-protocol message or a schema set, or borrows or introduces a seam (appended registries and export blocks, dispatch tables, one-line unions, ports), including group 0 name checks, binding version labels at the rebase before a pull request, and spec review checkpoints. Not for package or plugin semver, dependency pins, molecule definition versions, or versioning questions outside this repository.
+description: Keeps concurrent AskBoard OpenSpec changes from colliding on the versions of the contract package's schema sets (input format, output format, tool envelopes, board document, board protocol, view manifest, Snapshot data, configuration, local API, session file) and on the seam names one change borrows from another. Use it whenever you design, implement, rebase or review an AskBoard change that adds or edits a schema under packages/contract, moves a *_VERSION or *_FORMAT constant, adds a board-protocol message or a schema set, or borrows or introduces a seam (appended registries and export blocks, dispatch tables, one-line unions, ports), including group 0 name checks, binding version labels at the rebase before a pull request, and the pre-PR spec review. Not for package or plugin semver, dependency pins, molecule definition versions, or versioning questions outside this repository.
 ---
 
 # Contract versions and seams across concurrent changes
@@ -68,7 +68,7 @@ A minor keeps its major's meaning (`versions.ts:1-9`): it may add fields and enu
 - The constant must hold a number while you build: set it to main's current minor plus one when the group starts. That number then appears in two places only: the constant and the change's own version test.
 - Other new tests compare with the constant (`version: BOARD_PROTOCOL_VERSION`), never with a literal. A test that only needs "this change's additions are in" asserts an at-least version, as `packages/contract/test/lifecycle-fixtures.test.ts:152` does.
 - Bind at the rebase right before the pull request: main's current minor plus one for each set the change widens; sets it does not widen keep main's value. If another change that widens the same set merges first, rebind after its merge. Re-read main's constants just before the merge too.
-- Record the binding once in design.md, under the versions decision, as a dated line: "Bound on <date>, rebased onto origin/main <sha>: board protocol 1.6 (main 1.5), output format 1.4 (main 1.3)." Mirror it in the rebase task's note, the PR body and the change's as-built note `docs/as-built/<change-id>.md`, which names the bound versions.
+- Record the binding once in design.md, under the versions decision, as a dated line: "Bound on <date>, rebased onto origin/main <sha>: board protocol 1.6 (main 1.5), output format 1.4 (main 1.3)." Mirror it in the rebase commit's body, the PR body and the change's as-built note `docs/as-built/<change-id>.md`, which names the bound versions.
 
 ## Rule 2: what moves with one minor
 
@@ -107,11 +107,11 @@ Rules:
 
 Group 0 task, in the repository's task style:
 
-> - [ ] 0.N Check every name design.md borrows (Merge points) on `origin/main` with `git grep -n`, and record each with its file and line in this task's note. Record the version each set this change widens holds on `main`; the constants start at the next minor and are bound at the rebase task. Verify that the note lists every name and version; if a name, signature or shape differs, or a name is not on `main`, stop and run `/openspec-update-change` before group 1.
+> - [ ] 0.N Check every name design.md borrows (Merge points) on `origin/main` with `git grep -n`, and record each with its file and line in group 0's commit body. Record the version each set this change widens holds on `main`; the constants start at the next minor and are bound at the rebase task. Verify that the commit body lists every name and version; if a name, signature or shape differs, or a name is not on `main`, stop and run `/openspec-update-change` before group 1.
 
 Last group, before the pull request:
 
-> - [ ] N.M Rebase onto `origin/main` and bind the version labels (askboard-contract-versioning): each widened set at main's minor plus one, the earlier exact pins moved, the binding line in design.md, every borrowed name re-checked. Verify that `git grep` finds each borrowed name on the rebased head, that the diff carries no stale number, and that `bun run check`, `bun run build` and `openspec validate --all --strict --no-interactive` pass; record main's SHA, the bound versions and the counts in the note.
+> - [ ] N.M Rebase onto `origin/main` and bind the version labels (askboard-contract-versioning): each widened set at main's minor plus one, the earlier exact pins moved, the binding line in design.md, every borrowed name re-checked. Verify that `git grep` finds each borrowed name on the rebased head, that the diff carries no stale number, and that `bun run check`, `bun run build` and `openspec validate --all --strict --no-interactive` pass; record main's SHA, the bound versions and the counts in the commit body.
 
 ## Rebase procedure
 
@@ -126,15 +126,15 @@ Last group, before the pull request:
    - For `packages/view/chunk-sizes.json`, follow `askboard-implementation`.
    - Search for leftovers: `grep -rn '^<<<<<<<\|^>>>>>>>' packages tools`.
 6. Bind the labels and move the pins (Rules 1 and 2). Re-check every borrowed name on the rebased head; a difference stops the work for `/openspec-update-change`.
-7. Run `bun install --frozen-lockfile`, `bun run check`, `bun run build` and `openspec validate --all --strict --no-interactive`, plus `bun run test:e2e:smoke` when the view, the server or the conformance suite changed, and `bun run test:e2e` when the harness, the runner or a widget's rendering changed (AGENTS.md, CI).
-8. Record the rebase task's note, the PR body and the as-built note. If another change merges first, repeat from step 1.
+7. Run `bun install --frozen-lockfile`, `bun run check`, `bun run build` and `openspec validate --all --strict --no-interactive`, with no local full or multi-engine e2e run: CI's smoke on the pull request is the e2e gate, and a change to the runner, the browser harness or a widget's rendering dispatches a train on its branch (AGENTS.md, CI).
+8. Record the rebase in its commit body, the PR body and the as-built note. If another change merges first, repeat from step 1.
 
 ## What the spec reviewer checks
 
 - Each set the diff widens moved exactly one minor past main's (`git show origin/main:packages/contract/src/<module>`); every other set equals main's.
 - Each edit is minor-compatible (see Minor or major). Anything else is a finding unless a design decision cites AD-7 and records the PO's approval.
-- Before the rebase task: the change's artifacts, comments, schema descriptions and test titles carry labels or change names, not numbers. After it: the bound number is the same in the constant, the version test, the design binding line, the task note, the PR body and the as-built note.
-- No number or name is taken from an unmerged change. Every borrowed name is in design.md's Merge points, and the group 0 note gives its file and line on `main`.
+- Before the rebase task: the change's artifacts, comments, schema descriptions and test titles carry labels or change names, not numbers. After it: the bound number is the same in the constant, the version test, the design binding line, the rebase commit's body, the PR body and the as-built note.
+- No number or name is taken from an unmerged change. Every borrowed name is in design.md's Merge points, and group 0's commit body gives its file and line on `main`.
 - Added lines carry no stale number. Read each hit of `git diff -U0 origin/main...HEAD -- packages tools openspec | grep -E '^\+[^+].*\b1\.[0-9]+\b'`.
 - Registries and export blocks changed by appended lines only (plus the constant line). There is one header comment per block and no conflict residue.
 - Fixtures take `version` from the constant. The approved examples are untouched. A new set has its AD-7 row, its `SCHEMA_SET_OWNERS` entry and its `SCHEMA_SETS` entry.

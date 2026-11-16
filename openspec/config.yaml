@@ -16,23 +16,25 @@ context: |
 # harness) relies on them.
 rules:
   design:
+    - Keep design.md to about 3,000 words at most; cite IDs instead of restating them. A change holds about 30 tasks at most; a larger one is split into changes that stack on a local integration branch.
     - List the changes in flight that this change touches (`openspec list` and their designs) as merge points, with every seam it borrows from them. Borrow only names present on main; a seam from an unmerged change is re-checked at the rebase before the pull request.
     - Write a new version of a contract schema set as "next minor after main's", never as a number taken from another change in flight; the number is bound at the rebase before the pull request (the askboard-contract-versioning skill).
     - Mark every assumption about Claude Code's run-time behaviour (the mod API, hooks, agent and teammate IDs, auto mode, permission prompts) "needs probe", and verify it against the documentation or with a probe task in group 0 before anything relies on it.
     - A change that adds or alters a widget's keys declares its key table (the vocabulary's actions, own actions the PO approved, each entry's visible counterpart) and its contextual help (`KeyHint`, `KeysButton`, the keys panel), or states the reason `keys-coverage.test.ts` gives for a widget without one.
   tasks:
+    - One line per task, plus the scenario names it covers and its Verify clause, about 60 words per task. No restated design and no per-task progress notes (the group's commit says what was built); a task gets a one-line note only for a deviation from the plan.
     - Each task names its tests first and carries a Verify clause.
-    - End each implementation group with a review checkpoint task. It is a spec review of the group's range. It adds a security review when the group touches the board host or its local API, hooks, the mod, the contract's schemas or validators, the view's sandbox or page policy, the file system or the network.
+    - Write no review checkpoint tasks (the change is reviewed once, before its pull request, by the askboard-delivery skill) and no tasks to run the full or multi-engine e2e suites locally (CI's smoke on the pull request and the e2e train run them, AGENTS.md, CI). A new browser file's task sees it fail and then pass in Chromium only.
     - A group that adds or alters a widget's keys names first the tests of its key table (parity with the handler, and with the toolbar in both directions), of its tooltips and of its keys panel, each with a Verify clause.
-    - Keep each as-built note to about five lines. Record what was built, the test counts and the deviations.
-    - The documents task writes the change's record in its own file `docs/as-built/<change-id>.md` (what it built, where the code lives, the names and seams it added, the versions it bound; no status), never in AGENTS.md, which changes only when a rule it states changes.
+    - The documents task, at the end of the change, writes the change's record once in its own file `docs/as-built/<change-id>.md` (what it built, where the code lives, the names and seams it added, the versions it bound; no status), never in AGENTS.md, which changes only when a rule it states changes.
 
 # Per-operation guidance, advisory, for apply and archive.
 operations:
   apply:
     guidance:
-      - The session that runs apply coordinates through the askboard-delivery skill. It delegates each task group to the askboard-implementer agent. It runs each group's review checkpoint with askboard-spec-reviewer, and adds askboard-security-reviewer when the checkpoint asks for it.
-      - An askboard-implementer agent implements the group it was given directly and does not delegate it further.
+      - The session that runs apply coordinates through the askboard-delivery skill. It delegates the change's task groups to one askboard-implementer agent, which runs them in sequence, commits each group with its ticks, and hands off only when its context runs low. There is no review between groups.
+      - Before the pull request it runs the whole check once and one review: askboard-spec-reviewer, plus askboard-security-reviewer when the diff touches the paths the skill lists; then one fix round, with a re-review of the M and H findings only.
+      - An askboard-implementer agent implements the groups it was given directly and does not delegate them further.
       - Raise the implementer's effort to high for contract and core groups, for rebase conflicts and for a second attempt at a task.
   archive:
     guidance:
