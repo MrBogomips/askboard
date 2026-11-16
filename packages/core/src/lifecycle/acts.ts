@@ -14,7 +14,7 @@ import {
 } from "@askboard/contract";
 import type { ExpansionMap } from "../molecules/map.ts";
 import { cursorOf, isRealUtcTime } from "../text.ts";
-import { contentOf, contentProblem, textProblem } from "./answers.ts";
+import { asSentProblem, contentOf, contentProblem, textProblem } from "./answers.ts";
 import type { Entry, EventLog } from "./log.ts";
 import type { BoardModel, QuestionRecord } from "./model.ts";
 import { type QuestionStatus, questionStatus } from "./states.ts";
@@ -165,8 +165,15 @@ const answered = (target: Target, declined: boolean, who: string): Built => {
   const shape = shapeProblem(act, itemId, { rev: "integer", when: "string" });
   if (shape !== undefined) return shape;
   const rev = act.rev as number;
+  if (act.asSent !== undefined && act.asSent !== true) {
+    return problem("act", "the act's asSent is not true", itemId);
+  }
+  const asSent = act.asSent === true;
   const props = propsFor(target, rev);
   if (props === undefined) return staleRev(target);
+  if (asSent && declined) {
+    return problem("content", "a decline cannot be accepted as sent", itemId);
+  }
   // A decline carries at most its reason; anything else on it is not read.
   const reason = act.note === undefined ? {} : { note: act.note };
   const widgets = widgetsOf(target, props, declined);
@@ -181,12 +188,23 @@ const answered = (target: Target, declined: boolean, who: string): Built => {
   const widgetChange =
     widgets !== undefined &&
     (Object.keys(widgets.values).length > 0 || Object.keys(widgets.results).length > 0);
-  const bad = contentProblem(declined ? reason : act, props, declined, widgetChange, target.types);
+  const unsent =
+    asSent && widgets !== undefined ? asSentProblem(act, props, widgets, target.types) : undefined;
+  if (unsent !== undefined) return problem(unsent.refusal, unsent.detail, itemId);
+  const bad = contentProblem(
+    declined ? reason : act,
+    props,
+    declined,
+    widgetChange,
+    target.types,
+    asSent,
+  );
   if (bad !== undefined) return problem(bad.refusal, bad.detail, itemId);
   const late = whenProblem(target);
   if (late !== undefined) return late;
   const head = { cursor: target.cursor, type: "answer", itemId, rev, who, when: act.when };
   const body = declined ? { declined: true, ...reason } : contentOf(act);
+  const accepted = asSent ? { asSent: true } : {};
   const widget: WidgetFields =
     widgets === undefined ? {} : widgetFieldsOf(target.expansion, props, widgets, target.types);
   const unmet =
@@ -202,7 +220,13 @@ const answered = (target: Target, declined: boolean, who: string): Built => {
   const unchecked = widgets === undefined ? undefined : fieldCheckProblem(widgets, target.types);
   if (unchecked !== undefined) return problem("content", unchecked, itemId);
   if (widgets !== undefined) keepWidgets(target, widgets);
-  return withinLimit({ ...head, ...body, ...widget, ...replacesOf(target) } as AnswerEvent);
+  return withinLimit({
+    ...head,
+    ...body,
+    ...accepted,
+    ...widget,
+    ...replacesOf(target),
+  } as AnswerEvent);
 };
 
 const postponed = (target: Target): Built => {

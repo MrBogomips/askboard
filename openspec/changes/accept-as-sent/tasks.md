@@ -16,9 +16,9 @@ Each task names its tests first and sees them fail for the right reason before i
 
 ## 2. Core (effort high)
 
-- [ ] 2.1 Tests first, in `packages/core/test/accept-as-sent.test.ts`: a Tree accepted with a note; acceptance on a kept revision; acceptance beside a moving value; acceptance on an options question, a question with no edit type, or beside a choice, other text, option notes, results or a decline; a required field left empty; equal values without `asSent` still refused; `asSent` other than `true` refused as `act`. Scenarios: core's modified requirement. Verify: each fails.
-- [ ] 2.2 Implement decision 4: `asSentProblem` in `lifecycle/answers.ts`; `contentProblem`'s `asSent` flag; `answered` in `acts.ts` builds the event with `asSent` and no `changes`; `withinLimit` keeps it. Verify: 2.1 passes, and `acts.test.ts` and `answer.test.ts` stay green.
-- [ ] 2.3 Tests, then code: `AnswerContent.asSent`, `CONTENT` in `lifecycle/views.ts`, and `currentOf` in `snapshot/state.ts`. `fetch`'s full answer, the board view's current and previous answer, and a Snapshot's state carry `asSent`. Scenarios: "The board state of an accepted question", "Fetching an accepted question". Verify: the new cases pass, the results validate against the bumped sets, and coverage holds.
+- [x] 2.1 Tests first, in `packages/core/test/accept-as-sent.test.ts`: a Tree accepted with a note; acceptance on a kept revision; acceptance beside a moving value; acceptance on an options question, a question with no edit type, or beside a choice, other text, option notes, results or a decline; a required field left empty; equal values without `asSent` still refused; `asSent` other than `true` refused as `act`. Scenarios: core's modified requirement. Verify: each fails.
+- [x] 2.2 Implement decision 4: `asSentProblem` in `lifecycle/answers.ts`; `contentProblem`'s `asSent` flag; `answered` in `acts.ts` builds the event with `asSent` and no `changes`; `withinLimit` keeps it. Verify: 2.1 passes, and `acts.test.ts` and `answer.test.ts` stay green.
+- [x] 2.3 Tests, then code: `AnswerContent.asSent`, `CONTENT` in `lifecycle/views.ts`, and `currentOf` in `snapshot/state.ts`. `fetch`'s full answer, the board view's current and previous answer, and a Snapshot's state carry `asSent`. Scenarios: "The board state of an accepted question", "Fetching an accepted question". Verify: the new cases pass, the results validate against the bumped sets, and coverage holds.
 
 ## 3. Server
 

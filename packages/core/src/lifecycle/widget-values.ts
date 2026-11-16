@@ -67,6 +67,18 @@ const widgetsOf = (
   );
 };
 
+/**
+ * Whether a revision's props hold, at any depth, a widget item whose type declares `edits`: content
+ * the user edits, which an answer may accept as sent (accept-as-sent, design decision 4).
+ */
+export const holdsEditWidget = (
+  props: QuestionProps,
+  types: readonly WidgetType[] = WIDGET_TYPES,
+): boolean =>
+  [...widgetsOf(props, types).values()].some(
+    (item) => widgetTypeOf(item.type, types)?.edits !== undefined,
+  );
+
 /** The registry's types as the refusals name them: `Tree, Gantt or Probe` (the nouns, less `a`). */
 export const namesOf = (types: readonly WidgetType[]): string => {
   const names = types.map(({ noun }) => noun.replace(/^an? /, ""));

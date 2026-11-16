@@ -28,6 +28,8 @@ export type AnswerContent = {
   readonly other?: string;
   readonly optionNotes?: Readonly<Record<string, string>>;
   readonly note?: string;
+  /** The user accepted the question's content as the agent sent it (accept-as-sent). */
+  readonly asSent?: true;
 };
 
 /** An answer the agent recorded on the user's behalf (FR-19; proposal, open question 3). */
