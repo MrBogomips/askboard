@@ -554,6 +554,42 @@ describe("the browser's own scroll and the user's during a move", () => {
     expect(s.calls.filter((call) => call.startsWith("scroll")).length).toBe(1);
   });
 
+  for (const [what, type, init] of [
+    ["a keydown Tab", "keydown", { key: "Tab" }],
+    ["a touchstart", "touchstart", {}],
+  ] as const) {
+    test(`${what} with no page movement halts the move at its next frame, with no landing`, () => {
+      const s = stand();
+      revealAndFocus(s.element, { smooth: true, align: "card" });
+      s.frames.shift()?.(16);
+      const at = s.view.scrollY;
+      s.fire(type, init);
+      s.frames.shift()?.(32);
+      deadlineOf(s)?.run();
+      expect(s.view.scrollY).toBe(at);
+    });
+  }
+
+  test("the halt applies to an instant move with a resolve: no landing at its deadline", () => {
+    const s = stand();
+    revealAndFocus(s.element, { align: "card", resolve: () => s.element });
+    const at = s.view.scrollY;
+    // The layout moves after the instant scroll: the landing would scroll 60 px more.
+    s.shift(60);
+    s.fire("wheel");
+    deadlineOf(s)?.run();
+    expect(s.view.scrollY).toBe(at);
+  });
+
+  test("an instant move with a resolve and no input still lands at its deadline", () => {
+    const s = stand();
+    revealAndFocus(s.element, { align: "card", resolve: () => s.element });
+    const at = s.view.scrollY;
+    s.shift(60);
+    deadlineOf(s)?.run();
+    expect(s.view.scrollY).toBe(at + 60);
+  });
+
   test("a pointer press alone does not stop the move", () => {
     const s = stand();
     revealAndFocus(s.element, { smooth: true });

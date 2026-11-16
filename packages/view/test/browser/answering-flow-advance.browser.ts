@@ -600,6 +600,23 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
+      "a Tab during the move halts it: the card is not carried to its place",
+      async () => {
+        const { run, board } = await openTall(start);
+        await readyQ3(board);
+        await board.page.keyboard.press("Enter");
+        await board.page.keyboard.press("Tab");
+        await actsSent(run, 1);
+        await Bun.sleep(500);
+        const put = await scrollY(board);
+        await Bun.sleep(500);
+        expect(Math.abs((await scrollY(board)) - put)).toBeLessThanOrEqual(4);
+        expect(await cardIsUnderHeader(board, "q4")).toBe(false);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
       "a focus moved to another heading during the move: the move stops and that heading keeps focus",
       async () => {
         const { run, board } = await openTall(start);
