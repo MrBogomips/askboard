@@ -102,7 +102,7 @@
           "maxLength": 10000
         },
         "asSent": {
-          "description": "Since accept-as-sent: the user accepted the question's content as the agent sent it (AD-10); ask-core accepts it only on a question with no options whose edit widgets are unchanged. It admits no choice, \"Other…\" text, option notes or results; note and derived stay, and values, whose equality with what was sent ask-core checks.",
+          "description": "Since accept-as-sent: the user accepted the question's content as the agent sent it (AD-10); ask-core accepts it only on a question with no options whose edit widgets are unchanged. It admits no choice, \"Other…\" text or option notes; note and derived stay, with the results of input fields and values, whose equality with what was sent ask-core checks.",
           "const": true
         },
         "values": {
@@ -145,8 +145,7 @@
           "properties": {
             "choice": false,
             "other": false,
-            "optionNotes": false,
-            "results": false
+            "optionNotes": false
           }
         }
       }

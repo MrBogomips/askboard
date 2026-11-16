@@ -57,10 +57,15 @@ describe("an answer accepted as sent in the answer act", () => {
     ["choice", ["Yes"]],
     ["other", "Elsewhere"],
     ["optionNotes", { Yes: "x" }],
-    ["results", { tree: 1 }],
   ])("asSent beside %s is refused at that field", (field, value) => {
     expect(paths(validateBoardMessage("toHost", actWith({ [field]: value })))).toContain(
       `/acts/0/${field}`,
+    );
+  });
+
+  test("results beside asSent validate: the input fields' results travel with it", () => {
+    expect(validateBoardMessage("toHost", actWith({ results: { who: "Sara Conti" } })).ok).toBe(
+      true,
     );
   });
 
@@ -95,8 +100,21 @@ describe("an answer accepted as sent in the output format", () => {
     expect(validateAgainst(SCHEMA_IDS.answerEvent, event).ok).toBe(true);
   });
 
-  test("replaces and tooLarge stay admitted beside it", () => {
+  test("replaces stays admitted beside it", () => {
     expect(validateAgainst(SCHEMA_IDS.answerEvent, { ...event, replaces: "k3x9.0" }).ok).toBe(true);
+  });
+
+  test("tooLarge stays admitted beside it, when changes, results and derived are left out", () => {
+    const { derived: _derived, ...rest } = event;
+    expect(validateAgainst(SCHEMA_IDS.answerEvent, { ...rest, tooLarge: true }).ok).toBe(true);
+  });
+
+  test("results beside it validate, with the note and derived", () => {
+    const checked = validateAgainst(SCHEMA_IDS.answerEvent, {
+      ...event,
+      results: { who: "Sara Conti" },
+    });
+    expect(paths(checked)).toEqual([]);
   });
 
   test.each([
@@ -104,10 +122,16 @@ describe("an answer accepted as sent in the output format", () => {
     ["other", "Elsewhere"],
     ["optionNotes", { Yes: "x" }],
     ["changes", [{ op: "remove", target: "a" }]],
-    ["results", { tree: 1 }],
-    ["declined", true],
   ])("asSent beside %s is refused", (field, value) => {
     expect(validateAgainst(SCHEMA_IDS.answerEvent, { ...event, [field]: value }).ok).toBe(false);
+  });
+
+  test("asSent beside declined is refused, on an event with no derived to blame", () => {
+    const { derived: _derived, note: _note, ...bare } = event;
+    expect(validateAgainst(SCHEMA_IDS.answerEvent, { ...bare, declined: true }).ok).toBe(false);
+    expect(
+      validateAgainst(SCHEMA_IDS.answerEvent, { ...bare, declined: true, asSent: undefined }).ok,
+    ).toBe(true);
   });
 
   test("asSent other than true is refused", () => {
@@ -160,11 +184,23 @@ describe("an answer accepted as sent in the board state, fetch and Snapshots", (
     ["other", "Elsewhere"],
     ["optionNotes", { Yes: "x" }],
     ["values", { tree: { nodes: [] } }],
-    ["results", { tree: 1 }],
     ["declined", true],
   ])("the board state's asSent beside %s is refused", (field, value) => {
     const answer = { asSent: true, when: "2026-11-16T09:30:00Z", receipt: "sent", [field]: value };
     expect(validateBoardMessage("toPage", stateWith(answer)).ok).toBe(false);
+  });
+
+  test("the board state's and fetch's asSent admit the input fields' results", () => {
+    const answer = {
+      asSent: true,
+      when: "2026-11-16T09:30:00Z",
+      receipt: "sent",
+      results: { who: "Sara Conti" },
+    };
+    expect(paths(validateBoardMessage("toPage", stateWith(answer)))).toEqual([]);
+    const sent = { cursor: "k3x9.1", who: "Sara Conti", when: "2026-11-16T09:30:00Z" };
+    const fetched = fetchWith({ ...sent, asSent: true, results: { who: "Sara Conti" } });
+    expect(paths(validateAgainst(SCHEMA_IDS.fetchResult, fetched))).toEqual([]);
   });
 
   test("fetch's answer with asSent validates, with the same exclusions", () => {
@@ -175,7 +211,6 @@ describe("an answer accepted as sent in the board state, fetch and Snapshots", (
       ["other", "Elsewhere"],
       ["optionNotes", { Yes: "x" }],
       ["values", { tree: { nodes: [] } }],
-      ["results", { tree: 1 }],
       ["declined", true],
     ] as const) {
       const answer = { ...base, asSent: true, [field]: value };

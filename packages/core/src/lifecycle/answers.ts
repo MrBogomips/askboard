@@ -10,6 +10,7 @@ import {
   type QuestionProps,
   WIDGET_TYPES,
   type WidgetType,
+  widgetTypeOf,
 } from "@askboard/contract";
 import type { AnswerContent } from "./model.ts";
 import { holdsEditWidget, namesOf, type WidgetContent } from "./widget-values.ts";
@@ -93,10 +94,12 @@ const ACCEPTED = "an answer accepted as sent";
 
 /**
  * Why an answer that accepts the question's content as sent cannot be one, or undefined when it can
- * (accept-as-sent, design decision 4; AD-10): the revision it names has options or holds no
- * widget whose content the user edits, it carries a choice, "Other…" text, option notes or
- * results, or a value it carries differs from the item as sent. `widgets` is the content
- * `widgetContentOf` kept: any value in it is one that differs.
+ * (accept-as-sent, design decisions 4 and 11; AD-10): the revision it names has options or holds no
+ * widget whose content the user edits, it carries a choice, "Other…" text or option notes, a
+ * result of an item that is no input field (a type that declares no `fieldCheck`: an Approval's
+ * verdict or a Ranking's order would contradict "accepted as is"), or a value that differs from
+ * the item as sent. `widgets` is the content `widgetContentOf` kept: any value in it is one that
+ * differs. The results of input fields stay; their field checks run after.
  */
 export const asSentProblem = (
   content: Readonly<Record<string, unknown>>,
@@ -111,11 +114,17 @@ export const asSentProblem = (
   if (!holdsEditWidget(props, types)) {
     return refuse(`${ACCEPTED} needs a ${namesOf(types)} item whose content the user edits`);
   }
-  for (const field of ["choice", "other", "optionNotes", "results"] as const) {
+  for (const field of ["choice", "other", "optionNotes"] as const) {
     if (content[field] !== undefined) return refuse(`${ACCEPTED} carries no ${field}`);
   }
-  if (Object.keys(widgets.values).length > 0 || Object.keys(widgets.results).length > 0) {
+  if (Object.keys(widgets.values).length > 0) {
     return refuse(`${ACCEPTED} holds values that differ from the content as sent`);
+  }
+  for (const id of Object.keys(widgets.results)) {
+    const item = widgets.sent.find((sent) => sent.id === id);
+    if (widgetTypeOf(item?.type ?? "", types)?.fieldCheck === undefined) {
+      return refuse(`${ACCEPTED} carries no result of item ${id}, which is no input field`);
+    }
   }
   return undefined;
 };

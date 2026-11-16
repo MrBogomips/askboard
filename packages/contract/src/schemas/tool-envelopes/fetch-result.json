@@ -167,7 +167,7 @@
           "minLength": 1
         },
         "asSent": {
-          "description": "Since accept-as-sent: the user accepted the question's content exactly as the agent sent it (AD-10); the answer holds no choice, other, optionNotes, values, results or declined.",
+          "description": "Since accept-as-sent: the user accepted the question's content exactly as the agent sent it (AD-10); the answer holds no choice, other, optionNotes, values or declined; it may hold the input fields' results.",
           "const": true
         },
         "values": {
@@ -223,7 +223,6 @@
             "other": false,
             "optionNotes": false,
             "values": false,
-            "results": false,
             "declined": false,
             "recorded": false
           }

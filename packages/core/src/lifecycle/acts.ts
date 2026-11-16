@@ -174,6 +174,11 @@ const answered = (target: Target, declined: boolean, who: string): Built => {
   if (asSent && declined) {
     return problem("content", "a decline cannot be accepted as sent", itemId);
   }
+  // A kept older revision is not the content the agent sent last: no acceptance names it (decision 11, D-B).
+  if (asSent && rev !== target.question.rev) {
+    const detail = `an answer accepted as sent names the current revision, revision ${target.question.rev}, not revision ${rev}`;
+    return problem("content", detail, itemId);
+  }
   // A decline carries at most its reason; anything else on it is not read.
   const reason = act.note === undefined ? {} : { note: act.note };
   const widgets = widgetsOf(target, props, declined);

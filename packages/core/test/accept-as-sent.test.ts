@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { RESULT_VERSIONS, SCHEMA_IDS } from "@askboard/contract";
+import {
+  APPROVAL_FIXTURE_ITEM,
+  APPROVAL_RESULTS,
+  RANKING_FIXTURE_ITEM,
+  RANKING_RESULT,
+} from "@askboard/contract/fixtures";
 import { validateAgainst } from "@askboard/contract/validate";
 import { AskCore } from "../src/index.ts";
 import { boardStateOf } from "../src/snapshot/state.ts";
@@ -10,7 +16,8 @@ import { actionId, appendedOf, logOf, WHEN } from "./lifecycle-fakes.ts";
 // decision 4): an answer that accepts a question's content as the agent sent it is accepted only on
 // a question whose named revision has no options and holds an edit widget, with every value it
 // carries equal to the item as sent and the field checks passing; anything else is refused, with
-// the log unchanged (AD-10, NFR-10).
+// the log unchanged (AD-10, NFR-10). Decision 11: only on the question's current revision, and only
+// the input fields' results (the types that declare a field check) travel beside it.
 
 type Act = Parameters<AskCore["act"]>[1];
 type AskInput = Parameters<AskCore["ask"]>[0];
@@ -94,7 +101,7 @@ describe("a question with a Tree accepted as sent", () => {
 });
 
 describe("a question accepted as sent on a kept revision", () => {
-  test("names the revision the user kept with an ignore edit choice", async () => {
+  const keepRevisionOne = async () => {
     const { core } = await setup(reviewed());
     const updated = await core.update({
       askId: ASK_ID,
@@ -109,8 +116,27 @@ describe("a question accepted as sent on a kept revision", () => {
       ],
     } as unknown as Act);
     expect(kept.ok).toBe(true);
-    expect(send(core, "plan", { asSent: true }, 1).ok).toBe(true);
-    expect(logOf(core, ASK_ID).at(-1)).toMatchObject({ asSent: true, rev: 1 });
+    return core;
+  };
+
+  test("naming the kept revision is refused, naming the current one, with the log unchanged", async () => {
+    const core = await keepRevisionOne();
+    const detail = refusalOf(send(core, "plan", { asSent: true }, 1));
+    expect(detail).toContain("current revision");
+    expect(detail).toContain("revision 2");
+    expect(logOf(core, ASK_ID).filter((event) => event.type === "answer")).toEqual([]);
+  });
+
+  test("an answer that edits the kept revision is still accepted, as before", async () => {
+    const core = await keepRevisionOne();
+    const mine = { nodes: [{ id: "ux", label: "Mine" }] };
+    expect(send(core, "plan", { values: { t: mine } }, 1).ok).toBe(true);
+  });
+
+  test("naming the current revision is accepted", async () => {
+    const core = await keepRevisionOne();
+    expect(send(core, "plan", { asSent: true }, 2).ok).toBe(true);
+    expect(logOf(core, ASK_ID).at(-1)).toMatchObject({ asSent: true, rev: 2 });
   });
 
   test("an old revision with no edit choice is a stale revision, refused", async () => {
@@ -119,7 +145,7 @@ describe("a question accepted as sent on a kept revision", () => {
       askId: ASK_ID,
       actions: [{ action: "change", itemId: "plan", props: { items: [tree("d")] } }],
     });
-    expect(send(core, "plan", { asSent: true }, 1).ok).toBe(false);
+    expect(refusalOf(send(core, "plan", { asSent: true }, 1))).toContain("revision 2");
     expect(logOf(core, ASK_ID).map((event) => event.type)).toEqual([]);
   });
 });
@@ -137,32 +163,35 @@ describe("an acceptance beside a moving value", () => {
 });
 
 describe("an acceptance where it is not true", () => {
-  test("on a question with options is refused", async () => {
+  test("on a question with options is refused, naming the options", async () => {
     const { core, heard } = await setup(
       question("plan", { text: "Plan?", options: [{ label: "Yes" }], items: [tree()] }),
     );
-    expect(refusalOf(send(core, "plan", { asSent: true }))).toContain("as sent");
+    expect(refusalOf(send(core, "plan", { asSent: true }))).toContain(
+      "only for a question with no options",
+    );
     expect(logOf(core, ASK_ID)).toEqual([]);
     expect(appendedOf(heard)).toEqual([]);
   });
 
-  test("on a question with no edit widget is refused", async () => {
+  test("on a question with no edit widget is refused, naming the missing widget", async () => {
     const { core } = await setup(
       question("plan", {
         text: "Plan?",
         items: [{ type: "text-field", id: "f", props: { label: "F" } }],
       }),
     );
-    expect(refusalOf(send(core, "plan", { asSent: true }))).toContain("as sent");
+    expect(refusalOf(send(core, "plan", { asSent: true }))).toContain(
+      "whose content the user edits",
+    );
     expect(logOf(core, ASK_ID)).toEqual([]);
   });
 
   test.each([
-    ["a choice", { choice: ["Yes"] }],
-    ["an Other… text", { other: "Else" }],
-    ["option notes", { optionNotes: { Yes: "x" } }],
-    ["a result", { results: { t: 1 } }],
-  ])("beside %s is refused, with the log unchanged", async (_, extra) => {
+    ["choice", { choice: ["Yes"] }],
+    ["other", { other: "Else" }],
+    ["optionNotes", { optionNotes: { Yes: "x" } }],
+  ])("beside %s is refused, naming it, with the log unchanged", async (name, extra) => {
     const { core } = await setup(
       question("plan", {
         text: "Plan?",
@@ -170,7 +199,9 @@ describe("an acceptance where it is not true", () => {
         items: [tree()],
       }),
     );
-    expect(send(core, "plan", { asSent: true, ...extra }).ok).toBe(false);
+    expect(refusalOf(send(core, "plan", { asSent: true, ...extra }))).toContain(
+      `accepted as sent carries no ${name}`,
+    );
     expect(logOf(core, ASK_ID)).toEqual([]);
   });
 
@@ -181,7 +212,7 @@ describe("an acceptance where it is not true", () => {
       actionId: actionId(n),
       acts: [{ type: "decline", itemId: "plan", rev: 1, asSent: true, when: WHEN }],
     } as unknown as Act);
-    expect(refusalOf(outcome)).toContain("accepted as sent");
+    expect(refusalOf(outcome)).toContain("a decline cannot be accepted as sent");
     expect(logOf(core, ASK_ID)).toEqual([]);
   });
 
@@ -194,7 +225,77 @@ describe("an acceptance where it is not true", () => {
 
   test.each([false, "true", 1, null])("an asSent of %p is refused as act", async (value) => {
     const { core } = await setup(reviewed());
-    expect(refusalOf(send(core, "plan", { asSent: value }))).toContain("act");
+    expect(refusalOf(send(core, "plan", { asSent: value }))).toContain(
+      "the act's asSent is not true",
+    );
+    expect(logOf(core, ASK_ID)).toEqual([]);
+  });
+});
+
+describe("an acceptance beside the input fields' results (design decision 11, D-A)", () => {
+  const withField = () => question("plan", { text: "Plan?", items: [tree(), field] });
+  const withApproval = () =>
+    question("plan", { text: "Plan?", items: [tree(), APPROVAL_FIXTURE_ITEM] });
+  const withRanking = () =>
+    question("plan", { text: "Plan?", items: [tree(), RANKING_FIXTURE_ITEM] });
+
+  test("a filled required TextField's result is accepted, and is in the event's results", async () => {
+    const { core } = await setup(withField());
+    const outcome = send(core, "plan", { asSent: true, results: { who: "Sara Conti" } });
+    expect(outcome.ok).toBe(true);
+    const [event] = logOf(core, ASK_ID);
+    expect(event).toMatchObject({ asSent: true, results: { who: "Sara Conti" } });
+    expect(event).not.toHaveProperty("changes");
+  });
+
+  test("the accepted event with its results passes the output format", async () => {
+    const { core } = await setup(withField());
+    send(core, "plan", { asSent: true, results: { who: "Sara Conti" } });
+    const checked = validateAgainst(SCHEMA_IDS.answerEvent, logOf(core, ASK_ID)[0]);
+    expect(checked.ok ? [] : checked.problems).toEqual([]);
+  });
+
+  test("fetch's answer holds the results beside asSent", async () => {
+    const { core } = await setup(withField());
+    send(core, "plan", { asSent: true, results: { who: "Sara Conti" } });
+    const value = core.fullValue(ASK_ID, "plan");
+    if (value.kind !== "item") throw new Error(value.kind);
+    expect(value.item).toMatchObject({ answer: { asSent: true, results: { who: "Sara Conti" } } });
+  });
+
+  test("the result still faces its field check: a text under minLength is refused", async () => {
+    const short = { ...field, props: { ...field.props, minLength: 5 } };
+    const { core } = await setup(question("plan", { text: "Plan?", items: [tree(), short] }));
+    const detail = refusalOf(send(core, "plan", { asSent: true, results: { who: "ab" } }));
+    expect(detail).toContain("who");
+    expect(logOf(core, ASK_ID)).toEqual([]);
+  });
+
+  test("a Tree change beside the result is refused, with the log unchanged", async () => {
+    const { core } = await setup(withField());
+    const moved = { nodes: [{ id: "ux", label: "Moved" }] };
+    const detail = refusalOf(
+      send(core, "plan", { asSent: true, results: { who: "Sara" }, values: { t: moved } }),
+    );
+    expect(detail).toContain("values that differ from the content as sent");
+    expect(logOf(core, ASK_ID)).toEqual([]);
+  });
+
+  test("an Approval's result is refused, naming the item and its type", async () => {
+    const { core } = await setup(withApproval());
+    const detail = refusalOf(
+      send(core, "plan", { asSent: true, results: { verdict: APPROVAL_RESULTS.reject } }),
+    );
+    expect(detail).toContain("accepted as sent carries no result of item verdict");
+    expect(logOf(core, ASK_ID)).toEqual([]);
+  });
+
+  test("a Ranking's result is refused, naming the item and its type", async () => {
+    const { core } = await setup(withRanking());
+    const detail = refusalOf(
+      send(core, "plan", { asSent: true, results: { priorities: RANKING_RESULT } }),
+    );
+    expect(detail).toContain("accepted as sent carries no result of item priorities");
     expect(logOf(core, ASK_ID)).toEqual([]);
   });
 });

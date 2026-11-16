@@ -111,7 +111,7 @@
           "maxLength": 10000
         },
         "asSent": {
-          "description": "Since accept-as-sent: the user accepted the question's content as the agent sent it; the answer holds no choice, \"Other…\" text, option notes, values, results or decline (AD-10).",
+          "description": "Since accept-as-sent: the user accepted the question's content as the agent sent it; the answer holds no choice, \"Other…\" text, option notes, values or decline; it may hold the input fields' results (AD-10).",
           "const": true
         },
         "values": {
@@ -164,7 +164,6 @@
             "other": false,
             "optionNotes": false,
             "values": false,
-            "results": false,
             "declined": false
           }
         }

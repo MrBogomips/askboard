@@ -121,7 +121,7 @@ export type AnswerEvent = {
   readonly declined?: true;
   /** The cursor of the answer this revision replaces (FR-22, AD-20). */
   readonly replaces?: string;
-  /** Since accept-as-sent: the user accepted the question's content exactly as sent (AD-10); no choice, `changes` or `results` go with it. */
+  /** Since accept-as-sent: the user accepted the question's content exactly as sent (AD-10); no choice or `changes` go with it; the input fields' `results` may. */
   readonly asSent?: true;
   /** Since 1.3: `changes` and `derived` were over `ANSWER_EVENT_MAX_CHARS` and are left out; `fetch` has them. */
   readonly tooLarge?: true;

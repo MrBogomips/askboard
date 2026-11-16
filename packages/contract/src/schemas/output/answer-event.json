@@ -84,7 +84,7 @@
       "$ref": "urn:askboard:output:cursor"
     },
     "asSent": {
-      "description": "Since accept-as-sent: the user accepted the question's content exactly as the agent sent it (AD-10). The event carries no choice, other, optionNotes, changes, results or declined; it may carry note, derived and replaces. It is never a missing answer.",
+      "description": "Since accept-as-sent: the user accepted the question's content exactly as the agent sent it (AD-10). The event carries no choice, other, optionNotes, changes or declined; it may carry note, the input fields' results, derived and replaces. It is never a missing answer.",
       "const": true
     },
     "tooLarge": {
@@ -101,7 +101,6 @@
         "other": false,
         "optionNotes": false,
         "changes": false,
-        "results": false,
         "declined": false
       }
     },
