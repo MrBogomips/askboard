@@ -778,13 +778,25 @@ describe("an answer accepted as sent goes only where it can be (accept-as-sent, 
     }
   });
 
+  test("an asSent answer goes with the input fields' results, which core checks (decision 11)", () => {
+    const [first] = (
+      ganttPlanBoardDocument.items[0] as unknown as { props: { items: { id: string }[] } }
+    ).props.items;
+    const results = { [first?.id ?? ""]: "Sara Conti" };
+    expect(answerActFor(visible(), accepted({ results }))).toEqual({
+      ok: true,
+      value: [{ type: "answer", itemId: question, rev: 1, asSent: true, when, results }],
+    });
+  });
+
   test.each([
-    ["a choice", { choice: ["Yes"] }],
-    ["an Other… text", { other: "Else" }],
-    ["widget values", { values: { wbs: { nodes: [] } } }],
-    ["results", { results: { wbs: { x: 1 } } }],
-  ])("beside %s it is refused before sending", (_, extra) => {
-    expect(detailOf(visible(), accepted(extra))).toContain("as sent");
+    ["choice", { choice: ["Yes"] }],
+    ["other", { other: "Else" }],
+    ["values", { values: { wbs: { nodes: [] } } }],
+  ])("beside %s it is refused before sending, naming it", (field, extra) => {
+    expect(detailOf(visible(), accepted(extra))).toBe(
+      `an answer accepted as sent carries no ${field}`,
+    );
   });
 
   test("on a question with options at the current revision it is refused", () => {
@@ -795,6 +807,8 @@ describe("an answer accepted as sent goes only where it can be (accept-as-sent, 
         props: { ...item.props, options: [{ label: "Yes" }] },
       })),
     } as unknown as BoardDocument;
-    expect(detailOf(visible(withOptions), accepted())).toContain("as sent");
+    expect(detailOf(visible(withOptions), accepted())).toBe(
+      "an answer accepted as sent is for a question with no options",
+    );
   });
 });

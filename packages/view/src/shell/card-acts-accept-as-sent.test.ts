@@ -3,7 +3,7 @@ import type { ViewQuestion } from "../view-document.ts";
 import type { ViewMessage } from "../view-protocol.ts";
 import { createAnswerActs } from "./answer-acts.ts";
 import { createBoardDraft, type Delivery } from "./board-draft.ts";
-import { acceptAsSent, answer, pressAnswer, withDerived } from "./card-acts.ts";
+import { acceptAsSent, answer, keepMine, pressAnswer, withDerived } from "./card-acts.ts";
 import type { ViewChannel } from "./channel.ts";
 import { createDerivedStore } from "./derived-store.ts";
 import { createDraftStore } from "./draft-store.ts";
@@ -29,7 +29,11 @@ const plan = {
 const requiring = (type: string) =>
   type === "text-field" ? { check: () => ({ code: "required" as const }) } : {};
 
-const setUp = (delivery: Delivery = "immediate", facts: (type: string) => object = () => ({})) => {
+const setUp = (
+  delivery: Delivery = "immediate",
+  facts: (type: string) => object = () => ({}),
+  more: Partial<Parameters<typeof answer>[1]> = {},
+) => {
   const sent: ViewMessage[] = [];
   const channel: ViewChannel = {
     send: async (message) => {
@@ -49,6 +53,7 @@ const setUp = (delivery: Delivery = "immediate", facts: (type: string) => object
   return {
     sent,
     draft,
+    results,
     board,
     derived,
     log,
@@ -62,6 +67,7 @@ const setUp = (delivery: Delivery = "immediate", facts: (type: string) => object
       delivery,
       status,
       facts,
+      ...more,
     } as Parameters<typeof answer>[1],
   };
 };
@@ -127,6 +133,95 @@ describe("Accept as is in immediate delivery", () => {
     } as unknown as ViewQuestion;
     expect(acceptAsSent(blocked, context)).toBeUndefined();
     expect(sent).toEqual([]);
+  });
+});
+
+// The input fields register a field check, the others none.
+const FIELD_FACTS = (type: string) =>
+  ["text-field", "toggle"].includes(type) ? { check: () => undefined } : {};
+const withItems = (...items: object[]) =>
+  ({
+    ...plan,
+    props: { ...plan.props, items: [{ type: "tree", id: "t", props: TREE }, ...items] },
+  }) as unknown as ViewQuestion;
+const WHO = { type: "text-field", id: "who", props: { label: "Who" } };
+
+describe("Accept as is beside the input fields' results (design decision 11, D-A)", () => {
+  test("sends the results of the input fields with asSent, and no values or choice", () => {
+    const { sent, results, context } = setUp("immediate", FIELD_FACTS);
+    results.set("who", "Sara Conti");
+    expect(acceptAsSent(withItems(WHO), context)).toBe("sent");
+    expect(sent).toEqual([
+      expect.objectContaining({ asSent: true, results: { who: "Sara Conti" } }),
+    ]);
+    expect(sent[0]).not.toHaveProperty("values");
+    expect(sent[0]).not.toHaveProperty("choice");
+  });
+
+  test("a result of an item that is no input field sends nothing", () => {
+    const approval = { type: "approval", id: "verdict", props: {} };
+    const { sent, results, context } = setUp("immediate", FIELD_FACTS);
+    results.set("verdict", { decision: "reject" });
+    expect(acceptAsSent(withItems(approval), context)).toBeUndefined();
+    expect(sent).toEqual([]);
+  });
+
+  test("in submitted delivery a held result of an item that is no input field holds nothing", () => {
+    const approval = { type: "approval", id: "verdict", props: {} };
+    const { board, results, context } = setUp("submitted", FIELD_FACTS);
+    results.set("verdict", { decision: "reject" });
+    expect(acceptAsSent(withItems(approval), context)).toBeUndefined();
+    expect(board.work("plan")?.held).toBeUndefined();
+  });
+});
+
+describe("Accept as is only on the current revision (design decision 11, D-B)", () => {
+  const revised = { ...plan, rev: 2 } as ViewQuestion;
+
+  test("the work names an earlier revision: nothing is sent", () => {
+    const { sent, board, context } = setUp();
+    board.edit("plan", 1, () => ({ rev: 1, note: "mine" }));
+    expect(acceptAsSent(revised, context)).toBeUndefined();
+    expect(sent).toEqual([]);
+  });
+
+  test("the card shows an earlier revision of the current question: nothing is sent", () => {
+    const { sent, board, context } = setUp("immediate", () => ({}), {
+      shownOf: () => plan,
+    });
+    board.edit("plan", 1, () => ({ rev: 2 }));
+    expect(acceptAsSent(revised, context)).toBeUndefined();
+    expect(sent).toEqual([]);
+  });
+
+  test("an item is read-only: nothing is sent", () => {
+    const { sent, context } = setUp("immediate", () => ({}), {
+      readOnlyOf: () => new Set(["t"]),
+    });
+    expect(acceptAsSent(plan, context)).toBeUndefined();
+    expect(sent).toEqual([]);
+  });
+
+  test("in submitted delivery nothing is held on an earlier revision", () => {
+    const { board, context } = setUp("submitted");
+    board.edit("plan", 1, () => ({ rev: 1 }));
+    expect(acceptAsSent(revised, context)).toBeUndefined();
+    expect(board.work("plan")?.held).toBeUndefined();
+  });
+
+  test("Answer, which is no acceptance, still answers on an earlier revision", () => {
+    const { sent, draft, board, context } = setUp();
+    draft.set("t", { nodes: [{ id: "ux", label: "Mine" }] });
+    board.edit("plan", 1, (work) => ({ ...work, rev: 1 }));
+    expect(answer(revised, context)).toBe("sent");
+    expect(sent[0]).toMatchObject({ rev: 1 });
+  });
+
+  test("Keep mine releases a held acceptance: it is no longer on the current revision", () => {
+    const { board, context } = setUp("submitted");
+    expect(acceptAsSent(plan, context)).toBe("held");
+    keepMine(revised, context);
+    expect(board.work("plan")?.held).toBeUndefined();
   });
 });
 

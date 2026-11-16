@@ -74,6 +74,64 @@ describe("Submit with a held answer accepted as sent", () => {
   });
 });
 
+describe("Submit with a held acceptance beside input fields' results (design decision 11)", () => {
+  const WITH_FIELD = {
+    ...document,
+    items: [
+      {
+        ...question("plan"),
+        props: {
+          text: "Is plan right?",
+          items: [
+            { type: "tree", id: "plan-tree", props: structuredClone(TREE) },
+            { type: "text-field", id: "who", props: { label: "Who" } },
+          ],
+        },
+      },
+    ],
+  } as unknown as ViewDocument;
+
+  test("the held acceptance sends the results the fields hold, and no values", () => {
+    const values = createDraftStore();
+    const results = createDraftStore();
+    const board = createBoardDraft("submitted");
+    connectDrafts(WITH_FIELD, values, board);
+    results.set("who", "Sara Conti");
+    board.edit("plan", 1, () => ({ rev: 1, held: { act: "answer", order: 0, asSent: true } }));
+    const acts = submitActsOf(
+      heldWorkOf(WITH_FIELD, board.get()),
+      values.record(),
+      AT,
+      NONE_REPORTED,
+      results.record(),
+    );
+    expect(acts).toEqual([
+      {
+        type: "answer",
+        itemId: "plan",
+        rev: 1,
+        asSent: true,
+        results: { who: "Sara Conti" },
+        when: WHEN,
+      },
+    ]);
+  });
+
+  test("a held acceptance whose work names an earlier revision sends nothing", () => {
+    const values = createDraftStore();
+    const board = createBoardDraft("submitted");
+    connectDrafts(document, values, board);
+    board.edit("plan", 1, () => ({ rev: 1, held: { act: "answer", order: 0, asSent: true } }));
+    const current = {
+      ...document,
+      items: [{ ...question("plan"), rev: 2 }, question("roadmap"), question("budget")],
+    } as unknown as ViewDocument;
+    expect(
+      submitActsOf(heldWorkOf(current, board.get()), values.record(), AT, NONE_REPORTED),
+    ).toEqual([]);
+  });
+});
+
 describe("the draft record of a held answer accepted as sent", () => {
   const state = {
     ask: "waiting",

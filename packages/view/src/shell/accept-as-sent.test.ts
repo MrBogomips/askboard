@@ -14,12 +14,18 @@ const ITEMS = Object.fromEntries(
 
 // Each type's chunk registers its element shape with its component; the tests give the same
 // lookup, built from the contract's registry, so that they register nothing in the shared one.
-const FACTS = new Map<string, ComponentFacts>(
-  EDITING.map((entry) => [
+const FACTS = new Map<string, ComponentFacts>([
+  ...EDITING.map((entry): [string, ComponentFacts] => [
     entry.type,
     { shape: (props) => (entry.edits as NonNullable<typeof entry.edits>).shape(props) },
   ]),
-);
+  // The input fields register a field check; the types that give a verdict or an order do not.
+  ...WIDGET_TYPES.filter((entry) => entry.fieldCheck !== undefined).map(
+    (entry): [string, ComponentFacts] => [entry.type, { check: entry.fieldCheck }],
+  ),
+  ["approval", {}],
+  ["ranking", {}],
+]);
 const factsOf = (type: string): ComponentFacts | undefined => FACTS.get(type);
 
 const questionOf = (items: readonly unknown[], extra: Record<string, unknown> = {}) =>
@@ -32,6 +38,9 @@ const questionOf = (items: readonly unknown[], extra: Record<string, unknown> = 
 
 const inputs = (question: ViewQuestion, more: Partial<AcceptInputs> = {}): AcceptInputs => ({
   question,
+  currentRev: question.rev,
+  namedRev: question.rev,
+  readOnlyItems: new Set(),
   values: new Map(),
   results: new Map(),
   open: true,
@@ -56,6 +65,16 @@ describe("Accept as is is offered on an untouched question with an editable item
     const tree = { ...structuredClone(ITEMS.tree), id: "wbs__tree" };
     const group = { type: "group", id: "side", props: { title: "Side", items: [tree] } };
     expect(acceptAsSentOffered(inputs(questionOf([group])))).toBe(true);
+  });
+
+  test.each([
+    ["a TextField", { type: "text-field", id: "who", props: { label: "Who" } }, "Sara"],
+    ["a NumberField", { type: "number-field", id: "n", props: { label: "N" } }, 3],
+    ["a Toggle", { type: "toggle", id: "ok", props: { label: "OK" } }, true],
+  ])("with a filled input field's result held for %s", (_, field, result) => {
+    const tree = ITEMS.tree as { id: string };
+    const results = new Map([[field.id, result]]);
+    expect(acceptAsSentOffered(inputs(questionOf([tree, field]), { results }))).toBe(true);
   });
 
   test("a value moved and put back, equal to what was sent, counts as no change", () => {
@@ -89,9 +108,33 @@ describe("Accept as is is not offered", () => {
     expect(acceptAsSentOffered(inputs(questionOf([tree]), { values }))).toBe(false);
   });
 
-  test("with a result held for any item", () => {
+  test("with a result held for an item that is no input field (an Approval, a Ranking)", () => {
+    const approval = { type: "approval", id: "verdict", props: {} };
+    const ranking = { type: "ranking", id: "order", props: { items: [] } };
+    for (const item of [approval, ranking]) {
+      const results = new Map([[item.id, { decision: "reject" }]]);
+      expect(acceptAsSentOffered(inputs(questionOf([tree, item]), { results }))).toBe(false);
+    }
+  });
+
+  test("with a result held for a Tree, which gives none", () => {
     const results = new Map([[tree.id, { anything: true }]]);
     expect(acceptAsSentOffered(inputs(questionOf([tree]), { results }))).toBe(false);
+  });
+
+  test("when the card shows a revision other than the current one", () => {
+    const question = { ...questionOf([tree]), rev: 1 } as ViewQuestion;
+    expect(acceptAsSentOffered(inputs(question, { currentRev: 2, namedRev: 1 }))).toBe(false);
+  });
+
+  test("when the work names a revision other than the one the card shows", () => {
+    const question = { ...questionOf([tree]), rev: 2 } as ViewQuestion;
+    expect(acceptAsSentOffered(inputs(question, { currentRev: 2, namedRev: 1 }))).toBe(false);
+  });
+
+  test("while an item is read-only", () => {
+    const readOnlyItems = new Set([tree.id]);
+    expect(acceptAsSentOffered(inputs(questionOf([tree]), { readOnlyItems }))).toBe(false);
   });
 
   test("when the question is answered, ready or declined", () => {

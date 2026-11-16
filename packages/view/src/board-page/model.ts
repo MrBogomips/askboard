@@ -231,14 +231,15 @@ const revisionProblem = (act: ViewAct, question: ViewQuestion): string | undefin
   return undefined;
 };
 
-// An answer accepted as sent carries no choice, "Other…" text, option notes, values or results,
-// and is for a question with no options (accept-as-sent, design decision 5). Whether the question
-// holds an item whose content the user edits, and the rest, are ask-core's to check.
+// An answer accepted as sent carries no choice, "Other…" text, option notes or values, and is for a
+// question with no options (accept-as-sent, design decision 5); the results of input fields go with
+// it (decision 11). Whether the question holds an item whose content the user edits, that each
+// result is an input field's, and the rest, are ask-core's to check.
 const asSentProblem = (
   answer: Extract<ViewAct, { readonly type: "answer" }>,
   question: ViewQuestion,
 ): string | undefined => {
-  const beside = (["choice", "other", "optionNotes", "values", "results"] as const).find(
+  const beside = (["choice", "other", "optionNotes", "values"] as const).find(
     (field) => answer[field] !== undefined,
   );
   if (beside !== undefined) return `an answer accepted as sent carries no ${beside}`;

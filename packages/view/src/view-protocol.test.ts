@@ -1164,6 +1164,13 @@ describe("an answer accepted as sent (accept-as-sent, design decision 5)", () =>
     }
   });
 
+  test("results beside asSent pass: the input fields' results travel with it", () => {
+    const args = { ...base, asSent: true, results: { who: "Sara Conti" } };
+    expect(problemsOf({ name: "askboard.view.answer", arguments: args })).toEqual([]);
+    const act = { type: "answer", ...args };
+    expect(problemsOf({ name: "askboard.view.act", arguments: { acts: [act] } })).toEqual([]);
+  });
+
   test("an asSent other than true is refused, naming the field", () => {
     for (const asSent of [false, "true", 1, null]) {
       const args = { ...base, asSent, note: "x" };

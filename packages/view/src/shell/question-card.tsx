@@ -65,6 +65,7 @@ import {
   pressAnswer,
   pressDecline,
   reloadQuestion,
+  revisionFor,
   selectRecommendedOption,
   sendFollowUp,
   startFromPrevious,
@@ -702,6 +703,9 @@ export const QuestionCard = (props: CardProps) => {
   // editable item and no options, to do or in draft.
   const acceptAsIs = acceptAsSentOffered({
     question: shown,
+    currentRev: question.rev,
+    namedRev: revisionFor(question, work),
+    readOnlyItems,
     values,
     results,
     open: mark === "todo" || mark === "draft",

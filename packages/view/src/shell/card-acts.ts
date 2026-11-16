@@ -32,6 +32,7 @@ import {
   type ViewAct,
   type ViewMessage,
 } from "../view-protocol.ts";
+import { holdsInputResultsOnly, onCurrentRevision } from "./accept-as-sent.ts";
 import type { ReadOnlyOf, ShownOf } from "./agent-change.ts";
 import type { AnswerActs } from "./answer-acts.ts";
 import {
@@ -380,13 +381,16 @@ export const answer = (
   const work = board.work(question.id);
   // What the card shows is what it sends: the values, results and entries of the items of the
   // revision it shows, even one a later revision removed (Issue #93).
-  const held = answerContentOf(shownIn(question, context), draft.record(), work, results?.record());
-  // "Accept as is" answers with the content as sent: only the note survives of what the draft holds
-  // (accept-as-sent, design decision 5), and the derived values go with it as with any answer.
-  const accepted: AnswerContent =
-    options.asSent === true
-      ? { asSent: true, ...(held.note === undefined ? {} : { note: held.note }) }
-      : held;
+  const shown = shownIn(question, context);
+  const held = answerContentOf(shown, draft.record(), work, results?.record());
+  // "Accept as is" answers with the content as sent: of what the draft holds only the note and the
+  // input fields' results survive (accept-as-sent, design decisions 5 and 11), and the derived
+  // values go with it as with any answer. It is for the current revision alone, which the card
+  // shows with nothing read-only, and for results of input fields alone: else nothing is sent.
+  const accepted: AnswerContent = options.asSent === true ? acceptedOf(held) : held;
+  if (options.asSent === true && !acceptanceHolds(question, shown, work, held, context)) {
+    return undefined;
+  }
   const content = namesEarlierRevision(question, work)
     ? accepted
     : withDerived(accepted, derived.reported, itemIdsOf(question));
@@ -416,6 +420,36 @@ export const answer = (
   dispatch(context, [{ type: "answer", ...fields }], message);
   return "sent";
 };
+
+const NO_READ_ONLY: ReadonlySet<string> = new Set();
+
+// What an acceptance sends of the draft's content: asSent, the note and the results.
+const acceptedOf = ({ note, results }: AnswerContent): AnswerContent => ({
+  asSent: true,
+  ...(note === undefined ? {} : { note }),
+  ...(results === undefined ? {} : { results }),
+});
+
+// Whether "Accept as is" may answer: on the current revision, shown and named, with nothing
+// read-only, and with input fields' results only (accept-as-sent, design decision 11).
+const acceptanceHolds = (
+  question: ViewQuestion,
+  shown: ViewQuestion,
+  work: QuestionWork | undefined,
+  held: AnswerContent,
+  context: Pick<AnswerContext, "readOnlyOf" | "facts">,
+): boolean =>
+  onCurrentRevision({
+    shown,
+    currentRev: question.rev,
+    namedRev: revisionFor(question, work),
+    readOnlyItems: context.readOnlyOf?.(question) ?? NO_READ_ONLY,
+  }) &&
+  holdsInputResultsOnly(
+    valueItemsOf(shown.props.items),
+    (id) => held.results !== undefined && Object.hasOwn(held.results, id),
+    context.facts,
+  );
 
 /**
  * Postpone, pressed on an open question, or pressed again to undo (FR-4): sent at once in
@@ -540,8 +574,6 @@ export const dropWork = (
   board.forget(question.id);
 };
 
-const NO_READ_ONLY: ReadonlySet<string> = new Set();
-
 /** "Reload, losing my work": the choice at once, and the question's draft goes (FR-6). */
 export const reloadQuestion = (question: ViewQuestion, context: AnswerContext): void => {
   sendActs(context, [
@@ -594,6 +626,11 @@ export const keepMine = (
     }
     const props = draft.valueOf(itemId) ?? nestedItemById(shown.props.items, itemId)?.props;
     cellEntries?.set(itemId, fitCellEntries(held, props));
+  }
+  // An acceptance is of the content the agent sent, which "Keep mine" leaves: the mark goes, and
+  // the user answers or accepts again (accept-as-sent, design decision 11, D-B).
+  if (work.held?.asSent === true) {
+    context.board.edit(question.id, work.rev, ({ held: _held, ...rest }) => rest);
   }
   sendActs(context, [
     {
