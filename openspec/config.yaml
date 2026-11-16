@@ -33,7 +33,7 @@ operations:
   apply:
     guidance:
       - The session that runs apply coordinates through the askboard-delivery skill. It delegates the change's task groups to one askboard-implementer agent, which runs them in sequence, commits each group with its ticks, and hands off only when its context runs low. There is no review between groups.
-      - Before the pull request it runs the whole check once and one review: askboard-spec-reviewer, plus askboard-security-reviewer when the diff touches the paths the skill lists; then one fix round, with a re-review of the M and H findings only.
+      - Before the pull request it runs the whole check once and one review (askboard-spec-reviewer, plus askboard-security-reviewer when the diff touches the paths the skill lists), then one fix round, with a re-review of the M and H findings only.
       - An askboard-implementer agent implements the groups it was given directly and does not delegate them further.
       - Raise the implementer's effort to high for contract and core groups, for rebase conflicts and for a second attempt at a task.
   archive:
