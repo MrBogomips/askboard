@@ -55,11 +55,19 @@ export const useQuestionInView = (
     const schedule = () => {
       if (frame === undefined) frame = window.requestAnimationFrame(update);
     };
+    // A focus on a control outside every card (the header, the rail, the outbox) is no move through
+    // the questions: it leaves the question in view alone, so a mouse press on "Next to do" and
+    // the key N agree on a fresh board (e2e-stabilise-answering-flow, D9; #241).
+    const onFocus = (event: FocusEvent) => {
+      const target = event.target;
+      if (target instanceof Element && target.closest(CARD) === null) return;
+      schedule();
+    };
     window.addEventListener("scroll", schedule, { passive: true });
-    document.addEventListener("focusin", schedule);
+    document.addEventListener("focusin", onFocus);
     return () => {
       window.removeEventListener("scroll", schedule);
-      document.removeEventListener("focusin", schedule);
+      document.removeEventListener("focusin", onFocus);
       if (frame !== undefined) window.cancelAnimationFrame(frame);
     };
   }, [enabled]);

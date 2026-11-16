@@ -34,6 +34,7 @@ Commit bodies say `Refs #n` for the Issues each group touches.
   - Note: the log `send, panel` came from the per-frame sampling missing a heading focused for under a frame; the test now also records `focusin`. `useHeadingFocus` is unchanged.
 - [x] 2.5 #243 (D5): first a unit case in `shell/document-update.test.ts` reproducing the browser state (one per view, no navigation, q1 deleted), red. Then set `inView` at the first render. Scenarios: The first question removed before any navigation; After a reload unchanged. Verify: unit green; File runs of `answering-flow-status` and `answering-flow-in-view` pass.
   - Note (deviation): the board already announces. The probe shows the region reads "Question removed by the agent: Database.", since `answeringAsk`'s q1 has the header "Database" since #232; the test expected "Q1". The test's expectation is fixed; no unit case or first-render change (D5's premise does not hold).
+- [x] 2.6 #241's cause (D9): a browser case first, red in Chromium: "Next to do" pressed and released 300 ms apart on a fresh board goes to q1. Then `useQuestionInView` ignores a `focusin` outside every card. Verify: the case passes in Chromium; the four other #241 cases are run once each in Firefox and WebKit.
 
 ## 3. Investigate, then fix (#240, #239, Firefox)
 

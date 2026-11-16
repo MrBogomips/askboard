@@ -117,6 +117,10 @@ The spec's two "Keyboard core" scenarios are the bar, and the train is the check
 - **Ellipsis present** (the expected lead): `clipped` measures only elements whose computed `display` is not `inline`. The parent pill, which carries the ellipsis, is what counts.
 - **Text cut without an ellipsis:** the pill's `bdi` takes `truncate` (block-level, `min-w-0`) in `ask-row.tsx`, keeping its isolation (AD-8), and the fit test stays as it is.
 
+### D9. A focus outside every card leaves the question in view alone (#241)
+
+The coordinator's decision on #241. The cause (task 2.1): a mouse press on "Next to do" focuses the button, `focusin` set the question in view to q1 from the reading line, and the click a frame later went to q2, while the key N went to q1. `useQuestionInView` now ignores a `focusin` whose target lies in no card; scrolling and a focus inside a card still set it.
+
 ### D8. Merge points and records
 
 - **`palettes` (#235)** merges first. It touches `chart-theme.browser.ts` (its `pickTheme`), `harness/dom.ts`, `theme-control.tsx`, `snapshot-session.browser.ts` and `suites.ts`. Task 0.1 rebases onto it once merged. Group 1's Theme task moves palettes' `pickTheme` and does not write its own. The rebase before the pull request (task 4.3) re-checks the names below.
