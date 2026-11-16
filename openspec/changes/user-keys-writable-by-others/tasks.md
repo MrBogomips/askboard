@@ -4,7 +4,7 @@ Each task writes its tests first and sees them fail before implementing. "The ch
 
 ## 0. Base
 
-- [ ] 0.1 Check every name design.md borrows on `origin/main` with `git grep -n`, and record each with its file and line in group 0's commit body, with main's SHA and `BOARD_PROTOCOL_VERSION`. Tests: none. Verify: every name is found with the shape design.md's Context gives; a missing or changed one stops the work for `/openspec-update-change`.
+- [x] 0.1 Check every name design.md borrows on `origin/main` with `git grep -n`, and record each with its file and line in group 0's commit body, with main's SHA and `BOARD_PROTOCOL_VERSION`. Tests: none. Verify: every name is found with the shape design.md's Context gives; a missing or changed one stops the work for `/openspec-update-change`.
 
 ## 1. Contract: the warning code (D2)
 
