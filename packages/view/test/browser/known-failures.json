@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "issues": {
+    "144": {
+      "title": "Firefox: the Gantt plan's axis labels overlap by 1 to 2 px at day zoom",
+      "failures": [
+        {
+          "file": "gantt-axis.browser.ts",
+          "test": "the Gantt plan's axis labels > do not overlap at day zoom",
+          "engines": ["firefox"]
+        }
+      ]
+    },
+    "145": {
+      "title": "Firefox: a reopened Document review shows no Answer hint after a reload",
+      "failures": [
+        {
+          "file": "document-review-session.browser.ts",
+          "test": "the agent reopens the question with the commented word rewritten",
+          "engines": ["firefox"]
+        }
+      ]
+    },
+    "174": {
+      "title": "Firefox: about a third of the Gantt, WBS, Tree and Form browser tests crash or fail",
+      "failures": [
+        { "file": "gantt-axis.browser.ts", "engines": ["firefox"] },
+        { "file": "gantt-column.browser.ts", "engines": ["firefox"] },
+        { "file": "gantt-plan-tree.browser.ts", "engines": ["firefox"] },
+        { "file": "wbs-linking.browser.ts", "engines": ["firefox"] },
+        { "file": "tree-deleting.browser.ts", "engines": ["firefox"] },
+        { "file": "form-session.browser.ts", "engines": ["firefox"] },
+        { "file": "toggles.browser.ts", "engines": ["firefox"] },
+        { "file": "layouts.browser.ts", "engines": ["firefox"] },
+        { "file": "hover-audit.browser.ts", "engines": ["firefox"] }
+      ]
+    },
+    "207": {
+      "title": "WebKit on the Linux runner: Table cell entry and an answer carrying what the card shows race their waits",
+      "failures": [
+        {
+          "file": "table.browser.ts",
+          "test": "an unreadable number stays in its cell as an entry",
+          "engines": ["webkit"]
+        },
+        {
+          "file": "shown-revision-act-session.browser.ts",
+          "test": "send the answer the card shows as ready",
+          "engines": ["webkit"]
+        }
+      ]
+    }
+  }
+}

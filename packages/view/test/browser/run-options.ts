@@ -25,11 +25,15 @@ export type Options = {
   readonly updateTimings: boolean;
   /** Where a full-set pass of one engine writes its timings, in place of the committed file (C5). */
   readonly timingsOut?: string;
+  /** How many times a file with a new failure runs again alone (#227 point 2); 0 by default. */
+  readonly rerunFailed: number;
+  /** Where the full output goes; a file in the system's temporary folder by default. */
+  readonly log?: string;
   readonly extra: readonly string[];
 };
 
 export const USAGE =
-  "usage: bun packages/view/test/browser/run.ts [--engines a,b] [--target test-server|session-process] [--runtime bun|node] [--no-build] [--serial] [--set smoke|full|perf|all] [--workers <n>] [--shard <k>/<n>] [--update-timings] [--timings-out <file>] [-- <bun test arguments>]";
+  "usage: bun packages/view/test/browser/run.ts [--engines a,b] [--target test-server|session-process] [--runtime bun|node] [--no-build] [--serial] [--set smoke|full|perf|all] [--workers <n>] [--shard <k>/<n>] [--update-timings] [--timings-out <file>] [--rerun-failed <n>] [--log <file>] [-- <bun test arguments>]";
 
 /** Where the defaults come from: the environment, and the cores a run may use. */
 export type Defaults = {
@@ -50,6 +54,15 @@ const workersFrom = (value: string): number => {
     return refuse(`--workers takes a whole number of at least 1, not "${value}"`);
   }
   return workers;
+};
+
+/** Reruns beyond three would hide a real failure behind load; one is what CI runs. */
+const MAX_RERUNS = 3;
+
+const rerunsFrom = (value: string): number => {
+  if (!/^\d+$/.test(value)) return refuse(`--rerun-failed takes a whole number, not "${value}"`);
+  const reruns = Number(value);
+  return reruns <= MAX_RERUNS ? reruns : refuse(`--rerun-failed takes at most ${MAX_RERUNS}`);
 };
 
 const shardFrom = (value: string): Shard => {
@@ -111,6 +124,8 @@ const WITH_VALUE = [
   "--workers",
   "--shard",
   "--timings-out",
+  "--rerun-failed",
+  "--log",
 ];
 
 /** The options an argument list gives; throws the reason and the usage line when it is refused. */
@@ -125,6 +140,8 @@ export const parseArgs = (args: readonly string[], { env, cores }: Defaults): Op
   let shard: Shard | undefined;
   let updateTimings = false;
   let timingsOut: string | undefined;
+  let rerunFailed = 0;
+  let log: string | undefined;
   const options = (extra: readonly string[]): Options => {
     checkCombination(set, shard, updateTimings, timingsOut, engines.length);
     return {
@@ -138,6 +155,8 @@ export const parseArgs = (args: readonly string[], { env, cores }: Defaults): Op
       ...(shard === undefined ? {} : { shard }),
       updateTimings,
       ...(timingsOut === undefined ? {} : { timingsOut }),
+      rerunFailed,
+      ...(log === undefined ? {} : { log }),
       extra,
     };
   };
@@ -157,6 +176,8 @@ export const parseArgs = (args: readonly string[], { env, cores }: Defaults): Op
       else if (arg === "--runtime") runtime = runtimeFrom(value);
       else if (arg === "--set") set = setFrom(value);
       else if (arg === "--workers") workers = workersFrom(value);
+      else if (arg === "--rerun-failed") rerunFailed = rerunsFrom(value);
+      else if (arg === "--log") log = value === "" ? refuse("--log takes a file name") : value;
       else if (arg === "--timings-out") {
         timingsOut = value === "" ? refuse("--timings-out takes a file name") : value;
       } else shard = shardFrom(value);

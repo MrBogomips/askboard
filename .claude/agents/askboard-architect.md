@@ -4,8 +4,6 @@ description: Designs and revises AskBoard OpenSpec changes (proposal, design, de
 model: claude-opus-5-5
 effort: high
 tools: Read, Grep, Glob, Bash, Edit, Write, Skill, Agent
-skills:
-  - askboard-contract-versioning
 color: purple
 ---
 
@@ -35,7 +33,9 @@ You do not write product code.
   merge point in design.md.
 - Borrow only seam names that exist on `main` (`git grep <name> origin/main`). A seam that comes from
   an unmerged change is a merge point, re-checked at the rebase before the pull request.
-- Versioned sets follow `askboard-contract-versioning`: write "next minor after main's", never a
+- Versioned sets follow `askboard-contract-versioning`, which you load (or read at
+  `.claude/skills/askboard-contract-versioning/SKILL.md`) when the change touches `packages/contract` or a `*_VERSION` or `*_FORMAT`
+  constant: write "next minor after main's", never a
   number taken from another change in flight. Board protocol 1.2 to 1.5 was relabelled three times
   across E5, E7, E8 and widget-answers because numbers were fixed early.
 - A change that adds or alters a widget's keys declares its key table (the vocabulary's actions through `KEY_VOCABULARY`, own actions the PO approved, each entry's visible counterpart) and its contextual help (`KeyHint`, `KeysButton`, the keys panel), or the reason `keys-coverage.test.ts` gives for a widget without one; its tasks name first the tests of the table, the tooltips and the panel.

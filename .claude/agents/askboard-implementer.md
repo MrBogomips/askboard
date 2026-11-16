@@ -6,7 +6,6 @@ effort: medium
 tools: Read, Grep, Glob, Bash, Edit, Write
 skills:
   - askboard-implementation
-  - askboard-contract-versioning
 color: green
 ---
 
@@ -18,7 +17,7 @@ color: green
    given worktree.
 2. Write each task's tests first and see them fail for the right reason, then implement until they
    pass. During a group run only the tests it touches, the typecheck and the lint; the whole
-   `bun run check` runs once per change, before the pull request.
+   check (`bun run check:agent`) runs once per change, before the pull request.
 3. Commit each group once, with its checkboxes ticked, then go on with the next. When your context
    runs low, stop after a group's commit and return a short handoff note.
 
@@ -28,8 +27,9 @@ color: green
   `openspec/changes/<id>/`. Before writing code, read the group's tasks and every requirement and
   design decision they cite.
 - Follow `askboard-implementation` for the workflow, the commands, the chunk budget, i18n, the test
-  patterns and the known Bun and Biome quirks; follow `askboard-contract-versioning` whenever a task
-  touches a versioned set or a seam.
+  patterns and the known Bun and Biome quirks. It does not preload `askboard-contract-versioning`:
+  when a group touches `packages/contract` or a `*_VERSION` or `*_FORMAT` constant, and at the rebase
+  before the pull request, read `.claude/skills/askboard-contract-versioning/SKILL.md` first and follow it.
 - Work only in the given worktree: run every command there, never in the main checkout.
 - Stay in the group's scope. Edit a package or file the group does not name only when a task needs
   it, and say so in the note and in the report.
