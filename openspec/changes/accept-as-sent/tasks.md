@@ -22,8 +22,8 @@ Each task names its tests first and sees them fail for the right reason before i
 
 ## 3. Server
 
-- [ ] 3.1 Tests first, in `packages/server/test/board-host/accept-as-sent-protocol.test.ts`, then `currentOf` in `board-host/messages.ts`. Cases: a reconnect after an accepted Tree holds `asSent`, with receipt `sent` and then `delivered`; an acceptance on an options question is `refused` with reason `act` and the index, the question still open. Scenarios: board-host's added requirement. Verify: the new tests pass, and `unchanged-state.test.ts` stays green.
-- [ ] 3.2 Tests in the mcp-tools tests: `collect` returns the `asSent` event, and `fetch` the question's answer with `asSent`; both results validate against the tool envelopes. Verify: the tests pass with no source change beyond group 2's, or the gap is fixed and named in the commit body.
+- [x] 3.1 Tests first, in `packages/server/test/board-host/accept-as-sent-protocol.test.ts`, then `currentOf` in `board-host/messages.ts`. Cases: a reconnect after an accepted Tree holds `asSent`, with receipt `sent` and then `delivered`; an acceptance on an options question is `refused` with reason `act` and the index, the question still open. Scenarios: board-host's added requirement. Verify: the new tests pass, and `unchanged-state.test.ts` stays green.
+- [x] 3.2 Tests in the mcp-tools tests: `collect` returns the `asSent` event, and `fetch` the question's answer with `asSent`; both results validate against the tool envelopes. Verify: the tests pass with no source change beyond group 2's, or the gap is fixed and named in the commit body.
 
 ## 4. View units
 
