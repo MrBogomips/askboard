@@ -539,7 +539,7 @@ When a board page connects with its token, `board-host` SHALL send it the `setti
 - **THEN** the page receives `settings` carrying that override from the user file, not writable, before it receives the board
 
 ### Requirement: A board writes only presentation keys
-`board-host` SHALL pass a `setting` message to the session process only when it names `theme`, `density`, `contextPlacement` or `afterAnswer` with a value the configuration schema allows; any other message SHALL be refused as a `message` and nothing SHALL be written (AD-14). A board token never opens the local API (AD-11).
+`board-host` SHALL pass a `setting` message to the session process only when it names `theme`, `density`, `contextPlacement`, `afterAnswer` or `palette` with a value the configuration schema allows; any other message SHALL be refused as a `message` and nothing SHALL be written (AD-14). A board token never opens the local API (AD-11).
 
 #### Scenario: A board tries to set the editor
 - **WHEN** a client holding a board's token sends `setting` with `key` `editor` and `value` `["sh", "-c", "id"]`
@@ -551,6 +551,10 @@ When a board page connects with its token, `board-host` SHALL send it the `setti
 
 #### Scenario: A value outside the after-answer key's set
 - **WHEN** a client holding a board's token sends `setting` with `key` `afterAnswer` and `value` `"back"`
+- **THEN** `board-host` answers `refused` with reason `message`, and neither configuration file changes
+
+#### Scenario: A palette the contract does not name
+- **WHEN** a client holding a board's token sends `setting` with `key` `palette` and `value` `"inchiostro"`, or `"carta\"] body{"`
 - **THEN** `board-host` answers `refused` with reason `message`, and neither configuration file changes
 
 #### Scenario: A failed write reaches the board

@@ -71,7 +71,8 @@ Each task writes its tests first and sees them fail for the right reason. One im
   - Note: `build:view --record-sizes`: shell 277,499 to 288,175 B (+10,676) and board-page 1,051,016 to 1,062,465 B (+11,449), both within 12,000 B.
 - [x] 5.5 Comment on `answering-flow-visual`'s validation Issue that its task 10 can run in the four palettes (search first). Verify: the comment's URL, Open Questions 1 to 5 with their defaults and task 3.6's screenshots are in the pull request body.
   - Note: #229, the validation Issue, already lists its task 10 with Carta only; the coordinator posts the palette comment there. The pull request body carries #189's accepted defaults and task 3.6's screenshots.
-- [ ] 5.6 Pre-pull-request review (D12): spec at medium and security at high, in parallel, on the whole range; one fix round, tests first; re-review of M and H findings only. Verify: no open H or M finding; `bun run check` passes again only if the fixes changed code.
+- [x] 5.6 Pre-pull-request review (D12): spec at medium and security at high, in parallel, on the whole range; one fix round, tests first; re-review of M and H findings only. Verify: no open H or M finding; `bun run check` passes again only if the fixes changed code.
+  - Note: spec review found S-40 to S-47 (4 M, 4 L), fixed in group 6; the re-review closed the M findings. The security review found nothing. Pull request #235, merged as e799b351.
 
 ## 6. Pre-PR fixes
 
@@ -81,6 +82,7 @@ Each task writes its tests first and sees them fail for the right reason. One im
 - [x] 6.4 From the keyboard (S-43): `palettes.browser.ts` opens Settings by keyboard, picks the next palette with the arrow key in the panel's row, closes with Escape and finds the focus on Settings. Verify: Chromium run, passes.
 - [x] 6.5 Forced colours (S-44): the selected segment keeps its 2 px Highlight outline with the focus elsewhere, and an element with `bg-change-subtle` has `forced-color-adjust: none`. Verify: Chromium run of `palettes-forced-colors.browser.ts`, 3 pass.
 - [x] 6.6 Contrasto's border widths (S-45): DESIGN.md's Named palettes says the wider border applies to cards and to buttons, inputs and text areas carrying `.border`, and that 1.5 px draws as 1 px at a device pixel ratio of 1. D8 in design.md still reads without the `.border` qualifier: left to the architect (`/openspec-update-change`).
+  - Note: D8 now names the `.border` qualifier (571443cd).
 - [x] 6.7 Fit in en-US too (S-46): `palettes-fit.browser.ts` runs both languages, 32 cases. Verify: Chromium run, 32 pass.
 - [x] 6.8 Extended cases (S-47): a board of a later ask opens in the picked Grafite; Dark with the system's contrast on ends Contrasto at once, System brings it back, the system stopping removes the note; Grafite's `--card` re-points across a live Light to Dark switch. Verify: Chromium run of `palettes.browser.ts`, 11 pass.
 
