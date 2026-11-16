@@ -54,8 +54,10 @@ Each task writes its tests first and sees them fail for the right reason. One im
 
 ## 4. Forced colours (D9)
 
-- [ ] 4.1 Browser tests first in a new `palettes-forced-colors.browser.ts`, Chromium only in `suites.ts`. Scenarios: "Focus and selection", "Answer states", "Data keeps its colour". Then `styles/forced-colors.css`, its import in `base.css`, and a unit test of its selectors. Verify: Chromium run of the file and `bun test packages/view/src/styles` pass.
-- [ ] 4.2 Documents: EXPERIENCE.md Accessibility Floor (high contrast, forced colours), DESIGN.md Colors (the forced-colours paragraph). Verify: each rule is stated once, citing D9.
+- [x] 4.1 Browser tests first in a new `palettes-forced-colors.browser.ts`, Chromium only in `suites.ts`. Scenarios: "Focus and selection", "Answer states", "Data keeps its colour". Then `styles/forced-colors.css`, its import in `base.css`, and a unit test of its selectors. Verify: Chromium run of the file and `bun test packages/view/src/styles` pass.
+  - Note: `styles/forced-colors.css` (focus ring last so a focused selected segment keeps it on top; borders `CanvasText`; pressed and selected 2 px `Highlight`; disabled `GrayText`; stripes `CanvasText` with their lines kept; `forced-color-adjust: none` on `[data-chart]`, `[class~="bg-change-subtle"]` and `[class*="bg-diff-"]` only), imported by `base.css`; `forced-colors.test.ts` 9 tests; `palettes-forced-colors.browser.ts` (3, Chromium only, listed with `engines` and `why`) passes. P2 held: the system keywords resolve inside the sandboxed view. The change fill and diff marks are matched by class, not driven in a browser test: only the Chart host is.
+- [x] 4.2 Documents: EXPERIENCE.md Accessibility Floor (high contrast, forced colours), DESIGN.md Colors (the forced-colours paragraph). Verify: each rule is stated once, citing D9.
+  - Note: EXPERIENCE.md Accessibility Floor "Forced colours" bullet and DESIGN.md Named palettes "Forced colours" paragraph, each stated once, citing D9.
 
 ## 5. Records and the pull request
 

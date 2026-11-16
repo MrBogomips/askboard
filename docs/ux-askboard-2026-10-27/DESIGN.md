@@ -1097,6 +1097,8 @@ A palette is data: a group of `palettes:` in the YAML holding every role of `col
 
 **Contrasto's marks.** The focus ring is 3 px wide and the borders of question cards, buttons and inputs 1.5 px, the other palettes keeping 2 px and 1 px. Under the theme's System, a system that asks for more contrast (`prefers-contrast: more`) puts Contrasto in use whatever palette is chosen; nothing is written to a configuration file.
 
+**Forced colours.** Under `forced-colors: active` the sheet `forced-colors.css` draws the focus ring as `2px solid Highlight` (3 px under Contrasto), the borders of cards, controls, the rail and the ledger in `CanvasText`, pressed and selected states (`aria-pressed`, `aria-checked`, `aria-selected`, `data-state` on or checked) with a 2 px `Highlight` outline, disabled controls in `GrayText` and the state stripes in `CanvasText`, keeping their dashed, dotted and solid lines. `forced-color-adjust: none` is set only on the Chart's host, the diff marks and the change fill, where colour carries data; icons drawn with `currentColor` follow with no rule (`palettes`, design decision D9).
+
 **Report.** `bun tools/build/contrast.ts` computes the WCAG 2 ratio of every pair of Contrast below and the hue distances of the role rules for each palette and scheme, and prints each pair under its minimum and each rule not met. It reports, it does not block (L27, L28).
 
 ### Colour role rules (valid for any palette)
