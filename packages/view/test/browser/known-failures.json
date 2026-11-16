@@ -35,6 +35,16 @@
         { "file": "hover-audit.browser.ts", "engines": ["firefox"] }
       ]
     },
+    "201": {
+      "title": "WebKit on Linux: the Kanban revision test does not see the receipt \"delivered to the agent\" within 5 s",
+      "failures": [
+        {
+          "file": "widget-revision.browser.ts",
+          "test": "revising a widget answer > a revision renaming one more node logs a second event with replaces and one more set, the first unchanged",
+          "engines": ["webkit"]
+        }
+      ]
+    },
     "207": {
       "title": "WebKit on the Linux runner: Table cell entry and an answer carrying what the card shows race their waits",
       "failures": [
@@ -47,6 +57,16 @@
           "file": "shown-revision-act-session.browser.ts",
           "test": "send the answer the card shows as ready",
           "engines": ["webkit"]
+        }
+      ]
+    },
+    "250": {
+      "title": "Firefox: after a reload the answered Tree card no longer shows its sent receipt",
+      "failures": [
+        {
+          "file": "widget-answered.browser.ts",
+          "test": "answered widget questions > after a reload and in a takeover's new tab the Tree shows the edited name and the receipt",
+          "engines": ["firefox"]
         }
       ]
     }
