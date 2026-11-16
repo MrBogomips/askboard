@@ -43,7 +43,7 @@ Terms:
 
 ## 2. The arrival mark (`styles/motion.css`, `styles/forced-colors.css`, `tools/build/contrast.ts`)
 
-- [ ] 2.1 A CSS unit test first, `styles/arrival.test.ts`, reading the sheets as `contrast.test.ts` does (D5):
+- [x] 2.1 A CSS unit test first, `styles/arrival.test.ts`, reading the sheets as `contrast.test.ts` does (D5):
   - the arrived card's rule is outside every `@layer`;
   - its selector is `[data-askboard-question][data-askboard-arrived]`;
   - it sets `var(--primary-subtle)` and `inset 4px 0 0 var(--primary)`;
@@ -52,15 +52,17 @@ Terms:
   - `forced-colors.css` sets a 3 px `Highlight` outline on it.
 
   Verify: red against today's sheet.
-- [ ] 2.2 Rewrite the mark in `motion.css` (unlayered, the hold and fade of D5), keeping the reduced-motion rule as it is, and add the forced-colours outline to `forced-colors.css`. Update both sheets' header comments. Tests: 2.1. Verify: 2.1 green; `bun run build:view` within `chunk-sizes.json`, else `--record-sizes` and commit the file.
-- [ ] 2.3 `answering-flow-motion.browser.ts`:
+- [x] 2.2 Rewrite the mark in `motion.css` (unlayered, the hold and fade of D5), keeping the reduced-motion rule as it is, and add the forced-colours outline to `forced-colors.css`. Update both sheets' header comments. Tests: 2.1. Verify: 2.1 green; `bun run build:view` within `chunk-sizes.json`, else `--record-sizes` and commit the file.
+- [x] 2.3 `answering-flow-motion.browser.ts`:
   - under reduce, the arrived card computes the `primary-subtle` background (resolved through a probe element) and a box shadow with a 4 px inset, with no animation;
   - with no preference, the animation is `askboard-arrival`, 1.2 s, and the first sample's background is `primary-subtle`;
   - the reduce scenario's position check becomes the card top at 8 px.
 
   Scenarios: The mark at rest under reduced motion, The mark animates, Reduced motion in each engine. Verify: File run red before 2.2, then green.
-- [ ] 2.4 `palettes-forced-colors.browser.ts`: after a send with "Go to the next", the arrived card's outline is 3 px solid in the resolved `Highlight` and is gone after 1.2 s. Also "One mark at a time": two quick moves leave only the second card marked. Scenarios: Forced colours, One mark at a time. Verify: File run red before 2.2, then green.
-- [ ] 2.5 Add the three pairs of D6 to `CONTRAST_PAIRS`, with cases in `tools/build/contrast.test.ts` asserting each pair meets its minimum in every palette and scheme. Scenario: Every palette. Verify: `bun test tools/build/contrast.test.ts` green; `bun tools/build/contrast.ts` prints the new rows.
+- [x] 2.4 `palettes-forced-colors.browser.ts`: after a send with "Go to the next", the arrived card's outline is 3 px solid in the resolved `Highlight` and is gone after 1.2 s. Also "One mark at a time": two quick moves leave only the second card marked. Scenarios: Forced colours, One mark at a time. Verify: File run red before 2.2, then green.
+  - Note: "One mark at a time" also holds on the old sheet (one mark was already the rule), so it is a regression pin and is not red before 2.2; the Highlight outline case is.
+- [x] 2.5 Add the three pairs of D6 to `CONTRAST_PAIRS`, with cases in `tools/build/contrast.test.ts` asserting each pair meets its minimum in every palette and scheme. Scenario: Every palette. Verify: `bun test tools/build/contrast.test.ts` green; `bun tools/build/contrast.ts` prints the new rows.
+  - Note: deviation: four pairs, not three: the requirement names secondary text on the fill too, so "Secondary text / arrival fill" joins D6's three. DESIGN.md's Contrast tables are regenerated here, not in 3.1, because `contrast.test.ts` compares them with the script's output.
 
 ## 3. Documents and record
 

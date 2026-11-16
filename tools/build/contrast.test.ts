@@ -100,6 +100,32 @@ describe("Carta's marks", () => {
   });
 });
 
+// The arrival mark's pairs (answer-moves-to-top, D6): the text on the mark's fill, and its edge. The
+// spec names secondary text too, so the pairs are four where D6's list has three.
+describe("the arrival mark's pairs", () => {
+  const ARRIVAL = [
+    ["Text / arrival fill", "text"],
+    ["Secondary text / arrival fill", "text"],
+    ["Muted text / arrival fill", "text"],
+    ["Arrival edge / fill", "mark"],
+  ] as const;
+
+  test.each(ARRIVAL)("%s is a %s pair of the report", (name, kind) => {
+    expect(CONTRAST_PAIRS.find((pair) => pair.name === name)?.kind).toBe(kind);
+  });
+
+  test("each meets its minimum in every palette and scheme", () => {
+    const names: readonly string[] = ARRIVAL.map(([name]) => name);
+    const results = contrastReport(real).filter((result) => names.includes(result.pair));
+    expect(results).toHaveLength(PALETTES.length * 2 * ARRIVAL.length);
+    expect(
+      results
+        .filter((result) => !result.met)
+        .map((r) => `${r.palette} ${r.scheme} ${r.pair} ${r.ratio.toFixed(2)}`),
+    ).toEqual([]);
+  });
+});
+
 // A palette of three roles, to show the report's behaviour without the real file.
 const tokensWith = (muted: string): DesignTokens => ({
   colors: {

@@ -1152,7 +1152,7 @@ The `diagram` component tokens resolved in light are the light diagram theme, an
 
 The colour page's calculator computed WCAG 2 ratios from the hex values, and the group-B pass added the rows for its new tokens. Every load-bearing pair meets its minimum in both modes. Accessibility is best effort, so a pair below its minimum is reported, not blocking (L27, L28; colour page).
 
-The tables are the output of `bun tools/build/contrast.ts` over the YAML above, to two decimals; the first holds Carta's, and its rows equal the ratios the colour page gave. The last eight rows are the pairs the board's layout adds. Every pair meets its minimum in each palette and scheme as the values stand; the report prints any that does not and never blocks the build.
+The tables are the output of `bun tools/build/contrast.ts` over the YAML above, to two decimals; the first holds Carta's, and its rows equal the ratios the colour page gave. The last twelve rows are the pairs the board's layout adds, the last four those of the arrival mark. Every pair meets its minimum in each palette and scheme as the values stand; the report prints any that does not and never blocks the build.
 
 #### Carta
 
@@ -1200,6 +1200,10 @@ The tables are the output of `bun tools/build/contrast.ts` over the YAML above, 
 | Segment underline, success / fill | UI mark, 3:1 | 4.59 | 6.08 |
 | Border / sunken | UI mark, 3:1 | 3.01 | 3.88 |
 | Ring / page | UI mark, 3:1 | 3.71 | 9.14 |
+| Text / arrival fill | text, 4.5:1 | 12.70 | 11.19 |
+| Secondary text / arrival fill | text, 4.5:1 | 7.02 | 7.72 |
+| Muted text / arrival fill | text, 4.5:1 | 5.07 | 5.01 |
+| Arrival edge / fill | UI mark, 3:1 | 5.07 | 5.83 |
 
 #### Nordico
 
@@ -1247,6 +1251,10 @@ The tables are the output of `bun tools/build/contrast.ts` over the YAML above, 
 | Segment underline, success / fill | UI mark, 3:1 | 4.42 | 6.10 |
 | Border / sunken | UI mark, 3:1 | 3.33 | 3.30 |
 | Ring / page | UI mark, 3:1 | 4.21 | 7.90 |
+| Text / arrival fill | text, 4.5:1 | 11.48 | 8.04 |
+| Secondary text / arrival fill | text, 4.5:1 | 7.82 | 6.78 |
+| Muted text / arrival fill | text, 4.5:1 | 5.30 | 4.75 |
+| Arrival edge / fill | UI mark, 3:1 | 4.87 | 4.24 |
 
 #### Grafite
 
@@ -1294,6 +1302,10 @@ The tables are the output of `bun tools/build/contrast.ts` over the YAML above, 
 | Segment underline, success / fill | UI mark, 3:1 | 4.58 | 7.04 |
 | Border / sunken | UI mark, 3:1 | 3.21 | 3.37 |
 | Ring / page | UI mark, 3:1 | 4.35 | 10.07 |
+| Text / arrival fill | text, 4.5:1 | 15.17 | 11.54 |
+| Secondary text / arrival fill | text, 4.5:1 | 9.37 | 8.33 |
+| Muted text / arrival fill | text, 4.5:1 | 5.70 | 5.50 |
+| Arrival edge / fill | UI mark, 3:1 | 5.06 | 6.45 |
 
 #### Contrasto
 
@@ -1341,6 +1353,10 @@ The tables are the output of `bun tools/build/contrast.ts` over the YAML above, 
 | Segment underline, success / fill | UI mark, 4.5:1 | 6.34 | 10.90 |
 | Border / sunken | UI mark, 4.5:1 | 18.26 | 17.93 |
 | Ring / page | UI mark, 4.5:1 | 9.30 | 14.54 |
+| Text / arrival fill | text, 7:1 | 17.77 | 14.69 |
+| Secondary text / arrival fill | text, 7:1 | 14.73 | 13.13 |
+| Muted text / arrival fill | text, 7:1 | 11.17 | 10.11 |
+| Arrival edge / fill | UI mark, 4.5:1 | 7.87 | 10.18 |
 
 Two distinguishability checks have no WCAG minimum (F-51). Change against critical is 2.30:1 in light and 2.20:1 in dark, and the hues differ, so a user-changed critical task stays readable. Change against danger is 1.01:1 in light and 1.25:1 in dark: colour alone cannot tell the two apart. They never meet on one element, and each carries its own shape or text (Colour role rules, User-change hue and Danger).
 
