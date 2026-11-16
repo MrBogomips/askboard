@@ -242,10 +242,37 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         );
         expect(await panelOf(board).count()).toBe(0);
         expect(sentActs(run)).toEqual([]);
+        // Record each change of the focused element, sampled every frame.
+        await headingOf(board, "p3").evaluate((element) => {
+          const doc = element.ownerDocument;
+          const log: string[] = [];
+          (window as unknown as { __focusLog: string[] }).__focusLog = log;
+          const name = (target: Element | null): string =>
+            target === null || target === doc.body
+              ? "page"
+              : target.hasAttribute("data-askboard-submit")
+                ? "send"
+                : target.hasAttribute("data-askboard-completion-heading")
+                  ? "panel"
+                  : target.tagName.startsWith("H")
+                    ? "heading"
+                    : "other";
+          const sample = () => {
+            const now = name(doc.activeElement);
+            if (log[log.length - 1] !== now) log.push(now);
+            requestAnimationFrame(sample);
+          };
+          sample();
+        });
         await board.submit.press("Enter");
         await actsSent(run, 1);
         await expectPanel(board, "Sent: 3. Delivered to the agent: 0.");
         await eventually(() => isFocused(panelHeading(board)), "focus on the panel's heading");
+        const log = await panelHeading(board).evaluate(
+          () => (window as unknown as { __focusLog: string[] }).__focusLog,
+        );
+        // Send, then a question heading, then the panel's heading: never the page in between.
+        expect(log).toEqual(["send", "heading", "panel"]);
         expect(await allReadyLine(board).count()).toBe(0);
       },
       TEST_TIMEOUT_MS,

@@ -767,7 +767,14 @@ export const Board = ({
             );
             const id = next?.id ?? current ?? questions[0]?.id;
             if (next !== undefined && id !== undefined) focusHeading(id);
-            else if (id !== undefined) requestFocusTo(context.focus, id, "completion");
+            else if (id !== undefined) {
+              // Nothing left to do: the heading of the question in view takes the focus now, never
+              // the disabled Send or the page, and the panel's heading follows once it shows.
+              // Directly, not through the store: two requests in one tick leave only the last.
+              const heading = globalThis.document.getElementById(questionTextId(id));
+              if (heading !== null) revealAndFocus(heading);
+              requestFocusTo(context.focus, id, "completion");
+            }
           }}
           snapshot={extras.snapshot}
           snapshotOffer={snapshotOfferOf(lock, connection)}
