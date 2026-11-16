@@ -42,7 +42,7 @@ Only `ask-core` SHALL append to an ask's log. Events SHALL be immutable, concern
 - **THEN** the second's `seq` is greater than the first's, and neither event changes afterwards
 
 ### Requirement: Answers only from an explicit user action
-An answer event SHALL come only from an answer or decline act of the board on a question of an open ask, naming the question's current `rev`, or an older one the user kept (edit choice), and content that revision can hold: option labels, one unless `multiSelect` is set, "Other…" text only with `allowOther`, widget values only for its widget items, and at least a label, "Other…" text or a widget change unless it declines. Any other act SHALL be refused and append nothing (AD-10, NFR-10).
+An answer event SHALL come only from a board's answer or decline act on an open ask's question, naming its current `rev` or one the user kept (edit choice), with content that revision can hold: option labels, one unless `multiSelect`; "Other…" text only with `allowOther`; values only for its widget items; and, unless it declines, a label, "Other…" text, a widget change, a result or `asSent: true` ("An answer accepted as sent"). Other acts SHALL be refused and append nothing (AD-10, NFR-10).
 
 #### Scenario: A valid answer is appended
 - **WHEN** the board sends an answer to question `database` with `rev` 1 and `choice: ["PostgreSQL"]`
@@ -65,7 +65,7 @@ An answer event SHALL come only from an answer or decline act of the board on a 
 - **THEN** it is refused, naming the item, and the log is unchanged
 
 #### Scenario: Widget values equal to what was sent
-- **WHEN** an answer to a question with no options carries a Tree value equal to the Tree as sent, and nothing else
+- **WHEN** an answer to a question with no options carries a Tree value equal to the Tree as sent, and nothing else, without `asSent`
 - **THEN** it is refused as an answer with no content, and the log is unchanged
 
 ### Requirement: Who and when
@@ -1510,3 +1510,30 @@ Each diagnostic the session process writes about the configuration or the projec
 #### Scenario: An answer naming an earlier revision
 - **WHEN** after "Keep mine" an answer naming revision 1 orders the cards of a Kanban the agent changed in revision 2
 - **THEN** its changes are computed against revision 1's cards
+
+### Requirement: An answer accepted as sent
+An answer with `asSent: true` SHALL be accepted only when it names the question's current revision; that revision has no options and holds an item whose widget type edits agent content; the act carries no choice, "Other…" text, option notes or decline, and results only for input fields; its widget values equal the items as sent; and the field checks pass. Its event SHALL carry `asSent: true`, the note, those results and the derived values, and no `changes` (AD-10, NFR-10).
+
+#### Scenario: A Tree accepted as sent
+- **WHEN** the board sends an answer with `asSent: true` and the note "Fine as it is" to a question with no options holding an editable Tree, naming its current `rev`
+- **THEN** one answer event is appended with `asSent: true`, that note and no `changes`, and the question becomes `answered`
+
+#### Scenario: Accepted as sent on a kept revision is refused
+- **WHEN** the user kept revision 1 with an edit choice after the agent's update to revision 2, and the board sends `asSent: true` naming revision 1
+- **THEN** it is refused, naming the current revision, and the log is unchanged
+
+#### Scenario: Accepted as sent beside a change
+- **WHEN** an answer with `asSent: true` carries a Tree value that moves a node
+- **THEN** it is refused, naming the item, and the log is unchanged
+
+#### Scenario: Accepted as sent where it does not apply
+- **WHEN** an answer with `asSent: true` names a question that has options, holds no item whose widget edits agent content, or carries a choice, "Other…" text, option notes or a result of an item that is no input field, or comes as a decline
+- **THEN** it is refused, its detail naming that reason, and the log is unchanged
+
+#### Scenario: Accepted as sent with a required field empty
+- **WHEN** an answer with `asSent: true` names a question whose Table sits beside a required TextField that has no result
+- **THEN** it is refused, naming the field and its check, and the log is unchanged
+
+#### Scenario: Accepted as sent with a filled required field
+- **WHEN** an answer with `asSent: true` names an untouched Table beside a required TextField, and carries that field's result
+- **THEN** one answer event is appended with `asSent: true`, the field's result in `results` and no `changes`

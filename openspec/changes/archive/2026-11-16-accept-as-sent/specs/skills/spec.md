@@ -3,10 +3,10 @@
 ### Requirement: Answers and Snapshots
 The skill SHALL teach:
 
-- that answers carry only what changed and `fetch` returns a whole item;
-- that an answer marked `tooLarge` carries no changes, derived values or results, and `fetch` returns them;
-- that an answer with `asSent: true` is the user's explicit acceptance of the question's editable content exactly as the agent sent it, with no change, may carry the input fields' results, and is never a missing answer;
-- that `snapshot` returns a file's path in the Snapshot folder, whose board data is in the element the contract names.
+- that answers carry only changes and `fetch` returns a whole item;
+- that a `tooLarge` answer carries no changes, derived values or results, which `fetch` returns;
+- that an answer with `asSent: true` accepts the editable content as sent, may carry field results, and is never a missing answer;
+- that `snapshot` returns a path in the Snapshot folder, its board data in the contract's element.
 
 It SHALL hold one `collect` result example (FR-20, FR-26, FR-27, AD-10).
 
