@@ -14,7 +14,11 @@ type Stand = {
   readonly view: { scrollY: number };
   readonly element: HTMLElement;
   /** What the document says has focus: the page's body at first. */
-  readonly doc: { activeElement: unknown; body: object };
+  readonly doc: {
+    activeElement: unknown;
+    body: object;
+    documentElement: { style: { overflowAnchor: string } };
+  };
   /** The element's node is gone from the document, and `again` is the node that replaced it. */
   readonly replace: () => HTMLElement;
   /** Moves the element down by `by` px, as a card above settling into a taller layout does. */
@@ -22,7 +26,14 @@ type Stand = {
 };
 
 const stand = (
-  options: { reduced?: boolean; top?: number; inCard?: boolean; ignoreInstant?: boolean } = {},
+  options: {
+    reduced?: boolean;
+    top?: number;
+    inCard?: boolean;
+    ignoreInstant?: boolean;
+    /** The page's height; the default scrolls far. */
+    height?: number;
+  } = {},
 ): Stand => {
   const calls: string[] = [];
   const attrs = new Set<string>();
@@ -56,9 +67,15 @@ const stand = (
     activeElement: body as unknown,
     querySelector: () => null,
     querySelectorAll: () => ({ length: 0, item: () => null }),
+    documentElement: { scrollHeight: options.height ?? 6000, style: { overflowAnchor: "" } },
   };
   let moved = 0;
   const card = {
+    // The card starts 40 px above the heading and holds it.
+    getBoundingClientRect: () => ({
+      top: (options.top ?? 900) - 40 + moved - view.scrollY,
+      bottom: (options.top ?? 900) + 200 + moved - view.scrollY,
+    }),
     setAttribute: (name: string) => attrs.add(name),
     removeAttribute: (name: string) => attrs.delete(name),
   };
@@ -279,5 +296,135 @@ describe("the end of a move", () => {
     s.replace();
     deadlineOf(s)?.run();
     expect(s.calls.filter((call) => call.startsWith("focus"))).toEqual(["focus true"]);
+  });
+});
+
+// The alignment (answer-moves-to-top, D1, D3): the card's top, or the page's top, instead of the
+// least scroll. The stand's bars are 0 px (no header), so the place is the gap, 8 px, under 0.
+describe("a smooth reveal aligned to the card or the page", () => {
+  const deadlineOf = (s: Stand) => s.timers.find((timer) => timer.ms === MOVE_DEADLINE_MS);
+  const run = (s: Stand) => {
+    for (let now = 16; s.frames.length > 0 && now <= SCROLL_MS + 32; now += 16) {
+      s.frames.shift()?.(now);
+    }
+  };
+
+  test('"card" puts the card top 8 px under the bars, smooth', () => {
+    const s = stand();
+    revealAndFocus(s.element, { smooth: true, align: "card" });
+    run(s);
+    // The card's top is 860: 860 - 8 = 852.
+    expect(s.view.scrollY).toBe(852);
+  });
+
+  test('"card" puts it there at once under reduced motion', () => {
+    const s = stand({ reduced: true });
+    revealAndFocus(s.element, { smooth: true, align: "card" });
+    expect(s.calls).toContain("scrollBy 852 instant");
+    expect(s.frames).toEqual([]);
+  });
+
+  test('"card" scrolls a card that is already in view', () => {
+    const s = stand({ top: 300 });
+    revealAndFocus(s.element, { smooth: true, align: "card" });
+    run(s);
+    expect(s.view.scrollY).toBe(252);
+  });
+
+  test('"card" stops at the page end', () => {
+    // The page scrolls 5300 - 800 = 4500 at most; the card would need 4852.
+    const s = stand({ top: 4900, height: 5300 });
+    s.view.scrollY = 4000;
+    revealAndFocus(s.element, { smooth: true, align: "card" });
+    run(s);
+    expect(s.view.scrollY).toBe(4500);
+  });
+
+  test('"page" goes to the top of the page', () => {
+    const s = stand({ top: 300, reduced: true });
+    s.view.scrollY = 700;
+    revealAndFocus(s.element, { smooth: true, align: "page" });
+    expect(s.calls).toContain("scrollBy -700 instant");
+    expect(s.view.scrollY).toBe(0);
+  });
+
+  test('"page" with the page at its top does not scroll', () => {
+    const s = stand({ top: 300 });
+    revealAndFocus(s.element, { smooth: true, align: "page" });
+    expect(s.frames).toEqual([]);
+    expect(s.calls.filter((call) => call.startsWith("scroll"))).toEqual([]);
+  });
+
+  test("the landing aligns again after a card above changed height", () => {
+    const s = stand();
+    revealAndFocus(s.element, { smooth: true, align: "card" });
+    s.shift(60);
+    run(s);
+    deadlineOf(s)?.run();
+    expect(s.view.scrollY).toBe(912);
+  });
+
+  test("a scroll by the user during the move is kept at the landing", () => {
+    const s = stand();
+    revealAndFocus(s.element, { smooth: true, align: "card" });
+    s.view.scrollY = 300;
+    deadlineOf(s)?.run();
+    expect(s.view.scrollY).toBe(300);
+  });
+
+  test("the card is the element itself when it sits in no card", () => {
+    const s = stand({ inCard: false });
+    revealAndFocus(s.element, { smooth: true, align: "card" });
+    run(s);
+    // The heading's own top, 900: 900 - 8.
+    expect(s.view.scrollY).toBe(892);
+  });
+
+  test("the default is still the least scroll", () => {
+    const s = stand();
+    revealAndFocus(s.element, { smooth: true });
+    run(s);
+    expect(s.view.scrollY).toBe(148);
+  });
+});
+
+// The browser's scroll anchoring moves the page when a card above changes height: that is not the
+// user scrolling, so a move turns it off until it ends (answer-moves-to-top, D1; found with the
+// card's alignment, where the move then stopped short of the place).
+describe("scroll anchoring during a move", () => {
+  const deadlineOf = (s: Stand) => s.timers.find((timer) => timer.ms === MOVE_DEADLINE_MS);
+  const anchor = (s: Stand) => s.doc.documentElement.style.overflowAnchor;
+
+  test("is off while a smooth move runs and restored when it ends", () => {
+    const s = stand();
+    revealAndFocus(s.element, { smooth: true, align: "card" });
+    expect(anchor(s)).toBe("none");
+    deadlineOf(s)?.run();
+    expect(anchor(s)).toBe("");
+  });
+
+  test("restores the value it found", () => {
+    const s = stand();
+    s.doc.documentElement.style.overflowAnchor = "auto";
+    revealAndFocus(s.element, { smooth: true, align: "card" });
+    deadlineOf(s)?.run();
+    expect(anchor(s)).toBe("auto");
+  });
+
+  test("is left alone by an instant move", () => {
+    const s = stand();
+    revealAndFocus(s.element, { resolve: () => s.element });
+    expect(anchor(s)).toBe("");
+  });
+
+  test("a move that follows keeps the value the page had, not none", () => {
+    const s = stand();
+    revealAndFocus(s.element, { smooth: true, align: "card" });
+    revealAndFocus(s.element, { smooth: true, align: "card" });
+    s.timers
+      .filter((timer) => timer.ms === MOVE_DEADLINE_MS)
+      .at(-1)
+      ?.run();
+    expect(anchor(s)).toBe("");
   });
 });

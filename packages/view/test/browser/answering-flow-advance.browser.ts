@@ -117,6 +117,16 @@ const expectBetweenBars = async (board: Board, id: string, top: Locator): Promis
 const expectClearOfBars = (board: Board, id: string): Promise<void> =>
   expectBetweenBars(board, id, board.view.getByRole("banner"));
 
+/** The card starts 8 px (±2) under `bar`'s bottom edge, once the scroll has settled. */
+const expectCardUnder = async (board: Board, id: string, bar: Locator): Promise<void> => {
+  await eventually(async () => {
+    const gap = (await boxOf(card(board, id))).top - (await boxOf(bar)).bottom;
+    return Math.abs(gap - 8) <= 2;
+  }, `the ${id} card 8 px under the bar`);
+};
+const expectCardUnderHeader = (board: Board, id: string): Promise<void> =>
+  expectCardUnder(board, id, board.view.getByRole("banner"));
+
 const scrollY = (board: Board): Promise<number> =>
   board.view.locator("body").evaluate((body) => body.ownerDocument.defaultView?.scrollY ?? 0);
 
@@ -162,6 +172,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await actsSent(run, 1);
         await arrivedAt(board, "q4").waitFor({ timeout: STEP_TIMEOUT_MS });
         await expectClearOfBars(board, "q4");
+        await expectCardUnderHeader(board, "q4");
         await said(board, "Answer sent: Yes. Next: Q4, 4 of 9.");
         // The mark is a moment's: it goes once its time is up (D4).
         await eventually(
@@ -188,6 +199,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await scrollY(board)).toBe(before);
         await board.page.keyboard.press("Enter");
         await expectClearOfBars(board, "q4");
+        await expectCardUnderHeader(board, "q4");
         // The footer leaves with the move (D3).
         expect(await footerOf(board, "q3").count()).toBe(0);
       },
@@ -395,6 +407,103 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           .fill("x", { timeout: STEP_TIMEOUT_MS });
         await said(board, "No longer ready: correct Ticket.");
         expect(await answerOf(board, "q4").getAttribute("aria-pressed")).toBe("false");
+      },
+      TEST_TIMEOUT_MS,
+    );
+  });
+
+  describe(`${engine}: the move to the top`, () => {
+    const { start } = useEngine(engine);
+    const sendFirst = async (board: Board, run: Parameters<typeof actsSent>[0], id: string) => {
+      await answerWithKeys(board, id);
+      await actsSent(run, 1);
+    };
+
+    test(
+      "a question already in view: the page still scrolls and the card starts under the header",
+      async () => {
+        // Question 2's heading is in view with the page at its top (its card, 420 px tall, only in part).
+        const { run, board } = await openPlain(start, 4);
+        expect(await scrollY(board)).toBe(0);
+        await sendFirst(board, run, "p1");
+        await expectCardUnderHeader(board, "p2");
+        expect(await scrollY(board)).toBeGreaterThan(0);
+        await eventually(() => isFocused(headingOf(board, "p2")), "focus on the p2 heading");
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a question below the viewport: the card starts under the header",
+      async () => {
+        const { run, board } = await openTall(start);
+        await answerWithKeys(board, "q3");
+        await actsSent(run, 1);
+        await expectCardUnderHeader(board, "q4");
+        await eventually(() => isFocused(headingOf(board, "q4")), "focus on the q4 heading");
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "within a tab: the card starts under the strip",
+      async () => {
+        const { run, board } = await openTall(start, { presentation: "tabs" });
+        await sendFirst(board, run, "q1");
+        await expectCardUnder(board, "q2", strip(board));
+        await eventually(() => isFocused(headingOf(board, "q2")), "focus on the q2 heading");
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "the last question near the page's end: the page stops at its end, the heading between the bars",
+      async () => {
+        const { run, board } = await openPlain(start, 3);
+        await sendFirst(board, run, "p1");
+        await answerWithKeys(board, "p2");
+        await actsSent(run, 2);
+        await expectClearOfBars(board, "p3");
+        await eventually(async () => {
+          const gap = await board.view
+            .locator("body")
+            .evaluate(
+              (body) =>
+                body.ownerDocument.documentElement.scrollHeight -
+                (body.ownerDocument.defaultView?.innerHeight ?? 0) -
+                (body.ownerDocument.defaultView?.scrollY ?? 0),
+            );
+          return Math.abs(gap) <= 2;
+        }, "the page at its end");
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "one question per view scrolled down: the page goes to its top and the next card carries the mark",
+      async () => {
+        const { run, board } = await openTall(start, { presentation: "one-per-view" });
+        await board.view
+          .locator("body")
+          .evaluate((body) => body.ownerDocument.defaultView?.scrollTo(0, 300));
+        await eventually(async () => (await scrollY(board)) > 100, "the page scrolled down");
+        await answerWithKeys(board, "q1");
+        await actsSent(run, 1);
+        await arrivedAt(board, "q2").waitFor({ timeout: STEP_TIMEOUT_MS });
+        await eventually(async () => (await scrollY(board)) === 0, "the page at its top");
+        await eventually(() => isFocused(headingOf(board, "q2")), "focus on the q2 heading");
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a jump to a question in view keeps the page still, with no mark",
+      async () => {
+        const { board } = await openPlain(start, 4);
+        await board.nextToDo.click({ timeout: STEP_TIMEOUT_MS });
+        await eventually(() => isFocused(headingOf(board, "p1")), "focus on the p1 heading");
+        expect(await scrollY(board)).toBe(0);
+        expect(await arrivedAt(board, "p1").count()).toBe(0);
       },
       TEST_TIMEOUT_MS,
     );

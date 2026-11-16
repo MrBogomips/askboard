@@ -8,15 +8,18 @@ Terms:
 
 ## 0. Base
 
-- [ ] 0.1 Record the PO's answer on D2 (the anchor: the card's top, the default, or the heading's top), asked on #256 with `needs-po`. If the answer is the heading, run `/openspec-update-change` first: one branch of D1 and the spec's "card top" wording change. Tests: none. Verify: a note line here quotes the answer and its date; `needs-po` is off #256.
-- [ ] 0.2 Borrowed names (design.md, merge points): `git grep -n <name> origin/main -- packages tools` for each name listed there. Then grep the browser files for "has not scrolled" and `scrollY` equality after a move that goes on (D7). Tests: none. Verify: a note gives each name's file, and lists each assertion found with its fate. A missing name stops the work for `/openspec-update-change`.
-- [ ] 0.3 Fixture probe for "A question already in view": at 1280×800 with sections, measure in Chromium whether `guidanceAsk(4)`'s question 2 card can reach 8 px under the banner (the page's scroll range). Otherwise pick the smallest count that can. Tests: none (probe). Verify: a note gives the count and the measured scroll range; the probe code is not committed.
+- [x] 0.1 Record the PO's answer on D2 (the anchor: the card's top, the default, or the heading's top), asked on #256 with `needs-po`. If the answer is the heading, run `/openspec-update-change` first: one branch of D1 and the spec's "card top" wording change. Tests: none. Verify: a note line here quotes the answer and its date; `needs-po` is off #256.
+  - Note: The PO answered on 2026-11-16: the card's top, the proposed default; no artifact changes. `needs-po` is the coordinator's to clear on #256.
+- [x] 0.2 Borrowed names (design.md, merge points): `git grep -n <name> origin/main -- packages tools` for each name listed there. Then grep the browser files for "has not scrolled" and `scrollY` equality after a move that goes on (D7). Tests: none. Verify: a note gives each name's file, and lists each assertion found with its fate. A missing name stops the work for `/openspec-update-change`.
+  - Note: every borrowed name exists on origin/main 9d3be635: `revealAndFocus`, `revealDelta`, `REVEAL_GAP`, `SCROLL_MS`, `FRAME_MS`, `ARRIVAL_MS`, `MOVE_DEADLINE_MS`, `scrollFrames` in `shell/reveal.ts`; `measureBoardInset` in `shell/measure-inset.ts`; `requestHeading`, `HeadingRequest.smooth` in `shell/heading-request.ts`; `useHeadingFocus` in `shell/board.tsx`; `CONTRAST_PAIRS`, `contrastReport` in `tools/build/contrast.ts`; `guidanceAsk` in `test/browser/fixtures/guidance-asks.ts`, `answeringAsk` in `fixtures/answering-flow-asks.ts`; `expectBetweenBars`, `arrivedAt` in `answering-flow-advance.browser.ts`, `watchArrival`, `arrivalOf` in `answering-flow-motion.browser.ts`. `scrollY` equality: `answering-flow-advance.browser.ts` Stay here (taken before Continue: stays); `answering-flow-motion.browser.ts` reduced-motion case, which asserts the position after a move (becomes the card top at 8 px, task 2.3); the other `scrollY` reads (focus, in-view, progress) are reads, not equalities after a move that goes on.
+- [x] 0.3 Fixture probe for "A question already in view": at 1280×800 with sections, measure in Chromium whether `guidanceAsk(4)`'s question 2 card can reach 8 px under the banner (the page's scroll range). Otherwise pick the smallest count that can. Tests: none (probe). Verify: a note gives the count and the measured scroll range; the probe code is not committed.
+  - Note: `guidanceAsk` cards are 420 px tall at 1280×800 and question 2 starts at 549 px under a 97 px header, so no count makes the whole card fit with the page at its top (scroll ranges 1056, 1928, 2800 for 4, 6, 8 prompts). Question 2's heading is in view, which is what the least scroll left still; 1.6 asserts that (a gap between the spec's "wholly in view" and the fixture, reported). The probe is not committed.
 
 ## 1. The move to the top (`shell/reveal.ts`, `shell/board.tsx`)
 
-- [ ] 1.1 Unit tests first in `shell/reveal.test.ts` for `alignDelta` (D1, D4): a card below the bars, wholly in view, above them, past the page's end (clamped to the end), taller than the span, and a page that cannot scroll (0). Scenarios: A question already in view, The last question near the page's end, A card taller than the viewport. Verify: red because `alignDelta` is missing, then green after 1.2.
-- [ ] 1.2 Implement `alignDelta(target, inset, gap, scroll)` in `reveal.ts`, pure, beside `revealDelta` (D1). Tests: 1.1. Verify: 1.1 green; `revealDelta`'s cases unchanged and green.
-- [ ] 1.3 Unit tests first in `shell/reveal-smooth.test.ts`, with the stand-in window (D1, D4):
+- [x] 1.1 Unit tests first in `shell/reveal.test.ts` for `alignDelta` (D1, D4): a card below the bars, wholly in view, above them, past the page's end (clamped to the end), taller than the span, and a page that cannot scroll (0). Scenarios: A question already in view, The last question near the page's end, A card taller than the viewport. Verify: red because `alignDelta` is missing, then green after 1.2.
+- [x] 1.2 Implement `alignDelta(target, inset, gap, scroll)` in `reveal.ts`, pure, beside `revealDelta` (D1). Tests: 1.1. Verify: 1.1 green; `revealDelta`'s cases unchanged and green.
+- [x] 1.3 Unit tests first in `shell/reveal-smooth.test.ts`, with the stand-in window (D1, D4):
   - `align: "card"` moves the card's top to 8 px under the inset, smooth and instant;
   - `align: "page"` goes to 0;
   - the landing re-aligns after a card above changed height;
@@ -24,9 +27,10 @@ Terms:
   - the default stays the least scroll.
 
   Scenarios: A card above changes height during the move, The user scrolls during the move. Verify: red for the missing option.
-- [ ] 1.4 Implement `align` in `revealAndFocus` and `land` (D1, D3). The card is the target's closest `[data-askboard-question]`. Tests: 1.3. Verify: 1.3 and every existing `reveal-smooth` and `reveal` case green; 100% line coverage of `reveal.ts`.
-- [ ] 1.5 `useHeadingFocus` in `board.tsx` passes `align: "page"` in one question per view and `"card"` otherwise, only on a request with `smooth` (D1). Tests: 1.6. Verify: `bun run typecheck` clean; the non-smooth calls are unchanged (diff review).
-- [ ] 1.6 In `answering-flow-advance.browser.ts`, a describe "the move to the top" (D7). It measures the card's box against the banner or the strip (±2 px) and `scrollY`, waiting with `eventually`. Scenarios:
+- [x] 1.4 Implement `align` in `revealAndFocus` and `land` (D1, D3). The card is the target's closest `[data-askboard-question]`. Tests: 1.3. Verify: 1.3 and every existing `reveal-smooth` and `reveal` case green; 100% line coverage of `reveal.ts`.
+  - Note: deviation: a smooth move holds `overflow-anchor: none` on the document until it ends. Scroll anchoring moved the page by 38 px when the answered card above grew back, the move read it as the user's scroll and stopped 350 px short of the place. Unit tests in `reveal-smooth.test.ts`.
+- [x] 1.5 `useHeadingFocus` in `board.tsx` passes `align: "page"` in one question per view and `"card"` otherwise, only on a request with `smooth` (D1). Tests: 1.6. Verify: `bun run typecheck` clean; the non-smooth calls are unchanged (diff review).
+- [x] 1.6 In `answering-flow-advance.browser.ts`, a describe "the move to the top" (D7). It measures the card's box against the banner or the strip (±2 px) and `scrollY`, waiting with `eventually`. Scenarios:
   - A question already in view (fixture from 0.3);
   - A question below the viewport;
   - Within a tab;
@@ -35,7 +39,7 @@ Terms:
   - A jump to a question in view keeps the page still ("Next to do").
 
   Verify: File run red before 1.5, then green.
-- [ ] 1.7 Existing cases in the same file: "Go to the next, in sections" asserts the card top at 8 px under the banner. "Stay here" also asserts it after "Continue"; its "page has not scrolled" stays before "Continue". Apply the fate of each assertion 0.2 found. Scenarios: Go to the next, Stay here. Verify: File run of `answering-flow-advance` green.
+- [x] 1.7 Existing cases in the same file: "Go to the next, in sections" asserts the card top at 8 px under the banner. "Stay here" also asserts it after "Continue"; its "page has not scrolled" stays before "Continue". Apply the fate of each assertion 0.2 found. Scenarios: Go to the next, Stay here. Verify: File run of `answering-flow-advance` green.
 
 ## 2. The arrival mark (`styles/motion.css`, `styles/forced-colors.css`, `tools/build/contrast.ts`)
 
