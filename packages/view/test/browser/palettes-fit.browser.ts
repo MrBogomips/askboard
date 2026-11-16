@@ -14,6 +14,7 @@ import { answeringAsk, type Language } from "./fixtures/answering-flow-asks.ts";
 import { STEP_TIMEOUT_MS, TEST_TIMEOUT_MS, useEngine } from "./harness/board-test.ts";
 import type { Board } from "./harness/dom.ts";
 import { enginesFrom } from "./harness/engines.ts";
+import { clipped } from "./harness/fit.ts";
 import { answerOf, lifecycleScenario, openBoard, optionOf } from "./harness/lifecycle-test.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 
@@ -23,37 +24,6 @@ const THEMES = ["light", "dark"] as const;
 const DENSITIES = ["compact", "comfortable"] as const;
 const LANGUAGES: readonly Language[] = ["en-US", "it-IT"];
 const ALL = ["q1", "q2", "q3", "q4", "q5", "q6", "q7", "q8", "q9"];
-
-/**
- * The elements of the view whose text is wider than their box: inside the outbox every one counts,
- * ellipsis included; elsewhere in the header and the rail only those that do not end in an
- * ellipsis on purpose (agent text).
- */
-const clipped = (board: Board): Promise<string[]> =>
-  board.view.locator("body").evaluate((body) => {
-    const doc = body.ownerDocument;
-    const view = doc.defaultView;
-    if (view === null) return [];
-    const wide = (element: Element) => element.scrollWidth > element.clientWidth + 1;
-    const named = (element: Element) =>
-      `${element.tagName.toLowerCase()}[${(element.textContent ?? "").trim().slice(0, 30)}]`;
-    const found: string[] = [];
-    for (const element of doc.querySelectorAll(
-      "[data-askboard-outbox], [data-askboard-outbox] *",
-    )) {
-      if (wide(element)) found.push(`outbox ${named(element)}`);
-    }
-    const scoped = ["header", "header *", "[data-askboard-rail]", "[data-askboard-rail] *"];
-    for (const element of doc.querySelectorAll(scoped.join(", "))) {
-      if (element.closest("[data-askboard-outbox]") !== null) continue;
-      const style = view.getComputedStyle(element);
-      const scrolls = style.overflowX === "auto" || style.overflowX === "scroll";
-      if (wide(element) && style.textOverflow !== "ellipsis" && !scrolls) {
-        found.push(`frame ${named(element)}`);
-      }
-    }
-    return found;
-  });
 
 /** The elements of the Theme popover that are wider than their box. */
 const clippedSegments = (board: Board): Promise<string[]> =>

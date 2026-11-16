@@ -89,29 +89,32 @@ const markArrival = (element: HTMLElement): void => {
   };
 };
 
-const scrollSmoothly = (view: Window, delta: number, settle: () => void): void => {
+/** What the move reads of a run of frames: where it last put the page, and whether it is over. */
+type Move = { last: number; done: boolean; frame?: number };
+
+const scrollSmoothly = (view: Window, delta: number, move: Move, finish: () => void): void => {
   const frames = scrollFrames(view.scrollY, view.scrollY + delta, SCROLL_MS);
   if (animation !== undefined) view.cancelAnimationFrame(animation);
   const start = view.performance.now();
-  let last = view.scrollY;
   const step = (now: number) => {
     // The user scrolled meanwhile: the move stops where it is, and never fights the user.
-    if (Math.abs(view.scrollY - last) > 2) {
+    if (Math.abs(view.scrollY - move.last) > 2) {
       animation = undefined;
+      finish();
       return;
     }
     const elapsed = now - start;
     const frame = frames.find((each) => each.at >= elapsed) ?? frames[frames.length - 1];
     if (frame === undefined) return;
     view.scrollTo({ top: frame.y, behavior: "instant" });
-    last = view.scrollY;
+    move.last = view.scrollY;
     const lastFrame = frame === frames[frames.length - 1];
     animation = lastFrame ? undefined : view.requestAnimationFrame(step);
-    // The layout may have moved while the scroll ran (a card above settling into its answered look):
-    // the end of the move leaves the element clear of the bars as it was asked to.
-    if (lastFrame) settle();
+    move.frame = animation;
+    if (lastFrame) finish();
   };
   animation = view.requestAnimationFrame(step);
+  move.frame = animation;
 };
 
 /** Whether the user asks for less motion: the scroll is then instant (decision 4; WCAG 2.3.3). */
@@ -119,14 +122,43 @@ const reducedMotion = (view: Window): boolean =>
   view.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /**
+ * The time after which every move has ended, whatever the engine did with its frames: the smooth
+ * move's length and two frames (e2e-stabilise-answering-flow, D4).
+ */
+export const MOVE_DEADLINE_MS = SCROLL_MS + 2 * FRAME_MS;
+
+let deadline: number | undefined;
+
+/** Where the page stands when a move ends: clear of the bars. Reads the layout as it is then. */
+const land = (view: Window, doc: Document, box: HTMLElement): void => {
+  const edges = box.getBoundingClientRect();
+  const left = revealDelta(
+    { top: edges.top, bottom: edges.bottom },
+    measureBoardInset(doc),
+    view.innerHeight,
+    REVEAL_GAP,
+  );
+  if (left === 0) return;
+  const from = view.scrollY;
+  view.scrollBy({ top: left, behavior: "instant" });
+  // An engine that ignored "instant" has not moved: scroll to the place without a behavior.
+  if (Math.abs(view.scrollY - from) < Math.abs(left) - 1) view.scrollTo({ top: from + left });
+};
+
+/**
  * Scrolls `element` clear of the bars (the header, the strip of tabs and the tray), and gives
  * it focus without the browser's own scroll. Instant by default; `smooth` (After an answer's move
  * and "Continue") scrolls in at most `SCROLL_MS` unless the user asks for less motion, and marks
- * the card where it arrives.
+ * the card where it arrives. `resolve` names the element again when the move ends: a re-render
+ * that replaced the node meanwhile does not leave focus on the page (#241), and the move ends at
+ * `MOVE_DEADLINE_MS` even where the engine never ran its frames.
  */
 export const revealAndFocus = (
   element: HTMLElement,
-  { smooth = false }: { readonly smooth?: boolean } = {},
+  {
+    smooth = false,
+    resolve,
+  }: { readonly smooth?: boolean; readonly resolve?: () => HTMLElement | null } = {},
 ): void => {
   const doc = element.ownerDocument;
   const view = doc.defaultView;
@@ -142,27 +174,40 @@ export const revealAndFocus = (
   if (instant && delta !== 0) view?.scrollBy({ top: delta, behavior: "instant" });
   element.focus({ preventScroll: true });
   if (smooth) markArrival(element);
-  // The layout may move while the move runs or just after it (a card above settling into its
-  // answered look): the end of the move leaves the element clear of the bars as it was asked to.
-  const settle = () => {
-    if (view === null) return;
-    const box = element.getBoundingClientRect();
-    const left = revealDelta(
-      { top: box.top, bottom: box.bottom },
-      measureBoardInset(doc),
-      view.innerHeight,
-      REVEAL_GAP,
-    );
-    if (left !== 0) view.scrollBy({ top: left, behavior: "instant" });
+  if (view === null) return;
+  // Every move ends the one before it: its frames and its deadline.
+  if (animation !== undefined) view.cancelAnimationFrame(animation);
+  animation = undefined;
+  if (deadline !== undefined) view.clearTimeout(deadline);
+  deadline = undefined;
+  if (!smooth && resolve === undefined) return;
+  // The layout or the node may change while the move runs or just after it (a card above settling
+  // into its answered look; a re-render): the end of the move leaves the target focused and clear
+  // of the bars as it was asked to, unless the user scrolled or moved focus meanwhile.
+  const move: Move = { last: view.scrollY, done: false };
+  let own: number | undefined;
+  const finish = () => {
+    if (move.done) return;
+    move.done = true;
+    // Only this move's own deadline and frames: a later move has set its own.
+    if (deadline === own) {
+      if (deadline !== undefined) view.clearTimeout(deadline);
+      deadline = undefined;
+    }
+    if (animation !== undefined && animation === move.frame) {
+      view.cancelAnimationFrame(animation);
+      animation = undefined;
+    }
+    const userScrolled = Math.abs(view.scrollY - move.last) > 2;
+    const target = resolve === undefined ? element : (resolve() ?? element);
+    if (!target.isConnected) return;
+    const active = doc.activeElement;
+    if (active === null || active === doc.body || !active.isConnected) {
+      target.focus({ preventScroll: true });
+    }
+    if (!userScrolled) land(view, doc, target);
   };
-  if (!instant && view !== null) {
-    scrollSmoothly(view, delta, settle);
-  } else if (smooth && view !== null) {
-    // An instant move after an act (less motion asked): one settle once the time of the smooth move
-    // has passed, unless the user scrolled meanwhile.
-    const at = view.scrollY;
-    view.setTimeout(() => {
-      if (Math.abs(view.scrollY - at) <= 2) settle();
-    }, SCROLL_MS);
-  }
+  own = view.setTimeout(finish, MOVE_DEADLINE_MS);
+  deadline = own;
+  if (!instant) scrollSmoothly(view, delta, move, finish);
 };

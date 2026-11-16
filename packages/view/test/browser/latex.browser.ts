@@ -29,6 +29,7 @@ import {
   useEngine,
 } from "./harness/board-test.ts";
 import type { Board } from "./harness/dom.ts";
+import { workOf } from "./harness/draft-results.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import {
   answerOf,
@@ -132,7 +133,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await board.answer.isDisabled()).toBe(true);
         await draftSettled(board);
         expect(run.messages.map((message) => message.type)).toEqual(["ready"]);
-        expect(run.drafts).toEqual([]);
+        expect(workOf(run.drafts)).toEqual([]);
         expect(networkRequests(run)).toEqual(["/"]);
         expect(run.browser.violations).toEqual([]);
       },

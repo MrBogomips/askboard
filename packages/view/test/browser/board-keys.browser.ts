@@ -8,6 +8,8 @@
 
 import { describe, expect, test } from "bun:test";
 import type { Locator } from "playwright";
+import { EN_US } from "../../src/strings/en-US.ts";
+import { IT_IT } from "../../src/strings/it-IT.ts";
 import { singleAnsweringAsk } from "./fixtures/answering-flow-asks.ts";
 import {
   boardKeysAsk,
@@ -536,7 +538,11 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           await dialog.waitFor({ timeout: STEP_TIMEOUT_MS });
           const row = dialog.locator("li").filter({ hasText: name });
           expect(await row.count()).toBe(1);
-          expect((await row.locator("kbd").allTextContents()).join("")).toMatch(/^(Shift\+N|⇧N)$/);
+          // The catalog's Shift for the ask's language, or the symbol on macOS.
+          const shift = (language === "it-IT" ? IT_IT : EN_US)["key.shift"];
+          expect((await row.locator("kbd").allTextContents()).join("")).toMatch(
+            new RegExp(`^(${shift}\\+N|⇧N)$`),
+          );
         },
         TEST_TIMEOUT_MS,
       );

@@ -21,6 +21,7 @@ import {
   reviewItem,
 } from "./fixtures/document-review-documents.ts";
 import { eventually, STEP_TIMEOUT_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
+import { workOf } from "./harness/draft-results.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import { draftSettled, viewSettled } from "./harness/probes.ts";
 import {
@@ -72,7 +73,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await doc.locator("strong").textContent()).toBe("remembers");
         await draftSettled(run.board);
         expect(run.messages.filter((message) => message.type === "ready")).toHaveLength(1);
-        expect(run.drafts).toEqual([]);
+        expect(workOf(run.drafts)).toEqual([]);
         expect(await run.board.answer.isDisabled()).toBe(true);
         expect(run.browser.cspProblems()).toEqual([]);
       },
@@ -255,7 +256,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await dialog.getByRole("button", { name: "Done" }).click();
         await card(view).waitFor({ state: "hidden", timeout: STEP_TIMEOUT_MS });
         await draftSettled(run.board);
-        expect(run.drafts).toEqual([]);
+        expect(workOf(run.drafts)).toEqual([]);
         expect(await marks(view).count()).toBe(0);
       },
       TEST_TIMEOUT_MS,
@@ -309,7 +310,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
             .locator('[role="status"]')
             .count(),
         ).toBe(1);
-        expect(run.drafts).toEqual([]);
+        expect(workOf(run.drafts)).toEqual([]);
       },
       TEST_TIMEOUT_MS,
     );
@@ -353,7 +354,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
             "the several-ranges message",
           );
           expect(await card(view).count()).toBe(0);
-          expect(run.drafts).toEqual([]);
+          expect(workOf(run.drafts)).toEqual([]);
         } else {
           // One range: the last one added, which is a passage like any other.
           await card(view).waitFor({ timeout: STEP_TIMEOUT_MS });
@@ -735,7 +736,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           "the block message",
         );
         expect(await card(view).count()).toBe(0);
-        expect(run.drafts).toEqual([]);
+        expect(workOf(run.drafts)).toEqual([]);
       },
       TEST_TIMEOUT_MS,
     );

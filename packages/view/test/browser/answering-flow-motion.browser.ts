@@ -10,7 +10,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { Locator, Route } from "playwright";
+import type { Route } from "playwright";
 import { answeringAsk } from "./fixtures/answering-flow-asks.ts";
 import { panelAsk, panelFiles } from "./fixtures/context-asks.ts";
 import {
@@ -27,7 +27,6 @@ import {
   actsSent,
   answerOf,
   buttonOf,
-  card,
   headingOf,
   lifecycleScenario,
   menuItem,
@@ -63,8 +62,83 @@ const answerWithKeys = async (board: Board, id: string): Promise<void> => {
 const scrollY = (board: Board): Promise<number> =>
   board.view.locator("body").evaluate((body) => body.ownerDocument.defaultView?.scrollY ?? 0);
 
-const arrived = (board: Board, id: string): Locator =>
-  card(board, id).and(board.view.locator("[data-askboard-arrived]"));
+type Arrival = {
+  /** When the act (Enter) was pressed, and when the card's heading took the focus. */
+  readonly act?: number;
+  readonly focused?: number;
+  readonly set?: number;
+  readonly removed?: number;
+  readonly name?: string;
+  readonly duration?: string;
+};
+
+/** One frame at 60 Hz, with the slack a loaded runner needs. */
+const FRAME_SLACK_MS = 50;
+
+/** The mark is set within a frame of the move (the focus on the card's heading) and after the act. */
+const expectSetWithTheMove = (seen: Arrival): void => {
+  expect(seen.set).toBeDefined();
+  expect(seen.focused).toBeDefined();
+  expect(Math.abs((seen.set ?? 0) - (seen.focused ?? 0))).toBeLessThanOrEqual(FRAME_SLACK_MS);
+  expect((seen.set ?? 0) - (seen.act ?? 0)).toBeGreaterThanOrEqual(0);
+};
+
+/** The mark lives 1.2 s: removed between 1,000 and 2,000 ms after it was set (a loaded runner). */
+const expectLife = (seen: Arrival): void => {
+  const lived = (seen.removed ?? 0) - (seen.set ?? 0);
+  expect(lived).toBeGreaterThanOrEqual(1_000);
+  expect(lived).toBeLessThanOrEqual(2_000);
+};
+
+/**
+ * Watches the card's arrival mark from before the act: a `MutationObserver` in the view records
+ * when `data-askboard-arrived` is set on it and removed, and the mark's animation when it was set.
+ * The mark lives 1.2 s, so a test that looks for it after other waits can miss it.
+ */
+const watchArrival = (board: Board, id: string): Promise<void> =>
+  board.view.locator("body").evaluate((body, questionId) => {
+    const doc = body.ownerDocument;
+    const record: { -readonly [K in keyof Arrival]: Arrival[K] } = {};
+    (doc.defaultView as unknown as { __arrival: Arrival }).__arrival = record;
+    doc.addEventListener(
+      "keydown",
+      (event) => {
+        if (event.key === "Enter" && record.act === undefined) record.act = performance.now();
+      },
+      true,
+    );
+    doc.addEventListener("focusin", (event) => {
+      const target = event.target as Element;
+      const heading = target.closest(`[data-askboard-question="${questionId}"]`);
+      if (heading !== null && target.matches("h2,h3") && record.focused === undefined) {
+        record.focused = performance.now();
+      }
+    });
+    new MutationObserver(() => {
+      const card = doc.querySelector(`[data-askboard-question="${questionId}"]`);
+      if (card === null) return;
+      const marked = card.hasAttribute("data-askboard-arrived");
+      if (marked && record.set === undefined) {
+        const style = getComputedStyle(card);
+        record.set = performance.now();
+        record.name = style.animationName;
+        record.duration = style.animationDuration;
+      } else if (!marked && record.set !== undefined && record.removed === undefined) {
+        record.removed = performance.now();
+      }
+    }).observe(doc.body, {
+      attributes: true,
+      attributeFilter: ["data-askboard-arrived"],
+      subtree: true,
+    });
+  }, id);
+
+const arrivalOf = (board: Board): Promise<Arrival> =>
+  board.view
+    .locator("body")
+    .evaluate(
+      (body) => (body.ownerDocument.defaultView as unknown as { __arrival: Arrival }).__arrival,
+    );
 
 type Durations = { readonly name: string; readonly animation: string; readonly transition: string };
 
@@ -115,6 +189,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       "reduce: after a send with Go to the next the page is at its new position at once, and the arrival mark does not animate",
       async () => {
         const { run, board } = await open(start, "reduce");
+        await watchArrival(board, "q4");
         await answerWithKeys(board, "q3");
         await actsSent(run, 1);
         await eventually(() => isFocused(headingOf(board, "q4")), "focus on the q4 heading");
@@ -128,16 +203,17 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const at = await scrollY(board);
         await Bun.sleep(400);
         expect(await scrollY(board)).toBe(at);
-        // The mark is static, and goes after its time.
-        const mark = arrived(board, "q4");
-        await mark.waitFor({ timeout: STEP_TIMEOUT_MS });
-        const style = await mark.evaluate((element) => {
-          const computed = getComputedStyle(element);
-          return { name: computed.animationName, duration: computed.animationDuration };
-        });
-        expect(style.name).toBe("none");
-        expect(style.duration).toBe("0s");
-        await eventually(async () => (await mark.count()) === 0, "the mark gone", 5_000);
+        // The mark is static, and goes after its time (1.2 s; the bounds allow a loaded runner).
+        await eventually(
+          async () => (await arrivalOf(board)).removed !== undefined,
+          "the mark gone",
+        );
+        const seen = await arrivalOf(board);
+        expect(seen.set).toBeDefined();
+        expect(seen.name).toBe("none");
+        expect(seen.duration).toBe("0s");
+        expectSetWithTheMove(seen);
+        expectLife(seen);
         expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,
@@ -218,16 +294,18 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       "no preference: the arrival mark animates",
       async () => {
         const { run, board } = await open(start, "no-preference");
+        await watchArrival(board, "q4");
         await answerWithKeys(board, "q3");
         await actsSent(run, 1);
-        const mark = arrived(board, "q4");
-        await mark.waitFor({ timeout: STEP_TIMEOUT_MS });
-        const style = await mark.evaluate((element) => {
-          const computed = getComputedStyle(element);
-          return { name: computed.animationName, duration: computed.animationDuration };
-        });
-        expect(style.name).toBe("askboard-arrival");
-        expect(style.duration).toBe("1.2s");
+        await eventually(
+          async () => (await arrivalOf(board)).removed !== undefined,
+          "the mark gone",
+        );
+        const seen = await arrivalOf(board);
+        expect(seen.name).toBe("askboard-arrival");
+        expect(seen.duration).toBe("1.2s");
+        expectSetWithTheMove(seen);
+        expectLife(seen);
       },
       TEST_TIMEOUT_MS,
     );

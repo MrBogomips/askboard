@@ -7,6 +7,7 @@
 import { describe, expect, test } from "bun:test";
 import { uj2ExpandedBoardDocument } from "@askboard/contract/fixtures";
 import { isFocused, STEP_TIMEOUT_MS, TEST_TIMEOUT_MS } from "./harness/board-test.ts";
+import { workOf } from "./harness/draft-results.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import { treeGridOf } from "./harness/tree-grid.ts";
 import {
@@ -45,7 +46,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await message.waitFor({ timeout: STEP_TIMEOUT_MS });
         expect(await isFocused(tree.editor)).toBe(true);
         expect(await tree.editor.inputValue()).toBe("99999");
-        expect(run.drafts).toEqual([]);
+        expect(workOf(run.drafts)).toEqual([]);
         await expectUnchanged(run);
       },
       TEST_TIMEOUT_MS,
@@ -67,7 +68,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await run.board.view
           .getByText("An estimate is 0 to 100,000 working days.", { exact: true })
           .waitFor({ timeout: STEP_TIMEOUT_MS });
-        expect(run.drafts).toEqual([]);
+        expect(workOf(run.drafts)).toEqual([]);
         await run.board.page.keyboard.press("Escape");
         const likely = (await tree.cell("portal", 2).textContent())?.replace(/ d$/, "") ?? "";
         await typeIn(run, tree, "Enter", likely);

@@ -12,12 +12,13 @@ import { atomAsk } from "./fixtures/atom-documents.ts";
 import { sectionsAsk } from "./fixtures/lifecycle-asks.ts";
 import { eventually, STEP_TIMEOUT_MS, TEST_TIMEOUT_MS, useEngine } from "./harness/board-test.ts";
 import { launchEngine } from "./harness/browser.ts";
-import type { Board } from "./harness/dom.ts";
+import { type Board, pickTheme } from "./harness/dom.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import {
   actsDone,
   buttonOf,
   card,
+  labelText,
   lifecycleScenario,
   openBoard,
   optionOf,
@@ -170,7 +171,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           const board = await openBoard(run, ["region", "mobile", "export", "flag"]);
           const button = board.header.getByRole("button", { name: jump, exact: true });
           await button.waitFor({ timeout: STEP_TIMEOUT_MS });
-          expect((await button.textContent())?.trim()).toBe(jump);
+          expect(await labelText(button)).toBe(jump);
           const svgs = svgsIn(button);
           expect(await svgs.count()).toBe(1);
           expect(await svgs.first().getAttribute("aria-hidden")).toBe("true");
@@ -269,10 +270,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           await entry
             .getByRole("img", { name: "1 new reply", exact: true })
             .waitFor({ timeout: STEP_TIMEOUT_MS });
-          await board.view
-            .getByRole("radiogroup", { name: "Theme" })
-            .getByRole("radio", { name: theme })
-            .click({ timeout: STEP_TIMEOUT_MS });
+          await pickTheme(board.view, theme);
           await board.view
             .locator(theme === "Dark" ? "html.dark" : "html:not(.dark)")
             .waitFor({ state: "attached" });

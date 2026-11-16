@@ -242,7 +242,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         );
         expect(await panelOf(board).count()).toBe(0);
         expect(sentActs(run)).toEqual([]);
-        // Record each change of the focused element, sampled every frame.
+        // Record each change of the focused element: every focus event (a focus that lasts less
+        // than a frame is still recorded), and each frame's sample (the page, which has no event).
         await headingOf(board, "p3").evaluate((element) => {
           const doc = element.ownerDocument;
           const log: string[] = [];
@@ -257,9 +258,13 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
                   : target.tagName.startsWith("H")
                     ? "heading"
                     : "other";
-          const sample = () => {
+          const note = () => {
             const now = name(doc.activeElement);
             if (log[log.length - 1] !== now) log.push(now);
+          };
+          doc.addEventListener("focusin", note, true);
+          const sample = () => {
+            note();
             requestAnimationFrame(sample);
           };
           sample();

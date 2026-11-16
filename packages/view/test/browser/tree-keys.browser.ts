@@ -36,6 +36,21 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     const { host } = useWidgetHost(engine);
 
     test(
+      "Tab from a Tree question's heading reaches the Tree's tools, then the Tree, in each engine",
+      async () => {
+        const run = await host(dist, treeBoardDocument);
+        await readyIn(run);
+        const { board } = run;
+        await board.view.getByRole("heading", { name: plan.props.text }).focus();
+        await board.page.keyboard.press("Tab");
+        expect(await treeFocus(board)).toBeUndefined();
+        await board.page.keyboard.press("Tab");
+        expect(await treeFocus(board)).toEqual({ nodeId: "design" });
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
       "the tree is one Tab stop, and the arrow keys, Home and End move the focus with the focus ring",
       async () => {
         const run = await host(dist, treeBoardDocument);

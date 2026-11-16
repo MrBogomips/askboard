@@ -685,7 +685,7 @@ export const IT_IT = {
   "ledger.drafts": "Bozze",
   "ledger.ready": "Pronte",
   "ledger.sent": "Inviate",
-  "ledger.delivered": "Consegnate",
+  "ledger.delivered": "Arrivate",
   "ledger.readyOff": "Non usato in «Una alla volta»",
   "answer.line": "Risposta: {answer}",
   "question.chooseOption": "Scegli un'opzione",

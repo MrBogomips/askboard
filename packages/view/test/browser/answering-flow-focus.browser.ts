@@ -152,6 +152,19 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
+      "next open pressed and released a moment apart, on a fresh board, goes to the first question (a focus on the header leaves the question in view alone)",
+      async () => {
+        const { board } = await open(start, "sections");
+        await nextOpen(board).hover();
+        await board.page.mouse.down();
+        await Bun.sleep(300);
+        await board.page.mouse.up();
+        await expectClearOfBars(board, "q1");
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
       "next open to a heading under where the bottom bar stood: its bottom edge 16 px above the viewport's foot, the view does not scroll and the heading has focus",
       async () => {
         const { run, board } = await open(start, "sections");

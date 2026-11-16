@@ -3,7 +3,7 @@
 // extreme time zone of AD-13's determinism runs, and the board still follows the ask alone. An
 // it-IT ask shows the Italian strings and `lang="it"` on the board page and in the view, with the
 // agent's English text as sent; an en-US ask with the it-IT locale shows English strings and
-// Italian formats; header row 2 in Italian fits a 1280 px viewport (DESIGN, Open Items 5); no
+// Italian formats; the progress row in Italian fits a 1280 px viewport (DESIGN, Open Items 5); no
 // control changes the language. "Impostazioni" comes with the settings panel (group 8).
 
 import { describe, expect, test } from "bun:test";
@@ -101,11 +101,11 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       );
 
       test(
-        "header row 2 in Italian fits the 1280 px viewport with no overflow",
+        "the progress row in Italian fits the 1280 px viewport with no overflow",
         async () => {
           const run = await start(lifecycleScenario(italianAsk, dist), options);
           const board = await openBoard(run, ["database", "cache"]);
-          const row = board.view.locator("header > div").nth(1);
+          const row = board.progressRow;
           await row.getByText("Prossima da fare").waitFor({ timeout: STEP_TIMEOUT_MS });
           const fit = await row.evaluate((element) => {
             const right = Math.max(

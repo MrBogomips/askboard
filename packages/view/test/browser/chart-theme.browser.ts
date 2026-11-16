@@ -27,7 +27,7 @@ import {
   ringOfBar,
   sliceOf,
 } from "./harness/chart-steps.ts";
-import type { Board } from "./harness/dom.ts";
+import { type Board, pickTheme } from "./harness/dom.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import { lifecycleScenario, openBoard } from "./harness/lifecycle-test.ts";
 import { viewSettled } from "./harness/probes.ts";
@@ -69,16 +69,6 @@ const [BARS, LINES, PIES] = [0, 1, 2] as const;
 
 // DESIGN's `chart-1`, the first series' colour, in each theme.
 const CHART_1 = { light: "#2a78d6", dark: "#3987e5" } as const;
-
-const themeRadio = (board: Board, name: "System" | "Light" | "Dark") =>
-  board.view.getByRole("radiogroup", { name: "Theme" }).getByRole("radio", { name, exact: true });
-
-// Picks a theme in the Theme popover, opening it when it is closed (answering-flow-visual).
-const pickTheme = async (board: Board, name: "System" | "Light" | "Dark"): Promise<void> => {
-  const radio = themeRadio(board, name);
-  if (!(await radio.isVisible())) await board.themeControl.click({ timeout: STEP_TIMEOUT_MS });
-  await radio.click({ timeout: STEP_TIMEOUT_MS });
-};
 
 const isDark = async (board: Board): Promise<boolean> =>
   ((await board.view.locator("html").getAttribute("class")) ?? "").split(/\s+/).includes("dark");
@@ -125,7 +115,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const requests: string[] = [];
         run.browser.context.on("request", (request) => requests.push(request.url()));
         const board = await openBoard(run, ["plan"]);
-        await pickTheme(board, "Light");
+        await pickTheme(board.view, "Light");
         await eventually(async () => !(await isDark(board)), "the light theme");
         expect(await token(board, "--chart-1")).toBe(CHART_1.light);
         await eventually(async () => (await firstBarColour(board)) === CHART_1.light, "light bars");
@@ -138,7 +128,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await board.page.mouse.move(barBox.x + bar.centre.x + 2, barBox.y + bar.centre.y + 2);
         expect(await ringOfBar(board, BAR_RIG, 0, 1, BARS)).toBe(false);
         // Light to Dark: the palette read again, the highlight kept.
-        await pickTheme(board, "Dark");
+        await pickTheme(board.view, "Dark");
         await eventually(() => isDark(board), "the dark theme");
         expect(await token(board, "--chart-1")).toBe(CHART_1.dark);
         await eventually(async () => (await firstBarColour(board)) === CHART_1.dark, "dark bars");
@@ -174,7 +164,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await eventually(async () => (await firstBarColour(board)) === CHART_1.dark, "dark bars");
         await clickBar(board, BAR_RIG, 0, 0, BARS);
         await counterIs(board, "1 point highlighted", BARS);
-        await pickTheme(board, "Light");
+        await pickTheme(board.view, "Light");
         await eventually(async () => !(await isDark(board)), "the light theme");
         await eventually(async () => (await firstBarColour(board)) === CHART_1.light, "light bars");
         expect(await ringOfBar(board, BAR_RIG, 0, 0, BARS)).toBe(true);
@@ -196,7 +186,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const run = await start(lifecycleScenario(ask, dist));
         const board = await openBoard(run, ["plan"]);
         await board.themeControl.click({ timeout: STEP_TIMEOUT_MS });
-        await pickTheme(board, "Light");
+        await pickTheme(board.view, "Light");
         await eventually(async () => !(await isDark(board)), "the light theme");
         await clickBar(board, BAR_RIG, 0, 0, BARS);
         await counterIs(board, "1 point highlighted", BARS);

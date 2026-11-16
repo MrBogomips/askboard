@@ -37,6 +37,7 @@ import {
   useEngine,
 } from "./harness/board-test.ts";
 import type { Board } from "./harness/dom.ts";
+import { workOf } from "./harness/draft-results.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import {
   beginDrag,
@@ -126,7 +127,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await board.answer.isDisabled()).toBe(true);
         await draftSettled(board);
         expect(run.messages.map((message) => message.type)).toEqual(["ready"]);
-        expect(run.drafts).toEqual([]);
+        expect(workOf(run.drafts)).toEqual([]);
         expect(run.browser.violations).toEqual([]);
       },
       TEST_TIMEOUT_MS,
@@ -195,7 +196,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await cardsIn(board, "todo")).toEqual(["a", "c"]);
         expect(await cardsIn(board, "doing")).toEqual([]);
         expect(await counterText(board)).toBe("No changes");
-        expect(run.drafts).toEqual([]);
+        expect(workOf(run.drafts)).toEqual([]);
         expect(run.browser.violations).toEqual([]);
       },
       TEST_TIMEOUT_MS,
@@ -325,7 +326,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await draftSettled(board);
         expect(await board.view.getByRole("menu").count()).toBe(0);
         expect(await isFocused(moveTo(board))).toBe(true);
-        expect(run.drafts).toEqual([]);
+        expect(workOf(run.drafts)).toEqual([]);
         // A click makes a card current and the tool acts.
         await cardOf(board, "b").click();
         await eventually(
@@ -475,7 +476,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await release(board);
         await draftSettled(board);
         expect(await cardsIn(board, "todo")).toEqual(["a", "c", "d"]);
-        expect(run.drafts).toEqual([]);
+        expect(workOf(run.drafts)).toEqual([]);
         expect(await counterText(board)).toBe("No changes");
       },
       TEST_TIMEOUT_MS,
@@ -568,7 +569,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         );
         expect(await lineCount(board)).toBe(0);
         expect(await cardsIn(board, "todo")).toEqual(["a", "c", "d"]);
-        expect(run.drafts).toEqual([]);
+        expect(workOf(run.drafts)).toEqual([]);
       },
       TEST_TIMEOUT_MS,
     );
@@ -644,7 +645,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await draftSettled(board);
         expect(await current(board, "c")).toBe("true");
         expect(await cardsIn(board, "todo")).toEqual(["a", "c", "d"]);
-        expect(run.drafts).toEqual([]);
+        expect(workOf(run.drafts)).toEqual([]);
         expect(await pressed(board)).toEqual([
           ["ArrowUp", false],
           ["ArrowUp", false],
@@ -657,7 +658,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await draftSettled(board);
         expect(await cardsIn(board, "todo")).toEqual(["a", "c", "d"]);
         expect(await current(board, "a")).toBe("true");
-        expect(run.drafts).toEqual([]);
+        expect(workOf(run.drafts)).toEqual([]);
         expect((await pressed(board)).slice(2)).toEqual([
           ["ArrowUp", true],
           ["Home", true],

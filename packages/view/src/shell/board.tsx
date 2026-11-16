@@ -342,7 +342,12 @@ const useHeadingFocus = (focus: Store<HeadingRequest | undefined>, panelShown: b
       return;
     }
     const heading = document.getElementById(questionTextId(target.id));
-    if (heading !== null) revealAndFocus(heading, { smooth: target.smooth === true });
+    if (heading !== null) {
+      revealAndFocus(heading, {
+        smooth: target.smooth === true,
+        resolve: () => document.getElementById(questionTextId(target.id)),
+      });
+    }
   }, [target]);
   // biome-ignore lint/correctness/useExhaustiveDependencies: `target` re-runs it when a request lands
   useEffect(() => {
@@ -759,7 +764,11 @@ export const Board = ({
             // the disabled Send or the page, and the panel's heading follows once it shows.
             // Directly, not through the store: two requests in one tick leave only the last.
             const heading = globalThis.document.getElementById(questionTextId(id));
-            if (heading !== null) revealAndFocus(heading);
+            if (heading !== null) {
+              revealAndFocus(heading, {
+                resolve: () => globalThis.document.getElementById(questionTextId(id)),
+              });
+            }
             requestFocusTo(context.focus, id, "completion");
           }
         }}

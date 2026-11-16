@@ -6,6 +6,7 @@
 import { describe, expect, test } from "bun:test";
 import { uj2ExpandedBoardDocument } from "@askboard/contract/fixtures";
 import { TEST_TIMEOUT_MS } from "./harness/board-test.ts";
+import { workOf } from "./harness/draft-results.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import { treeFocus, treeGridOf } from "./harness/tree-grid.ts";
 import { expectSteps, expectUnchanged, focusPortal, readyIn } from "./harness/tree-steps.ts";
@@ -40,7 +41,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await header.evaluate((box: HTMLInputElement) => box.indeterminate)).toBe(true);
         expect(await treeFocus(run.board)).toEqual({ nodeId: "build" });
         await expectUnchanged(run);
-        expect(run.drafts).toEqual([]);
+        expect(workOf(run.drafts)).toEqual([]);
       },
       TEST_TIMEOUT_MS,
     );

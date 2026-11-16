@@ -9,7 +9,7 @@
 import { describe, expect, test } from "bun:test";
 import { atomAsk, atomDocument } from "./fixtures/atom-documents.ts";
 import { eventually, STEP_TIMEOUT_MS, TEST_TIMEOUT_MS, useEngine } from "./harness/board-test.ts";
-import { draftHolds } from "./harness/draft-results.ts";
+import { draftHolds, workOf } from "./harness/draft-results.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import { answerOf, lifecycleScenario, openBoard, sentDrafts } from "./harness/lifecycle-test.ts";
 import { draftSettled } from "./harness/probes.ts";
@@ -57,7 +57,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await run.board.answer.isDisabled()).toBe(true);
         await draftSettled(run.board);
         expect(run.messages.map((message) => message.type)).toEqual(["ready"]);
-        expect(run.drafts).toEqual([]);
+        expect(workOf(run.drafts)).toEqual([]);
       },
       TEST_TIMEOUT_MS,
     );
