@@ -3,11 +3,12 @@
 // Density controls, which act as the quick toggles always did, read-only states and Snapshot
 // handling included (settings-languages, design decision 10).
 
-import type { PresentationKey } from "@askboard/contract";
+import { PALETTES, type PresentationKey } from "@askboard/contract";
 import { Popover } from "radix-ui";
 import { useSyncExternalStore } from "react";
 import { useStrings } from "../catalog/port.ts";
 import { IconTheme } from "../icons/index.ts";
+import type { StringKey } from "../strings/index.ts";
 import type { ViewPresentation } from "../view-protocol.ts";
 import { fixedBy, type PresentationControls } from "./presentation-controls.ts";
 import { Segmented } from "./segmented.tsx";
@@ -21,15 +22,28 @@ const fixedIn = (
 ): string | undefined => (controls.hosted ? fixedBy(presentation, key) : undefined);
 
 const POPOVER =
-  "z-30 flex w-72 max-w-[90vw] flex-col gap-sm rounded-md border border-border bg-popover p-sm text-body text-popover-foreground shadow-md";
+  "z-30 flex w-[26rem] max-w-[90vw] flex-col gap-sm rounded-md border border-border bg-popover p-sm text-body text-popover-foreground shadow-md";
 
-/** The two controls: Theme, then Density. `palettes` adds its row beside them. */
+// The palette names, the same in both languages (palettes, design decision D6).
+const PALETTE_LABELS = {
+  carta: "toggles.paletteCarta",
+  nordico: "toggles.paletteNordico",
+  grafite: "toggles.paletteGrafite",
+  contrasto: "toggles.paletteContrasto",
+} as const satisfies Record<(typeof PALETTES)[number], StringKey>;
+
+/** The three controls: Theme, Density and, on a board, Palette with its note when the system's contrast is in use. */
 export const QuickToggles = ({ controls }: { readonly controls: PresentationControls }) => {
   const text = useStrings();
   const presentation = useSyncExternalStore(
     controls.presentation.subscribe,
     controls.presentation.get,
     controls.presentation.get,
+  );
+  const inUse = useSyncExternalStore(
+    controls.resolvedPalette.subscribe,
+    controls.resolvedPalette.get,
+    controls.resolvedPalette.get,
   );
   return (
     <>
@@ -60,6 +74,23 @@ export const QuickToggles = ({ controls }: { readonly controls: PresentationCont
           description={fixedIn(controls, presentation, "density")}
         />
       </div>
+      {controls.hosted ? (
+        <div data-askboard-palette="" className="flex flex-col gap-1">
+          <span className={SECTION_LABEL}>{text("toggles.palette")}</span>
+          <Segmented
+            label={text("toggles.palette")}
+            segments={PALETTES.map((value) => ({ value, label: text(PALETTE_LABELS[value]) }))}
+            value={presentation.palette}
+            onChange={(value) => controls.set({ key: "palette", value })}
+            description={fixedIn(controls, presentation, "palette")}
+          />
+          {inUse !== presentation.palette ? (
+            <p data-askboard-palette-note="" className="text-badge text-muted-foreground">
+              {text("toggles.paletteSystemContrast")}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
     </>
   );
 };

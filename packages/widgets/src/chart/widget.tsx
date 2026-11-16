@@ -5,7 +5,7 @@
 // highlights a point (AD-10). A chart to read or a disabled one highlights nothing and still reads.
 
 import type { ChartPoint, ChartProps, Locale } from "@askboard/contract";
-import { keyPressOf, type Say, useReadyAfterLayout, useTheme } from "@askboard/view/catalog";
+import { keyPressOf, type Say, useColourScheme, useReadyAfterLayout } from "@askboard/view/catalog";
 import {
   type KeyboardEvent,
   useCallback,
@@ -79,17 +79,17 @@ export const ChartWidget = ({
 }: Props) => {
   const host = useRef<HTMLDivElement | null>(null);
   const width = useWidth(host);
-  const theme = useTheme();
+  const scheme = useColourScheme();
   const [tokens, setTokens] = useState<ChartTokens | undefined>(undefined);
   const [current, setCurrent] = useState<ChartPoint | undefined>(undefined);
   const [reading, setReading] = useState("");
   const [drawn, setDrawn] = useState(false);
 
-  // The tokens in the theme in effect, read again on each switch.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: a new theme is a new read.
+  // The tokens in the palette and theme in effect, read again on each switch.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new scheme is a new read.
   useLayoutEffect(() => {
     if (host.current !== null) setTokens(chartTokens(host.current));
-  }, [theme]);
+  }, [scheme]);
 
   const takesHighlights = props.highlights !== "none" && !disabled;
   const option = useMemo(

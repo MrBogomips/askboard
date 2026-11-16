@@ -4,13 +4,13 @@
 // and answers with an update; a Snapshot has no board page, so its Theme and density toggles act
 // on the view alone and save nothing, and it has no settings panel (snapshot-toolbar).
 
-import type { Density, ThemePreference } from "@askboard/contract";
+import type { Density, Palette, ThemePreference } from "@askboard/contract";
 import type { BootData } from "../boot-data.ts";
 import type { ReferenceInset, ViewMessage, ViewPresentation } from "../view-protocol.ts";
 import type { ViewChannel } from "./channel.ts";
 import { measureInset } from "./measure-inset.ts";
 import { DEFAULT_PRESENTATION, type PresentationControls } from "./presentation-controls.ts";
-import { createStore } from "./store.ts";
+import { createStore, type Store } from "./store.ts";
 
 export type PresentationOptions = {
   readonly hosted: boolean;
@@ -19,6 +19,8 @@ export type PresentationOptions = {
   readonly followTheme?: (preference: ThemePreference) => void;
   /** A Snapshot's density toggle: the page applies this density itself. */
   readonly followDensity?: (density: Density) => void;
+  /** The palette in use, which the view's follower keeps; the presentation's palette otherwise. */
+  readonly resolvedPalette?: Store<Palette>;
   /** What a Snapshot starts in, from its record; the boot block's presentation otherwise. */
   readonly initial?: ViewPresentation;
   /** Where the settings sheet sits, measured as for the reading panel (design decision 12). */
@@ -37,11 +39,16 @@ export const startPresentation = (
     report,
     followTheme,
     followDensity,
+    resolvedPalette: given,
     initial,
     inset = measureInset,
   }: PresentationOptions,
 ): PresentationControls => {
   const presentation = createStore(initial ?? data.presentation ?? DEFAULT_PRESENTATION);
+  const resolvedPalette = given ?? createStore<Palette>(presentation.get().palette);
+  if (given === undefined) {
+    presentation.subscribe(() => resolvedPalette.set(presentation.get().palette));
+  }
   // The settings panel closing gives the focus back to "Settings", once for each closing.
   let closings = 0;
   channel.onUpdate((update) => {
@@ -53,6 +60,7 @@ export const startPresentation = (
   });
   return {
     presentation,
+    resolvedPalette,
     hosted,
     set: (setting) => {
       if (hosted) {
@@ -64,6 +72,7 @@ export const startPresentation = (
         followDensity?.(setting.value);
         presentation.set({ ...presentation.get(), density: setting.value });
       }
+      // A Snapshot carries one palette and has no row to pick another.
     },
     openSettings: () => {
       if (hosted) report({ type: "open-settings", inset: inset() });

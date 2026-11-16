@@ -31,6 +31,8 @@ describe("the frame's locators", () => {
     expect(selector(board.rail)).toContain("[data-askboard-rail]");
     expect(selector(board.outbox)).toContain("[data-askboard-outbox]");
     expect(selector(board.themeControl)).toContain("[data-askboard-theme]");
+    expect(selector(board.paletteRow)).toContain("[data-askboard-palette]");
+    expect(selector(board.paletteNote)).toContain("[data-askboard-palette-note]");
   });
 
   test("a ledger cell, a strip segment, a tray message and an Edit take their key", () => {

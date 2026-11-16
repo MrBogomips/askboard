@@ -5,15 +5,24 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { createThemeStore, themeOfClasses, useTheme } from "./port.ts";
+import {
+  colourSchemeOf,
+  createThemeStore,
+  themeOfClasses,
+  useColourScheme,
+  useTheme,
+} from "./port.ts";
 
 // The root as a class list a test can set, and an observer that records what it was asked and fires
 // when the test says the attribute changed.
 const fakeRoot = (...initial: string[]) => {
   const classes = new Set(initial);
+  const attributes = new Map<string, string>();
   return {
     classes,
+    attributes,
     classList: { contains: (name: string) => classes.has(name) },
+    getAttribute: (name: string) => attributes.get(name) ?? null,
     toggle: (name: string, on: boolean) => (on ? classes.add(name) : classes.delete(name)),
   };
 };
@@ -76,12 +85,14 @@ describe("the theme store", () => {
     expect(seen).toEqual(["dark", "light"]);
   });
 
-  test("watches the root's class attribute and nothing else", () => {
+  test("watches the root's class and data-palette attributes and nothing else", () => {
     const root = fakeRoot();
     const { made, Observer } = fakeObserver();
     createThemeStore(root, Observer).subscribe(() => {});
     expect(made[0]?.observed).toEqual([root]);
-    expect(made[0]?.options).toEqual([{ attributes: true, attributeFilter: ["class"] }]);
+    expect(made[0]?.options).toEqual([
+      { attributes: true, attributeFilter: ["class", "data-palette"] },
+    ]);
   });
 
   test("keeps one observer for two components, and lets go when the last leaves", () => {
@@ -160,5 +171,64 @@ describe("useTheme without a document", () => {
     } finally {
       Object.assign(globalThis, { document: saved });
     }
+  });
+});
+
+// The colour scheme (palettes, task 3.3, design decision D7): "<palette>/<theme>", from the root's
+// class and its data-palette attribute, which a renderer re-reads its tokens on.
+describe("the colour scheme a root gives", () => {
+  test("is carta without the attribute, else the palette, with the theme", () => {
+    expect(colourSchemeOf(fakeRoot())).toBe("carta/light");
+    expect(colourSchemeOf(fakeRoot("dark"))).toBe("carta/dark");
+    const root = fakeRoot();
+    root.attributes.set("data-palette", "grafite");
+    expect(colourSchemeOf(root)).toBe("grafite/light");
+    root.toggle("dark", true);
+    expect(colourSchemeOf(root)).toBe("grafite/dark");
+  });
+
+  test("an attribute that is no listed palette reads as carta", () => {
+    const root = fakeRoot();
+    for (const value of ["inchiostro", 'x"] body{', ""]) {
+      root.attributes.set("data-palette", value);
+      expect(colourSchemeOf(root)).toBe("carta/light");
+    }
+  });
+
+  test("the store's scheme follows a change of the attribute alone, once notified", () => {
+    const root = fakeRoot();
+    const { made, Observer } = fakeObserver();
+    const store = createThemeStore(root, Observer);
+    const seen: string[] = [];
+    store.subscribe(() => seen.push(store.getColourScheme()));
+    root.attributes.set("data-palette", "nordico");
+    made[0]?.callback();
+    expect(seen).toEqual(["nordico/light"]);
+    expect(store.getSnapshot()).toBe("light");
+  });
+});
+
+const SchemeProbe = (): ReactNode => createElement("span", null, useColourScheme());
+
+describe("useColourScheme", () => {
+  const root = fakeRoot();
+  const { Observer } = fakeObserver();
+  const saved = { document: globalThis.document, observer: globalThis.MutationObserver };
+
+  beforeAll(() => {
+    Object.assign(globalThis, {
+      document: { documentElement: root },
+      MutationObserver: Observer,
+    });
+  });
+  afterAll(() => {
+    Object.assign(globalThis, { document: saved.document, MutationObserver: saved.observer });
+  });
+
+  test("gives the palette and theme the document's root holds", () => {
+    expect(renderToStaticMarkup(createElement(SchemeProbe))).toBe("<span>carta/light</span>");
+    root.attributes.set("data-palette", "contrasto");
+    root.toggle("dark", true);
+    expect(renderToStaticMarkup(createElement(SchemeProbe))).toBe("<span>contrasto/dark</span>");
   });
 });
