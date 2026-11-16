@@ -140,3 +140,15 @@ describe("the board's key strings (board-keys, design decisions 1, 5 and 8)", ()
     ]);
   });
 });
+
+describe("the string for a user file others can write (user-keys-writable-by-others)", () => {
+  test("is in both catalogues with the file slot", () => {
+    expect(KEYS).toContain("settings.warningKeysWritableByOthers");
+    expect(t("en-US", "settings.warningKeysWritableByOthers", { file: "f" })).toBe(
+      "f can be written by others: your keys are not applied",
+    );
+    expect(t("it-IT", "settings.warningKeysWritableByOthers", { file: "f" })).toBe(
+      "f può essere modificato da altri: i tuoi tasti non sono applicati",
+    );
+  });
+});

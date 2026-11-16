@@ -618,6 +618,7 @@ export const STRING_KEYS = [
   "tray.go",
   "tray.close",
   "status.removed",
+  "settings.warningKeysWritableByOthers",
 ] as const;
 
 export type StringKey = (typeof STRING_KEYS)[number];

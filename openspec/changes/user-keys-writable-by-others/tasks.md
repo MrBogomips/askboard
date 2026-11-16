@@ -16,7 +16,7 @@ Each task writes its tests first and sees them fail before implementing. "The ch
 
 ## 3. View: the Keys row (D3, D5)
 
-- [ ] 3.1 Tests first in `board-page/settings-panel-data.test.ts` ("the Keys row") and `strings/keys-strings.test.ts` (its view requirement's three scenarios): `keysWarningsOf` holds the code after the project's warning, `otherWarningsOf` does not, and `keysWarningText` gives D3's text in both languages with the path isolated. Then the code, the string appended in `en-US.ts`, `it-IT.ts`, `keys.ts`, and EXPERIENCE.md's and DESIGN.md's lines. Verify: tests fail first, then pass; the check passes.
+- [x] 3.1 Tests first in `board-page/settings-panel-data.test.ts` ("the Keys row") and `strings/keys-strings.test.ts` (its view requirement's three scenarios): `keysWarningsOf` holds the code after the project's warning, `otherWarningsOf` does not, and `keysWarningText` gives D3's text in both languages with the path isolated. Then the code, the string appended in `en-US.ts`, `it-IT.ts`, `keys.ts`, and EXPERIENCE.md's and DESIGN.md's lines. Verify: tests fail first, then pass; the check passes.
 
 ## 4. The help skill (D4)
 

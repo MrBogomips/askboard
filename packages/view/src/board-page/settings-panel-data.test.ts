@@ -14,6 +14,7 @@ import {
   settingsWithKeys,
 } from "@askboard/contract/fixtures";
 import type { ViewPresentation } from "../view-protocol.ts";
+import { keysWarningsOf, otherWarningsOf } from "./settings-keys-data.ts";
 import { languageIndicator, panelData } from "./settings-panel-data.ts";
 
 // File text, as the panel shows it: between U+2068 and U+2069, which isolate it from the sentence.
@@ -668,5 +669,47 @@ describe("a file's path in the panel", () => {
     expect(plain.keys.source).toBe(`${isolate("/home/u/.config/askboard/config.json")} · keys`);
     expect(plain.rows[1]?.source).toBe(`${isolate(".askboard/config.json")} · askingRule`);
     expect(plain.notApplied).toEqual([]);
+  });
+});
+
+describe("a user file others can write in the Keys row (user-keys-writable-by-others)", () => {
+  const writable = { code: "keys-file-writable-by-others", file: "user", key: "keys" } as const;
+  const withWarning = (...warnings: SettingsMessage["warnings"]): SettingsMessage => ({
+    ...settingsKeysIgnored,
+    warnings: [...warnings],
+    keys: {
+      ...settingsWithEveryKey.keys,
+      keys: { from: "default", writable: false, warnings: [writable] },
+    } as SettingsMessage["keys"],
+  });
+  const path = isolate("~/.config/askboard/config.json");
+
+  test("the row reads Default keys and warns in English, with the path isolated", () => {
+    const row = data(withWarning()).keys;
+    expect(row.value).toBe("Default keys");
+    expect(row.warnings).toEqual([`${path} can be written by others: your keys are not applied`]);
+  });
+
+  test("and in Italian", () => {
+    const row = data(withWarning(), "it-IT").keys;
+    expect(row.value).toBe("Tasti predefiniti");
+    expect(row.warnings).toEqual([
+      `${path} può essere modificato da altri: i tuoi tasti non sono applicati`,
+    ]);
+  });
+
+  test("with the project's warning, the project's first, and no other row shows either", () => {
+    const message = withWarning(...settingsKeysIgnored.warnings);
+    const shown = data(message);
+    expect(shown.keys.warnings).toHaveLength(2);
+    expect(shown.keys.warnings[0]).toContain("The project's keys");
+    expect(shown.keys.warnings[1]).toContain("can be written by others");
+    expect(shown.warnings).toEqual([]);
+  });
+
+  test("a code in the message's own warnings goes to the Keys row, not to the others", () => {
+    const message: SettingsMessage = { ...settingsWithEveryKey, warnings: [writable] };
+    expect(keysWarningsOf(message)).toEqual([writable]);
+    expect(otherWarningsOf(message)).toEqual([]);
   });
 });
