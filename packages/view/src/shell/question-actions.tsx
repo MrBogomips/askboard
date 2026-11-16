@@ -10,6 +10,7 @@
 import { Fragment, useId } from "react";
 import { useStrings } from "../catalog/port.ts";
 import { IconBlocked, IconEdit } from "../icons/index.ts";
+import { AcceptAsIsButton, type AcceptAsIsButtonProps } from "./accept-as-sent-button.tsx";
 import type { FieldToFix } from "./field-block.ts";
 import { QuestionMarker } from "./markers.tsx";
 import { PrimaryButton } from "./primary-button.tsx";
@@ -50,6 +51,11 @@ export type ActionsRowProps = {
   readonly submitted: boolean;
   /** Pressed on `control`, the button, which a confirmation gives focus back to. */
   readonly onAnswer: (control: HTMLElement) => void;
+  /**
+   * "Accept as is", after the primary and its reason: present only on a question that offers it
+   * (accept-as-sent, design decision 1; `acceptAsSentOffered`).
+   */
+  readonly acceptAsIs?: AcceptAsIsButtonProps | undefined;
   readonly onPostpone: () => void;
   /** "Edit" on a sent, delivered or declined answer: focus the chosen option; send nothing. */
   readonly onEdit: () => void;
@@ -97,10 +103,12 @@ export const ActionsRow = ({
   single,
   submitted,
   onAnswer,
+  acceptAsIs,
   onPostpone,
   onEdit,
 }: ActionsRowProps) => {
   const hintId = useId();
+  const acceptHintId = useId();
   const text = useStrings();
   const answerKey = useBoardKeyTable().find((entry) => entry.action === "board.answer");
   // What describes the disabled primary: the field to correct, as a link to it, or "Choose an option"
@@ -171,6 +179,14 @@ export const ActionsRow = ({
           </PrimaryButton>
         )}
         {reason}
+        {acceptAsIs === undefined || answered ? null : (
+          <AcceptAsIsButton
+            {...acceptAsIs}
+            label={text("question.acceptAsIs")}
+            hint={text("question.acceptAsIsHint")}
+            hintId={acceptHintId}
+          />
+        )}
         {answered ? null : (
           <>
             <span className="flex-1" />

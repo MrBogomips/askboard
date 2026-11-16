@@ -620,6 +620,11 @@ export const STRING_KEYS = [
   "tray.close",
   "status.removed",
   "settings.warningKeysWritableByOthers",
+  // Accept as is (accept-as-sent, design decision 6).
+  "question.acceptAsIs",
+  "question.acceptAsIsHint",
+  "status.acceptedAsIs",
+  "answer.asSent",
 ] as const;
 
 export type StringKey = (typeof STRING_KEYS)[number];

@@ -80,6 +80,26 @@ const actOf = (
   const itemId = question.id;
   switch (work.held.act) {
     case "answer": {
+      // A held "Accept as is": the content as sent, with the note and the derived values only
+      // (accept-as-sent, design decision 5).
+      if (work.held.asSent === true) {
+        const accepted = namesEarlierRevision(question, work)
+          ? { asSent: true as const, ...(filled(work.note) ? { note: work.note } : {}) }
+          : withDerived(
+              { asSent: true as const, ...(filled(work.note) ? { note: work.note } : {}) },
+              reported,
+              itemIdsOf(question),
+            );
+        return [
+          {
+            type: "answer",
+            itemId,
+            rev: revisionFor(question, work),
+            ...contentOf(accepted),
+            when,
+          },
+        ];
+      }
       // The items of the revision the card shows, even one a later revision removed (Issue #93).
       const held = answerContentOf(shownOf?.(question) ?? question, values, work, results);
       const content = namesEarlierRevision(question, work)

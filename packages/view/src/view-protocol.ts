@@ -86,6 +86,8 @@ export type AnswerContent = {
   readonly optionNotes?: Readonly<Record<string, string>>;
   /** The open prompt's text, sent with the answer (FR-7). */
   readonly note?: string;
+  /** The user accepted the question's content as the agent sent it (accept-as-sent): no value, choice or result goes with it. */
+  readonly asSent?: true;
   /** The derived values of the question's computing items, by reference (AD-13), each a JSON value. */
   readonly derived?: Readonly<Record<string, unknown>>;
 };
@@ -517,9 +519,10 @@ const ANSWER: MessageFields = {
     other: text(OTHER_MAX_CHARS),
     optionNotes,
     note: text(NOTE_MAX_CHARS),
+    asSent: oneOf(true),
     when: utcTime,
   },
-  someOf: ["choice", "values", "results", "other"],
+  someOf: ["choice", "values", "results", "other", "asSent"],
   optional: ["derived", "optionNotes", "note"],
 };
 
@@ -529,11 +532,11 @@ const ANSWER: MessageFields = {
 // answer act (cross-review M3).
 const derivedAlone = (args: Record<string, unknown>, at = "/arguments"): Problem[] =>
   Object.hasOwn(args, "derived") &&
-  !["choice", "values", "results", "other"].some((field) => Object.hasOwn(args, field))
+  !["choice", "values", "results", "other", "asSent"].some((field) => Object.hasOwn(args, field))
     ? [
         {
           path: `${at}/derived`,
-          message: 'comes only beside "choice", "values", "results" or "other"',
+          message: 'comes only beside "choice", "values", "results", "other" or "asSent"',
         },
       ]
     : [];

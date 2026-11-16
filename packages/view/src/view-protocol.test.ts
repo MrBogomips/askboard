@@ -119,7 +119,10 @@ describe("view messages, as App tool calls the board page answers itself (design
   test("an answer with neither a choice, values nor Other text is refused", () => {
     const args = { itemId: "q", rev: 1, when: "2026-10-30T09:41:27Z", note: "only a note" };
     expect(problemsOf({ name: "askboard.view.answer", arguments: args })).toEqual([
-      { path: "/arguments", message: 'holds none of "choice", "values", "results" and "other"' },
+      {
+        path: "/arguments",
+        message: 'holds none of "choice", "values", "results", "other" and "asSent"',
+      },
     ]);
   });
 
@@ -222,7 +225,7 @@ describe("view messages, as App tool calls the board page answers itself (design
   });
 });
 
-const DERIVED_ALONE = 'comes only beside "choice", "values", "results" or "other"';
+const DERIVED_ALONE = 'comes only beside "choice", "values", "results", "other" or "asSent"';
 
 describe("an answer's derived values (gantt-widget design decision 10; AD-13, AD-20, FR-12)", () => {
   // The Gantt question's answer: the Gantt's full edited value and its derived values.
@@ -330,11 +333,17 @@ describe("an answer's derived values (gantt-widget design decision 10; AD-13, AD
     expect(problemsOf(call({ ...withoutValues, choice: ["Yes"], derived }))).toEqual([]);
     expect(problemsOf(call({ ...withoutValues, other: "Maybe", derived }))).toEqual([]);
     expect(problemsOf(call({ ...withoutValues, derived }))).toEqual([
-      { path: "/arguments", message: 'holds none of "choice", "values", "results" and "other"' },
+      {
+        path: "/arguments",
+        message: 'holds none of "choice", "values", "results", "other" and "asSent"',
+      },
       { path: "/arguments/derived", message: DERIVED_ALONE },
     ]);
     expect(problemsOf(call({ ...withoutValues, note: "only a note", derived }))).toEqual([
-      { path: "/arguments", message: 'holds none of "choice", "values", "results" and "other"' },
+      {
+        path: "/arguments",
+        message: 'holds none of "choice", "values", "results", "other" and "asSent"',
+      },
       { path: "/arguments/derived", message: DERIVED_ALONE },
     ]);
   });
@@ -365,7 +374,7 @@ describe("an answer's derived values (gantt-widget design decision 10; AD-13, AD
     expect(problemsOf(actCall({ type: "answer", ...withoutValues, derived }))).toEqual([
       {
         path: "/arguments/acts/0",
-        message: 'holds none of "choice", "values", "results" and "other"',
+        message: 'holds none of "choice", "values", "results", "other" and "asSent"',
       },
       { path: "/arguments/acts/0/derived", message: DERIVED_ALONE },
     ]);
@@ -1142,5 +1151,34 @@ describe("an answer's results (widget-registry, design decision 9; AD-20)", () =
         arguments: { acts: [{ ...bare, derived: { "a.b": 1 } }] },
       }),
     ).not.toEqual([]);
+  });
+});
+
+describe("an answer accepted as sent (accept-as-sent, design decision 5)", () => {
+  const base = { itemId: "q", rev: 1, when: "2026-10-30T09:41:27Z" };
+
+  test("asSent alone is an answer, with a note and with derived values", () => {
+    for (const extra of [{}, { note: "Va bene" }, { derived: { "t.count": 1 } }]) {
+      const args = { ...base, asSent: true, ...extra };
+      expect(problemsOf({ name: "askboard.view.answer", arguments: args })).toEqual([]);
+    }
+  });
+
+  test("an asSent other than true is refused, naming the field", () => {
+    for (const asSent of [false, "true", 1, null]) {
+      const args = { ...base, asSent, note: "x" };
+      const problems = problemsOf({ name: "askboard.view.answer", arguments: args });
+      expect(problems.map(({ path }) => path)).toContain("/arguments/asSent");
+    }
+  });
+
+  test("as an act too: the answer act's asSent passes, and false is refused", () => {
+    const act = { type: "answer", ...base, asSent: true };
+    expect(problemsOf({ name: "askboard.view.act", arguments: { acts: [act] } })).toEqual([]);
+    const bad = problemsOf({
+      name: "askboard.view.act",
+      arguments: { acts: [{ ...act, asSent: false }] },
+    });
+    expect(bad.map(({ path }) => path)).toContain("/arguments/acts/0/asSent");
   });
 });

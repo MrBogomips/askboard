@@ -664,4 +664,8 @@ export const EN_US = {
   },
   "settings.warningKeysWritableByOthers":
     "{file} can be written by others: your keys are not applied",
+  "question.acceptAsIs": "Accept as is",
+  "question.acceptAsIsHint": "Answers with the content as the agent sent it.",
+  "status.acceptedAsIs": "Answer sent: accepted as is.",
+  "answer.asSent": "Accepted as is",
 } as const satisfies StringTable;

@@ -699,4 +699,8 @@ export const IT_IT = {
   },
   "settings.warningKeysWritableByOthers":
     "{file} può essere modificato da altri: i tuoi tasti non sono applicati",
+  "question.acceptAsIs": "Accetta così com'è",
+  "question.acceptAsIsHint": "Risponde con il contenuto così come l'ha inviato l'agente.",
+  "status.acceptedAsIs": "Risposta inviata: accettata così com'è.",
+  "answer.asSent": "Accettata così com'è",
 } as const satisfies StringTable;

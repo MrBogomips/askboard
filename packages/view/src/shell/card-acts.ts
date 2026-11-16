@@ -186,6 +186,9 @@ export type { AnswerResult };
  */
 export type ActTaken = "took-effect" | "undone";
 
+/** How "Answer" answers: with `asSent`, the question's content as the agent sent it (accept-as-sent). */
+export type AnswerOptions = { readonly asSent?: true };
+
 /** What "Answer" gave: its result, or none when a field blocks or there is nothing to send. */
 export type AnswerOutcome = AnswerResult | undefined;
 
@@ -204,7 +207,8 @@ export const withDerived = (
     answer.choice === undefined &&
     answer.values === undefined &&
     answer.results === undefined &&
-    answer.other === undefined
+    answer.other === undefined &&
+    answer.asSent === undefined
   ) {
     return answer;
   }
@@ -249,6 +253,7 @@ const toggleHeld = (
   question: ViewQuestion,
   context: AnswerContext,
   act: HeldAct["act"],
+  asSent = false,
 ): "held" | "released" | "note-held" | "note-released" => {
   const { board } = context;
   const released = board.work(question.id)?.held?.act === act;
@@ -258,7 +263,8 @@ const toggleHeld = (
     const beneath = current.held?.act === "reopen" ? current.held : current.undo;
     const undo = OVER_UNDO.has(act) ? beneath : undefined;
     const { undo: _, ...rest } = current;
-    return { ...rest, ...(undo === undefined ? {} : { undo }), held: { act, order } };
+    const held = { act, order, ...(asSent ? { asSent: true as const } : {}) };
+    return { ...rest, ...(undo === undefined ? {} : { undo }), held };
   });
   if (act === "note") return released ? "note-released" : "note-held";
   return released ? "released" : "held";
@@ -361,7 +367,11 @@ export const blockedBy = (
  * character but white space, it sends and marks nothing and says so, so that the card shows the
  * field error and moves focus to the prompt; unmarking an answer marked ready is never refused.
  */
-export const answer = (question: ViewQuestion, context: AnswerContext): AnswerOutcome => {
+export const answer = (
+  question: ViewQuestion,
+  context: AnswerContext,
+  options: AnswerOptions = {},
+): AnswerOutcome => {
   const { draft, results, board, derived, delivery } = context;
   // A field blocks (an entry, a value that fails its check, an empty required field): the answer
   // would leave it out or send what it refuses, so nothing is sent, marked or held (atoms, design
@@ -371,10 +381,17 @@ export const answer = (question: ViewQuestion, context: AnswerContext): AnswerOu
   // What the card shows is what it sends: the values, results and entries of the items of the
   // revision it shows, even one a later revision removed (Issue #93).
   const held = answerContentOf(shownIn(question, context), draft.record(), work, results?.record());
+  // "Accept as is" answers with the content as sent: only the note survives of what the draft holds
+  // (accept-as-sent, design decision 5), and the derived values go with it as with any answer.
+  const accepted: AnswerContent =
+    options.asSent === true
+      ? { asSent: true, ...(held.note === undefined ? {} : { note: held.note }) }
+      : held;
   const content = namesEarlierRevision(question, work)
-    ? held
-    : withDerived(held, derived.reported, itemIdsOf(question));
+    ? accepted
+    : withDerived(accepted, derived.reported, itemIdsOf(question));
   const answers =
+    content.asSent !== undefined ||
     content.choice !== undefined ||
     content.values !== undefined ||
     content.results !== undefined ||
@@ -389,7 +406,7 @@ export const answer = (question: ViewQuestion, context: AnswerContext): AnswerOu
   }
   if (reasonGate(question, context, content) === "needs-reason") return "needs-reason";
   if (delivery === "submitted") {
-    const result = toggleHeld(question, context, "answer");
+    const result = toggleHeld(question, context, "answer", options.asSent === true);
     if (result === "held") announceReady(context);
     return result;
   }
@@ -728,6 +745,15 @@ export const acceptRecommended = (
 };
 
 /**
+ * "Accept as is" with no confirmation (accept-as-sent, design decision 5): "Answer" with the
+ * question's content as the agent sent it, sent at once in immediate delivery, marked ready in
+ * submitted delivery. The card goes through `pressAnswer` instead, so that the reason check and the
+ * confirmation come between. A field that blocks stops it, as it stops "Answer".
+ */
+export const acceptAsSent = (question: ViewQuestion, context: AnswerContext): AnswerOutcome =>
+  answer(question, context, { asSent: true });
+
+/**
  * A press of Decline on a question whose latest answer or decline the agent has received: the
  * confirmation first, when the question holds an item that asks for it, then `run`. Returns the
  * waiting act, or nothing when `run` ran at once.
@@ -760,6 +786,7 @@ export const pressAnswer = (
   context: AnswerContext,
   status: LifecycleQuestionStatus | undefined,
   onOutcome: (outcome: AnswerOutcome) => void,
+  options: AnswerOptions = {},
 ): AnswerPress => {
   if (answerNeedsReason(question, context)) return { kind: "needs-reason" };
   // The held act excuses the confirmation only where the press takes it back: in submitted delivery.
@@ -768,7 +795,7 @@ export const pressAnswer = (
   // The items that ask are those of the revision the card shows and the answer names (Issue #92).
   const shown = shownIn(question, context);
   const waiting = press(asksFirst("answer", shown, status, held, context.facts), () => {
-    const outcome = answer(question, context);
+    const outcome = answer(question, context, options);
     onOutcome(outcome);
     return outcome;
   });
