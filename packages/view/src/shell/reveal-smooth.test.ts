@@ -542,6 +542,27 @@ describe("the browser's own scroll and the user's during a move", () => {
     });
   }
 
+  test("a wheel stops the move at its next frame even before the page has moved, with no landing", () => {
+    const s = stand();
+    revealAndFocus(s.element, { smooth: true, align: "card" });
+    s.frames.shift()?.(16);
+    const at = s.view.scrollY;
+    s.fire("wheel");
+    s.frames.shift()?.(32);
+    deadlineOf(s)?.run();
+    expect(s.view.scrollY).toBe(at);
+    expect(s.calls.filter((call) => call.startsWith("scroll")).length).toBe(1);
+  });
+
+  test("a pointer press alone does not stop the move", () => {
+    const s = stand();
+    revealAndFocus(s.element, { smooth: true });
+    s.frames.shift()?.(16);
+    s.fire("pointerdown");
+    run(s, 32);
+    expect(s.view.scrollY).toBe(148);
+  });
+
   test("a drift after focus left the target stops the move", () => {
     const s = stand();
     revealAndFocus(s.element, { smooth: true });

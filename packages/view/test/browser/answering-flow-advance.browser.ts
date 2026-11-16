@@ -127,6 +127,12 @@ const expectCardUnder = async (board: Board, id: string, bar: Locator): Promise<
 const expectCardUnderHeader = (board: Board, id: string): Promise<void> =>
   expectCardUnder(board, id, board.view.getByRole("banner"));
 
+const cardIsUnderHeader = async (board: Board, id: string): Promise<boolean> => {
+  const gap =
+    (await boxOf(card(board, id))).top - (await boxOf(board.view.getByRole("banner"))).bottom;
+  return Math.abs(gap - 8) <= 2;
+};
+
 const scrollY = (board: Board): Promise<number> =>
   board.view.locator("body").evaluate((body) => body.ownerDocument.defaultView?.scrollY ?? 0);
 
@@ -580,12 +586,15 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await readyQ3(board);
         await board.page.keyboard.press("Enter");
         await board.page.mouse.move(200, 300);
-        await board.page.mouse.wheel(0, 300);
+        await board.page.mouse.wheel(0, -600);
         await actsSent(run, 1);
-        await Bun.sleep(300);
-        const kept = await scrollY(board);
-        await Bun.sleep(700);
-        expect(await scrollY(board)).toBe(kept);
+        // The move (282 ms at most) is over by the first sample: the page then stays where it is,
+        // and is not at question 4's place, where a move that went on over the wheel would end.
+        await Bun.sleep(500);
+        const put = await scrollY(board);
+        await Bun.sleep(500);
+        expect(Math.abs((await scrollY(board)) - put)).toBeLessThanOrEqual(4);
+        expect(await cardIsUnderHeader(board, "q4")).toBe(false);
       },
       TEST_TIMEOUT_MS,
     );
@@ -600,6 +609,11 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await actsSent(run, 1);
         await Bun.sleep(1_000);
         expect(await isFocused(headingOf(board, "q1"))).toBe(true);
+        // The page shows that heading, and the move did not carry it on to question 4's place.
+        const heading = await boxOf(headingOf(board, "q1"));
+        expect(heading.top).toBeGreaterThanOrEqual(0);
+        expect(heading.bottom).toBeLessThanOrEqual(await viewportBottom(board));
+        expect(await cardIsUnderHeader(board, "q4")).toBe(false);
       },
       TEST_TIMEOUT_MS,
     );

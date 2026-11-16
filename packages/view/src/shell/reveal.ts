@@ -131,6 +131,7 @@ type Move = {
   last: number;
   done: boolean;
   input: boolean;
+  halt: boolean;
   frame?: number;
   stop?: () => void;
 };
@@ -155,19 +156,28 @@ let unwatch: (() => void) | undefined;
 // the browser's own (a smooth scroll the page started; #259) and the move plans over it.
 const watchInput = (view: Window, move: Move): void => {
   unwatch?.();
-  const mark = () => {
+  // A press alone only marks the input: a drift after it is the user's. A wheel, a touch or a key
+  // that scrolls halts the move at its next frame: the engine applies that scroll after the event,
+  // and a frame's own `scrollTo` in between would abort it (found in Firefox and WebKit; #259).
+  const press = () => {
     move.input = true;
+  };
+  const scroll = () => {
+    move.input = true;
+    move.halt = true;
   };
   const key = (event: Event) => {
     const { key: pressed, repeat } = event as KeyboardEvent;
-    if (repeat !== true && SCROLLING_KEYS.has(pressed)) move.input = true;
+    if (repeat !== true && SCROLLING_KEYS.has(pressed)) scroll();
   };
   const options = { capture: true, passive: true };
-  const touching = ["wheel", "touchstart", "pointerdown"];
-  for (const type of touching) view.addEventListener(type, mark, options);
+  const scrolling = ["wheel", "touchstart"];
+  for (const type of scrolling) view.addEventListener(type, scroll, options);
+  view.addEventListener("pointerdown", press, options);
   view.addEventListener("keydown", key, options);
   const stop = () => {
-    for (const type of touching) view.removeEventListener(type, mark, options);
+    for (const type of scrolling) view.removeEventListener(type, scroll, options);
+    view.removeEventListener("pointerdown", press, options);
     view.removeEventListener("keydown", key, options);
     if (unwatch === stop) unwatch = undefined;
   };
@@ -196,6 +206,11 @@ const scrollSmoothly = (
   const origin = view.performance.now();
   let start = origin;
   const step = (now: number) => {
+    if (move.halt) {
+      animation = undefined;
+      finish();
+      return;
+    }
     if (Math.abs(view.scrollY - move.last) > 2) {
       // The user scrolled meanwhile: the move stops where it is, and never fights the user.
       if (users()) {
@@ -310,7 +325,7 @@ export const revealAndFocus = (
   // into its answered look; a re-render): the end of the move leaves the target focused and clear
   // of the bars as it was asked to, unless the user scrolled or moved focus meanwhile.
   if (smooth) holdAnchor(doc);
-  const move: Move = { last: view.scrollY, done: false, input: false };
+  const move: Move = { last: view.scrollY, done: false, input: false, halt: false };
   watchInput(view, move);
   const targetNow = () => (resolve === undefined ? element : (resolve() ?? element));
   let own: number | undefined;
@@ -329,7 +344,7 @@ export const revealAndFocus = (
       animation = undefined;
     }
     const target = targetNow();
-    const userScrolled = isUsers(view, doc, move, target);
+    const userScrolled = move.halt || isUsers(view, doc, move, target);
     if (!target.isConnected) return;
     const active = doc.activeElement;
     if (active === null || active === doc.body || !active.isConnected) {
