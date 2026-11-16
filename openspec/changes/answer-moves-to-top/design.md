@@ -97,8 +97,9 @@ Alternatives considered:
 
 ### D6. Legibility in every palette
 
-Three pairs join `CONTRAST_PAIRS`:
+Four pairs join `CONTRAST_PAIRS` (the requirement names secondary text beside text and muted text):
 - "Text / arrival fill" (`foreground` on `primary-subtle`), text;
+- "Secondary text / arrival fill" (`foreground-secondary` on `primary-subtle`), text;
 - "Muted text / arrival fill" (`muted-foreground` on `primary-subtle`), text;
 - "Arrival edge / fill" (`primary` on `primary-subtle`), mark.
 
@@ -123,6 +124,16 @@ Browser tests:
 - `palettes-forced-colors.browser.ts` (Chromium only) reads the outline.
 
 Existing assertions: no browser test asserts "the page has not scrolled" after a move that goes on. The one in "Stay here" is taken before "Continue" and stays true; `expectClearOfBars` holds for an aligned card. Task 0.2 re-greps for such assertions.
+
+### D8. Scroll anchoring is off while a smooth move runs
+
+Found while building group 1. A browser's scroll anchoring adjusts `scrollY` when a box above the viewport changes height. After an answer, the answered card above the target settles into its answered look and then grows back (75 px on the nine-question board), and Chromium moved the page by 38 px during the move. `revealAndFocus` reads a change of `scrollY` it did not make as the user's scroll (D1's guard), so it stopped the move and skipped the landing, 350 px short of the place.
+
+A move with `smooth` therefore sets `overflow-anchor: none` on the document element when it starts, and restores the value it found when it ends (its deadline, its last frame, a user scroll, or the move that replaces it). The landing then re-measures the layout as it stands and aligns again. The user's own scroll is still detected, since only the page's own anchoring is off. Moves without `smooth` are unchanged.
+
+Alternatives considered:
+- Telling the user's scroll from anchoring by input events (wheel, touch, keys): more code and more engine differences, and the user-scroll tests would need events instead of positions.
+- Landing even after a "user scroll": it would fight a user who really scrolled, which D1 forbids.
 
 ## Risks / Trade-offs
 
