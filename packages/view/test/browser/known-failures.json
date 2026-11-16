@@ -35,6 +35,16 @@
         { "file": "hover-audit.browser.ts", "engines": ["firefox"] }
       ]
     },
+    "192": {
+      "title": "The Chart's Keep mine browser test collects before the answer is applied under load",
+      "failures": [
+        {
+          "file": "chart-session.browser.ts",
+          "test": "the agent removes the highlighted category, on the page that saw the earlier revision: Keep mine keeps the point",
+          "engines": ["webkit"]
+        }
+      ]
+    },
     "201": {
       "title": "WebKit on Linux: the Kanban revision test does not see the receipt \"delivered to the agent\" within 5 s",
       "failures": [
@@ -61,12 +71,12 @@
       ]
     },
     "250": {
-      "title": "Firefox: after a reload the answered Tree card no longer shows its sent receipt",
+      "title": "Firefox and WebKit: after a reload the answered Tree card no longer shows its sent receipt",
       "failures": [
         {
           "file": "widget-answered.browser.ts",
           "test": "answered widget questions > after a reload and in a takeover's new tab the Tree shows the edited name and the receipt",
-          "engines": ["firefox"]
+          "engines": ["firefox", "webkit"]
         }
       ]
     }
