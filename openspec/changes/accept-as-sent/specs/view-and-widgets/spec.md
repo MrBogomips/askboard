@@ -18,11 +18,15 @@
 ## ADDED Requirements
 
 ### Requirement: When Accept as is is offered
-"Accept as is" ("Accetta così com'è") SHALL sit in the question actions row beside the primary, offered only on a question with no options that holds an item whose widget edits agent content (Tree, Gantt, Table, Kanban, Timeline, LaTeX, a molecule's expansion included), while the question is to do or in draft and no item holds a change against the revision the card shows or a result. It SHALL NOT show on an answered, ready or declined question, a locked board or a Snapshot (FR-3, AD-10).
+"Accept as is" ("Accetta così com'è") SHALL sit in the question actions row beside the primary. It SHALL be offered only on a question with no options holding an edit widget (Tree, Gantt, Table, Kanban, Timeline, LaTeX, molecules included), to do or in draft, shown at its current revision with no item read-only, where no edit widget holds a change and no item but an input field holds a result. It SHALL NOT show when answered, ready or declined, on a locked board or in a Snapshot (FR-3, AD-10).
 
 #### Scenario: Gone with an edit, back when the edit is undone
 - **WHEN** the user moves a Tree node, then moves it back to where the agent sent it
 - **THEN** "Accept as is" is not offered while the node is moved, and is offered again once the Tree equals what was sent
+
+#### Scenario: Not on a kept revision
+- **WHEN** the agent updates a Tree question the user had edited, the user chooses "Keep mine", then moves the node back to where revision 1 had it
+- **THEN** "Accept as is" is not offered; after "Reload, losing my work" the card shows the current revision and offers it
 
 #### Scenario: Not on a question with options
 - **WHEN** a question has options, a recommended one among them, and an untouched Gantt
@@ -33,15 +37,19 @@
 - **THEN** the opened Snapshot shows "Answer: Accepted as is" and no "Accept as is" button
 
 ### Requirement: Accept as is answers as Answer does
-One press of "Accept as is" SHALL take the path of "Answer", with its field checks, its confirmation of a received verdict, its delivery and the move After an answer. Sent, it SHALL be one answer act with `asSent: true`, the note if any, the derived values and no widget value; the status says "Answer sent: accepted as is." and the card's line "Answer: Accepted as is". It has no key of its own (FR-22, AD-10, NFR-12).
+One press of "Accept as is" SHALL take the path of "Answer", with its field checks, its confirmation of a received verdict, its delivery and the move After an answer. Sent, it SHALL be one answer act with `asSent: true`, the note if any, the input fields' results, the derived values and no widget value; the status says "Answer sent: accepted as is." and the card's line "Answer: Accepted as is". It has no key of its own (FR-22, AD-10, NFR-12).
 
 #### Scenario: A Tree accepted in one click
 - **WHEN** on a board in "One by one" the user presses "Accept as is" on an untouched Tree question with no options, with "Fine as it is" in its note
 - **THEN** one answer act with `asSent: true`, that note and no `values` is sent, the card reads "Answer: Accepted as is", the status region says "Answer sent: accepted as is.", and the next question to do moves to the top
 
 #### Scenario: Blocked by a field
-- **WHEN** an untouched Table question also holds a required TextField left empty, and the user presses "Accept as is"
-- **THEN** nothing is sent and the reason "Complete {label} first." shows, as for "Answer"
+- **WHEN** an untouched Table question also holds a required TextField left empty
+- **THEN** "Accept as is" is disabled, not hidden, with the reason "Complete {label} first.", as for "Answer", and a press sends nothing
+
+#### Scenario: A filled field travels with the acceptance
+- **WHEN** the user fills that required TextField and presses "Accept as is"
+- **THEN** one answer act with `asSent: true` and the field's result in `results` is sent, and no `values"
 
 #### Scenario: Revising an accepted answer
 - **WHEN** the user presses "Edit" on a question answered with "Accept as is", moves a Tree node and presses "Answer"
