@@ -127,6 +127,12 @@ const expectCardUnder = async (board: Board, id: string, bar: Locator): Promise<
 const expectCardUnderHeader = (board: Board, id: string): Promise<void> =>
   expectCardUnder(board, id, board.view.getByRole("banner"));
 
+const cardIsUnderHeader = async (board: Board, id: string): Promise<boolean> => {
+  const gap =
+    (await boxOf(card(board, id))).top - (await boxOf(board.view.getByRole("banner"))).bottom;
+  return Math.abs(gap - 8) <= 2;
+};
+
 const scrollY = (board: Board): Promise<number> =>
   board.view.locator("body").evaluate((body) => body.ownerDocument.defaultView?.scrollY ?? 0);
 
@@ -532,6 +538,114 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await eventually(() => isFocused(headingOf(board, "p1")), "focus on the p1 heading");
         expect(await scrollY(board)).toBe(0);
         expect(await arrivedAt(board, "p1").count()).toBe(0);
+      },
+      TEST_TIMEOUT_MS,
+    );
+  });
+
+  // The move and a scroll the browser makes on its own (answering-flow-reload-and-reveal, D2, D5;
+  // #259): a smooth scroll the page started, or a focus scroll, is not the user's and is planned
+  // over; the user's wheel or a focus the user moved ends the move where it is.
+  describe(`${engine}: the move and the browser's own scroll`, () => {
+    const { start } = useEngine(engine);
+    // Chooses q3's option and focuses the primary, as `answerWithKeys` does, but does not wait.
+    const readyQ3 = async (board: Board) => {
+      await optionOf(board, "q3", "Yes").focus();
+      await board.page.keyboard.press(" ");
+      await eventually(() => optionOf(board, "q3", "Yes").isChecked(), "Yes chosen on q3");
+      await answerOf(board, "q3").focus();
+      await standingStill(board);
+    };
+
+    test(
+      "a smooth scroll the page started, then Enter 20 ms later: the card still lands 8 px under the header",
+      async () => {
+        const { run, board } = await openTall(start);
+        await readyQ3(board);
+        await board.view.locator("body").evaluate((body) => {
+          const view = body.ownerDocument.defaultView as Window;
+          const y = view.scrollY;
+          view.scrollTo({ top: y - Math.min(y, 600), behavior: "instant" });
+          view.scrollTo({ top: y, behavior: "smooth" });
+        });
+        await Bun.sleep(20);
+        await board.page.keyboard.press("Enter");
+        await actsSent(run, 1);
+        await expectCardUnderHeader(board, "q4");
+        await Bun.sleep(700);
+        await expectCardUnderHeader(board, "q4");
+        await eventually(() => isFocused(headingOf(board, "q4")), "focus on the q4 heading");
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a wheel right after Enter: the page stays where the wheel put it",
+      async () => {
+        const { run, board } = await openTall(start);
+        await readyQ3(board);
+        await board.page.keyboard.press("Enter");
+        await board.page.mouse.move(200, 300);
+        await board.page.mouse.wheel(0, -600);
+        await actsSent(run, 1);
+        // The move (282 ms at most) is over by the first sample: the page then stays where it is,
+        // and is not at question 4's place, where a move that went on over the wheel would end.
+        await Bun.sleep(500);
+        const put = await scrollY(board);
+        await Bun.sleep(500);
+        expect(Math.abs((await scrollY(board)) - put)).toBeLessThanOrEqual(4);
+        expect(await cardIsUnderHeader(board, "q4")).toBe(false);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a Tab during the move halts it: the card is not carried to its place",
+      async () => {
+        const { run, board } = await openTall(start);
+        await readyQ3(board);
+        await board.page.keyboard.press("Enter");
+        await board.page.keyboard.press("Tab");
+        await actsSent(run, 1);
+        await Bun.sleep(500);
+        const put = await scrollY(board);
+        await Bun.sleep(500);
+        expect(Math.abs((await scrollY(board)) - put)).toBeLessThanOrEqual(4);
+        expect(await cardIsUnderHeader(board, "q4")).toBe(false);
+        // Focus is where Tab put it: off the heading, on the first tabbable element after it.
+        const heading = await headingOf(board, "q4").elementHandle();
+        const tabbed = await heading?.evaluate((element) => {
+          const doc = element.ownerDocument;
+          const after = [
+            ...doc.querySelectorAll<HTMLElement>(
+              'a[href], button:not([disabled]), input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])',
+            ),
+          ].find(
+            (each) => element.compareDocumentPosition(each) & Node.DOCUMENT_POSITION_FOLLOWING,
+          );
+          return after !== undefined && after === doc.activeElement;
+        });
+        expect(await isFocused(headingOf(board, "q4"))).toBe(false);
+        expect(tabbed).toBe(true);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a focus moved to another heading during the move: the move stops and that heading keeps focus",
+      async () => {
+        const { run, board } = await openTall(start);
+        await readyQ3(board);
+        await board.page.keyboard.press("Enter");
+        await headingOf(board, "q1").focus();
+        await actsSent(run, 1);
+        await Bun.sleep(1_000);
+        expect(await isFocused(headingOf(board, "q1"))).toBe(true);
+        // The page shows that heading, and the move did not carry it on to question 4's place.
+        const heading = await boxOf(headingOf(board, "q1"));
+        expect(heading.top).toBeGreaterThanOrEqual(0);
+        expect(heading.bottom).toBeLessThanOrEqual(await viewportBottom(board));
+        expect(await cardIsUnderHeader(board, "q4")).toBe(false);
       },
       TEST_TIMEOUT_MS,
     );

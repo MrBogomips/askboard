@@ -958,3 +958,82 @@ describe("restoring work made on an item a later revision removed (task 6.18; de
     }
   });
 });
+
+// A widget question answered and logged: the record the mirror still holds is the sent work, not
+// a revision (answering-flow-reload-and-reveal, design decision 1; #250).
+describe("a mirrored widget answer is stale when it equals the logged one", () => {
+  const [asked] = plainChoiceBoardDocument.items;
+  const document = {
+    ...plainChoiceBoardDocument,
+    items: [
+      {
+        ...asked,
+        props: { ...asked.props, items: [{ type: "tagged", id: "cards", props: { tag: "a" } }] },
+      },
+    ],
+  } as unknown as ViewDocument;
+  const [question] = questionsOf(document) as [ViewQuestion];
+  const logged = (values: unknown, rev = 1): LifecycleBoardState =>
+    ({
+      ask: "answered",
+      questions: [
+        {
+          itemId: "database",
+          rev,
+          state: "answered",
+          answer: { values, when: "2026-10-31T14:05:12Z", receipt: "sent" },
+        },
+      ],
+    }) as unknown as LifecycleBoardState;
+  const restored = (entry: object, state: LifecycleBoardState) => {
+    const values = createDraftStore();
+    const board = createBoardDraft("immediate");
+    connectDrafts(document, values, board);
+    const record = { delivery: "immediate", questions: { database: entry } } as DraftRecord;
+    restoreDraft(record, document, state, values, board, undefined, () => ({
+      valueFits: () => true,
+    }));
+    return { values, board };
+  };
+  const sent = { cards: { tag: "a", moved: ["x", "y"] } };
+
+  test("a record whose widget values equal the answer leaves no work and no value", () => {
+    const { values, board } = restored(
+      { rev: 1, values: { cards: { moved: ["x", "y"], tag: "a" } } },
+      logged(sent),
+    );
+    expect(values.record().size).toBe(0);
+    expect(board.work("database")).toBeUndefined();
+    expect(hasAnswerWork(question, values.record(), board.work("database"))).toBe(false);
+  });
+
+  test("one more renamed node is work", () => {
+    const { values } = restored(
+      { rev: 1, values: { cards: { tag: "a", moved: ["x", "y", "z"] } } },
+      logged(sent),
+    );
+    expect(values.valueOf("cards")).toEqual({ tag: "a", moved: ["x", "y", "z"] });
+  });
+
+  test("an extra item's value is work", () => {
+    const { values } = restored(
+      { rev: 1, values: { cards: sent.cards, other: { n: 1 } } },
+      logged(sent),
+    );
+    expect(values.valueOf("cards")).toEqual(sent.cards);
+  });
+
+  test("equal values plus an entry are work", () => {
+    const { values } = restored(
+      { rev: 1, values: { cards: sent.cards }, entries: { cards: "text" } },
+      logged(sent),
+    );
+    expect(values.valueOf("cards")).toEqual(sent.cards);
+  });
+
+  test("an earlier revision is work", () => {
+    const state = logged(sent, 2);
+    const { values } = restored({ rev: 1, values: { cards: sent.cards } }, state);
+    expect(values.valueOf("cards")).toEqual(sent.cards);
+  });
+});

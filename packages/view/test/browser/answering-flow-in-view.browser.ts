@@ -28,6 +28,7 @@ import {
   openBoard,
   optionOf,
   sentDrafts,
+  userScrollBy,
   viewportBottom,
 } from "./harness/lifecycle-test.ts";
 import { readViewBuild } from "./harness/view-build.ts";
@@ -77,10 +78,7 @@ const boxOf = async (locator: Locator): Promise<Box> => {
   return { top: box.y, bottom: box.y + box.height };
 };
 
-const scrollBy = (board: Board, delta: number): Promise<void> =>
-  board.view
-    .locator("body")
-    .evaluate((body, by) => body.ownerDocument.defaultView?.scrollBy(0, by), delta);
+const scrollBy = userScrollBy;
 
 /** Scrolls so that the question's card crosses the reading line, a third down the band. */
 const scrollToLine = async (board: Board, id: string): Promise<void> => {
@@ -94,6 +92,7 @@ const scrollToLine = async (board: Board, id: string): Promise<void> => {
 const scrollToEnd = (board: Board): Promise<void> =>
   board.view.locator("body").evaluate((body) => {
     const win = body.ownerDocument.defaultView;
+    win?.dispatchEvent(new WheelEvent("wheel", { deltaY: 1, bubbles: true, cancelable: true }));
     win?.scrollTo(0, body.ownerDocument.documentElement.scrollHeight);
   });
 

@@ -663,11 +663,12 @@ const isRestoredAnswer = (
   // The answer holds no entry: text left in a field makes the draft differ from it.
   if (Object.keys(entry.entries ?? {}).length > 0) return false;
   if (Object.keys(entry.cellEntries ?? {}).length > 0) return false;
-  const itemValues = entry.values ?? {};
-  if (Object.keys(itemValues).some((itemId) => itemId !== question.id)) return false;
-  const choice = itemValues[question.id];
+  // The record's values: the question's own entry (the option labels) and the widgets' values,
+  // which must equal the logged answer's values (a sent widget answer is not a revision; #250).
+  const { [question.id]: choice, ...widgetValues } = entry.values ?? {};
   if (choice !== undefined && !isLabels(choice)) return false;
   return (
+    sameJson(status.answer.values ?? {}, widgetValues) &&
     sameLabels(status.answer.choice, choice as readonly string[] | undefined) &&
     sameJson(status.answer.results ?? {}, entry.results ?? {}) &&
     status.answer.other === entry.other &&
@@ -680,8 +681,8 @@ const isRestoredAnswer = (
  * Puts a restored draft record back into both stores (FR-25): the work on the questions the board
  * still holds, each item's value where it names one of that question's items (a question's own
  * value only as option labels), the delivery mode (immediate on a single-question board) and the
- * question in view. A mirrored answer identical to the board's current answer is stale, not a
- * revision; work on another revision or with different content stays. The work keeps its revision.
+ * question in view. A mirrored answer identical to the board's current answer, widget values
+ * included, is stale, not a revision; work on another revision or with different content stays. The work keeps its revision.
  * Each question is read at its record's revision too when the view has seen it (`revisions`, as
  * `workingQuestion` reads it): the card then shows that revision, so a value, result, entry or cell
  * entry on an item only it holds is restored, and the work is none when the view never saw it, as
