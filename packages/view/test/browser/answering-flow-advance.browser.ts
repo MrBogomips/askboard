@@ -612,6 +612,21 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await Bun.sleep(500);
         expect(Math.abs((await scrollY(board)) - put)).toBeLessThanOrEqual(4);
         expect(await cardIsUnderHeader(board, "q4")).toBe(false);
+        // Focus is where Tab put it: off the heading, on the first tabbable element after it.
+        const heading = await headingOf(board, "q4").elementHandle();
+        const tabbed = await heading?.evaluate((element) => {
+          const doc = element.ownerDocument;
+          const after = [
+            ...doc.querySelectorAll<HTMLElement>(
+              'a[href], button:not([disabled]), input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])',
+            ),
+          ].find(
+            (each) => element.compareDocumentPosition(each) & Node.DOCUMENT_POSITION_FOLLOWING,
+          );
+          return after !== undefined && after === doc.activeElement;
+        });
+        expect(await isFocused(headingOf(board, "q4"))).toBe(false);
+        expect(tabbed).toBe(true);
       },
       TEST_TIMEOUT_MS,
     );
