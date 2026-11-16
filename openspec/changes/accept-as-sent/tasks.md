@@ -6,7 +6,7 @@ Each task names its tests first and sees them fail for the right reason before i
 
 ## 0. Base
 
-- [ ] 0.1 Names and versions (askboard-contract-versioning, Rule 3; design.md, Merge points, decision 8). Tests: none. Check with `git grep -n` on `origin/main` every name design.md borrows, and record each with its file and line in the group's commit body. Record main's constants of output format, board protocol, tool envelopes and Snapshot data. Verify: every name and version is listed; a name missing or changed stops the work for `/openspec-update-change`.
+- [x] 0.1 Names and versions (askboard-contract-versioning, Rule 3; design.md, Merge points, decision 8). Tests: none. Check with `git grep -n` on `origin/main` every name design.md borrows, and record each with its file and line in the group's commit body. Record main's constants of output format, board protocol, tool envelopes and Snapshot data. Verify: every name and version is listed; a name missing or changed stops the work for `/openspec-update-change`.
 
 ## 1. Contract (effort high)
 
