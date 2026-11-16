@@ -1,7 +1,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: Answering a question with a widget
-"Answer" SHALL be enabled once the question has a choice, a widget holds a change or a widget holds a result. It SHALL send one answer message carrying the chosen options, if any, the full edited value of each changed widget item in its input-format shape, the result of each widget that holds one, and nothing for an untouched one. On a question with no options whose widgets hold no change and no result, "Accept as is" SHALL be the act that answers with the content as sent. After either, the question SHALL be read-only (AD-10, AD-20, FR-22).
+"Answer" SHALL be enabled once the question has a choice, a widget holds a change or a widget holds a result. It SHALL send one answer message with the chosen options, the full edited value of each changed widget item in input-format shape, each widget's result, nothing for untouched ones. On a question with no options whose widgets hold no change and no result, "Accept as is" SHALL be the act that answers with the content as sent. Then the question SHALL be read-only (AD-10, AD-20, FR-22).
 
 #### Scenario: The UJ-2 edits by keyboard
 - **WHEN** the user makes the approved UJ-2 answer's `wbs` edits with the keyboard and presses "Answer"

@@ -168,7 +168,14 @@ Writing the skill SHALL leave exactly the generated files under `skills/askboard
 - **THEN** it holds the main-conversation and subagent fallbacks, the declined rule and the discarded rule
 
 ### Requirement: Answers and Snapshots
-The skill SHALL teach that answers carry only what changed and `fetch` returns a whole item, that an answer marked `tooLarge` carries no changes, derived values or results and `fetch` returns them, and that `snapshot` returns a file's path in the Snapshot folder, whose board data is in the element the contract names; it SHALL hold one `collect` result example (FR-20, FR-26, FR-27).
+The skill SHALL teach:
+
+- that answers carry only changes and `fetch` returns a whole item;
+- that a `tooLarge` answer carries no changes, derived values or results, which `fetch` returns;
+- that an answer with `asSent: true` accepts the editable content as sent, may carry field results, and is never a missing answer;
+- that `snapshot` returns a path in the Snapshot folder, its board data in the contract's element.
+
+It SHALL hold one `collect` result example (FR-20, FR-26, FR-27, AD-10).
 
 #### Scenario: Reading answers and Snapshots
 - **WHEN** the generated answers reference is read
@@ -177,6 +184,10 @@ The skill SHALL teach that answers carry only what changed and `fetch` returns a
 #### Scenario: A too-large answer
 - **WHEN** the generated answers reference is read
 - **THEN** it says that an answer marked `tooLarge` carries no changes, derived values or results, and that `fetch` returns them
+
+#### Scenario: An answer accepted as sent
+- **WHEN** the generated answers reference is read
+- **THEN** it says that an answer with `asSent: true` accepts the question's content as sent, carries no `changes`, and may carry the user's note, the input fields' `results` and the derived values
 
 ### Requirement: The skill's token budget
 The skill check SHALL fail when `askboard`'s description exceeds 600 characters, its `SKILL.md` 9,000 characters or 250 lines, or a reference 6,000 characters; when `askboard-help`'s description exceeds 400 characters, its `SKILL.md` 6,000 characters or 150 lines, or a reference 4,000 characters; or when the always-loaded total, the compact tool definitions, the server instructions and both skills' names and descriptions, exceeds 8,400 characters (NFR-1, PRD R5).

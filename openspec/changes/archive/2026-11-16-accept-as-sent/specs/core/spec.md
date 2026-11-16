@@ -1,15 +1,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: Answers only from an explicit user action
-An answer event SHALL come only from an answer or decline act of the board on a question of an open ask. The act SHALL name the question's current `rev`, or an older one the user kept (edit choice). Its content SHALL be what that revision can hold: option labels, one unless `multiSelect` is set; "Other…" text only with `allowOther`; widget values only for its widget items. It SHALL also carry at least a label, "Other…" text, a widget change, a result or `asSent: true`, unless it declines. An answer with `asSent: true` SHALL be accepted only when all of these hold:
-
-- the act names the question's current revision, never an older one the user kept;
-- that revision has no options and holds at least one item whose widget type edits agent content;
-- the act carries no choice, "Other…" text or option notes, is no decline, and gives results only for input fields (item types that declare a field check);
-- every widget value it carries equals the item as sent;
-- the question's field checks pass.
-
-Its event SHALL carry `asSent: true`, the note, the input fields' results and the derived values the act gives, and no `changes`. Any other act SHALL be refused and append nothing (AD-10, NFR-10).
+An answer event SHALL come only from a board's answer or decline act on an open ask's question, naming its current `rev` or one the user kept (edit choice), with content that revision can hold: option labels, one unless `multiSelect`; "Other…" text only with `allowOther`; values only for its widget items; and, unless it declines, a label, "Other…" text, a widget change, a result or `asSent: true` ("An answer accepted as sent"). Other acts SHALL be refused and append nothing (AD-10, NFR-10).
 
 #### Scenario: A valid answer is appended
 - **WHEN** the board sends an answer to question `database` with `rev` 1 and `choice: ["PostgreSQL"]`
@@ -34,6 +26,11 @@ Its event SHALL carry `asSent: true`, the note, the input fields' results and th
 #### Scenario: Widget values equal to what was sent
 - **WHEN** an answer to a question with no options carries a Tree value equal to the Tree as sent, and nothing else, without `asSent`
 - **THEN** it is refused as an answer with no content, and the log is unchanged
+
+## ADDED Requirements
+
+### Requirement: An answer accepted as sent
+An answer with `asSent: true` SHALL be accepted only when it names the question's current revision; that revision has no options and holds an item whose widget type edits agent content; the act carries no choice, "Other…" text, option notes or decline, and results only for input fields; its widget values equal the items as sent; and the field checks pass. Its event SHALL carry `asSent: true`, the note, those results and the derived values, and no `changes` (AD-10, NFR-10).
 
 #### Scenario: A Tree accepted as sent
 - **WHEN** the board sends an answer with `asSent: true` and the note "Fine as it is" to a question with no options holding an editable Tree, naming its current `rev`
