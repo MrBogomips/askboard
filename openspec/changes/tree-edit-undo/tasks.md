@@ -8,12 +8,12 @@ Terms:
 
 ## 0. Base
 
-- [ ] 0.1 Borrowed names (design.md, merge points): `git grep -n <name> origin/main -- packages` for each, and `openspec list` plus `.claude/worktrees/feature-accept-as-sent/openspec/changes/` for `accept-as-sent`'s seams. Tests: none. Verify: a note gives each name's file and any `accept-as-sent` seam found. A missing name stops the work for `/openspec-update-change`.
-- [ ] 0.2 Confirm in Pragmatic drag and drop 4.0.0's documentation that `location.initial.input` (drop target `onDrag` and `onDrop` arguments) is public (D7; PO rule: documented APIs only). Tests: none. Verify: a note quotes the documentation page. If it is not documented, stop for `/openspec-update-change`.
+- [x] 0.1 Borrowed names (design.md, merge points): `git grep -n <name> origin/main -- packages` for each, and `openspec list` plus `.claude/worktrees/feature-accept-as-sent/openspec/changes/` for `accept-as-sent`'s seams. Tests: none. Verify: a note gives each name's file and any `accept-as-sent` seam found. A missing name stops the work for `/openspec-update-change`.
+- [x] 0.2 Confirm in Pragmatic drag and drop 4.0.0's documentation that `location.initial.input` (drop target `onDrag` and `onDrop` arguments) is public (D7; PO rule: documented APIs only). Tests: none. Verify: a note quotes the documentation page. If it is not documented, stop for `/openspec-update-change`.
 
 ## 1. The history model (`model/history.ts`)
 
-- [ ] 1.1 Unit tests first in `model/history.test.ts` (D1, D2):
+- [x] 1.1 Unit tests first in `model/history.test.ts` (D1, D2):
   - `entryOf` reads each `before` from the draft (none as `undefined`) and drops a no-op entry;
   - `pushed` keeps 50 and drops the oldest;
   - `liveTop` checks by reference, by structure and with `undefined`, and is stale on any other entry;
@@ -22,7 +22,7 @@ Terms:
   - a linked write of the Tree and two plans.
 
   Scenarios: Several undos, The oldest edits go, A plan edited after a linked add. Verify: red for the missing module.
-- [ ] 1.2 Implement `model/history.ts` (types, `TREE_HISTORY_DEPTH`, the functions of 1.1), plain ECMAScript (AD-1), and export `sameJson` unchanged from `model/marks.ts`. Tests: 1.1. Verify: 1.1 green; `marks.test.ts` green; 100% line coverage of `history.ts`; `bun run check:imports` clean.
+- [x] 1.2 Implement `model/history.ts` (types, `TREE_HISTORY_DEPTH`, the functions of 1.1), plain ECMAScript (AD-1), and export `sameJson` unchanged from `model/marks.ts`. Tests: 1.1. Verify: 1.1 green; `marks.test.ts` green; 100% line coverage of `history.ts`; `bun run check:imports` clean.
 
 ## 2. Undo in the Tree (`history.ts`, `index.tsx`, `widget.tsx`, `toolbar.tsx`)
 
