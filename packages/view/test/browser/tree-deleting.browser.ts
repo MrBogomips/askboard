@@ -67,7 +67,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         // From the toolbar: `portal`, now `build`'s only child, goes; the focus stays on the tool
         // and the tree's focus goes to the parent.
         expect(await shiftTabToAddNode(board)).toBe("Add node");
-        expect(await pressTool(board, "End")).toBe("Select all");
+        // The toolbar now ends with "Undo", enabled once an edit was made.
+        expect(await pressTool(board, "End")).toBe("Undo");
+        expect(await pressTool(board, "ArrowLeft")).toBe("Select all");
         expect(await pressTool(board, "ArrowLeft")).toBe("Delete");
         expect(await pressTool(board, "Enter")).toBe("Delete");
         expect(await shownIds(tree)).toEqual([...FIXTURE_IDS.slice(0, 5)]);
@@ -175,15 +177,15 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await portal.getByRole("button", { name: "Delete" }).click({ timeout: STEP_TIMEOUT_MS });
         expect(await treeFocus(board)).toEqual({ nodeId: "billing", cell: 0 });
         expect(await shownIds(tree)).toEqual(["build", "billing", "reporting"]);
-        // From the toolbar, by clicks: `build`, the last node, goes; the empty Tree's focus is
-        // on "Add node".
+        // From the toolbar, by clicks: `build`, the last node, goes; the empty Tree's toolbar stop
+        // is the nearest enabled tool after "Delete", which is "Undo" now that an edit was made.
         await tree.cell("build", 0).click({ timeout: STEP_TIMEOUT_MS });
         await tree.tool("Delete").click({ timeout: STEP_TIMEOUT_MS });
         const build = deleteQuestion(board, "“Build” and the 2 nodes under it will be deleted.");
         await build.getByRole("button", { name: "Delete" }).click({ timeout: STEP_TIMEOUT_MS });
         expect(await tree.rows.count()).toBe(0);
         expect(await enabledTools(tree.tools)).toEqual(["Add node"]);
-        expect(await toolFocus(board)).toBe("Add node");
+        expect(await toolFocus(board)).toBe("Undo");
         await viewSettled(board);
         expect(run.messages).toEqual([{ type: "ready", itemId: plan.id }]);
         // "Answer" sends the empty Tree, which the contract allows.

@@ -7,12 +7,21 @@
 // its title. While a delete asks first, its question takes the tools' place and the counter keeps
 // its own (`delete-question.tsx`). The counter truncates before it overprints a tool; when the row
 // cannot hold all the tools and the counter's minimum, the move tools go into a "More" menu, the
-// last stop of the toolbar (`model/overflow.ts`, review F-16). A leaf about to become a group asks in
+// last stop of the toolbar (`model/overflow.ts`, review F-16). "Undo", the last of the selection and
+// adjustment tools, is always there, disabled while the history is empty, and never goes into "More"
+// (tree-edit-undo, design decision 5). A leaf about to become a group asks in
 // the same place, by the same pattern (`group-question.tsx`); the row shows one question at a time.
 
-import type { TreeProps } from "@askboard/contract";
+import { TREE_KEYS, type TreeProps } from "@askboard/contract";
 import type { StringKey } from "@askboard/view/catalog";
-import { type Say, useLanguage, useStrings } from "@askboard/view/catalog";
+import {
+  type KeyPlatform,
+  keyLabel,
+  type Say,
+  useKeyPlatform,
+  useLanguage,
+  useStrings,
+} from "@askboard/view/catalog";
 import { DropdownMenu, Popover } from "radix-ui";
 import { type KeyboardEvent, type Ref, useRef, useState } from "react";
 import { toolbarFocus, toolbarStop } from "../shared/toolbar-focus.ts";
@@ -83,8 +92,10 @@ export type SelectionTools = {
   readonly onSelectAll: () => void;
   readonly onSelectNone: () => void;
   readonly onApply: (applied: Applied) => void;
-  /** Undoes the last adjustment; `undefined` once there is none to undo. */
-  readonly onUndo: (() => void) | undefined;
+  /** An edit of the Tree can be undone. */
+  readonly canUndo: boolean;
+  /** Undoes the Tree's latest edit. */
+  readonly onUndo: () => void;
 };
 
 // One button of the row: a Tree tool, or a selection or adjustment tool, in order.
@@ -94,24 +105,29 @@ type Item = {
   readonly enabled: boolean;
   readonly title?: string;
   readonly shortcut?: string;
+  /** The tool's marker, which no language changes. */
+  readonly marker?: string;
   /** Goes into "More" when the row is crowded. */
   readonly overflow: boolean;
   readonly run: () => void;
 };
 
-const SELECTION_TOOLS: ReadonlySet<string> = new Set([
-  "selectAll",
-  "selectNone",
-  "adjust",
-  "undoAdjust",
-]);
+const SELECTION_TOOLS: ReadonlySet<string> = new Set(["selectAll", "selectNone", "adjust", "undo"]);
 
-const itemsOf = (
+/** "Undo (⌘Z)", "Undo (Ctrl+Z)": the tool's name and its key as the platform writes it (D5). */
+export const undoTitle = (platform: KeyPlatform, text: Say): string => {
+  const binding = TREE_KEYS.find((entry) => entry.action === "undo")?.keys[0];
+  const name = text("tree.tool.undo");
+  return binding === undefined ? name : `${name} (${keyLabel(binding, platform, text)})`;
+};
+
+export const itemsOf = (
   enabled: readonly boolean[],
   onTool: (edit: TreeEdit) => void,
   tools: SelectionTools,
   open: () => void,
   text: Say,
+  platform: KeyPlatform,
 ): readonly Item[] => {
   const some = tools.selection.size > 0;
   const own: Item[] = [
@@ -138,16 +154,16 @@ const itemsOf = (
       run: open,
     },
   ];
-  if (tools.onUndo !== undefined) {
-    own.push({
-      key: "undoAdjust",
-      label: "tree.tool.undoAdjust",
-      enabled: !tools.disabled,
-      shortcut: "Control+Z Meta+Z",
-      overflow: false,
-      run: tools.onUndo,
-    });
-  }
+  own.push({
+    key: "undo",
+    label: "tree.tool.undo",
+    enabled: tools.canUndo && !tools.disabled,
+    title: undoTitle(platform, text),
+    shortcut: "Control+Z Meta+Z",
+    marker: "",
+    overflow: false,
+    run: tools.onUndo,
+  });
   const treeTools = TREE_TOOLS.map(
     (tool, at): Item => ({
       key: tool.edit,
@@ -251,7 +267,8 @@ export const TreeToolbar = ({
   const buttons = useRef<(HTMLButtonElement | null)[]>([]);
   const toolsRow = useRef<HTMLDivElement>(null);
   const crowded = useCrowded(toolsRow, useLanguage(), asking === undefined);
-  const items = itemsOf(enabled, onTool, selecting, () => setPanel(true), text);
+  const platform = useKeyPlatform();
+  const items = itemsOf(enabled, onTool, selecting, () => setPanel(true), text, platform);
   const shown = items.filter((item) => !(crowded && item.overflow));
   const given = items.filter((item) => crowded && item.overflow);
   // Each stop's enabled state: the shown tools', then "More", which is always enabled.
@@ -280,6 +297,7 @@ export const TreeToolbar = ({
       aria-disabled={item.enabled ? undefined : true}
       aria-keyshortcuts={item.shortcut}
       data-selection-tool={SELECTION_TOOLS.has(item.key) ? "" : undefined}
+      data-tree-undo={item.marker}
       aria-haspopup={item.key === "adjust" ? "dialog" : undefined}
       aria-expanded={item.key === "adjust" ? panel : undefined}
       title={item.title}

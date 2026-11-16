@@ -29,6 +29,7 @@ import {
 } from "@askboard/view/catalog";
 import { useCallback, useEffect, useMemo } from "react";
 import { type BoardGraph, linkedPlans, liveGraph, sentGraph } from "../board-graph/index.ts";
+import { useTreeHistory } from "./history.ts";
 import { linkedAdd, linkedDelete, linkedDependents } from "./linked.ts";
 import { pertDerived } from "./model/pert.ts";
 import { TreeWidget } from "./widget.tsx";
@@ -88,7 +89,6 @@ const Tree = ({
   item,
   questionId,
   value,
-  onValueChange,
   onValuesChange,
   disabled,
   ready,
@@ -105,15 +105,21 @@ const Tree = ({
     if (derived !== undefined) onDerived(derived);
   }, [derived, onDerived]);
   const text = useStrings();
+  // Every write goes through the history (tree-edit-undo, design decision 1).
+  const { record, undo, canUndo } = useTreeHistory({ board, sent, disabled, onValuesChange });
+  const onValueChange = useCallback(
+    (next: TreeProps | undefined, nodeId?: string) => record({ [item.id]: next }, nodeId),
+    [record, item.id],
+  );
   // A named addition and the plans' linked edits go in one draft update, or none goes (F20).
   const onLinkedAdd = useCallback(
     (next: TreeProps, added: string, anchor: string | undefined): string | undefined => {
       const write = linkedAdd(board, item.id, sent, next, added, anchor, text);
       if (!write.ok) return write.reason;
-      onValuesChange(write.values);
+      record(write.values, anchor);
       return undefined;
     },
-    [board, item.id, sent, onValuesChange, text],
+    [board, item.id, sent, record, text],
   );
   // A deletion and the plans' linked edits go in one draft update, or none goes; it asks first
   // when tasks of those plans depend on the deleted branch.
@@ -125,10 +131,10 @@ const Tree = ({
     (next: TreeProps, deleted: readonly string[]): string | undefined => {
       const write = linkedDelete(board, item.id, sent, next, deleted, text);
       if (!write.ok) return write.reason;
-      onValuesChange(write.values);
+      record(write.values, deleted[0]);
       return undefined;
     },
-    [board, item.id, sent, onValuesChange, text],
+    [board, item.id, sent, record, text],
   );
   useReadyAfterLayout(ready);
   return (
@@ -140,6 +146,8 @@ const Tree = ({
       disabled={disabled}
       graph={graph}
       onValueChange={onValueChange}
+      undo={undo}
+      canUndo={canUndo}
       onLinkedAdd={onLinkedAdd}
       countDependents={countDependents}
       onLinkedDelete={onLinkedDelete}

@@ -107,7 +107,7 @@ describe("the Tree's table (decision 9: today's keys)", () => {
       "grid select.toggle pointer [none:Space] keys.action.select.toggle",
       "grid select.extendUp pointer [shift:ArrowUp] keys.action.select.extendUp",
       "grid select.extendDown pointer [shift:ArrowDown] keys.action.select.extendDown",
-      "grid undo tool [mod:z] tree.tool.undoAdjust",
+      "grid undo tool [mod:z] tree.tool.undo",
       "grid move.up tool [alt+shift:ArrowUp] tree.tool.moveUp",
       "grid move.down tool [alt+shift:ArrowDown] tree.tool.moveDown",
       "grid move.right tool [alt+shift:ArrowRight] tree.tool.indent",

@@ -32,9 +32,10 @@ describe("the adjustment panel and its undo", () => {
     expect(await source("./adjust-panel.tsx")).not.toContain("numberEcho");
   });
 
-  test("undo goes through the value, the slot emptied by any other edit", async () => {
+  test("undo goes through the Tree's history, never a slot of the widget", async () => {
     const widget = await source("./widget.tsx");
-    expect(widget).toContain("liveSlot(slot, value, disabled)");
-    expect(widget).toContain("setSlot(undefined)");
+    expect(widget).toContain("const undone = undo();");
+    expect(widget).not.toContain("liveSlot");
+    expect(widget).not.toContain("setSlot");
   });
 });

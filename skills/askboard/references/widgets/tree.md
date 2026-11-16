@@ -38,7 +38,7 @@ The board shows no keys panel for the Tree yet, and the user's key changes do no
 | Select | grid | Space (Space) |
 | Extend selection up | grid | Shift+↑ (⇧↑) |
 | Extend selection down | grid | Shift+↓ (⇧↓) |
-| Undo adjust | grid | Ctrl+Z (⌘Z) |
+| Undo | grid | Ctrl+Z (⌘Z) |
 | Move up | grid | Alt+Shift+↑ (⌥⇧↑) |
 | Move down | grid | Alt+Shift+↓ (⌥⇧↓) |
 | Indent | grid | Alt+Shift+→ (⌥⇧→) |

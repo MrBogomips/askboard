@@ -26,35 +26,35 @@ Terms:
 
 ## 2. Undo in the Tree (`history.ts`, `index.tsx`, `widget.tsx`, `toolbar.tsx`)
 
-- [ ] 2.1 Key table tests first (D6):
+- [x] 2.1 Key table tests first (D6):
   - `contract/test/keys-tables.test.ts` expects `grid undo tool [mod:z] tree.tool.undo`;
   - in `toolbar.test.ts`, a two-way check between `TREE_KEYS`' `tool` entries and the labels of `itemsOf` (exported for it), with "Undo" present when nothing can be undone;
   - `widgets/test/keys-parity-tree.test.ts` is unchanged.
 
   Verify: the label and two-way checks are red; parity is green.
-- [ ] 2.2 Tooltip test first: a pure `undoTitle(platform, say)` in `toolbar.tsx`, built on `keyLabel` and the `undo` entry, gives "Undo (⌘Z)" on macOS, "Undo (Ctrl+Z)" elsewhere and "Annulla (Ctrl+Z)" in it-IT (D5). Keys panel: none; the Tree registers no table on the board (D6). Scenario: The Undo tool. Verify: red for the missing function.
-- [ ] 2.3 Browser file first: `packages/view/test/browser/tree-undo.browser.ts`, listed in `harness/suites.ts` as `{}`, on the widget host and in a WBS with PERT. Scenarios: every scenario of "Tree undo" and "Tree undo history" but "The oldest edits go" (unit, 1.1). Verify: File run red, failing on the missing "Undo" tool.
-- [ ] 2.4 Strings (D3, D5):
+- [x] 2.2 Tooltip test first: a pure `undoTitle(platform, say)` in `toolbar.tsx`, built on `keyLabel` and the `undo` entry, gives "Undo (⌘Z)" on macOS, "Undo (Ctrl+Z)" elsewhere and "Annulla (Ctrl+Z)" in it-IT (D5). Keys panel: none; the Tree registers no table on the board (D6). Scenario: The Undo tool. Verify: red for the missing function.
+- [x] 2.3 Browser file first: `packages/view/test/browser/tree-undo.browser.ts`, listed in `harness/suites.ts` as `{}`, on the widget host and in a WBS with PERT. Scenarios: every scenario of "Tree undo" and "Tree undo history" but "The oldest edits go" (unit, 1.1). Verify: File run red, failing on the missing "Undo" tool.
+- [x] 2.4 Strings (D3, D5):
   - add `tree.tool.undo` ("Undo" / "Annulla") and `tree.undone` ("Last change undone." / "Ultima modifica annullata.");
   - remove `tree.tool.undoAdjust` and `tree.adjust.undone` from `view/src/strings/en-US.ts`, `it-IT.ts` and `keys.ts`;
   - relabel the `undo` entry in `contract/src/widgets/tree/keys.ts`.
 
   Tests: 2.1, the catalogue tests. Verify: the label test is green; `bun test packages/view/src/strings` is green.
-- [ ] 2.5 Implement `history.ts` (`useTreeHistory`, D1, D2) and route every write in `index.tsx` through `record`: the own value with its `nodeId`, and `onLinkedAdd` and `onLinkedDelete` after acceptance. Tests: 1.1, 2.3. Verify: `bun run typecheck` clean; `git grep -n "onValuesChange(" packages/widgets/src/tree` shows only `history.ts`.
-- [ ] 2.6 `widget.tsx` (D3):
+- [x] 2.5 Implement `history.ts` (`useTreeHistory`, D1, D2) and route every write in `index.tsx` through `record`: the own value with its `nodeId`, and `onLinkedAdd` and `onLinkedDelete` after acceptance. Tests: 1.1, 2.3. Verify: `bun run typecheck` clean; `git grep -n "onValuesChange(" packages/widgets/src/tree` shows only `history.ts`.
+- [x] 2.6 `widget.tsx` (D3):
   - drop the slot and delete `model/undo.ts` and its test;
   - take `undo` and `canUndo`, and pass `nodeId` on each write;
   - send the grid's `undo` action to the history, ignored while editing or asking;
   - set the focus and the current row, and announce `tree.undone`.
 
   Tests: 2.3. Verify: `git grep -n UndoSlot packages` is empty; the unit suite is green.
-- [ ] 2.7 `toolbar.tsx` (D5): the permanent "Undo" item, with `overflow: false`, `aria-disabled` when `canUndo` is false or the Tree is read-only, `undoTitle`, `aria-keyshortcuts="Control+Z Meta+Z"` and `data-tree-undo`. Update the header comments of `toolbar.tsx`, `widget.tsx` and `keys.ts`. Tests: 2.1, 2.2, 2.3. Verify: 2.1 and 2.2 green; File run of `tree-undo` green.
-- [ ] 2.8 Existing browser files:
+- [x] 2.7 `toolbar.tsx` (D5): the permanent "Undo" item, with `overflow: false`, `aria-disabled` when `canUndo` is false or the Tree is read-only, `undoTitle`, `aria-keyshortcuts="Control+Z Meta+Z"` and `data-tree-undo`. Update the header comments of `toolbar.tsx`, `widget.tsx` and `keys.ts`. Tests: 2.1, 2.2, 2.3. Verify: 2.1 and 2.2 green; File run of `tree-undo` green.
+- [x] 2.8 Existing browser files:
   - in `tree-adjust.browser.ts`, "Undo adjust" becomes "Undo", and the case "another edit takes the button away" becomes "the next undo undoes that edit first";
   - `tree-toolbar.browser.ts`'s narrow it-IT board keeps "Undo" outside "More".
 
   Scenarios: Undoing an adjustment, Tree toolbar overflow. Verify: File runs of both green.
-- [ ] 2.9 UX documents (D9):
+- [x] 2.9 UX documents (D9):
   - EXPERIENCE.md: Widgets "Tree", Molecules "WBS with PERT", Keyboard core "Tree", and Voice and Tone (the "Tree and Gantt chrome" row, and a "Last change undone." row marked "(to review)");
   - DESIGN.md: Components "Tree" ("Undo" at the toolbar's end, disabled when empty).
 

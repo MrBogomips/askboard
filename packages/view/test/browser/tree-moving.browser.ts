@@ -184,7 +184,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await treeStop(tree)).toEqual({ nodeId: "portal" });
         // The spec's "Outdenting": `portal` follows `build` at the top level, and `billing` and
         // `reporting` stay under `build`.
-        expect(await pressTool(board, "End")).toBe("Select all");
+        // The toolbar now ends with "Undo", enabled once an edit was made.
+        expect(await pressTool(board, "End")).toBe("Undo");
+        expect(await pressTool(board, "ArrowLeft")).toBe("Select all");
         expect(await pressTool(board, "ArrowLeft")).toBe("Delete");
         expect(await pressTool(board, "ArrowLeft")).toBe("Outdent");
         expect(await pressTool(board, "Enter")).toBe("Outdent");

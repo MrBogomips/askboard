@@ -255,7 +255,7 @@ export const STRING_KEYS = [
   "tree.entry.order.optimisticPessimistic",
   // The Tree's row selection and bulk percentage adjustment (widget-editing-plus, group 4).
   "tree.tool.adjust",
-  "tree.tool.undoAdjust",
+  "tree.tool.undo",
   "tree.select.all",
   "tree.select.none",
   "tree.select.count",
@@ -281,7 +281,7 @@ export const STRING_KEYS = [
   "tree.adjust.refused",
   "tree.adjust.refusedRow",
   "tree.adjust.done",
-  "tree.adjust.undone",
+  "tree.undone",
   // The question before a leaf becomes a group (wbs-gantt-consistency, group 2; the Italian texts, which the PO reviews in the pull request).
   "tree.group.becomes",
   "tree.group.estimates",

@@ -51,6 +51,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const labels = await tree.tools.allTextContents();
         expect(labels).toContain("Altro");
         for (const move of MOVES) expect(labels).not.toContain(move);
+        // "Annulla", the Undo tool, never goes into "More" however crowded the row is.
+        expect(await run.board.view.locator("[data-tree-undo]").count()).toBe(1);
         // No tool, "More" included, overlaps the counter or another tool.
         const boxes: Box[] = [];
         for (const button of await tree.tools.all()) {

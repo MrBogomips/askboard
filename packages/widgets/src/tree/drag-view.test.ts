@@ -70,7 +70,7 @@ describe("the drag", () => {
       "afterDrop(dropOn(value, nodeId, targetId, fraction), value, view, nodeId)",
     );
     expect(body).toContain('focus.moveFocusTo("grid")');
-    expect(body).toContain("change(moved.value)");
+    expect(body).toContain("change(moved.value, nodeId)");
   });
 
   test("a drag never touches the draft: it is view state", async () => {
