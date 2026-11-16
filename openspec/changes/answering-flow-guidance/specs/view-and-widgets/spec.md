@@ -152,7 +152,7 @@ In "All together", when no question is left to do and acts are held (answers, de
 - **THEN** focus is on "Send 3 answers", the line reads "All ready: nothing has been sent yet.", and no completion panel shows until the user sends
 
 ### Requirement: Status messages for the guided flow
-The status region SHALL also announce a postpone or decline that takes effect, a change sent, a ready mark lost to a field, the next question after an act that moves on, an area left with nothing to do, every question answered or all ready, a prefill undone, and the count delivered to the agent, at most once every 5 seconds and only from receipts that read delivered (NFR-10, AD-3; WCAG 2.2 SC 4.1.3).
+The status region SHALL also announce a postpone or decline that takes effect, a change sent, a ready mark lost to a field, the next question after an act that moves on, with the acted question's area when that area has nothing left to do and the next question is in another area, every question answered or all ready, a prefill undone, and the count delivered to the agent, at most once every 5 seconds and only from receipts that read delivered (NFR-10, AD-3; WCAG 2.2 SC 4.1.3).
 
 #### Scenario: Postponed
 - **WHEN** with "Stay here" the user postpones question 3 while question 4, "Cache", is to do
@@ -167,7 +167,7 @@ The status region SHALL also announce a postpone or decline that takes effect, a
 - **THEN** the question is no longer ready and the region reads "No longer ready: correct Ticket."
 
 #### Scenario: An area completed
-- **WHEN** the user sends the last question to do of the area "Architecture"
+- **WHEN** the user sends the last question to do of the area "Architecture" while "Release" still has questions to do
 - **THEN** the region reads "Architecture completed"
 
 ### Requirement: Undo of a prefill
