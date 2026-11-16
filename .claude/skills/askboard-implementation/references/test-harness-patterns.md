@@ -48,7 +48,7 @@ New UI keeps breaking other changes' tests. Scope to what you mean:
 - **WebKit input methods**: Enter that confirms an input method candidate has `keyCode 229` and is not a commit (Tree editing).
 - **WebKit and CSP logs**: WebKit logs some CSP blocks only in the console; `harness/browser.ts` and `harness/policy.ts` count those. Every CSP problem fails a test (`expectNoCspProblem`).
 - **WebKit on slow CI** races on anything that reads the agent side right after a user act: see `actsApplied`.
-- **WebKit, seen after a scroll** (#13): a reply that landed right after a scroll was counted as seen while its card was out of view. The view now checks the card again before counting it as seen; the test passed 20 of 20 WebKit runs. Visibility logic gets a WebKit run with scrolling, not only Chromium.
+- **WebKit, seen after a scroll** (#13): a reply that landed right after a scroll was counted as seen while its card was out of view. The view now checks the card again before counting it as seen; the test passed 20 of 20 WebKit runs. Visibility logic gets a WebKit test with scrolling, not only a Chromium one; CI's e2e train runs it.
 
 ## Conformance tests (`packages/server/test/conformance/`)
 
@@ -62,7 +62,7 @@ Run with `bun packages/server/test/conformance/run.ts` (`--runtime node` for Nod
 ## When only CI can run an engine
 
 Firefox cannot launch in the local sandbox (#27, #28, #31) and Linux is not covered locally. `e2e.yml` runs them in CI: the smoke set in Chromium and conformance on Bun on every pull request, every file in all three engines every night (Linux) and every Saturday and before a release (macOS; the release gate leaves Firefox out until #174 and #145 close, and runs Firefox's smoke set on Linux). The e2e statuses are not required checks (`AGENTS.md`, CI). So:
-1. Run Chromium and WebKit locally and report the counts.
+1. Run Chromium locally, narrowed to the files you added or changed, and report the counts; WebKit and Firefox run on CI (`askboard-delivery`, The e2e train).
 2. Write Firefox-sensitive tests (focus order, image URLs, frame loss, huge SVG layout, first-request timing) by the notes above, without a local run.
 3. In the report, under "only CI can verify", list each browser file you touched or added, the engines not run, and the specific Firefox risk you see. The caller ticks the "CI green" task after the run; you do not.
 4. Never loosen an assertion to pass on an engine you cannot run, and never skip a test for an engine without a comment naming the engine behaviour.
