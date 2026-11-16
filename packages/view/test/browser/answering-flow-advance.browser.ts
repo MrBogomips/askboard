@@ -537,6 +537,74 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
   });
 
+  // The move and a scroll the browser makes on its own (answering-flow-reload-and-reveal, D2, D5;
+  // #259): a smooth scroll the page started, or a focus scroll, is not the user's and is planned
+  // over; the user's wheel or a focus the user moved ends the move where it is.
+  describe(`${engine}: the move and the browser's own scroll`, () => {
+    const { start } = useEngine(engine);
+    // Chooses q3's option and focuses the primary, as `answerWithKeys` does, but does not wait.
+    const readyQ3 = async (board: Board) => {
+      await optionOf(board, "q3", "Yes").focus();
+      await board.page.keyboard.press(" ");
+      await eventually(() => optionOf(board, "q3", "Yes").isChecked(), "Yes chosen on q3");
+      await answerOf(board, "q3").focus();
+      await standingStill(board);
+    };
+
+    test(
+      "a smooth scroll the page started, then Enter 20 ms later: the card still lands 8 px under the header",
+      async () => {
+        const { run, board } = await openTall(start);
+        await readyQ3(board);
+        await board.view.locator("body").evaluate((body) => {
+          const view = body.ownerDocument.defaultView as Window;
+          const y = view.scrollY;
+          view.scrollTo({ top: y - Math.min(y, 600), behavior: "instant" });
+          view.scrollTo({ top: y, behavior: "smooth" });
+        });
+        await Bun.sleep(20);
+        await board.page.keyboard.press("Enter");
+        await actsSent(run, 1);
+        await expectCardUnderHeader(board, "q4");
+        await Bun.sleep(700);
+        await expectCardUnderHeader(board, "q4");
+        await eventually(() => isFocused(headingOf(board, "q4")), "focus on the q4 heading");
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a wheel right after Enter: the page stays where the wheel put it",
+      async () => {
+        const { run, board } = await openTall(start);
+        await readyQ3(board);
+        await board.page.keyboard.press("Enter");
+        await board.page.mouse.move(200, 300);
+        await board.page.mouse.wheel(0, 300);
+        await actsSent(run, 1);
+        await Bun.sleep(300);
+        const kept = await scrollY(board);
+        await Bun.sleep(700);
+        expect(await scrollY(board)).toBe(kept);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a focus moved to another heading during the move: the move stops and that heading keeps focus",
+      async () => {
+        const { run, board } = await openTall(start);
+        await readyQ3(board);
+        await board.page.keyboard.press("Enter");
+        await headingOf(board, "q1").focus();
+        await actsSent(run, 1);
+        await Bun.sleep(1_000);
+        expect(await isFocused(headingOf(board, "q1"))).toBe(true);
+      },
+      TEST_TIMEOUT_MS,
+    );
+  });
+
   describe(`${engine}: tabs and the sticky strip`, () => {
     const { start } = useEngine(engine);
 

@@ -123,19 +123,94 @@ const markArrival = (element: HTMLElement): void => {
   };
 };
 
-/** What the move reads of a run of frames: where it last put the page, and whether it is over. */
-type Move = { last: number; done: boolean; frame?: number };
+/**
+ * What the move reads of a run of frames: where it last put the page, whether it is over, and
+ * whether the user's input came during it (answering-flow-reload-and-reveal, D2).
+ */
+type Move = {
+  last: number;
+  done: boolean;
+  input: boolean;
+  frame?: number;
+  stop?: () => void;
+};
 
-const scrollSmoothly = (view: Window, delta: number, move: Move, finish: () => void): void => {
-  const frames = scrollFrames(view.scrollY, view.scrollY + delta, SCROLL_MS);
+/** The keys that scroll the page or move focus: a press of one during a move is the user's. */
+const SCROLLING_KEYS: ReadonlySet<string> = new Set([
+  "ArrowUp",
+  "ArrowDown",
+  "PageUp",
+  "PageDown",
+  "Home",
+  "End",
+  " ",
+  "Tab",
+]);
+
+let unwatch: (() => void) | undefined;
+
+// The user's input during a move: a wheel, a touch, a press, or a key that scrolls or moves focus
+// (not a repeat of a key held since before the move). Passive listeners in the capture phase on the
+// view's window, removed when the move ends or the next move starts. A scroll with no such input is
+// the browser's own (a smooth scroll the page started; #259) and the move plans over it.
+const watchInput = (view: Window, move: Move): void => {
+  unwatch?.();
+  const mark = () => {
+    move.input = true;
+  };
+  const key = (event: Event) => {
+    const { key: pressed, repeat } = event as KeyboardEvent;
+    if (repeat !== true && SCROLLING_KEYS.has(pressed)) move.input = true;
+  };
+  const options = { capture: true, passive: true };
+  const touching = ["wheel", "touchstart", "pointerdown"];
+  for (const type of touching) view.addEventListener(type, mark, options);
+  view.addEventListener("keydown", key, options);
+  const stop = () => {
+    for (const type of touching) view.removeEventListener(type, mark, options);
+    view.removeEventListener("keydown", key, options);
+    if (unwatch === stop) unwatch = undefined;
+  };
+  unwatch = stop;
+  move.stop = stop;
+};
+
+/** Whether a position off the move's last one is the user's: input came, or focus left the target. */
+const isUsers = (view: Window, doc: Document, move: Move, target: HTMLElement): boolean => {
+  if (Math.abs(view.scrollY - move.last) <= 2) return false;
+  if (move.input) return true;
+  const active = doc.activeElement;
+  return active !== null && active !== doc.body && active.isConnected && active !== target;
+};
+
+const scrollSmoothly = (
+  view: Window,
+  delta: number,
+  plan: () => number,
+  users: () => boolean,
+  move: Move,
+  finish: () => void,
+): void => {
+  let frames = scrollFrames(view.scrollY, view.scrollY + delta, SCROLL_MS);
   if (animation !== undefined) view.cancelAnimationFrame(animation);
-  const start = view.performance.now();
+  const origin = view.performance.now();
+  let start = origin;
   const step = (now: number) => {
-    // The user scrolled meanwhile: the move stops where it is, and never fights the user.
     if (Math.abs(view.scrollY - move.last) > 2) {
-      animation = undefined;
-      finish();
-      return;
+      // The user scrolled meanwhile: the move stops where it is, and never fights the user.
+      if (users()) {
+        animation = undefined;
+        finish();
+        return;
+      }
+      // The browser's own scroll: plan again from here over the time left, at least one frame.
+      frames = scrollFrames(
+        view.scrollY,
+        view.scrollY + plan(),
+        Math.max(FRAME_MS, SCROLL_MS - (now - origin)),
+      );
+      start = now;
+      move.last = view.scrollY;
     }
     const elapsed = now - start;
     const frame = frames.find((each) => each.at >= elapsed) ?? frames[frames.length - 1];
@@ -194,7 +269,9 @@ const land = (view: Window, doc: Document, box: HTMLElement, align: Align): void
  * Scrolls `element` clear of the bars (the header, the strip of tabs and the tray), and gives
  * it focus without the browser's own scroll. Instant by default; `smooth` (After an answer's move
  * and "Continue") scrolls in at most `SCROLL_MS` unless the user asks for less motion, and marks
- * the card where it arrives. `resolve` names the element again when the move ends: a re-render
+ * the card where it arrives; a scroll with no input of the user's during it (a smooth scroll the
+ * browser or page started) is planned over, and the user's own input ends the move where it is
+ * (answering-flow-reload-and-reveal, D2). `resolve` names the element again when the move ends: a re-render
  * that replaced the node meanwhile does not leave focus on the page (#241), and the move ends at
  * `MOVE_DEADLINE_MS` even where the engine never ran its frames. `align` says where the move
  * puts the target: the least scroll that clears the bars (the default), its card's top under them
@@ -227,16 +304,20 @@ export const revealAndFocus = (
   if (deadline !== undefined) view.clearTimeout(deadline);
   deadline = undefined;
   releaseAnchor(doc);
+  unwatch?.();
   if (!smooth && resolve === undefined) return;
   // The layout or the node may change while the move runs or just after it (a card above settling
   // into its answered look; a re-render): the end of the move leaves the target focused and clear
   // of the bars as it was asked to, unless the user scrolled or moved focus meanwhile.
   if (smooth) holdAnchor(doc);
-  const move: Move = { last: view.scrollY, done: false };
+  const move: Move = { last: view.scrollY, done: false, input: false };
+  watchInput(view, move);
+  const targetNow = () => (resolve === undefined ? element : (resolve() ?? element));
   let own: number | undefined;
   const finish = () => {
     if (move.done) return;
     move.done = true;
+    move.stop?.();
     // Only this move's own deadline and frames: a later move has set its own.
     if (deadline === own) {
       releaseAnchor(doc);
@@ -247,8 +328,8 @@ export const revealAndFocus = (
       view.cancelAnimationFrame(animation);
       animation = undefined;
     }
-    const userScrolled = Math.abs(view.scrollY - move.last) > 2;
-    const target = resolve === undefined ? element : (resolve() ?? element);
+    const target = targetNow();
+    const userScrolled = isUsers(view, doc, move, target);
     if (!target.isConnected) return;
     const active = doc.activeElement;
     if (active === null || active === doc.body || !active.isConnected) {
@@ -258,5 +339,8 @@ export const revealAndFocus = (
   };
   own = view.setTimeout(finish, MOVE_DEADLINE_MS);
   deadline = own;
-  if (!instant) scrollSmoothly(view, delta, move, finish);
+  if (!instant) {
+    const plan = () => deltaFor(view, doc, targetNow(), align);
+    scrollSmoothly(view, delta, plan, () => isUsers(view, doc, move, targetNow()), move, finish);
+  }
 };

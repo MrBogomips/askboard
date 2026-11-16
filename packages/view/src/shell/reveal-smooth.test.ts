@@ -23,6 +23,12 @@ type Stand = {
   readonly replace: () => HTMLElement;
   /** Moves the element down by `by` px, as a card above settling into a taller layout does. */
   readonly shift: (by: number) => void;
+  /** The listeners on the window now, by event type. */
+  readonly listeners: Map<string, Set<(event: object) => void>>;
+  /** Options each listener was added with. */
+  readonly options: { type: string; capture?: boolean; passive?: boolean }[];
+  /** Dispatches an event on the window, as the user's input does. */
+  readonly fire: (type: string, init?: object) => void;
 };
 
 const stand = (
@@ -39,7 +45,20 @@ const stand = (
   const attrs = new Set<string>();
   const frames: ((now: number) => void)[] = [];
   const timers: Stand["timers"] = [];
+  const listeners: Stand["listeners"] = new Map();
+  const added: Stand["options"] = [];
   const view = {
+    addEventListener: (
+      type: string,
+      run: (event: object) => void,
+      each?: { capture?: boolean; passive?: boolean },
+    ) => {
+      added.push({ type, ...each });
+      listeners.set(type, (listeners.get(type) ?? new Set()).add(run));
+    },
+    removeEventListener: (type: string, run: (event: object) => void) => {
+      listeners.get(type)?.delete(run);
+    },
     innerHeight: 800,
     scrollY: 0,
     performance: { now: () => 0 },
@@ -117,6 +136,11 @@ const stand = (
     shift: (by) => {
       moved += by;
     },
+    listeners,
+    options: added,
+    fire: (type, init = {}) => {
+      for (const run of listeners.get(type) ?? []) run({ type, ...init });
+    },
   };
 };
 
@@ -157,6 +181,7 @@ describe("a smooth reveal", () => {
     revealAndFocus(s.element, { smooth: true });
     s.frames.shift()?.(16);
     const moved = s.view.scrollY;
+    s.fire("wheel");
     s.view.scrollY = moved + 50;
     const next = s.frames.shift();
     next?.(32);
@@ -252,6 +277,7 @@ describe("the end of a move", () => {
   test("a scroll the user made meanwhile is kept", () => {
     const s = stand();
     revealAndFocus(s.element, { smooth: true });
+    s.fire("wheel");
     s.view.scrollY = 300;
     deadlineOf(s)?.run();
     expect(s.view.scrollY).toBe(300);
@@ -367,6 +393,7 @@ describe("a smooth reveal aligned to the card or the page", () => {
   test("a scroll by the user during the move is kept at the landing", () => {
     const s = stand();
     revealAndFocus(s.element, { smooth: true, align: "card" });
+    s.fire("wheel");
     s.view.scrollY = 300;
     deadlineOf(s)?.run();
     expect(s.view.scrollY).toBe(300);
@@ -432,6 +459,7 @@ describe("scroll anchoring during a move", () => {
     const s = stand();
     revealAndFocus(s.element, { smooth: true, align: "card" });
     s.frames.shift()?.(16);
+    s.fire("wheel");
     s.view.scrollY += 50;
     s.frames.shift()?.(32);
     expect(anchor(s)).toBe("");
@@ -456,5 +484,122 @@ describe("scroll anchoring during a move", () => {
       revealAndFocus(s.element, options);
       expect(anchor(s)).toBe("auto");
     }
+  });
+});
+
+// Whose scroll a drift is (answering-flow-reload-and-reveal, D2; #259): the user's when input came
+// during the move or focus left the target; any other drift is the browser's own smooth scroll,
+// which the move plans over.
+describe("the browser's own scroll and the user's during a move", () => {
+  const deadlineOf = (s: Stand) => s.timers.find((timer) => timer.ms === MOVE_DEADLINE_MS);
+  const run = (s: Stand, from = 16) => {
+    for (let now = from; s.frames.length > 0 && now <= SCROLL_MS + 32; now += 16) {
+      s.frames.shift()?.(now);
+    }
+  };
+  const count = (s: Stand) => [...s.listeners.values()].reduce((sum, each) => sum + each.size, 0);
+
+  test("a drift with no input plans again and lands 8 px under the inset", () => {
+    const s = stand();
+    revealAndFocus(s.element, { smooth: true, align: "card" });
+    s.frames.shift()?.(16);
+    // The browser's own smooth scroll pulls the page back by 600.
+    s.view.scrollY -= 600;
+    s.frames.shift()?.(32);
+    run(s, 48);
+    expect(s.view.scrollY).toBe(852);
+    expect(s.frames).toEqual([]);
+  });
+
+  test("the move keeps going to its deadline after a drift, and lands", () => {
+    const s = stand();
+    revealAndFocus(s.element, { smooth: true, align: "card" });
+    s.frames.shift()?.(16);
+    s.view.scrollY -= 600;
+    deadlineOf(s)?.run();
+    expect(s.view.scrollY).toBe(852);
+  });
+
+  for (const [what, type, init] of [
+    ["wheel", "wheel", {}],
+    ["touchstart", "touchstart", {}],
+    ["pointerdown", "pointerdown", {}],
+    ["keydown Tab", "keydown", { key: "Tab" }],
+    ["keydown ArrowDown", "keydown", { key: "ArrowDown" }],
+    ["keydown Space", "keydown", { key: " " }],
+  ] as const) {
+    test(`a drift after ${what} stops the move with no landing`, () => {
+      const s = stand();
+      revealAndFocus(s.element, { smooth: true });
+      s.frames.shift()?.(16);
+      s.fire(type, init);
+      s.view.scrollY += 50;
+      const kept = s.view.scrollY;
+      s.frames.shift()?.(32);
+      deadlineOf(s)?.run();
+      expect(s.view.scrollY).toBe(kept);
+      expect(s.frames).toEqual([]);
+    });
+  }
+
+  test("a drift after focus left the target stops the move", () => {
+    const s = stand();
+    revealAndFocus(s.element, { smooth: true });
+    s.frames.shift()?.(16);
+    s.doc.activeElement = { isConnected: true };
+    s.view.scrollY += 50;
+    const kept = s.view.scrollY;
+    s.frames.shift()?.(32);
+    deadlineOf(s)?.run();
+    expect(s.view.scrollY).toBe(kept);
+    expect(s.frames).toEqual([]);
+  });
+
+  test("a repeated keydown, or a key that scrolls nothing, does not count", () => {
+    const s = stand();
+    revealAndFocus(s.element, { smooth: true, align: "card" });
+    s.frames.shift()?.(16);
+    s.fire("keydown", { key: "Tab", repeat: true });
+    s.fire("keydown", { key: "Enter" });
+    s.view.scrollY -= 600;
+    s.frames.shift()?.(32);
+    run(s, 48);
+    expect(s.view.scrollY).toBe(852);
+  });
+
+  test("the watch is passive, in the capture phase, and every listener is removed at the end", () => {
+    const s = stand();
+    revealAndFocus(s.element, { smooth: true });
+    expect(count(s)).toBeGreaterThan(0);
+    expect(s.options.every((each) => each.capture === true && each.passive === true)).toBe(true);
+    run(s);
+    expect(count(s)).toBe(0);
+  });
+
+  test("the listeners are removed when the deadline ends the move, and by a move that follows", () => {
+    const s = stand();
+    revealAndFocus(s.element, { smooth: true });
+    deadlineOf(s)?.run();
+    expect(count(s)).toBe(0);
+    revealAndFocus(s.element, { smooth: true });
+    revealAndFocus(s.element, { smooth: true });
+    run(s);
+    deadlineOf(s);
+    s.timers
+      .filter((timer) => timer.ms === MOVE_DEADLINE_MS)
+      .at(-1)
+      ?.run();
+    expect(count(s)).toBe(0);
+  });
+
+  test("input before the move does not count: the watch starts with the move", () => {
+    const s = stand();
+    s.fire("wheel");
+    revealAndFocus(s.element, { smooth: true, align: "card" });
+    s.frames.shift()?.(16);
+    s.view.scrollY -= 600;
+    s.frames.shift()?.(32);
+    run(s, 48);
+    expect(s.view.scrollY).toBe(852);
   });
 });

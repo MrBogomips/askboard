@@ -28,7 +28,7 @@ Terms:
 
 ## 2. The user's scroll during the move (`shell/reveal.ts`, #259)
 
-- [ ] 2.1 Unit tests first in `shell/reveal-smooth.test.ts` (D2, D5). Give the stand-in window `addEventListener`, `removeEventListener` and a dispatch. Cases:
+- [x] 2.1 Unit tests first in `shell/reveal-smooth.test.ts` (D2, D5). Give the stand-in window `addEventListener`, `removeEventListener` and a dispatch. Cases:
   - a drift with no input re-plans and lands 8 px under the inset;
   - a drift after `wheel`, `touchstart`, `pointerdown` or `keydown` Tab stops the move with no landing;
   - a drift after focus left the target stops it;
@@ -37,14 +37,14 @@ Terms:
   - the two existing user-scroll cases dispatch `wheel` first.
 
   Scenarios: The browser's smooth scroll still runs, The user's wheel during the move, A focus moved during the move. Verify: red for the re-plan and the listeners.
-- [ ] 2.2 Implement D2 in `revealAndFocus` and `scrollSmoothly`:
+- [x] 2.2 Implement D2 in `revealAndFocus` and `scrollSmoothly`:
   - an input watch per move, removed in `finish`;
   - the drift test (input, or focus off the target);
   - re-planning over the time left of `SCROLL_MS`, at least one frame;
   - the same test in `finish` for `land`.
 
   Keep the `overflow-anchor` hold (D4). Update the file's comments. Tests: 2.1. Verify: 2.1 and every `reveal*.test.ts` case green; 100% line coverage of `reveal.ts`.
-- [ ] 2.3 In `answering-flow-advance.browser.ts`, a describe "the move and the browser's own scroll" (D5):
+- [x] 2.3 In `answering-flow-advance.browser.ts`, a describe "the move and the browser's own scroll" (D5):
   - the page starts its own smooth scroll, then Enter after 20 ms: q4's card 8 px (±2) under the header, heading focused;
   - `page.mouse.wheel` right after Enter: `scrollY` is unchanged between 300 ms and 1 s after;
   - focus moved to another heading during the move: the move stops and that heading keeps focus.
