@@ -104,8 +104,9 @@ const editAndMarkReady = async (board: RealBoard): Promise<void> => {
     await enterField(board, text, { nodeId: "portal", cell });
   }
   // `u-1`, split off after `portal` with "Add node", which gives it the portal's predecessors.
-  // The toolbar's Tab stop is "Select all", which the Tab into the tree passed.
-  await pressTool(board, "Shift+Tab", "Select all");
+  // The toolbar overflows at the board's width (the rail takes 256 px), so "Select all" is in its "More"
+  // menu and the toolbar's Tab stop is "More", which the Tab into the tree passed.
+  await pressTool(board, "Shift+Tab", "More");
   await pressTool(board, "Home", "Add node");
   await board.page.keyboard.press("Enter");
   await expectNewNode(board, "u-1");
