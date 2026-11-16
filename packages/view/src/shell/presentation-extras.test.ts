@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test";
+import type { Palette } from "@askboard/contract";
 import type { BootData } from "../boot-data.ts";
 import type { ViewMessage, ViewPresentation } from "../view-protocol.ts";
 import type { ViewChannel } from "./channel.ts";
 import { DEFAULT_PRESENTATION } from "./presentation-controls.ts";
 import { startPresentation } from "./presentation-extras.ts";
+import { createStore } from "./store.ts";
 
 const data = (presentation?: ViewPresentation) =>
   ({
@@ -123,5 +125,52 @@ describe("the quick toggles' presentation in a Snapshot", () => {
     controls.set({ key: "density", value: "comfortable" });
     expect(reported).toEqual([{ type: "setting", key: "density", value: "comfortable" }]);
     expect(followed).toEqual([]);
+  });
+});
+
+describe("the palette in the quick toggles' presentation (palettes, task 3.4)", () => {
+  test("a hosted view reports a palette pick to the board page and keeps the one in effect", () => {
+    const { channel } = channelOf();
+    const reported: ViewMessage[] = [];
+    const controls = startPresentation(data(), channel, {
+      hosted: true,
+      report: (message) => reported.push(message),
+    });
+    controls.set({ key: "palette", value: "grafite" });
+    expect(reported).toEqual([{ type: "setting", key: "palette", value: "grafite" }]);
+    expect(controls.presentation.get().palette).toBe("carta");
+  });
+
+  test("the palette in use follows the presentation's, until the view says otherwise", () => {
+    const { channel, update } = channelOf();
+    const controls = startPresentation(data(), channel, { hosted: true, report: () => undefined });
+    expect(controls.resolvedPalette.get()).toBe("carta");
+    update({ ...dark, palette: "nordico" });
+    expect(controls.resolvedPalette.get()).toBe("nordico");
+  });
+
+  test("a store the view gives, updated by its follower, is the one in use", () => {
+    const { channel, update } = channelOf();
+    const resolvedPalette = createStore<Palette>("contrasto");
+    const controls = startPresentation(data(), channel, {
+      hosted: true,
+      report: () => undefined,
+      resolvedPalette,
+    });
+    update({ ...dark, palette: "nordico" });
+    expect(controls.resolvedPalette).toBe(resolvedPalette);
+    expect(controls.resolvedPalette.get()).toBe("contrasto");
+  });
+
+  test("a Snapshot has no palette to pick: a set is ignored", () => {
+    const { channel } = channelOf();
+    const reported: ViewMessage[] = [];
+    const controls = startPresentation(data(), channel, {
+      hosted: false,
+      report: (message) => reported.push(message),
+    });
+    controls.set({ key: "palette", value: "grafite" });
+    expect(reported).toEqual([]);
+    expect(controls.presentation.get().palette).toBe("carta");
   });
 });

@@ -1,9 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import {
   applyDensity,
+  applyPalette,
   applyTheme,
+  CONTRAST_QUERY,
+  followPalette,
   followTheme,
   readTheme,
+  resolvePalette,
   resolveTheme,
   systemTheme,
 } from "./theme.ts";
@@ -99,5 +103,99 @@ describe("the theme preference", () => {
     expect(follower.current()).toBe("light");
     follower.prefer("system");
     expect(applied.at(-1)).toBe("dark");
+  });
+});
+
+// The palette (palettes, task 3.1, design decision D5): `data-palette` on the root, Contrasto under
+// the theme's System when the system asks for more contrast.
+const attributes = () => {
+  const values = new Map<string, string>();
+  return {
+    values,
+    setAttribute: (name: string, value: string) => void values.set(name, value),
+    removeAttribute: (name: string) => void values.delete(name),
+  };
+};
+
+describe("resolving the palette", () => {
+  const PALETTES = ["carta", "nordico", "grafite", "contrasto"] as const;
+
+  test("under System, more contrast gives Contrasto whatever the palette", () => {
+    for (const palette of PALETTES)
+      expect(resolvePalette(palette, "system", true)).toBe("contrasto");
+  });
+
+  test("under System with no request, and under Light or Dark, the palette stays", () => {
+    for (const palette of PALETTES) {
+      expect(resolvePalette(palette, "system", false)).toBe(palette);
+      for (const theme of ["light", "dark"] as const) {
+        expect(resolvePalette(palette, theme, true)).toBe(palette);
+        expect(resolvePalette(palette, theme, false)).toBe(palette);
+      }
+    }
+  });
+
+  test("the contrast query is prefers-contrast: more", () => {
+    expect(CONTRAST_QUERY).toBe("(prefers-contrast: more)");
+  });
+});
+
+describe("applying the palette", () => {
+  test("sets data-palette for a named palette and removes it for Carta", () => {
+    const element = attributes();
+    applyPalette(element, "grafite");
+    expect(element.values.get("data-palette")).toBe("grafite");
+    applyPalette(element, "carta");
+    expect(element.values.has("data-palette")).toBe(false);
+  });
+
+  test("a name the contract does not list reaches no attribute", () => {
+    const element = attributes();
+    applyPalette(element, 'carta"] body{' as never);
+    applyPalette(element, "inchiostro" as never);
+    expect(element.values.size).toBe(0);
+    applyPalette(element, "nordico");
+    applyPalette(element, "inchiostro" as never);
+    expect(element.values.has("data-palette")).toBe(false);
+  });
+});
+
+describe("following the palette", () => {
+  test("applies at once, then on each preference and each change of the system's contrast", () => {
+    const { list, change } = media(false);
+    const applied: string[] = [];
+    const follower = followPalette(list, (palette) => applied.push(palette));
+    expect(applied).toEqual(["carta"]);
+    follower.prefer("nordico", "system");
+    expect(applied.at(-1)).toBe("nordico");
+    change(true);
+    expect(applied.at(-1)).toBe("contrasto");
+    expect(follower.current()).toBe("contrasto");
+    change(false);
+    expect(applied.at(-1)).toBe("nordico");
+  });
+
+  test("an explicit theme ignores the system's contrast, and the system stops asking", () => {
+    const { list, change } = media(true);
+    const applied: string[] = [];
+    const follower = followPalette(list, (palette) => applied.push(palette));
+    expect(applied).toEqual(["contrasto"]);
+    follower.prefer("grafite", "dark");
+    expect(follower.current()).toBe("grafite");
+    change(false);
+    follower.prefer("grafite", "system");
+    expect(follower.current()).toBe("grafite");
+    change(true);
+    expect(follower.current()).toBe("contrasto");
+  });
+
+  test("a change of the system under an explicit theme applies nothing new", () => {
+    const { list, change } = media(false);
+    const applied: string[] = [];
+    const follower = followPalette(list, (palette) => applied.push(palette));
+    follower.prefer("nordico", "light");
+    const before = applied.length;
+    change(true);
+    expect(applied.length).toBe(before);
   });
 });

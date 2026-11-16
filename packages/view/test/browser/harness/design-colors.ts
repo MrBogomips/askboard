@@ -7,11 +7,26 @@ const design = await Bun.file(
   join(import.meta.dir, "../../../../../docs/ux-askboard-2026-10-27/DESIGN.md"),
 ).text();
 
-const colors = (
-  Bun.YAML.parse(/^---\n([\s\S]*?)\n---$/m.exec(design)?.[1] ?? "") as {
-    colors: Record<string, string>;
+const front = Bun.YAML.parse(/^---\n([\s\S]*?)\n---$/m.exec(design)?.[1] ?? "") as {
+  colors: Record<string, string>;
+  palettes?: Record<string, Record<string, string>>;
+};
+const colors = front.colors;
+
+const rgb = (hex: string): string => {
+  const channels = (hex.slice(1).match(/../g) ?? []).map((pair) => Number.parseInt(pair, 16));
+  return `rgb(${channels.join(", ")})`;
+};
+
+/** A role's value in a palette and scheme, as a computed style reads it; Carta's are `colors`. */
+export const paletteColor = (palette: string, name: string, scheme: "light" | "dark"): string => {
+  const source = palette === "carta" ? colors : front.palettes?.[palette];
+  const hex = source?.[scheme === "dark" ? `${name}-dark` : name];
+  if (hex === undefined || !/^#[0-9a-f]{6}$/i.test(hex)) {
+    throw new Error(`DESIGN.md has no six-digit colour "${name}" in ${palette}, ${scheme}`);
   }
-).colors;
+  return rgb(hex);
+};
 
 /** A colour token's value in a scheme, as a computed style reads it: `rgb(r, g, b)`. */
 export const tokenColor = (name: string, scheme: "light" | "dark"): string => {

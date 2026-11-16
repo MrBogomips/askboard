@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { Palette } from "@askboard/contract";
 import type { Board, BoardExtras } from "./board.tsx";
 import { NO_CHANNEL } from "./channel.ts";
 import { createTray } from "./feedback-tray-store.ts";
@@ -44,6 +45,7 @@ describe("the header's store on the board (review M5)", () => {
     const header = createStore<HeaderData>({ agent: "working" });
     const presentation: PresentationControls = {
       presentation: createStore(DEFAULT_PRESENTATION),
+      resolvedPalette: createStore<Palette>("carta"),
       hosted: false,
       set: () => undefined,
       openSettings: () => undefined,

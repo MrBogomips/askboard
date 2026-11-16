@@ -141,6 +141,8 @@ export const BROWSER_FILES: Readonly<Record<string, BrowserFileEntry>> = {
   "markdown-total.browser.ts": { engines: MARKDOWN_ENGINES, why: MARKDOWN_WHY, perf: true },
   "number-atoms.browser.ts": {},
   "oversized-acts-session.browser.ts": {},
+  "palettes.browser.ts": {},
+  "palettes-fit.browser.ts": {},
   "pick-field.browser.ts": {},
   "presence.browser.ts": {},
   "presentation.browser.ts": {},

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { Palette } from "@askboard/contract";
 import { Tooltip } from "radix-ui";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -73,6 +74,7 @@ describe("the Theme tool", () => {
   test("is an icon button named Theme", () => {
     const controls = {
       presentation: createStore({ ...DEFAULT_PRESENTATION, locked: [] }),
+      resolvedPalette: createStore<Palette>("carta"),
       hosted: false,
       set: () => undefined,
       openSettings: () => undefined,

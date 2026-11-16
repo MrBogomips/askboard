@@ -602,6 +602,7 @@ const VIEW_WRITTEN_KEY_NAMES: readonly unknown[] = [
   "theme",
   "density",
   "contextPlacement",
+  "palette",
 ] satisfies PresentationKey[];
 
 /** Whether the view can apply this as the presentation. */

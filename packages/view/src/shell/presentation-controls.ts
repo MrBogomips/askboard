@@ -4,12 +4,18 @@
 // data and the board page's updates; a Snapshot, with no board page, has no density or panel and
 // saves nothing (E7).
 
-import { ASKBOARD_FOLDER, type PresentationKey } from "@askboard/contract";
+import { ASKBOARD_FOLDER, type Palette, type PresentationKey } from "@askboard/contract";
 import type { ViewPresentation, ViewPresentationSetting } from "../view-protocol.ts";
 import type { Store } from "./store.ts";
 
 export type PresentationControls = {
   readonly presentation: Store<ViewPresentation>;
+  /**
+   * The palette in use: the presentation's, or Contrasto while the theme is System and the system
+   * asks for more contrast (palettes, design decision D5); the palette row's note shows when the two
+   * differ.
+   */
+  readonly resolvedPalette: Store<Palette>;
   /** Whether a board page hosts the view: false in a Snapshot. */
   readonly hosted: boolean;
   /** A toggle's new value: sent to the board page, or, in a Snapshot, applied here only. */

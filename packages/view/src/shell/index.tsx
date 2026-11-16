@@ -16,6 +16,7 @@
 // runs under the view's policy (S-6). Push delivery's part, the context header's data and the
 // user's activity for the board's working signal, starts beside them (`push-extras.ts`).
 
+import type { Palette } from "@askboard/contract";
 import type * as ExtApps from "@modelcontextprotocol/ext-apps";
 import { Tooltip } from "radix-ui";
 import { createRoot } from "react-dom/client";
@@ -25,8 +26,11 @@ import { FrameTransport } from "../frame-transport.ts";
 import { provide, shared } from "../shared-modules.ts";
 import {
   applyDensity,
+  applyPalette,
   applyTheme,
+  CONTRAST_QUERY,
   DARK_QUERY,
+  followPalette,
   followTheme,
   resolveTheme,
   type Theme,
@@ -128,6 +132,19 @@ const boot = (): void => {
   if (hosted) setTheme(resolveTheme(presentation?.theme ?? "system", scheme.matches));
   const follower = hosted ? undefined : followTheme(scheme, setTheme);
   if (initial !== undefined) follower?.prefer(initial.theme);
+  // The palette in use: a hosted view resolves it from its presentation and its own contrast media,
+  // as the board page does; an opened Snapshot applies its record's palette and follows no contrast
+  // query (palettes, design decision D5).
+  const resolvedPalette = createStore<Palette>(initial?.palette ?? "carta");
+  const paletteFollower = hosted
+    ? followPalette(window.matchMedia(CONTRAST_QUERY), (next) => {
+        applyPalette(document.documentElement, next);
+        resolvedPalette.set(next);
+      })
+    : undefined;
+  if (hosted)
+    paletteFollower?.prefer(presentation?.palette ?? "carta", presentation?.theme ?? "system");
+  else applyPalette(document.documentElement, initial?.palette ?? "carta");
   const channel = hosted ? connectToBoardPage() : NO_CHANNEL;
   channel.onTheme(setTheme);
   const view = createStore<BoardView>({ document: data.document, state: data.state });
@@ -214,6 +231,7 @@ const boot = (): void => {
   channel.onUpdate((update) => {
     if (update.presentation !== undefined) {
       applyDensity(window.document.documentElement, update.presentation.density);
+      paletteFollower?.prefer(update.presentation.palette, update.presentation.theme);
     }
     const before = view.get().document;
     const document = update.document ?? before;
@@ -366,6 +384,7 @@ const boot = (): void => {
     report,
     ...(follower === undefined ? {} : { followTheme: follower.prefer }),
     followDensity: (density) => applyDensity(document.documentElement, density),
+    resolvedPalette,
     ...(initial === undefined ? {} : { initial }),
   });
   // The presentation's placement is the board's default; a question's own control overrides it.

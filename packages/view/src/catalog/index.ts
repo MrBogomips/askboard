@@ -32,6 +32,7 @@ export {
   say,
   type Theme,
   themeOfClasses,
+  useColourScheme,
   useHosted,
   useKeyPlatform,
   useKeysPanel,
