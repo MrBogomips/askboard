@@ -285,6 +285,7 @@ export const IT_IT = {
   "tree.drag.handle": "Trascina {name}",
   "tree.drag.ownBranch": "Non si può rilasciare dentro il proprio ramo",
   "tree.drag.depth": "Al massimo {max} livelli",
+  "tree.drag.nestHint": "Sposta a destra per inserire dentro.",
   "tree.drag.moved": "{name} spostato",
   "tree.adjust.title": "Modifica in percentuale",
   "tree.adjust.columns": "Colonne",

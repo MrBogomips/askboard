@@ -276,6 +276,7 @@ export const EN_US = {
   "tree.drag.handle": "Drag {name}",
   "tree.drag.ownBranch": "Cannot drop inside its own branch",
   "tree.drag.depth": "At most {max} levels",
+  "tree.drag.nestHint": "Move right to drop inside.",
   "tree.drag.moved": "{name} moved",
   "tree.adjust.title": "Adjust by percentage",
   "tree.adjust.columns": "Columns",

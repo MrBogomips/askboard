@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { TreeProps } from "@askboard/contract";
-import { dropOn } from "./model/drop.ts";
+import { dropOn, NEST_OFFSET } from "./model/drop.ts";
 import { focusOn, openView } from "./model/focus.ts";
 import { afterDrop, afterMove, isMove } from "./moving.ts";
 
@@ -63,7 +63,7 @@ describe("moving a node", () => {
 
 describe("dropping a node", () => {
   const drop = (view: ReturnType<typeof openView>, nodeId: string, targetId: string, at: number) =>
-    afterDrop(dropOn(tree, nodeId, targetId, at), tree, view, nodeId);
+    afterDrop(dropOn(tree, nodeId, targetId, at, NEST_OFFSET), tree, view, nodeId);
 
   test("a drop makes the move the buttons make, the focus following the node in its cell", () => {
     const onC = focusOn(openView(tree), tree, "c", 1);

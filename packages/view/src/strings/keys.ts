@@ -266,6 +266,7 @@ export const STRING_KEYS = [
   "tree.drag.handle",
   "tree.drag.ownBranch",
   "tree.drag.depth",
+  "tree.drag.nestHint",
   "tree.drag.moved",
   "tree.adjust.title",
   "tree.adjust.columns",

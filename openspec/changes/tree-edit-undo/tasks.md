@@ -62,19 +62,19 @@ Terms:
 
 ## 3. Nesting needs a move to the right (`model/drop.ts`, `model/dragging.ts`, `drag.ts`)
 
-- [ ] 3.1 Unit tests first (D7):
+- [x] 3.1 Unit tests first (D7):
   - in `model/drop.test.ts`, the five rows of D7's table at `NEST_OFFSET` ±1, and `dropOn` with an offset;
   - in `model/dragging.test.ts`, `nestHint` (middle half, no offset, into allowed), its absence when into is refused, a refusal's tip winning, and `tipOf` giving `tree.drag.nestHint`.
 
   Verify: red.
-- [ ] 3.2 Implement `zoneOf(fraction, offset)`, `NEST_OFFSET = 16`, the `offset` parameter of `dropOn`, `DragOver.nestHint` and `tipOf`. Add `tree.drag.nestHint` ("Move right to drop inside." / "Sposta a destra per inserire dentro.") to the three string files. Tests: 3.1. Verify: 3.1 green; the existing `drop` and `dragging` cases updated only where the middle without an offset changed.
-- [ ] 3.3 Browser tests first:
+- [x] 3.2 Implement `zoneOf(fraction, offset)`, `NEST_OFFSET = 16`, the `offset` parameter of `dropOn`, `DragOver.nestHint` and `tipOf`. Add `tree.drag.nestHint` ("Move right to drop inside." / "Sposta a destra per inserire dentro.") to the three string files. Tests: 3.1. Verify: 3.1 green; the existing `drop` and `dragging` cases updated only where the middle without an offset changed.
+- [x] 3.3 Browser tests first:
   - `harness/tree-drag.ts`'s `dragOver` takes `{ vertical: true }`, which keeps x where `beginDrag` left it;
   - `tree-drag.browser.ts` gains the scenarios "A short drag up from the handle", "Nesting on purpose", "The hint" and "The hint in Italian" (it-IT host, as `edit-widgets-it` sets it).
 
   Verify: File run red on the vertical cases only.
-- [ ] 3.4 `drag.ts` reads `location.initial.input.clientX` and gives `offset` to `over` and `drop`. `widget.tsx` passes it to `dropOn`, and `confirmGroup` applies the asked `Drop` (`INTO` goes). Update the header comments. Tests: 3.1, 3.3. Verify: File runs of `tree-drag`, `tree-drag-answer` and `wbs-linking` green; the unit suite green.
-- [ ] 3.5 EXPERIENCE.md, Interaction Primitives "Drag" and Widgets "Tree" (the zones, the move to the right, the hint), and a Voice and Tone row for the hint marked "(to review)". Tests: none. Verify: `grep -n "middle inside it" docs/ux-askboard-2026-10-27/EXPERIENCE.md` is empty and the new rule is there.
+- [x] 3.4 `drag.ts` reads `location.initial.input.clientX` and gives `offset` to `over` and `drop`. `widget.tsx` passes it to `dropOn`, and `confirmGroup` applies the asked `Drop` (`INTO` goes). Update the header comments. Tests: 3.1, 3.3. Verify: File runs of `tree-drag`, `tree-drag-answer` and `wbs-linking` green; the unit suite green.
+- [x] 3.5 EXPERIENCE.md, Interaction Primitives "Drag" and Widgets "Tree" (the zones, the move to the right, the hint), and a Voice and Tone row for the hint marked "(to review)". Tests: none. Verify: `grep -n "middle inside it" docs/ux-askboard-2026-10-27/EXPERIENCE.md` is empty and the new rule is there.
 
 ## 4. Records
 

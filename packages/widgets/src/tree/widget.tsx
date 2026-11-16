@@ -67,8 +67,15 @@ import {
 import { treeKeyOf } from "./key-event.ts";
 import { applyAdjustment } from "./model/adjust.ts";
 import { anchorOf, type Current, canAct, currentIn } from "./model/current.ts";
-import { type DragState, leaveTarget, overTarget, startDrag, tipOf } from "./model/dragging.ts";
-import { dropOn } from "./model/drop.ts";
+import {
+  type DragState,
+  leaveTarget,
+  nestHint,
+  overTarget,
+  startDrag,
+  tipOf,
+} from "./model/dragging.ts";
+import { type Drop, dropOn } from "./model/drop.ts";
 import type { TreeEdit } from "./model/edits.ts";
 import {
   focusOn,
@@ -128,9 +135,6 @@ type AskedGroup = {
 
 /** The question the toolbar row shows, if any: one at a time. */
 type Asked = AskedDelete | AskedGroup;
-
-// The middle of a row, where a drop into it lands (`zoneOf`).
-const INTO = 0.5;
 
 // The edit of a tool or key that may give a leaf its first child, with the node it acts on.
 const groupEditOf = (edit: TreeEdit, nodeId: string): GroupEdit | undefined =>
@@ -394,15 +398,14 @@ export const TreeWidget = ({
   };
   // A drop makes the move the buttons make, the focus following the node (`moving.ts`); a refused
   // drop and one where the node already is change nothing.
-  const dropRow = (nodeId: string, targetId: string, fraction: number, confirmed = false): void => {
-    const moved = afterDrop(dropOn(value, nodeId, targetId, fraction), value, view, nodeId);
+  const dropRow = (nodeId: string, drop: Drop, confirmed = false): void => {
+    const moved = afterDrop(drop, value, view, nodeId);
     if (disabled || moved.value === value) {
       // A confirmed drop that is no longer possible changes nothing, and the focus, which was on
       // "Continue", goes back to the grid, never to the page body.
       if (confirmed) focus.moveFocusTo("grid");
       return;
     }
-    const drop = dropOn(value, nodeId, targetId, fraction);
     if (!confirmed && askGroup({ kind: "drop", nodeId, drop }, "grid")) {
       // Nothing moves: the dragged row stays the grid's Tab stop, where "Cancel" returns the focus.
       // The drag's end, whether it came first or comes next, leaves the focus to the question.
@@ -428,15 +431,15 @@ export const TreeWidget = ({
       cancelled.current = false;
       setDragging(startDrag(nodeId));
     },
-    over: (nodeId, targetId, fraction) => {
+    over: (nodeId, targetId, fraction, offset) => {
       if (cancelled.current) return;
-      setDragging((state) =>
-        overTarget(state, nodeId, targetId, dropOn(value, nodeId, targetId, fraction)),
-      );
+      const drop = dropOn(value, nodeId, targetId, fraction, offset);
+      const hint = nestHint(value, nodeId, targetId, fraction, offset);
+      setDragging((state) => overTarget(state, nodeId, targetId, drop, hint));
     },
     leave: (targetId) => setDragging((state) => leaveTarget(state, targetId)),
-    drop: (nodeId, targetId, fraction) => {
-      if (!cancelled.current) dropRow(nodeId, targetId, fraction);
+    drop: (nodeId, targetId, fraction, offset) => {
+      if (!cancelled.current) dropRow(nodeId, dropOn(value, nodeId, targetId, fraction, offset));
     },
     end: () => {
       setDragging(undefined);
@@ -482,7 +485,7 @@ export const TreeWidget = ({
     if (edit.kind !== "drop") {
       if (disabled || !canAct(edit.kind, value, edit.nodeId)) focus.moveFocusTo(from);
       perform(edit.kind, edit.nodeId, from);
-    } else if (edit.drop.kind !== "refused") dropRow(edit.nodeId, edit.drop.targetId, INTO, true);
+    } else dropRow(edit.nodeId, edit.drop, true);
   };
   const askingOf = (open: Asked): Asking | undefined => {
     if (open.kind === "group") {

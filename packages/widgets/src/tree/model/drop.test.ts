@@ -10,7 +10,7 @@ import {
   isDeepFrozen,
   randomEdit,
 } from "../../../test/tree-model.ts";
-import { applyDrop, type Drop, type DropZone, dropOn, zoneOf } from "./drop.ts";
+import { applyDrop, type Drop, type DropZone, dropOn, NEST_OFFSET, zoneOf } from "./drop.ts";
 import { indent, moveDown, moveUp, outdent } from "./edits.ts";
 
 // The drop's zones and moves (spec, "Tree drag and drop", "Tree drops that are refused"; design
@@ -29,7 +29,7 @@ const FRACTION: Readonly<Record<DropZone, number>> = { before: 0.1, after: 0.9, 
 /** Drops `nodeId` on `targetId` in `zone`, checking the input is untouched and a result is valid and frozen. */
 const drop = (value: TreeProps, nodeId: string, targetId: string, zone: DropZone): TreeProps => {
   const copy = structuredClone(value);
-  const decided = dropOn(value, nodeId, targetId, FRACTION[zone]);
+  const decided = dropOn(value, nodeId, targetId, FRACTION[zone], NEST_OFFSET);
   const result = applyDrop(value, nodeId, decided);
   expect(value).toEqual(copy);
   if (result !== value) {
@@ -41,10 +41,56 @@ const drop = (value: TreeProps, nodeId: string, targetId: string, zone: DropZone
 };
 
 describe("the zones", () => {
-  test("the top quarter is before, the bottom quarter after, the middle into", () => {
-    expect(
-      [0, 0.1, 0.249, 0.25, 0.5, 0.75, 0.751, 0.9, 1].map((fraction) => zoneOf(fraction)),
-    ).toEqual(["before", "before", "before", "into", "into", "into", "after", "after", "after"]);
+  test("the top quarter is before and the bottom quarter after, whatever the offset", () => {
+    for (const offset of [-40, 0, NEST_OFFSET, 200]) {
+      expect([0, 0.1, 0.249].map((fraction) => zoneOf(fraction, offset))).toEqual([
+        "before",
+        "before",
+        "before",
+      ]);
+      expect([0.751, 0.9, 1].map((fraction) => zoneOf(fraction, offset))).toEqual([
+        "after",
+        "after",
+        "after",
+      ]);
+    }
+  });
+
+  test("the middle half is into from one indent step to the right, else before in its upper half and after in its lower", () => {
+    expect(NEST_OFFSET).toBe(16);
+    expect([0.25, 0.4, 0.499].map((fraction) => zoneOf(fraction, NEST_OFFSET - 1))).toEqual([
+      "before",
+      "before",
+      "before",
+    ]);
+    expect([0.5, 0.6, 0.75].map((fraction) => zoneOf(fraction, NEST_OFFSET - 1))).toEqual([
+      "after",
+      "after",
+      "after",
+    ]);
+    expect([0.25, 0.5, 0.75].map((fraction) => zoneOf(fraction, NEST_OFFSET))).toEqual([
+      "into",
+      "into",
+      "into",
+    ]);
+    expect(zoneOf(0.5, NEST_OFFSET + 1)).toBe("into");
+    // A pointer to the left of where the drag started is not a nest either.
+    expect(zoneOf(0.5, -30)).toBe("after");
+  });
+
+  test("dropOn takes the offset: the same middle is a sibling without it and the last child with it", () => {
+    expect(dropOn(sent, "billing", "portal", 0.5, 0)).toEqual({
+      kind: "after",
+      targetId: "portal",
+    });
+    expect(dropOn(sent, "billing", "portal", 0.4, 0)).toEqual({
+      kind: "before",
+      targetId: "portal",
+    });
+    expect(dropOn(sent, "billing", "portal", 0.5, NEST_OFFSET)).toEqual({
+      kind: "into",
+      targetId: "portal",
+    });
   });
 });
 
@@ -117,7 +163,7 @@ describe("a drop that changes nothing", () => {
   });
 
   test("on the node itself, or an unknown node, is refused or changes nothing", () => {
-    expect(dropOn(sent, "portal", "portal", 0.5)).toEqual({
+    expect(dropOn(sent, "portal", "portal", 0.5, NEST_OFFSET)).toEqual({
       kind: "refused",
       reason: "own-branch",
     });
@@ -129,11 +175,11 @@ describe("a drop that changes nothing", () => {
 describe("refused drops", () => {
   test("onto the node and inside its own branch, whatever the zone", () => {
     for (const zone of ["before", "after", "into"] as const) {
-      expect(dropOn(sent, "build", "portal", FRACTION[zone])).toEqual({
+      expect(dropOn(sent, "build", "portal", FRACTION[zone], NEST_OFFSET)).toEqual({
         kind: "refused",
         reason: "own-branch",
       });
-      expect(dropOn(sent, "build", "build", FRACTION[zone])).toEqual({
+      expect(dropOn(sent, "build", "build", FRACTION[zone], NEST_OFFSET)).toEqual({
         kind: "refused",
         reason: "own-branch",
       });
@@ -146,15 +192,15 @@ describe("refused drops", () => {
 
   test(`a drop that would put a node at level ${TREE_MAX_DEPTH + 1} is refused with the depth`, () => {
     const refused: Drop = { kind: "refused", reason: "depth" };
-    expect(dropOn(tall, "a", `n${TREE_MAX_DEPTH - 1}`, 0.5)).toEqual(refused);
-    expect(dropOn(tall, "a", `n${TREE_MAX_DEPTH}`, 0.1)).toEqual(refused);
+    expect(dropOn(tall, "a", `n${TREE_MAX_DEPTH - 1}`, 0.5, NEST_OFFSET)).toEqual(refused);
+    expect(dropOn(tall, "a", `n${TREE_MAX_DEPTH}`, 0.1, NEST_OFFSET)).toEqual(refused);
     expect(drop(tall, "a", `n${TREE_MAX_DEPTH}`, "after")).toBe(tall);
-    expect(dropOn(tall, "a1", `n${TREE_MAX_DEPTH}`, 0.5)).toEqual(refused);
+    expect(dropOn(tall, "a1", `n${TREE_MAX_DEPTH}`, 0.5, NEST_OFFSET)).toEqual(refused);
   });
 
   test("the deepest fit is allowed", () => {
-    expect(dropOn(tall, "a", `n${TREE_MAX_DEPTH - 2}`, 0.5).kind).toBe("into");
-    expect(dropOn(tall, "a", `n${TREE_MAX_DEPTH - 1}`, 0.1).kind).toBe("before");
+    expect(dropOn(tall, "a", `n${TREE_MAX_DEPTH - 2}`, 0.5, NEST_OFFSET).kind).toBe("into");
+    expect(dropOn(tall, "a", `n${TREE_MAX_DEPTH - 1}`, 0.1, NEST_OFFSET).kind).toBe("before");
     const next = drop(tall, "a", `n${TREE_MAX_DEPTH - 2}`, "into");
     expect(next).not.toBe(tall);
   });

@@ -66,9 +66,7 @@ describe("the drag", () => {
       widget.indexOf("const dropRow"),
       widget.indexOf("// The events every row"),
     );
-    expect(body).toContain(
-      "afterDrop(dropOn(value, nodeId, targetId, fraction), value, view, nodeId)",
-    );
+    expect(body).toContain("afterDrop(drop, value, view, nodeId)");
     expect(body).toContain('focus.moveFocusTo("grid")');
     expect(body).toContain("change(moved.value, nodeId)");
   });
