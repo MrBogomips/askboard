@@ -42,7 +42,8 @@ Each task names its tests first and sees them fail for the right reason before i
 
 ## 6. Skills
 
-- [ ] 6.1 Teaching (decision 9): one bullet in `tools/build/skills/templates/answers.md`, a test in `tools/build/skills/references.test.ts` for the "An answer accepted as sent" scenario, then `bun run build:skills`. Verify: `bun run check:skills` passes, the reference stays under its 6,000-character budget, and `skills/` is committed regenerated.
+- [x] 6.1 Teaching (decision 9): one bullet in `tools/build/skills/templates/answers.md`, a test in `tools/build/skills/references.test.ts` for the "An answer accepted as sent" scenario, then `bun run build:skills`. Verify: `bun run check:skills` passes, the reference stays under its 6,000-character budget, and `skills/` is committed regenerated.
+  - Note: the test is in `tools/build/skills/generate.test.ts`, where the answers reference's tests already are; `references.test.ts` renders no answers reference.
 
 ## 7. Documents and record
 
