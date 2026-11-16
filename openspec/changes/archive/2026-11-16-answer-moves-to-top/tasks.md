@@ -85,3 +85,4 @@ Terms:
 
 - The change alters the card's rendering and the reveal: dispatch a train on the branch before merge (`gh workflow run e2e.yml --ref worktree-feature-advance-to-top -f cadence=nightly`). Triage its new failures as AGENTS.md, CI says.
 - Archive after the pull request is merged.
+  - Note: #257 merged (dd222ac4) before its train (run 43871912447) was triaged. That train failed two `answering-flow-advance` cases in WebKit: the test helper pressed Enter during WebKit's own smooth scroll. #260 (687d441b) waits for the page to stand still; its train (run 43875473595) passed 22 of 22. The product's window is #259. The perf failures were #205 and #244, quarantined by #258.
