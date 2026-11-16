@@ -12,16 +12,8 @@
 // (tree-edit-undo, design decision 5). A leaf about to become a group asks in
 // the same place, by the same pattern (`group-question.tsx`); the row shows one question at a time.
 
-import { TREE_KEYS, type TreeProps } from "@askboard/contract";
-import type { StringKey } from "@askboard/view/catalog";
-import {
-  type KeyPlatform,
-  keyLabel,
-  type Say,
-  useKeyPlatform,
-  useLanguage,
-  useStrings,
-} from "@askboard/view/catalog";
+import type { TreeProps } from "@askboard/contract";
+import { useKeyPlatform, useLanguage, useStrings } from "@askboard/view/catalog";
 import { DropdownMenu, Popover } from "radix-ui";
 import { type KeyboardEvent, type Ref, useRef, useState } from "react";
 import { toolbarFocus, toolbarStop } from "../shared/toolbar-focus.ts";
@@ -46,9 +38,9 @@ import { GroupQuestion } from "./group-question.tsx";
 import type { GroupQuestion as GroupQuestionWords } from "./grouping.ts";
 import { treeKeyOf } from "./key-event.ts";
 import type { TreeEdit } from "./model/edits.ts";
-import { TREE_TOOLS, type TreeTool, toolbarKey } from "./model/keys.ts";
-import { OVERFLOW_TOOLS } from "./model/overflow.ts";
-import { type Selection, selectAll } from "./model/selection.ts";
+import { toolbarKey } from "./model/keys.ts";
+import type { Selection } from "./model/selection.ts";
+import { type Item, itemsOf } from "./toolbar-items.ts";
 
 // The counter: "No changes", then each node the user changed, once, after the change dot; cut with
 // an ellipsis, its whole text in the tooltip, before it overprints a tool.
@@ -62,12 +54,6 @@ const ChangeCount = ({ count }: { readonly count: number }) => {
     </p>
   );
 };
-
-// "Move up (Alt+Shift+ArrowUp)", "Delete (Delete or Backspace)"; a tool with no keys has none.
-const titleOf = ({ label, shortcut }: TreeTool, text: Say): string | undefined =>
-  shortcut === undefined
-    ? undefined
-    : `${text(label)} (${shortcut.split(" ").join(text("tree.keysSeparator"))})`;
 
 /** The answers to a question, whichever it is. */
 type Answers = {
@@ -98,85 +84,7 @@ export type SelectionTools = {
   readonly onUndo: () => void;
 };
 
-// One button of the row: a Tree tool, or a selection or adjustment tool, in order.
-type Item = {
-  readonly key: string;
-  readonly label: StringKey;
-  readonly enabled: boolean;
-  readonly title?: string;
-  readonly shortcut?: string;
-  /** The tool's marker, which no language changes. */
-  readonly marker?: string;
-  /** Goes into "More" when the row is crowded. */
-  readonly overflow: boolean;
-  readonly run: () => void;
-};
-
 const SELECTION_TOOLS: ReadonlySet<string> = new Set(["selectAll", "selectNone", "adjust", "undo"]);
-
-/** "Undo (⌘Z)", "Undo (Ctrl+Z)": the tool's name and its key as the platform writes it (D5). */
-export const undoTitle = (platform: KeyPlatform, text: Say): string => {
-  const binding = TREE_KEYS.find((entry) => entry.action === "undo")?.keys[0];
-  const name = text("tree.tool.undo");
-  return binding === undefined ? name : `${name} (${keyLabel(binding, platform, text)})`;
-};
-
-export const itemsOf = (
-  enabled: readonly boolean[],
-  onTool: (edit: TreeEdit) => void,
-  tools: SelectionTools,
-  open: () => void,
-  text: Say,
-  platform: KeyPlatform,
-): readonly Item[] => {
-  const some = tools.selection.size > 0;
-  const own: Item[] = [
-    {
-      key: "selectAll",
-      label: "tree.select.all",
-      // Nothing to select in an empty Tree, which leaves its toolbar stop to "Add node".
-      enabled: selectAll(tools.value).size > 0,
-      overflow: true,
-      run: tools.onSelectAll,
-    },
-    {
-      key: "selectNone",
-      label: "tree.select.none",
-      enabled: some,
-      overflow: true,
-      run: tools.onSelectNone,
-    },
-    {
-      key: "adjust",
-      label: "tree.tool.adjust",
-      enabled: some && !tools.disabled,
-      overflow: false,
-      run: open,
-    },
-  ];
-  own.push({
-    key: "undo",
-    label: "tree.tool.undo",
-    enabled: tools.canUndo && !tools.disabled,
-    title: undoTitle(platform, text),
-    shortcut: "Control+Z Meta+Z",
-    marker: "",
-    overflow: false,
-    run: tools.onUndo,
-  });
-  const treeTools = TREE_TOOLS.map(
-    (tool, at): Item => ({
-      key: tool.edit,
-      label: tool.label,
-      enabled: enabled[at] === true,
-      title: titleOf(tool, text),
-      shortcut: tool.shortcut,
-      overflow: OVERFLOW_TOOLS.has(tool.edit),
-      run: () => onTool(tool.edit),
-    }),
-  );
-  return [...treeTools, ...own];
-};
 
 // The "More" menu, the last stop of the toolbar: the tools given up when crowded, each disabled as
 // its tool is. It is not modal, as the question card's, so it locks no scroll and adds no style element.

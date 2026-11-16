@@ -78,10 +78,10 @@ Terms:
 
 ## 4. Records
 
-- [ ] 4.1 `contract/src/widgets/tree/widget.ts` `help.mouse`: drag to the right to drop inside a row, and Ctrl or Cmd with Z or "Undo" undoes the latest edit. Run `bun run build:skills` and commit `skills/`. Tests: the skills generator tests. Verify: `bun run check:skills` green; both skill references read "Undo".
-- [ ] 4.2 PRD, as D9 says: FR-11's WBS line and its extensions sentence, and FR-15's "can be undone once". Tests: none. Verify: `grep -n "undone once" docs/prd-askboard-2026-10-25/prd.md` is empty.
-- [ ] 4.3 `bun run build:view`. If the widgets chunk passes `chunk-sizes.json`, run `--record-sizes` and commit the file. Then run `bun run check:agent`. Tests: the whole check. Verify: `check:agent` green, with 80% coverage.
-- [ ] 4.4 Write `docs/as-built/tree-edit-undo.md`:
+- [x] 4.1 `contract/src/widgets/tree/widget.ts` `help.mouse`: drag to the right to drop inside a row, and Ctrl or Cmd with Z or "Undo" undoes the latest edit. Run `bun run build:skills` and commit `skills/`. Tests: the skills generator tests. Verify: `bun run check:skills` green; both skill references read "Undo".
+- [x] 4.2 PRD, as D9 says: FR-11's WBS line and its extensions sentence, and FR-15's "can be undone once". Tests: none. Verify: `grep -n "undone once" docs/prd-askboard-2026-10-25/prd.md` is empty.
+- [x] 4.3 `bun run build:view`. If the widgets chunk passes `chunk-sizes.json`, run `--record-sizes` and commit the file. Then run `bun run check:agent`. Tests: the whole check. Verify: `check:agent` green, with 80% coverage.
+- [x] 4.4 Write `docs/as-built/tree-edit-undo.md`:
   - what was built and where the code lives;
   - the names added: `useTreeHistory`, `TREE_HISTORY_DEPTH`, `NEST_OFFSET`, `nestHint`, `undoTitle`, the strings;
   - the names removed: `model/undo.ts`, `tree.tool.undoAdjust`, `tree.adjust.undone`;

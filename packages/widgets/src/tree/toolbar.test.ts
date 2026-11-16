@@ -3,7 +3,7 @@ import { TREE_KEYS } from "@askboard/contract";
 import { type Say, say as sayIn } from "@askboard/view/catalog";
 import { COUNTER, TOOLS } from "./classes.ts";
 import { NO_SELECTION } from "./model/selection.ts";
-import { itemsOf, undoTitle } from "./toolbar.tsx";
+import { itemsOf, undoTitle } from "./toolbar-items.ts";
 
 // Review F-16: the counter truncates before it overprints a tool, its idle text is "No changes"
 // from the catalogue, and the move tools go into "More" when the row is crowded. The rendering is
@@ -31,7 +31,7 @@ describe("the Tree toolbar's counter", () => {
     expect(toolbar).toContain("DropdownMenu");
     expect(toolbar).toContain("useCrowded");
     expect(await source("../shared/use-crowded.ts")).toContain("isCrowded");
-    expect(toolbar).toContain("OVERFLOW_TOOLS");
+    expect(await source("./toolbar-items.ts")).toContain("OVERFLOW_TOOLS");
   });
 });
 
