@@ -36,8 +36,9 @@ Each task names its tests first and sees them fail for the right reason before i
 
 ## 5. Browser
 
-- [ ] 5.1 New `packages/view/test/browser/accept-as-sent.browser.ts`, listed in `harness/suites.ts` (not smoke), on the session process. Cases: a Tree accepted with a note in "One by one" (the `collect` event, `fetch`, the status, the answered line, the move to the top on a two-question board); "Gone with an edit, back when the edit is undone"; no button with options; blocked by a field; keyboard. Verify: it fails before group 4 and passes in Chromium.
-- [ ] 5.2 In the same file: "Ready, then sent by Submit" on a Kanban; "A reload keeps it ready" on a Timeline; "A Snapshot of an accepted question"; "Revising an accepted answer". Each `collect` and `fetch` result passes its schema (`checkedEvents`, `checkedFetchItem`). Verify: the cases pass in Chromium, and the suites test is green.
+- [x] 5.1 New `packages/view/test/browser/accept-as-sent.browser.ts`, listed in `harness/suites.ts` (not smoke), on the session process. Cases: a Tree accepted with a note in "One by one" (the `collect` event, `fetch`, the status, the answered line, the move to the top on a two-question board); "Gone with an edit, back when the edit is undone"; no button with options; blocked by a field; keyboard. Verify: it fails before group 4 and passes in Chromium.
+- [x] 5.2 In the same file: "Ready, then sent by Submit" on a Kanban; "A reload keeps it ready" on a Timeline; "A Snapshot of an accepted question"; "Revising an accepted answer". Each `collect` and `fetch` result passes its schema (`checkedEvents`, `checkedFetchItem`). Verify: the cases pass in Chromium, and the suites test is green.
+  - Note: an opened Snapshot has no actions row, so it showed no answer line; `ActionsRow` now draws the line alone there for an answer accepted as sent (design.md decision 5 names the answered look, the spec's scenario "A Snapshot of an accepted question" needs it).
 
 ## 6. Skills
 

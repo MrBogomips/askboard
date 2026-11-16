@@ -56,6 +56,11 @@ export type ActionsRowProps = {
    * (accept-as-sent, design decision 1; `acceptAsSentOffered`).
    */
   readonly acceptAsIs?: AcceptAsIsButtonProps | undefined;
+  /**
+   * The answer the card shows was accepted as sent. An opened Snapshot has no row, but names that
+   * answer on its line: nothing else shows it, since no option is chosen (accept-as-sent).
+   */
+  readonly accepted?: boolean;
   readonly onPostpone: () => void;
   /** "Edit" on a sent, delivered or declined answer: focus the chosen option; send nothing. */
   readonly onEdit: () => void;
@@ -104,6 +109,7 @@ export const ActionsRow = ({
   submitted,
   onAnswer,
   acceptAsIs,
+  accepted = false,
   onPostpone,
   onEdit,
 }: ActionsRowProps) => {
@@ -133,7 +139,15 @@ export const ActionsRow = ({
         {text("question.chooseOption")}
       </span>
     ) : undefined;
-  if (opened) return null;
+  if (opened) {
+    return accepted && answered && answerParts !== undefined ? (
+      <div className="flex flex-wrap items-center gap-md">
+        <span data-askboard-answer-line="" className="min-w-0 text-body text-foreground">
+          <AnswerLine template={text("answer.line", { answer: ANSWER_SLOT })} parts={answerParts} />
+        </span>
+      </div>
+    ) : null;
+  }
   return (
     <>
       <div className="flex flex-wrap items-center gap-md">

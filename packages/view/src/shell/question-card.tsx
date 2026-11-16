@@ -842,6 +842,7 @@ export const QuestionCard = (props: CardProps) => {
             submitted={!single && delivery === "submitted"}
             onAnswer={onAnswer}
             acceptAsIs={acceptAsIs}
+            accepted={accepted}
             onPostpone={onPostpone}
           />
           {footer === undefined ? null : (
