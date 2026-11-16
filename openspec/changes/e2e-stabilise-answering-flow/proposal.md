@@ -11,6 +11,7 @@ The first e2e train on `main` after `answering-flow-guidance` (#230) and `answer
 - Issue: #241
 - Issue: #242
 - Issue: #243
+- Issue: #238
 
 Serves NFR-7 (the three engines), NFR-10 (a status message never missing or untrue), NFR-12 (keyboard and focus), FR-6 (the agent's removals announced) and FR-24 (the board's frame).
 
@@ -31,7 +32,7 @@ Serves NFR-7 (the three engines), NFR-10 (a status message never missing or untr
   - Each fix goes where the cause is: the board, or the test that measures it.
 - A train dispatched on the branch before merge checks the seven Issues.
 
-Out of scope: #238 (the outbox's Italian label, waiting for the PO) and #244 (a perf flake).
+Also #238, decided by the PO after the proposal: the outbox's it-IT word for "Delivered" is "Arrivate" (to review), and the rail stays at 256 px. Out of scope: #244 (a perf flake).
 
 ## Capabilities
 

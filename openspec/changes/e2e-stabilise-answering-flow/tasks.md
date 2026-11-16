@@ -25,6 +25,7 @@ Commit bodies say `Refs #n` for the Issues each group touches.
 - [x] 1.7 `answering-flow-motion.browser.ts`: a `MutationObserver` installed before the act records when the mark is set and removed (D3). Scenarios: Reduced motion, No preference. Verify: File and Firefox runs pass three times in a row; the WebKit position failure is left to 2.3.
 - [x] 1.8 (added on the coordinator's word, palettes' train 43836634537) `palettes-fit.browser.ts` reports the Firefox ask-row `bdi` as clipped: `clipped` moves to `harness/fit.ts`, shared by `answering-flow-fit` and `palettes-fit`, with the inline-box rule of 3.4. Verify: Firefox runs of both pass.
 - [x] 1.9 (added likewise) `palettes.browser.ts`, "more contrast under System puts Contrasto", Firefox only. Playwright's Firefox gives `matchMedia` the emulated value in the board page and the view, but dispatches no `change` event to a listener on either (a listener of the test's own on the board page stays silent), and the palette follows that event: the case is skipped in Firefox with a comment naming the limit. Not a product gap that this probe can show.
+- [x] 1.10 #238 (decided by the PO): `ledger.delivered` in it-IT reads "Arrivate" (to review), the rail stays at 256 px; `cabina-strings.test.ts` and EXPERIENCE.md's outbox ledger row follow, the ladder state wording is untouched. Verify: the outbox span no longer clips in `answering-flow-fit` and `palettes-fit` in Italian.
   - Note 0.2: every name of D8 exists on `origin/main` (f633470e): `revealAndFocus`, `revealDelta`, `SCROLL_MS`, `FRAME_MS`, `ARRIVAL_MS` in `shell/reveal.ts`; `onRemoval` in `shell/document-update.ts`; `shownQuestionOf` in `shell/board-view.ts`; `questionTextId`; `useHeadingFocus` in `shell/board.tsx`; `labelText` in `harness/lifecycle-test.ts`; `tabTo` there; `tabIntoTree` in `harness/tree-grid.ts`; `tabIntoGrid` in `fixtures/gantt-input.ts`; `draftResultOf` in `harness/draft-results.ts`; `themeControl`, `progressRow` in `harness/dom.ts`; `clipped` in `answering-flow-fit.browser.ts` (now `harness/fit.ts`); `key.shift` in the string catalog. Nothing changed shape.
   - Note 1.5: `tabIntoGrid` focuses the Gantt question's heading (as 3.2) instead of clicking it.
 
@@ -61,5 +62,5 @@ Commit bodies say `Refs #n` for the Issues each group touches.
 
 ## Workflow follow-up
 
-- The pull request body says `Closes #236`, `Closes #237`, `Closes #239`, `Closes #240`, `Closes #241`, `Closes #242` and `Closes #243`, the train's run and its result, and what is left for the PO (#238, and any #240 question).
+- The pull request body says `Closes #236`, `Closes #237`, `Closes #239`, `Closes #240`, `Closes #241`, `Closes #242`, `Closes #243` and `Closes #238`, the train's run and its result, and what is left for the PO.
 - Archive this change only after its pull request has merged.

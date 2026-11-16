@@ -34,7 +34,7 @@ const CASES: readonly Case[] = [
   ["ledger.drafts", {}, "Drafts", "Bozze"],
   ["ledger.ready", {}, "Ready", "Pronte"],
   ["ledger.sent", {}, "Sent", "Inviate"],
-  ["ledger.delivered", {}, "Delivered", "Consegnate"],
+  ["ledger.delivered", {}, "Delivered", "Arrivate"],
   ["ledger.readyOff", {}, 'Not used in "One by one"', "Non usato in «Una alla volta»"],
   ["answer.line", { answer: "Redis" }, "Answer: Redis", "Risposta: Redis"],
   ["question.chooseOption", {}, "Choose an option", "Scegli un'opzione"],

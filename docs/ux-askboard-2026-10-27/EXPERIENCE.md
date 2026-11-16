@@ -199,7 +199,7 @@ Act names. The requirements of the view capability call the question's primary b
 | Short question number | "Q{n}" (`question.number`) | "D{n}" (to review) | `answering-flow-visual` D17, PO #168 2026-11-15 |
 | Outline, a removed question | "{number} removed by the agent" (`outline.removed`) | "{number} rimossa dall'agente" (to review) | `answering-flow-visual` D17, PO #168 2026-11-15 |
 | Outbox line | "{count} answer ready: nothing has been sent yet." / "{count} answers ready: …" (`outbox.held`) | "{count} risposta pronta: niente è stato ancora inviato." / "{count} risposte pronte: …" (to review) | `answering-flow-visual` D17, PO #168 2026-11-15 |
-| Outbox ledger | "Drafts", "Ready", "Sent", "Delivered"; "Not used in \"One by one\"" | "Bozze", "Pronte", "Inviate", "Consegnate"; «Non usato in «Una alla volta»» (to review) | `answering-flow-visual` D17, PO #168 2026-11-15 |
+| Outbox ledger | "Drafts", "Ready", "Sent", "Delivered"; "Not used in \"One by one\"" | "Bozze", "Pronte", "Inviate", "Arrivate"; «Non usato in «Una alla volta»» (to review) | `answering-flow-visual` D17, PO #168 2026-11-15 |
 | The answer's line and the reason | "Answer: {answer}" (`answer.line`); "Choose an option" (`question.chooseOption`) | "Risposta: {answer}"; "Scegli un'opzione" (to review) | `answering-flow-visual` D17, PO #168 2026-11-15 |
 | Feedback tray | "Go", "Close" (`tray.go`, `tray.close`) | "Vai", "Chiudi" (to review) | `answering-flow-visual` D17, PO #168 2026-11-15 |
 | Removed question, status region | "Question removed by the agent: {title}." (`status.removed`) | "Domanda rimossa dall'agente: {title}." (to review) | `answering-flow-visual` D17, PO #168 2026-11-15 |

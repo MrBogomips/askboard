@@ -24,7 +24,7 @@ Constraints: no full or multi-engine suite runs locally (AGENTS.md, CI). An engi
 - Each product defect is fixed in the board, with a unit or browser test that fails without the fix.
 
 **Non-Goals:**
-- #238, the outbox's Italian label, which waits for the PO.
+- (#238 was here; the PO chose "Arrivate" for `ledger.delivered`, task 1.10.)
 - #244, a perf flake.
 - #174, Firefox's crashes.
 - Any test whose failure the train did not show.
