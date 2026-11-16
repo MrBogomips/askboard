@@ -22,7 +22,7 @@ The toolbar and the tree SHALL each be one Tab stop. In the tree, the arrow keys
 - **THEN** a new node after the current one starts editing its name
 
 ### Requirement: Tree drag and drop
-The user SHALL move a node, with its subtree, by dragging its row's handle. Over a row, the top quarter SHALL mean before it, the bottom quarter after it, and the middle as its last child when the pointer has moved right as "Tree nesting by drag needs a move to the right" says, else before it in the middle's upper half and after it in its lower half, with an indicator that shows which, or that the drop is not allowed. The drop SHALL make the same move the buttons make, the node SHALL keep its ID, and every roll-up and Gantt task SHALL follow within the same interaction (EXPERIENCE Interaction Primitives, Drag; open questions 8 and 9).
+The user SHALL move a node, with its subtree, by dragging its row's handle. Over a row, the top quarter SHALL mean before it, the bottom quarter after it, and the middle its last child once the pointer has moved right (Tree nesting by drag needs a move to the right), else before or after it by the middle's half; an indicator shows which, or that the drop is refused. The drop SHALL make the buttons' move, keep the node's ID and update roll-ups and Gantt tasks at once (EXPERIENCE Drag).
 
 #### Scenario: Reordering
 - **WHEN** the user drags `billing` onto the top quarter of `portal`
