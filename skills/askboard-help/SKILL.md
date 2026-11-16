@@ -1,6 +1,6 @@
 ---
 name: askboard-help
-description: Use when the user asks in the terminal how to use the AskBoard board: what a widget does, how to edit it, its keyboard shortcuts, what Answer, Postpone, Decline, Submit or a Snapshot do, or how to change, rebind or remap a key. A question asked as a follow-up on the board is not for this skill.
+description: Use when the user asks in the terminal how to use the AskBoard board: what a widget does, how to edit it, its keyboard shortcuts, what Send answer, Later, Decline, Send answers or a Snapshot do, or how to change, rebind or remap a key. A question asked as a follow-up on the board is not for this skill.
 disallowed-tools: mcp__plugin_askboard_askboard__ask mcp__plugin_askboard_askboard__update mcp__plugin_askboard_askboard__collect mcp__plugin_askboard_askboard__fetch mcp__plugin_askboard_askboard__snapshot
 ---
 
@@ -16,14 +16,16 @@ This skill answers a user's questions about using the AskBoard board. The files 
 
 ## The board
 
-- **Answer.** Each question has its own "Answer" button; it sends that question's answer. In submitted delivery the answers wait, and "Submit" in the bottom bar sends them all at once; in immediate delivery each goes as it is given. A bar switch changes the mode.
-- **Postpone.** Marks a question as not answered yet; it can be undone. A postponed question left open when the board closes is lost with the ask, and the bottom bar warns of it.
-- **Decline and Explain.** Under "More" on each question. "Decline" closes the question as declined, with an optional reason in the note; it can be revised or undone. "Explain" sends the agent the ready-made follow-up "Why are you asking, and what changes with each option?".
-- **Follow-up questions.** Under each question, the user can ask the agent a follow-up; the agent's reply arrives in the same thread, and a marker shows a reply that came while the question was out of view.
-- **When the agent changes a question.** If the agent updates a question where the user has unsent work, a notice says so and offers "Keep mine" (the user's work stays, and the answer is sent for the earlier version) or "Reload, losing my work" (the agent's version replaces it).
-- **Read-only.** An answered question, a closed or discarded ask, a board that moved to another tab and a Snapshot do not take edits. Only the keys that move around, change only the view of the Gantt or open a widget's keys panel still act there.
-- **Snapshots.** The "Snapshot" button saves an offline, view-only copy of the board to a file; unsent work is not in it. The agent can take one too.
-- **Language and live updates.** The board shows the language the agent set for the ask; it offers no switch, and another language means a new ask. The agent can add or change questions while the board is open, and the board shows them at once.
+- **Send answer.** A question's main button sends its answer. In "One by one" each goes as given and the bar has no Send. In "All together" the button reads "Confirm" and the answer waits, "Ready, not sent", until "Send {count} answers" in the bar sends them all. A bar switch changes the mode.
+- **After answering.** A setting in the settings panel: "Go to the next" (the default) moves on to the next question to do; "Stay here" shows "Continue" on the card.
+- **Prefill recommended.** The bar's button selects each recommended option as a draft; nothing is sent or ready, and "Undo" clears them.
+- **Later.** Postpones a question; it can be undone. One left open when the board closes is lost with the ask, and the bar warns of it.
+- **Decline and Explain.** Under "More". "Decline" closes the question as declined, with an optional reason in the note; it can be revised or undone. "Explain" asks the agent why it asks and what changes with each option.
+- **Follow-up questions.** The user can ask the agent a follow-up under each question; the reply comes in the same thread, and a marker shows one out of view.
+- **When the agent changes a question.** With unsent work on it, a notice offers "Keep mine" (the answer is for the earlier version) or "Reload, losing my work" (the agent's version replaces it).
+- **Read-only.** An answered question, a closed or discarded ask, a board that moved to another tab and a Snapshot take no edits. Only the keys that move around, change only the view of the Gantt or open a widget's keys panel still act there.
+- **Snapshots.** The "Snapshot" button saves an offline, view-only copy of the board; unsent work is not in it. The agent can take one too.
+- **Language and live updates.** The board shows the language the agent set; another language means a new ask. The agent can add or change questions while the board is open.
 - **Note for the agent.** Every question has an optional free-text note.
 
 ## Keys of the options and fields
