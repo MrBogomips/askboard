@@ -24,12 +24,14 @@ import {
   type LicenceNotice,
   type ManifestChunk,
   type ManifestFile,
+  type Palette,
   VIEW_MANIFEST_FILE,
   VIEW_MANIFEST_VERSION,
   type ViewManifest,
   WIDGET_TYPES,
 } from "@askboard/contract";
 import type { BunPlugin } from "bun";
+import { paletteStylePath } from "../../packages/view/src/palettes.ts";
 import { boardPageHtml } from "./board-page.ts";
 import {
   boardPageInputProblems,
@@ -88,6 +90,8 @@ type Finished = {
   readonly name: string;
   readonly script: string;
   readonly styles: string;
+  /** Further stylesheet files the chunk lists after its own, by path (the shell's palettes). */
+  readonly extraStyles?: readonly { readonly path: string; readonly css: string }[];
   readonly notices: readonly NoticeFile[];
   /** The package versions whose fonts the chunk's package stylesheets inline. */
   readonly fonts: readonly string[];
@@ -120,7 +124,10 @@ const stylesOf = async (
 ): Promise<string> => {
   if (plan === undefined) return "";
   const input = join(work, "styles", `${name}.css`);
-  await Bun.write(input, tailwindInput(plan, ownSources(inputs), work));
+  await Bun.write(
+    input,
+    tailwindInput(plan, ownSources(inputs), work, { palettes: name === BOARD_PAGE }),
+  );
   const css = await runTailwind(input, join(work, "styles", `${name}.out.css`));
   // A stylesheet with no rule, only Tailwind's banner and layer order, is left out.
   return css.includes("{") ? css : "";
@@ -174,6 +181,15 @@ export const finish = async (
   const notices = await collectNotices(name, inputs, ROOT, LICENCE_TEXTS, fontLicences);
   return { name, script: code, styles: styles.css, notices, fonts: packages?.fonts ?? [] };
 };
+
+// The shell's palette files, one per named palette, each passing the inline-safety checks of a
+// stylesheet (no `@import`, no `url()`), in the contract's order (palettes, design decision D4).
+const paletteSheets = (palettes: Readonly<Record<string, string>>) =>
+  Object.entries(palettes).map(([name, css]) => {
+    const sheet = css.trim();
+    failIf([...assembleChunkStyles({ chunk: `shell-palette-${name}`, own: sheet }).problems]);
+    return { path: paletteStylePath(name as Palette), css: sheet };
+  });
 
 type BuiltChunk = Finished & {
   readonly kind: ChunkKind;
@@ -251,7 +267,10 @@ const assembleBuild = (
       {
         kind: chunk.kind,
         script: add(`chunks/${chunk.name}.js`, chunk.script),
-        styles: styles(`chunks/${chunk.name}.css`, chunk.styles),
+        styles: [
+          ...styles(`chunks/${chunk.name}.css`, chunk.styles),
+          ...(chunk.extraStyles ?? []).map(({ path, css }) => add(path, css)),
+        ],
         needs: chunk.needs,
         ...(chunk.hostOnly ? { hostOnly: true } : {}),
         ...(chunk.kind === "component" ? { components: [...chunkComponents(chunk.name)] } : {}),
@@ -268,9 +287,11 @@ const assembleBuild = (
 
 const sizesOf = (page: Finished, chunks: readonly BuiltChunk[]): ChunkSizes =>
   Object.fromEntries(
-    [page, ...chunks].map(({ name, script, styles }) => [
+    [page, ...chunks].map(({ name, script, styles, extraStyles }) => [
       name,
-      Buffer.byteLength(script) + Buffer.byteLength(styles),
+      Buffer.byteLength(script) +
+        Buffer.byteLength(styles) +
+        (extraStyles ?? []).reduce((sum, { css }) => sum + Buffer.byteLength(css), 0),
     ]),
   );
 
@@ -314,11 +335,14 @@ export const buildView = async (
   await checkReplaceable(out);
   const work = await mkdtemp(join(tmpdir(), "askboard-view-"));
   try {
-    await writeTokenFiles(work);
-    const [page, chunks] = await Promise.all([
+    const { palettes } = await writeTokenFiles(work);
+    const [page, built] = await Promise.all([
       buildBoardPage(work, fontLicences),
       buildChunks(work, stylesheets, fontLicences),
     ]);
+    const chunks = built.map((chunk) =>
+      chunk.kind === "shell" ? { ...chunk, extraStyles: paletteSheets(palettes) } : chunk,
+    );
     failIf(hostOnlyNeedProblems(chunks));
     // Fonts need a recorded licence, and a recorded licence a chunk that uses it (task 3.4).
     failIf([

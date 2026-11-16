@@ -86,9 +86,11 @@ describe("setting, from the board page", () => {
 
 describe("settings, from board-host", () => {
   test("every key the previous minor defines has its row, in the configuration's order", () => {
-    // The user's keys row and the after-answer row are optional: each arrived in a later minor.
+    // The user's keys row and the after-answer and palette rows are optional: each arrived in a later minor.
     expect(Object.keys(settingsWithEveryKey.keys)).toEqual(
-      CONFIGURATION_KEYS.filter((key) => key !== "keys" && key !== "afterAnswer"),
+      CONFIGURATION_KEYS.filter(
+        (key) => key !== "keys" && key !== "afterAnswer" && key !== "palette",
+      ),
     );
   });
 

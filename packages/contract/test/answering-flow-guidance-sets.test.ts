@@ -12,7 +12,8 @@ const header = async (path: string) =>
 
 describe("the configuration's minor", () => {
   test("is the minor answering-flow-guidance holds, and the set carries the constant", () => {
-    expect(CONFIGURATION_VERSION).toBe("1.2");
+    // Later changes move the minor on: this one's is the floor (palettes holds 1.3).
+    expect(Number(CONFIGURATION_VERSION.split(".")[1])).toBeGreaterThanOrEqual(2);
     expect(versionOf("configuration")).toBe(CONFIGURATION_VERSION);
   });
 

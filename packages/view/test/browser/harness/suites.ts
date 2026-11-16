@@ -141,6 +141,13 @@ export const BROWSER_FILES: Readonly<Record<string, BrowserFileEntry>> = {
   "markdown-total.browser.ts": { engines: MARKDOWN_ENGINES, why: MARKDOWN_WHY, perf: true },
   "number-atoms.browser.ts": {},
   "oversized-acts-session.browser.ts": {},
+  "palettes.browser.ts": {},
+  "palettes-snapshot.browser.ts": {},
+  "palettes-forced-colors.browser.ts": {
+    engines: ["chromium"],
+    why: "the requirement Forced colours (palettes) names Chromium's forced-colours emulation; the other engines' emulation differs and is left to the end-to-end train",
+  },
+  "palettes-fit.browser.ts": {},
   "pick-field.browser.ts": {},
   "presence.browser.ts": {},
   "presentation.browser.ts": {},

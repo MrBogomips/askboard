@@ -24,6 +24,7 @@ const presentation: ViewPresentation = {
   density: "compact",
   contextPlacement: "inline",
   afterAnswer: "stay",
+  palette: "carta",
   locked: ["contextPlacement"],
 };
 const data = (message: SettingsMessage = settingsWithEveryKey, language: Locale = "en-US") =>

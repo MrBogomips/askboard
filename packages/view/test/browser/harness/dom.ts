@@ -100,6 +100,9 @@ export type Board = {
   edit(questionId: string): Locator;
   /** The ask row's Theme control, whose popover holds Theme and Density. */
   readonly themeControl: Locator;
+  /** The Theme popover's palette row (palettes), and its note while the system's contrast is in use. */
+  readonly paletteRow: Locator;
+  readonly paletteNote: Locator;
 };
 
 export const boardOf = (page: Page): Board => {
@@ -146,6 +149,8 @@ export const boardOf = (page: Page): Board => {
     tray: (kind) => view.locator(`[data-askboard-tray="${kind}"]`),
     edit: (questionId) => view.locator(`[data-askboard-edit="${questionId}"]`),
     themeControl: view.locator("[data-askboard-theme]"),
+    paletteRow: view.locator("[data-askboard-palette]"),
+    paletteNote: view.locator("[data-askboard-palette-note]"),
     agentPill: view.locator("[data-askboard-agent-pill]").filter({ hasText: /^Agent: / }),
     viewFrame: async () => {
       const content = await (await frame.elementHandle())?.contentFrame();

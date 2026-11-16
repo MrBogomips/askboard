@@ -603,6 +603,8 @@ export {
   type ContextPlacement,
   configurationSet,
   type Density,
+  PALETTES,
+  type Palette,
   PRESENTATION_KEYS,
   type PresentationKey,
   type ThemePreference,

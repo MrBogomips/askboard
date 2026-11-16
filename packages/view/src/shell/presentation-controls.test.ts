@@ -16,6 +16,7 @@ describe("the key that fixes a toggle", () => {
       density: "compact",
       contextPlacement: "beside",
       afterAnswer: "next",
+      palette: "carta",
       locked: [],
     });
   });

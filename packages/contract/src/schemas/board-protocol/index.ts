@@ -16,7 +16,9 @@
 // overrides to the settings in effect and two warning codes (design decision 19).
 // The minor of answering-flow-guidance adds the presentation key `afterAnswer` to a board's write and,
 // as an optional row, to the settings in effect (design decision 9). The minor of answering-flow-visual
-// adds the short question numbers to the draft record (design decision D6).
+// adds the short question numbers to the draft record (design decision D6). The minor of palettes
+// adds the presentation key `palette` to a board's write and, as an optional row, to the settings in
+// effect (design decision D1).
 
 import type { EditorOutcome, SourceStatus } from "../../context/resolution.ts";
 import type { KeyOverrideRule } from "../../keys/overrides.ts";
@@ -53,7 +55,7 @@ import state from "./state.json" with { type: "json" };
 import time from "./time.json" with { type: "json" };
 import version from "./version.json" with { type: "json" };
 
-export const BOARD_PROTOCOL_VERSION = "1.12";
+export const BOARD_PROTOCOL_VERSION = "1.13";
 
 export const boardProtocol: SchemaSet = {
   name: "board-protocol",
@@ -563,12 +565,13 @@ export type SettingRow<T> = {
  * optional too, since it arrived in a later minor (answering-flow-guidance, design decision 9).
  */
 export type SettingsRows = {
-  readonly [K in Exclude<ConfigurationKey, "keys" | "afterAnswer">]: SettingRow<
+  readonly [K in Exclude<ConfigurationKey, "keys" | "afterAnswer" | "palette">]: SettingRow<
     ConfigurationValues[K]
   >;
 } & {
   readonly keys?: Omit<SettingRow<ConfigurationValues["keys"]>, "other">;
   readonly afterAnswer?: SettingRow<ConfigurationValues["afterAnswer"]>;
+  readonly palette?: SettingRow<ConfigurationValues["palette"]>;
 };
 
 export type FileProblemCode = "unreadable" | "not-json" | "version" | "schema";

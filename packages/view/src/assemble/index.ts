@@ -9,8 +9,11 @@
 import {
   cspHashSource,
   type ManifestFile,
+  PALETTES,
+  type Palette,
   SNAPSHOT_LICENCES_ELEMENT,
   type SnapshotData,
+  type SnapshotRecord,
   type ViewManifest,
 } from "@askboard/contract";
 import { BOOT_DATA_ID, type BootData, bootFieldsOf } from "../boot-data.ts";
@@ -98,9 +101,22 @@ const isSnapshot = (data: BootData | SnapshotData): data is SnapshotData => "sna
 const isSnapshotSources = (sources: ChunkSources | SnapshotSources): sources is SnapshotSources =>
   typeof (sources as { readonly chunks?: unknown }).chunks === "object";
 
+// The record's palette when it is one the contract names, else Carta (a record written before
+// palettes names none, and a hand-edited file may name any text).
+const paletteOfRecord = (presentation: SnapshotRecord["presentation"]): Palette => {
+  const named: unknown = presentation?.palette;
+  return PALETTES.find((name) => name === named) ?? "carta";
+};
+
 /** Which chunks the data's view needs: a Snapshot's leave out what only a host loads. */
 export const targetOf = (data: BootData | SnapshotData): SelectionTarget =>
-  isSnapshot(data) ? { output: "snapshot", renders: data.renders ?? [] } : FOR_BOARD;
+  isSnapshot(data)
+    ? {
+        output: "snapshot",
+        renders: data.renders ?? [],
+        palette: paletteOfRecord(data.snapshot.presentation),
+      }
+    : FOR_BOARD;
 
 // The `askboard-data` block: a board's document, state and boot fields, or the Snapshot data whole.
 const dataBlock = (data: BootData | SnapshotData): string =>

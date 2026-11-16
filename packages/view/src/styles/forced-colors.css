@@ -1,0 +1,52 @@
+/* Forced colours (palettes, design decision D9; DESIGN.md, Colors; EXPERIENCE.md, Accessibility
+   Floor): under `forced-colors: active` the focus ring, the borders and the pressed and selected
+   states are drawn in system colours, disabled controls in `GrayText`, and the state stripes in
+   `CanvasText`, keeping their dashed, dotted or solid line, which is what tells the answer states
+   apart beside each badge's icon and text. Colour stays the palette's only where it carries data:
+   the Chart's host, the diff marks and the change fill, which opt out of the adjustment. Icons
+   drawn with `currentColor` follow with no rule. Unlayered, like the other sheets of colour. */
+@media (forced-colors: active) {
+  [data-askboard-question],
+  button,
+  input,
+  textarea,
+  [data-askboard-rail],
+  [data-askboard-ledger] {
+    border-color: CanvasText;
+  }
+
+  [aria-pressed="true"],
+  [aria-checked="true"],
+  [aria-selected="true"],
+  [data-state="on"],
+  [data-state="checked"] {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+
+  :disabled,
+  [aria-disabled="true"] {
+    color: GrayText;
+    border-color: GrayText;
+  }
+
+  [data-askboard-stripe] {
+    border-left-color: CanvasText;
+  }
+
+  /* After the pressed states, so that a focused selected segment keeps its ring on top. */
+  :focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 1px;
+  }
+
+  :root[data-palette="contrasto"] :focus-visible {
+    outline-width: 3px;
+  }
+
+  [data-chart],
+  [class~="bg-change-subtle"],
+  [class*="bg-diff-"] {
+    forced-color-adjust: none;
+  }
+}

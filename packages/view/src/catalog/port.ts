@@ -9,7 +9,14 @@
 // question into the draft record in one update, as a linked edit does (molecules, design decision
 // 11).
 
-import type { ElementShape, FieldCheckFailure, KeyTable, Locale } from "@askboard/contract";
+import {
+  type ElementShape,
+  type FieldCheckFailure,
+  type KeyTable,
+  type Locale,
+  PALETTES,
+  type Palette,
+} from "@askboard/contract";
 import {
   createContext,
   type ReactNode,
@@ -344,10 +351,30 @@ export const themeOfClasses = (classes: ClassList): Theme =>
     ? "dark"
     : "light";
 
-/** The subscription `useSyncExternalStore` takes, for the theme. */
+/** What the colour scheme reads of the root: its classes and its `data-palette` attribute. */
+export type SchemeRoot = {
+  readonly classList: ClassList;
+  getAttribute?(name: string): string | null;
+};
+
+/** The palette and the theme as one value, `<palette>/<theme>`; a palette the contract does not list reads as carta. */
+export type ColourScheme = `${Palette}/${Theme}`;
+
+/**
+ * The colour scheme a root gives (palettes, design decision D7): its `data-palette` when the
+ * contract lists it, else Carta, with the theme its classes give.
+ */
+export const colourSchemeOf = (root: SchemeRoot): ColourScheme => {
+  const named = root.getAttribute?.("data-palette") ?? "carta";
+  const palette = PALETTES.find((candidate) => candidate === named) ?? "carta";
+  return `${palette}/${themeOfClasses(root.classList)}`;
+};
+
+/** The subscription `useSyncExternalStore` takes, for the theme and for the colour scheme. */
 export type ThemeStore = {
   readonly subscribe: (listener: () => void) => () => void;
   readonly getSnapshot: () => Theme;
+  readonly getColourScheme: () => ColourScheme;
 };
 
 /**
@@ -355,7 +382,7 @@ export type ThemeStore = {
  * listener is subscribed, however many there are (chart-widget, design decision 6). `Observer` is
  * the platform's `MutationObserver`, or a stand-in.
  */
-export const createThemeStore = <Root extends { readonly classList: ClassList }>(
+export const createThemeStore = <Root extends SchemeRoot>(
   root: Root,
   Observer: new (
     callback: () => void,
@@ -365,13 +392,14 @@ export const createThemeStore = <Root extends { readonly classList: ClassList }>
   let observer: { disconnect(): void } | undefined;
   return {
     getSnapshot: () => themeOfClasses(root.classList),
+    getColourScheme: () => colourSchemeOf(root),
     subscribe: (listener) => {
       listeners.add(listener);
       if (observer === undefined) {
         const made = new Observer(() => {
           for (const each of [...listeners]) each();
         });
-        made.observe(root, { attributes: true, attributeFilter: ["class"] });
+        made.observe(root, { attributes: true, attributeFilter: ["class", "data-palette"] });
         observer = made;
       }
       return () => {
@@ -385,7 +413,11 @@ export const createThemeStore = <Root extends { readonly classList: ClassList }>
   };
 };
 
-const LIGHT_STORE: ThemeStore = { subscribe: () => () => {}, getSnapshot: () => "light" };
+const LIGHT_STORE: ThemeStore = {
+  subscribe: () => () => {},
+  getSnapshot: () => "light",
+  getColourScheme: () => "carta/light",
+};
 
 let pageStore: { readonly root: HTMLElement; readonly store: ThemeStore } | undefined;
 
@@ -407,6 +439,16 @@ const storeOfPage = (): ThemeStore => {
 export const useTheme = (): Theme => {
   const store = storeOfPage();
   return useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
+};
+
+/**
+ * The palette and theme in effect as `<palette>/<theme>`, re-rendering the component when the root
+ * takes or loses the `dark` class or changes its `data-palette` (palettes, design decision D7): what
+ * a renderer re-reads its tokens on. `useTheme` stays for a component that needs only light or dark.
+ */
+export const useColourScheme = (): ColourScheme => {
+  const store = storeOfPage();
+  return useSyncExternalStore(store.subscribe, store.getColourScheme, store.getColourScheme);
 };
 
 export const useOpenLink = (): ((itemId: string, url: string) => void) =>

@@ -47,9 +47,9 @@ describe("the output format's minor for the Kanban's order", () => {
       input: "1.13",
       envelopes: "1.14",
       document: "1.12",
-      snapshot: "1.3",
+      snapshot: "1.4",
       manifest: "1.1",
-      configuration: "1.2",
+      configuration: "1.3",
       localApi: "1.0",
       sessionFile: "1.0",
     });

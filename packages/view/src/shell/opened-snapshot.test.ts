@@ -45,6 +45,7 @@ describe("the presentation an opened Snapshot starts in (snapshot-toolbar, desig
       density: "comfortable",
       contextPlacement: "beside",
       afterAnswer: "next",
+      palette: "carta",
       locked: [],
     });
   });

@@ -18,7 +18,15 @@
 
 import { WORKING_WINDOW_MS } from "@askboard/contract";
 import { languageOf, t } from "../strings/index.ts";
-import { applyDensity, applyTheme, DARK_QUERY, followTheme } from "../theme.ts";
+import {
+  applyDensity,
+  applyPalette,
+  applyTheme,
+  CONTRAST_QUERY,
+  DARK_QUERY,
+  followPalette,
+  followTheme,
+} from "../theme.ts";
 import type { ViewUpdate } from "../view-protocol.ts";
 import { type BoardPage, runBoardPage } from "./controller.ts";
 import { createViewLoader } from "./load-view.ts";
@@ -84,6 +92,11 @@ export const startBoardPage = (window: Window): void => {
     applyTheme(document.documentElement, next);
     host?.setTheme(next);
   });
+  // Carta until the settings say otherwise; Contrasto under System when the system asks for more
+  // contrast (palettes, design decision D5). The hosted view resolves its own from the same media.
+  const palette = followPalette(window.matchMedia(CONTRAST_QUERY), (next) =>
+    applyPalette(document.documentElement, next),
+  );
   if (link === undefined) return;
   const schedule = (ms: number, run: () => void) => {
     const timer = window.setTimeout(run, ms);
@@ -135,6 +148,7 @@ export const startBoardPage = (window: Window): void => {
     applyPresentation: (presentation) => {
       applyDensity(document.documentElement, presentation.density);
       theme.prefer(presentation.theme);
+      palette.prefer(presentation.palette, presentation.theme);
     },
     showSettings: panel.show,
     log: (text, detail) => {

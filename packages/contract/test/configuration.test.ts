@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { afterAnswerConfiguration, everyKeyConfiguration } from "../src/fixtures/index.ts";
+import { everyKeyConfiguration, palettesConfiguration } from "../src/fixtures/index.ts";
 import {
   CONFIGURATION_DEFAULTS,
   CONFIGURATION_KEYS,
@@ -36,11 +36,11 @@ const problemsOf = (value: unknown): readonly Problem[] => {
 
 describe("the configuration schema", () => {
   test("a file with every key validates", () => {
-    expect(Object.keys(afterAnswerConfiguration)).toEqual(["version", ...CONFIGURATION_KEYS]);
-    expect(Object.keys(afterAnswerConfiguration)).toHaveLength(11);
-    expect(validateConfiguration(afterAnswerConfiguration)).toEqual({
+    expect(Object.keys(palettesConfiguration)).toEqual(["version", ...CONFIGURATION_KEYS]);
+    expect(Object.keys(palettesConfiguration)).toHaveLength(12);
+    expect(validateConfiguration(palettesConfiguration)).toEqual({
       ok: true,
-      value: afterAnswerConfiguration,
+      value: palettesConfiguration,
     });
   });
 
@@ -68,6 +68,7 @@ describe("the configuration schema", () => {
     ["density", "cozy"],
     ["contextPlacement", "below"],
     ["afterAnswer", "back"],
+    ["palette", "inchiostro"],
     ["defaultLanguage", "fr-FR"],
     ["defaultLanguage", "it"],
     ["askingRule", "sometimes"],
@@ -88,6 +89,7 @@ describe("the configuration schema", () => {
       density: ["compact", "comfortable"],
       contextPlacement: ["beside", "inline"],
       afterAnswer: ["next", "stay"],
+      palette: ["carta", "nordico", "grafite", "contrasto"],
       defaultLanguage: ["en-US", "it-IT"],
       askingRule: ["none", "always", "with-references"],
       snapshotFolder: ["docs/snapshots", "", "s".repeat(1_024)],
@@ -214,8 +216,14 @@ describe("the keys key", () => {
 });
 
 describe("the keys", () => {
-  test("the presentation keys are exactly theme, density, contextPlacement and afterAnswer", () => {
-    expect(PRESENTATION_KEYS).toEqual(["theme", "density", "contextPlacement", "afterAnswer"]);
+  test("the presentation keys are exactly theme, density, contextPlacement, afterAnswer and palette", () => {
+    expect(PRESENTATION_KEYS).toEqual([
+      "theme",
+      "density",
+      "contextPlacement",
+      "afterAnswer",
+      "palette",
+    ]);
   });
 
   test("the configuration keys are AD-14's nine and the user's keys, the presentation keys first", () => {
@@ -224,6 +232,7 @@ describe("the keys", () => {
       "density",
       "contextPlacement",
       "afterAnswer",
+      "palette",
       "defaultLanguage",
       "askingRule",
       "snapshotFolder",
@@ -246,6 +255,7 @@ describe("the keys", () => {
       density: "compact",
       contextPlacement: "beside",
       afterAnswer: "next",
+      palette: "carta",
       defaultLanguage: "en-US",
       askingRule: "none",
       snapshotFolder: ".askboard/snapshots",

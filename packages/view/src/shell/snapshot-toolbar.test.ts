@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { Palette } from "@askboard/contract";
 import { createElement, isValidElement, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { LanguageContext } from "../catalog/port.ts";
@@ -21,6 +22,7 @@ const controlsOf = (
 ) =>
   ({
     presentation: createStore({ ...DEFAULT_PRESENTATION, locked }),
+    resolvedPalette: createStore<Palette>("carta"),
     hosted,
     set,
     openSettings: () => undefined,

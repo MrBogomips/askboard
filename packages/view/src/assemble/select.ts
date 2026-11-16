@@ -3,8 +3,15 @@
 // hash; `assemble` then selects again from the same input, so both agree. Names come from the
 // manifest and the catalog, and are looked up as own properties only.
 
-import type { ManifestChunk, ManifestFile, SnapshotRender, ViewManifest } from "@askboard/contract";
+import type {
+  ManifestChunk,
+  ManifestFile,
+  Palette,
+  SnapshotRender,
+  ViewManifest,
+} from "@askboard/contract";
 import { componentsOf } from "../catalog/components.ts";
+import { paletteOfStyle } from "../palettes.ts";
 import type { ViewDocument } from "../view-document.ts";
 import { keptComponents } from "./kept-render.ts";
 
@@ -16,7 +23,12 @@ export type SelectedChunk = { readonly name: string; readonly chunk: ManifestChu
  */
 export type SelectionTarget =
   | { readonly output: "board" }
-  | { readonly output: "snapshot"; readonly renders: readonly SnapshotRender[] };
+  | {
+      readonly output: "snapshot";
+      readonly renders: readonly SnapshotRender[];
+      /** Since palettes: the one palette sheet the shell keeps; Carta's is the shell's own. */
+      readonly palette?: Palette;
+    };
 
 /** A board's selection, E1's: what the board page and its tests select. */
 export const FOR_BOARD: SelectionTarget = { output: "board" };
@@ -92,6 +104,20 @@ const RANK: Readonly<Record<ManifestChunk["kind"], number>> = {
 const before = (a: SelectedChunk, b: SelectedChunk): number =>
   RANK[a.chunk.kind] - RANK[b.chunk.kind] || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
 
+// A Snapshot keeps, of the shell's styles, its own and its palette's file, so that the policy, the
+// fetch list and the inlined styles agree (palettes, design decision D4); a board keeps every file.
+const keptStyles = (chunk: ManifestChunk, target: SelectionTarget): ManifestChunk => {
+  if (target.output !== "snapshot" || chunk.kind !== "shell") return chunk;
+  const palette = target.palette ?? "carta";
+  return {
+    ...chunk,
+    styles: chunk.styles.filter((style) => {
+      const owner = paletteOfStyle(style.path);
+      return owner === undefined || owner === palette;
+    }),
+  };
+};
+
 /**
  * The shell, the chunks of the components the board's items render with, and every chunk those
  * need, each after the chunks it needs: libraries first, then the shell, then the components,
@@ -117,7 +143,7 @@ export const selectChunks = (
       const names = unplaced.map(({ name }) => name).join(", ");
       throw new Error(`the chunks ${names} cannot be ordered: their needs form a cycle`);
     }
-    ordered.push(next);
+    ordered.push({ name: next.name, chunk: keptStyles(next.chunk, target) });
     placed.add(next.name);
     unplaced = unplaced.filter(({ name }) => name !== next.name);
   }

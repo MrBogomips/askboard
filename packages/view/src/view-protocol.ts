@@ -35,6 +35,8 @@ import {
   OPTION_NOTE_MAX_CHARS,
   type OriginMessage,
   OTHER_MAX_CHARS,
+  PALETTES,
+  type Palette,
   PRESENTATION_KEYS,
   type PresentationKey,
   type PresentationSetting,
@@ -293,6 +295,7 @@ export type ViewPresentation = {
   readonly density: Density;
   readonly contextPlacement: ContextPlacement;
   readonly afterAnswer: AfterAnswer;
+  readonly palette: Palette;
   readonly locked: readonly PresentationKey[];
 };
 
@@ -587,6 +590,8 @@ const draftRecord: FieldCheck = (value) =>
 const THEMES: readonly unknown[] = ["system", "light", "dark"] satisfies ThemePreference[];
 const DENSITIES: readonly unknown[] = ["compact", "comfortable"] satisfies Density[];
 const PLACEMENTS: readonly unknown[] = ["beside", "inline"] satisfies ContextPlacement[];
+/** The palette names, as the page checks a value it was sent. */
+export const PALETTE_NAMES: readonly unknown[] = PALETTES satisfies readonly Palette[];
 const AFTER_ANSWERS: readonly unknown[] = ["next", "stay"] satisfies AfterAnswer[];
 // Every presentation key, for the presentation's `locked`; and the keys a view control writes, for
 // the `setting` message (least privilege). No view control writes `afterAnswer`: the settings
@@ -597,6 +602,7 @@ const VIEW_WRITTEN_KEY_NAMES: readonly unknown[] = [
   "theme",
   "density",
   "contextPlacement",
+  "palette",
 ] satisfies PresentationKey[];
 
 /** Whether the view can apply this as the presentation. */
@@ -606,6 +612,7 @@ export const isPresentation = (value: unknown): value is ViewPresentation =>
   DENSITIES.includes(value.density) &&
   PLACEMENTS.includes(value.contextPlacement) &&
   AFTER_ANSWERS.includes(value.afterAnswer) &&
+  PALETTE_NAMES.includes(value.palette) &&
   Array.isArray(value.locked) &&
   value.locked.every((key) => PRESENTATION_KEY_NAMES.includes(key));
 
@@ -615,6 +622,7 @@ const PRESENTATION_VALUES: Readonly<Record<PresentationKey, readonly unknown[]>>
   density: DENSITIES,
   contextPlacement: PLACEMENTS,
   afterAnswer: AFTER_ANSWERS,
+  palette: PALETTES,
 };
 
 const presentationKey: FieldCheck = (value) =>
