@@ -5,16 +5,22 @@
 // (a) a Tree question with no options accepted in "One by one" with a note: one answer act with
 //     `asSent`, the note and no `values`; the agent collects the event and fetches the answer, both
 //     checked against their schemas; the status, the card's line and the move to the next question;
-// (b) the button is gone with an edit and back once the edit is undone;
+// (b) the button is gone when a node is moved with the keyboard move tool and back once it is moved
+//     back; expanding and collapsing a node keeps it offered, with "Answer" disabled;
 // (c) a question with options and a Tree shows "Accept recommended" and no "Accept as is";
-// (d) an untouched Table beside an empty required TextField: the button waits and says why, and
-//     nothing is sent;
+// (d) an untouched Table beside an empty required TextField: the button waits and says why
+//     ("Complete Who signs first."), and nothing is sent; once the field is filled it answers with
+//     `asSent` and the field's result;
 // (e) the keyboard: Tab to the button and Enter acts as a click, and Ctrl+Enter on an untouched
 //     card sends nothing;
 // (f) in "All together" a Kanban question is marked ready, and Submit sends it with `asSent`;
 // (g) a reload keeps a Timeline question ready and accepted, and Submit sends it with `asSent`;
 // (h) a Snapshot of an accepted question names the acceptance and offers no button;
-// (i) revising an accepted answer: "Edit", a Tree edit and "Answer" replace it.
+// (i) revising an accepted answer: "Edit", a Tree edit and "Answer" replace it;
+// (j) not on a kept revision: a Kanban question with a note on revision 1, the agent's change, a
+//     reload and "Keep mine" show revision 2 read-only and no button, and nothing is sent;
+// (k) after "Reload, losing my work" the card shows revision 2 and offers the button again, which
+//     answers naming revision 2.
 //
 // Run one engine by hand: ASKBOARD_E2E_ENGINES=webkit ASKBOARD_E2E_TARGET=session-process bun test ./packages/view/test/browser/accept-as-sent.browser.ts
 
@@ -57,6 +63,7 @@ import {
   tabTo,
 } from "./harness/lifecycle-test.ts";
 import { quiet } from "./harness/probes.ts";
+import { pressIn, treeGridOf } from "./harness/tree-grid.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 
 const dist = await readViewBuild();
@@ -149,17 +156,37 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
-      "(b) Gone with an edit, back when the edit is undone",
+      "(b) Gone when a node is moved with the keyboard move tool, back when it is moved back; expanding and collapsing keep it offered, with Answer disabled",
       async () => {
         const { board } = await open(askOf("accept-undo-b2c3", [treeQuestion(), cache()]), [
           "plan",
           "cache",
         ]);
+        const tree = treeGridOf(board);
         await acceptOf(board).waitFor({ timeout: STEP_TIMEOUT_MS });
-        await renameNode(board, "ux", "UX design, moved");
+        // A node moved down one place, by the move tool's key, is a change.
+        await tree.cell("ux", 0).click({ timeout: STEP_TIMEOUT_MS });
+        await pressIn(board, "Alt+Shift+ArrowDown");
         await eventually(async () => (await acceptOf(board).count()) === 0, "no Accept as is");
-        await renameNode(board, "ux", "UX design");
+        // Moved back, the Tree equals what was sent: offered again.
+        await pressIn(board, "Alt+Shift+ArrowUp");
         await eventually(async () => (await acceptOf(board).count()) === 1, "Accept as is again");
+        // Collapsing and expanding a node change what is shown, not the Tree.
+        await tree.chevron("design").click({ timeout: STEP_TIMEOUT_MS });
+        await eventually(
+          async () => (await tree.row("design").getAttribute("aria-expanded")) === "false",
+          "design collapsed",
+        );
+        expect(await acceptOf(board).count()).toBe(1);
+        expect(await acceptOf(board).isEnabled()).toBe(true);
+        expect(await answerOf(board, "plan").isDisabled()).toBe(true);
+        await tree.chevron("design").click({ timeout: STEP_TIMEOUT_MS });
+        await eventually(
+          async () => (await tree.row("design").getAttribute("aria-expanded")) === "true",
+          "design expanded",
+        );
+        expect(await acceptOf(board).count()).toBe(1);
+        expect(await answerOf(board, "plan").isDisabled()).toBe(true);
       },
       TEST_TIMEOUT_MS,
     );
@@ -178,7 +205,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
-      "(d) blocked by a field: an untouched Table beside an empty required TextField waits and names the field, and nothing is sent",
+      "(d) blocked by a field: an untouched Table beside an empty required TextField waits and names the field, nothing is sent; filled, it answers with asSent and the field's result",
       async () => {
         const field = {
           type: "text-field",
@@ -192,13 +219,36 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await acceptOf(board).waitFor({ timeout: STEP_TIMEOUT_MS });
         await eventually(() => acceptOf(board).isDisabled(), "the button to wait");
         expect(
-          await card(board, "plan").getByText("Who signs", { exact: false }).count(),
+          await card(board, "plan").getByText("Complete Who signs first.", { exact: true }).count(),
         ).toBeGreaterThan(0);
         await acceptOf(board)
           .click({ force: true, timeout: STEP_TIMEOUT_MS })
           .catch(() => {});
         await quiet("a press that sends nothing has no probe: the page and the host stay silent");
         expect(sentActs(run)).toHaveLength(0);
+
+        // The field filled: the button is enabled and answers with the content as sent and the result.
+        await card(board, "plan")
+          .getByRole("textbox", { name: /Who signs/ })
+          .fill("Sara Conti");
+        await eventually(() => acceptOf(board).isEnabled(), "the button to be enabled");
+        await acceptOf(board).click({ timeout: STEP_TIMEOUT_MS });
+        await actsSent(run, 1);
+        await actsDone(run, 1);
+        const [act, ...more] = answersOf(run);
+        expect(more).toEqual([]);
+        expect(act).toMatchObject({ itemId: "plan", asSent: true, results: { who: "Sara Conti" } });
+        for (const name of ["values", "choice", "other"]) expect(act).not.toHaveProperty(name);
+        const [event] = await collectedAnswers(run);
+        expect(event).toMatchObject({
+          itemId: "plan",
+          asSent: true,
+          results: { who: "Sara Conti" },
+        });
+        expect(event).not.toHaveProperty("changes");
+        const item = checkedFetchItem(await run.session.fetch("plan"));
+        expect(item.answer).toMatchObject({ asSent: true, results: { who: "Sara Conti" } });
+        expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,
     );
@@ -347,6 +397,78 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(JSON.stringify(second?.changes)).toContain("UX design, revised");
         const item = checkedFetchItem(await run.session.fetch("plan"));
         expect(item.answer).not.toHaveProperty("asSent");
+        expectNoCspProblem(run);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    // The agent's change of card `a` of the Kanban question, which makes revision 2.
+    const agentChangesCard = (run: BoardRun) =>
+      run.session.update([
+        {
+          action: "change",
+          itemId: kanbanItem().id,
+          props: {
+            ...kanbanItem().props,
+            cards: kanbanItem().props.cards.map((each) =>
+              each.id === "a" ? { ...each, label: "Fix login, again" } : each,
+            ),
+          },
+        },
+      ]);
+    const noticeOf = (board: Board): Locator =>
+      card(board, "plan").locator('[data-askboard-notice="agent-change"]');
+    const loaded = (board: Board) =>
+      board.view
+        .locator('[data-askboard-question="plan"]:not([aria-busy="true"])')
+        .waitFor({ state: "attached", timeout: LOAD_TIMEOUT_MS });
+    // Note on revision 1 and mirrored, the agent's change, a reload while the notice shows.
+    const changedThenReloaded = async (askId: string) => {
+      const { run, board } = await open(askOf(askId, [questionWith([kanbanItem()])]), ["plan"]);
+      await acceptOf(board).waitFor({ timeout: STEP_TIMEOUT_MS });
+      await noteOf(board, "plan").fill(NOTE);
+      await mirrored(run, (record) => record.questions.plan?.note === NOTE, "the note");
+      await agentChangesCard(run);
+      await noticeOf(board).waitFor({ timeout: STEP_TIMEOUT_MS });
+      await reloadBoard(board, run, () => loaded(board));
+      await noticeOf(board).waitFor({ timeout: STEP_TIMEOUT_MS });
+      return { run, board };
+    };
+
+    test(
+      "(j) not on a kept revision: after a reload and Keep mine the card shows revision 2 read-only, offers no Accept as is, and sends nothing",
+      async () => {
+        const { run, board } = await changedThenReloaded("accept-kept-j0k1");
+        expect(await acceptOf(board).count()).toBe(0);
+        await noticeOf(board)
+          .getByRole("button", { name: "Keep mine", exact: true })
+          .click({ timeout: STEP_TIMEOUT_MS });
+        await noticeOf(board).waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
+        await board.view
+          .locator(`[data-askboard-read-only="${kanbanItem().id}"]`)
+          .waitFor({ timeout: STEP_TIMEOUT_MS });
+        expect(await acceptOf(board).count()).toBe(0);
+        expect(answersOf(run)).toEqual([]);
+        expectNoCspProblem(run);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "(k) after Reload, losing my work the card shows revision 2 and offers Accept as is, which answers naming revision 2",
+      async () => {
+        const { run, board } = await changedThenReloaded("accept-reload-k1l2");
+        await noticeOf(board)
+          .getByRole("button", { name: "Reload, losing my work", exact: true })
+          .click({ timeout: STEP_TIMEOUT_MS });
+        await noticeOf(board).waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
+        await eventually(async () => (await acceptOf(board).count()) === 1, "Accept as is offered");
+        await eventually(() => acceptOf(board).isEnabled(), "the button to be enabled");
+        await acceptOf(board).click({ timeout: STEP_TIMEOUT_MS });
+        await actsDone(run, 2);
+        const [event] = await collectedAnswers(run);
+        expect(event).toMatchObject({ itemId: "plan", rev: 2, asSent: true });
+        expect(event).not.toHaveProperty("note");
         expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,
