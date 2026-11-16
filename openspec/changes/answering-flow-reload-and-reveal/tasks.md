@@ -53,12 +53,12 @@ Terms:
 
 ## 3. Documents and record
 
-- [ ] 3.1 EXPERIENCE.md (D6):
+- [x] 3.1 EXPERIENCE.md (D6):
   - "After an answer": one sentence. A scroll the user makes during the move (wheel, touch, a press, a key that scrolls or moves focus) ends it where it is; a scroll the browser makes on its own does not.
   - "What a reload keeps": an answered question comes back answered with its receipt, even when the record still held its sent work.
 
   Verify: the wording matches the two requirement names of the delta spec.
-- [ ] 3.2 `docs/as-built/answering-flow-reload-and-reveal.md`:
+- [x] 3.2 `docs/as-built/answering-flow-reload-and-reveal.md`:
   - what was built and where (D1, D2), with the diagnosis in one paragraph citing design.md;
   - the seams added: none exported, or the names 2.2 adds;
   - no versions bound;
