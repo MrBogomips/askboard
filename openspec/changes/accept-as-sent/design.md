@@ -117,7 +117,7 @@ The change widens four sets, each to the **next minor after main's**:
 
 The other sets keep main's values. The constants are bound at the rebase task, with the binding line below. Comments, schema descriptions and test titles say "since accept-as-sent", never a number. Decision 11 adds no field to any set: it changes which fields are admitted beside `asSent`, inside the same minors.
 
-Bound on 2026-11-16, rebased onto origin/main 95e7e31f (main had not moved since the proposal): output format 1.14 (main 1.13), board protocol 1.15 (main 1.14), tool envelopes 1.15 (main 1.14), Snapshot data 1.5 (main 1.4); the other sets keep main's.
+Bound on 2026-11-16, rebased onto origin/main 95e7e31f (main had not moved since the proposal): output format 1.14 (main 1.13), board protocol 1.15 (main 1.14), tool envelopes 1.15 (main 1.14), Snapshot data 1.5 (main 1.4); the other sets keep main's. Re-checked on 2026-11-16 after the review fixes, rebased onto origin/main 816a737e (tree-edit-undo merged, no set moved): the same four minors, each main's plus one.
 
 ### 9. Teaching
 
