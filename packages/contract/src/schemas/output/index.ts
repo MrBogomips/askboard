@@ -14,7 +14,8 @@
 // an option ID or a list of them, as its chunk lands (design decision 4); table-widget's minor adds
 // the Table's changes schema (design decisions 6 and 16); document-review's minor adds the annotation
 // body's `replacement`, a suggested edit (design decision 2); kanban-order's minor admits the Kanban's
-// `move` in its changes schema (design decision 3). It holds no AXFX term (FR-18).
+// `move` in its changes schema (design decision 3); accept-as-sent's minor adds the answer event's
+// `asSent` (design decision 3). It holds no AXFX term (FR-18).
 
 import type { UnresolvedReason } from "../../context/resolution.ts";
 
@@ -39,7 +40,7 @@ import time from "./time.json" with { type: "json" };
 import unavailableReason from "./unavailable-reason.json" with { type: "json" };
 import warning from "./warning.json" with { type: "json" };
 
-export const OUTPUT_FORMAT_VERSION = "1.13";
+export const OUTPUT_FORMAT_VERSION = "1.14";
 
 export const outputFormat: SchemaSet = {
   name: "output",
@@ -120,6 +121,8 @@ export type AnswerEvent = {
   readonly declined?: true;
   /** The cursor of the answer this revision replaces (FR-22, AD-20). */
   readonly replaces?: string;
+  /** Since accept-as-sent: the user accepted the question's content exactly as sent (AD-10); no choice, `changes` or `results` go with it. */
+  readonly asSent?: true;
   /** Since 1.3: `changes` and `derived` were over `ANSWER_EVENT_MAX_CHARS` and are left out; `fetch` has them. */
   readonly tooLarge?: true;
 };

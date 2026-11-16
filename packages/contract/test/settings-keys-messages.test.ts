@@ -313,8 +313,9 @@ describe("the most warnings of a row", () => {
 describe("the warning that a user file others can write has its keys ignored (user-keys-writable-by-others)", () => {
   const writable = { code: "keys-file-writable-by-others", file: "user", key: "keys" };
 
-  test("is the board protocol's minor after palettes' (1.13 to 1.14)", () => {
-    expect(BOARD_PROTOCOL_VERSION).toBe("1.14");
+  test("is at least the board protocol's minor after palettes' (1.13 to 1.14)", () => {
+    // accept-as-sent's minor follows; its own test pins the constant.
+    expect(Number(BOARD_PROTOCOL_VERSION.split(".")[1])).toBeGreaterThanOrEqual(14);
   });
 
   test("on the user file and the key keys validates", () => {

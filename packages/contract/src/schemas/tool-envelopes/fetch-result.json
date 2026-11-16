@@ -166,6 +166,10 @@
           "type": "string",
           "minLength": 1
         },
+        "asSent": {
+          "description": "Since accept-as-sent: the user accepted the question's content exactly as the agent sent it (AD-10); the answer holds no choice, other, optionNotes, values, results or declined.",
+          "const": true
+        },
         "values": {
           "description": "Since 1.4: the full props of each widget item the answer changed, by item ID in reference addressing, as the user sent them (FR-20, AD-20).",
           "type": "object",
@@ -212,6 +216,19 @@
       },
       "required": ["who", "when"],
       "additionalProperties": false,
+      "dependentSchemas": {
+        "asSent": {
+          "properties": {
+            "choice": false,
+            "other": false,
+            "optionNotes": false,
+            "values": false,
+            "results": false,
+            "declined": false,
+            "recorded": false
+          }
+        }
+      },
       "if": {
         "properties": {
           "recorded": {

@@ -44,6 +44,9 @@ const withoutResults = (schema: AnySchemaObject): AnySchemaObject => {
   const copy = structuredClone(schema);
   const { item, answer } = copy.$defs;
   delete answer.properties.results;
+  // And what accept-as-sent adds to the answer: `asSent` and its exclusions.
+  delete answer.properties.asSent;
+  delete answer.dependentSchemas;
   delete item.properties.result;
   delete item.then.properties.result;
   delete item.else.then.properties.result;

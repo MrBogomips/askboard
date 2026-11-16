@@ -138,10 +138,23 @@
             },
             "byRecommended": {
               "const": true
+            },
+            "asSent": {
+              "description": "Since accept-as-sent: the held answer accepts the question's content as the agent sent it; Submit sends it as such (AD-20). On a held answer only.",
+              "const": true
             }
           },
           "required": ["act", "order"],
-          "additionalProperties": false
+          "additionalProperties": false,
+          "dependentSchemas": {
+            "asSent": {
+              "properties": {
+                "act": {
+                  "const": "answer"
+                }
+              }
+            }
+          }
         }
       },
       "required": ["rev"],

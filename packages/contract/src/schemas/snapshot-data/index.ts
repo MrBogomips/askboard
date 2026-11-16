@@ -6,6 +6,7 @@
 // would open with (design decision 2).
 // Reopen-start-from-answer's minor admits the board state's `unchanged` (design decision 7).
 // The minor of palettes adds the optional `palette` to the record's presentation (design decision D6).
+// The minor of accept-as-sent admits the board state's `asSent` through its references (design decision 3).
 
 import type { OriginMessage } from "../../push/messages.ts";
 import type { SchemaSet } from "../../versions.ts";
@@ -16,7 +17,7 @@ import type { QuestionProps } from "../input/index.ts";
 import type { DiscardedEvent, OutputEvent } from "../output/index.ts";
 import snapshotData from "./snapshot-data.json" with { type: "json" };
 
-export const SNAPSHOT_DATA_VERSION = "1.4";
+export const SNAPSHOT_DATA_VERSION = "1.5";
 
 export const SNAPSHOT_DATA_ID = "urn:askboard:snapshot-data:snapshot-data";
 

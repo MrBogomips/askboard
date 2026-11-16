@@ -83,6 +83,10 @@
     "replaces": {
       "$ref": "urn:askboard:output:cursor"
     },
+    "asSent": {
+      "description": "Since accept-as-sent: the user accepted the question's content exactly as the agent sent it (AD-10). The event carries no choice, other, optionNotes, changes, results or declined; it may carry note, derived and replaces. It is never a missing answer.",
+      "const": true
+    },
     "tooLarge": {
       "description": "Since 1.3: the event's changes and derived, which exceeded ANSWER_EVENT_MAX_CHARS, are not here; since widget-registry its results are not either; fetch returns them (FR-20, AD-20).",
       "const": true
@@ -91,6 +95,16 @@
   "required": ["cursor", "type", "itemId", "rev", "who", "when"],
   "additionalProperties": false,
   "dependentSchemas": {
+    "asSent": {
+      "properties": {
+        "choice": false,
+        "other": false,
+        "optionNotes": false,
+        "changes": false,
+        "results": false,
+        "declined": false
+      }
+    },
     "tooLarge": {
       "properties": {
         "changes": false,

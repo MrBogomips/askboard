@@ -19,7 +19,9 @@
 // adds the short question numbers to the draft record (design decision D6). The minor of palettes
 // adds the presentation key `palette` to a board's write and, as an optional row, to the settings in
 // effect (design decision D1). The minor of
-// user-keys-writable-by-others adds the warning code `keys-file-writable-by-others`.
+// user-keys-writable-by-others adds the warning code `keys-file-writable-by-others`. The minor of
+// accept-as-sent adds `asSent` to the answer act, the draft record's held answer and the board
+// state's answers (design decision 3).
 
 import type { EditorOutcome, SourceStatus } from "../../context/resolution.ts";
 import type { KeyOverrideRule } from "../../keys/overrides.ts";
@@ -56,7 +58,7 @@ import state from "./state.json" with { type: "json" };
 import time from "./time.json" with { type: "json" };
 import version from "./version.json" with { type: "json" };
 
-export const BOARD_PROTOCOL_VERSION = "1.14";
+export const BOARD_PROTOCOL_VERSION = "1.15";
 
 export const boardProtocol: SchemaSet = {
   name: "board-protocol",
@@ -245,6 +247,8 @@ export type AnswerAct = QuestionAct & {
   readonly other?: string;
   readonly optionNotes?: Readonly<Record<string, string>>;
   readonly note?: string;
+  /** Since accept-as-sent: the question's content accepted as the agent sent it (AD-10). */
+  readonly asSent?: true;
   /** Since 1.5: each changed widget item's full edited props, by item ID (AD-20). */
   readonly values?: Readonly<Record<string, unknown>>;
   /** Since widget-registry: each widget item's result, by item ID (AD-20). */
@@ -312,6 +316,8 @@ export type HeldAct = {
   readonly order: number;
   /** Made by "Select recommended". */
   readonly byRecommended?: true;
+  /** Since accept-as-sent: an answer that accepts the question's content as the agent sent it. */
+  readonly asSent?: true;
 };
 
 /** A question's unsent work, on the revision it was made on. */
@@ -376,6 +382,8 @@ export type CurrentAnswer = {
   readonly other?: string;
   readonly optionNotes?: Readonly<Record<string, string>>;
   readonly note?: string;
+  /** Since accept-as-sent: the user accepted the question's content as the agent sent it (AD-10). */
+  readonly asSent?: true;
   /** Since 1.5: the logged full props of each widget item the answer changed, by item ID. */
   readonly values?: Readonly<Record<string, unknown>>;
   /** Since widget-registry: the logged result of each widget item, by expanded item ID. */

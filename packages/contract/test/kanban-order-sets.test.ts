@@ -28,8 +28,9 @@ const setOf = (name: string) => {
 
 describe("the output format's minor for the Kanban's order", () => {
   test("is one minor past main's, and the set carries the constant", () => {
-    // `main` held output format 1.12 (document-review) when this was bound.
-    expect(OUTPUT_FORMAT_VERSION).toBe("1.13");
+    // `main` held output format 1.12 (document-review) when this was bound; accept-as-sent moved it
+    // one minor on.
+    expect(OUTPUT_FORMAT_VERSION).toBe("1.14");
     expect(setOf("output").version).toBe(OUTPUT_FORMAT_VERSION);
   });
 
@@ -45,9 +46,9 @@ describe("the output format's minor for the Kanban's order", () => {
       sessionFile: SESSION_FILE_FORMAT,
     }).toEqual({
       input: "1.13",
-      envelopes: "1.14",
+      envelopes: "1.15",
       document: "1.12",
-      snapshot: "1.4",
+      snapshot: "1.5",
       manifest: "1.1",
       configuration: "1.3",
       localApi: "1.0",
