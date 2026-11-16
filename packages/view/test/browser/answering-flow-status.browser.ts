@@ -257,7 +257,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       async () => {
         const { run, board } = await open(start, { presentation: "one-per-view" });
         await run.session.update([{ action: "delete", itemId: "q1" }]);
-        await said(board, "Question removed by the agent: Q1.");
+        await said(board, "Question removed by the agent: Database.");
         await board.question("q2").waitFor({ timeout: STEP_TIMEOUT_MS });
         const navigator = board.view.getByRole("navigation", { name: "Question navigator" });
         await navigator

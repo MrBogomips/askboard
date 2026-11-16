@@ -178,7 +178,9 @@ const sentResult = (outcome: AnswerOutcome): boolean =>
 
 const focusHeadingOf = (questionId: string) => () => {
   const heading = document.getElementById(questionTextId(questionId));
-  if (heading !== null) revealAndFocus(heading);
+  if (heading !== null) {
+    revealAndFocus(heading, { resolve: () => document.getElementById(questionTextId(questionId)) });
+  }
 };
 
 // What the card shows, from the stores it follows: its loading, its work, its commands and the
