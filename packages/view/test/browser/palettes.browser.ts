@@ -10,9 +10,15 @@ import { describe, expect, test } from "bun:test";
 import { chmod, readFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { twoAsk } from "./fixtures/lifecycle-asks.ts";
-import { eventually, STEP_TIMEOUT_MS, TEST_TIMEOUT_MS, useEngine } from "./harness/board-test.ts";
+import {
+  eventually,
+  LOAD_TIMEOUT_MS,
+  STEP_TIMEOUT_MS,
+  TEST_TIMEOUT_MS,
+  useEngine,
+} from "./harness/board-test.ts";
 import { paletteColor } from "./harness/design-colors.ts";
-import type { Board } from "./harness/dom.ts";
+import { type Board, boardOf } from "./harness/dom.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import { answerOf, lifecycleScenario, openBoard } from "./harness/lifecycle-test.ts";
 import { readViewBuild } from "./harness/view-build.ts";
@@ -100,6 +106,25 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           page: paletteColor("grafite", "background", "light"),
           view: paletteColor("grafite", "background", "light"),
         });
+        // A live Light to Dark switch re-points the card colour inside Grafite.
+        const card = () =>
+          board.view.locator("body").evaluate((body) => {
+            const probe = body.ownerDocument.createElement("span");
+            probe.style.backgroundColor = "var(--card)";
+            body.append(probe);
+            const colour = getComputedStyle(probe).backgroundColor;
+            probe.remove();
+            return colour;
+          });
+        expect(await card()).toBe(paletteColor("grafite", "card", "light"));
+        await openTheme(board);
+        await board.view
+          .getByRole("radiogroup", { name: "Theme" })
+          .getByRole("radio", { name: "Dark" })
+          .click();
+        await board.view.locator("html.dark").waitFor({ state: "attached" });
+        expect(await card()).toBe(paletteColor("grafite", "card", "dark"));
+        expect((await attributes(board)).view).toBe("grafite");
       },
       TEST_TIMEOUT_MS,
     );
@@ -130,6 +155,15 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           async () => JSON.parse(await readFile(path, "utf8")).palette === "grafite",
           "the user file after the arrow",
         );
+        // A board of a later ask opens in the palette picked.
+        await run.session.restart();
+        const later = boardOf(
+          await run.browser.newTab(run.session.latestLink?.() ?? run.session.link),
+        );
+        await later.view
+          .locator('[data-askboard-question="database"]:not([aria-busy="true"])')
+          .waitFor({ state: "attached", timeout: LOAD_TIMEOUT_MS });
+        expect(await attributes(later)).toEqual({ page: "grafite", view: "grafite" });
       },
       TEST_TIMEOUT_MS,
     );
@@ -165,6 +199,37 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         } finally {
           await chmod(folder, 0o755);
         }
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "from the keyboard in Settings: the palette row's arrow keys pick the next palette, Escape closes the panel and focus returns to Settings",
+      async () => {
+        const run = await start(scenario({ user: file({}) }));
+        const board = await openBoard(run, ["database", "cache"]);
+        await waitForBoard(board);
+        const settings = board.view
+          .getByRole("banner")
+          .getByRole("button", { name: "Settings", exact: true });
+        await board.page.keyboard.press("Shift");
+        await settings.focus();
+        await board.page.keyboard.press("Enter");
+        const panel = board.page.getByRole("complementary", { name: "Settings" });
+        const row = panel.locator('[data-askboard-setting="palette"]');
+        await row.waitFor({ timeout: STEP_TIMEOUT_MS });
+        const radios = row.getByRole("radio");
+        await radios.first().focus();
+        await board.page.keyboard.press("ArrowRight");
+        await board.view.locator("html[data-palette=nordico]").waitFor({ state: "attached" });
+        await board.page.locator("html[data-palette=nordico]").waitFor({ state: "attached" });
+        await board.page.keyboard.press("Escape");
+        await panel.waitFor({ state: "hidden", timeout: STEP_TIMEOUT_MS });
+        expect((await attributes(board)).view).toBe("nordico");
+        await eventually(
+          () => settings.evaluate((element) => element === element.ownerDocument.activeElement),
+          "focus on Settings",
+        );
       },
       TEST_TIMEOUT_MS,
     );
@@ -228,6 +293,20 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
             .getAttribute("aria-checked"),
         ).toBe("true");
         expect(JSON.parse(await readFile(path, "utf8"))).toEqual(user);
+        // An explicit Dark ends the replacement at once, while the system still asks.
+        await board.view
+          .getByRole("radiogroup", { name: "Theme" })
+          .getByRole("radio", { name: "Dark" })
+          .click();
+        await board.view.locator("html[data-palette=nordico]").waitFor({ state: "attached" });
+        await board.page.locator("html[data-palette=nordico]").waitFor({ state: "attached" });
+        expect(await board.paletteNote.count()).toBe(0);
+        // Back to System with the system still asking, then the system stops asking.
+        await board.view
+          .getByRole("radiogroup", { name: "Theme" })
+          .getByRole("radio", { name: "System" })
+          .click();
+        await board.view.locator("html[data-palette=contrasto]").waitFor({ state: "attached" });
         await board.page.emulateMedia({ contrast: "no-preference" });
         await board.view.locator("html[data-palette=nordico]").waitFor({ state: "attached" });
         expect(await board.paletteNote.count()).toBe(0);

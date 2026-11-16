@@ -16,7 +16,7 @@ import {
   TEST_TIMEOUT_MS,
   useEngine,
 } from "./harness/board-test.ts";
-import { boxOf, pixelAt, wearsRing } from "./harness/chart-points.ts";
+import { boxOf, pixelAt, pixelsOf, wearsRing } from "./harness/chart-points.ts";
 import {
   type BarRig,
   barOf,
@@ -73,6 +73,13 @@ const CHART_1 = { light: "#2a78d6", dark: "#3987e5" } as const;
 const themeRadio = (board: Board, name: "System" | "Light" | "Dark") =>
   board.view.getByRole("radiogroup", { name: "Theme" }).getByRole("radio", { name, exact: true });
 
+// Picks a theme in the Theme popover, opening it when it is closed (answering-flow-visual).
+const pickTheme = async (board: Board, name: "System" | "Light" | "Dark"): Promise<void> => {
+  const radio = themeRadio(board, name);
+  if (!(await radio.isVisible())) await board.themeControl.click({ timeout: STEP_TIMEOUT_MS });
+  await radio.click({ timeout: STEP_TIMEOUT_MS });
+};
+
 const isDark = async (board: Board): Promise<boolean> =>
   ((await board.view.locator("html").getAttribute("class")) ?? "").split(/\s+/).includes("dark");
 
@@ -118,7 +125,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const requests: string[] = [];
         run.browser.context.on("request", (request) => requests.push(request.url()));
         const board = await openBoard(run, ["plan"]);
-        await themeRadio(board, "Light").click();
+        await pickTheme(board, "Light");
         await eventually(async () => !(await isDark(board)), "the light theme");
         expect(await token(board, "--chart-1")).toBe(CHART_1.light);
         await eventually(async () => (await firstBarColour(board)) === CHART_1.light, "light bars");
@@ -131,7 +138,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await board.page.mouse.move(barBox.x + bar.centre.x + 2, barBox.y + bar.centre.y + 2);
         expect(await ringOfBar(board, BAR_RIG, 0, 1, BARS)).toBe(false);
         // Light to Dark: the palette read again, the highlight kept.
-        await themeRadio(board, "Dark").click();
+        await pickTheme(board, "Dark");
         await eventually(() => isDark(board), "the dark theme");
         expect(await token(board, "--chart-1")).toBe(CHART_1.dark);
         await eventually(async () => (await firstBarColour(board)) === CHART_1.dark, "dark bars");
@@ -167,7 +174,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await eventually(async () => (await firstBarColour(board)) === CHART_1.dark, "dark bars");
         await clickBar(board, BAR_RIG, 0, 0, BARS);
         await counterIs(board, "1 point highlighted", BARS);
-        await themeRadio(board, "Light").click();
+        await pickTheme(board, "Light");
         await eventually(async () => !(await isDark(board)), "the light theme");
         await eventually(async () => (await firstBarColour(board)) === CHART_1.light, "light bars");
         expect(await ringOfBar(board, BAR_RIG, 0, 0, BARS)).toBe(true);
@@ -175,6 +182,44 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           .locator('[data-askboard-question="plan"]')
           .waitFor({ timeout: STEP_TIMEOUT_MS });
         expectNoCspProblem(run);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "switching the palette alone from Carta to Grafite redraws the chart in the palette's border and card colours and keeps the highlight",
+      async () => {
+        // Every palette keeps Carta's series colours, so the proof is the axis and split lines
+        // (`border`), which Grafite draws #dadee3 where Carta draws #e3ddd2 (palettes, D7).
+        const CARTA_BORDER = "#e3ddd2";
+        const GRAFITE_BORDER = "#dadee3";
+        const run = await start(lifecycleScenario(ask, dist));
+        const board = await openBoard(run, ["plan"]);
+        await board.themeControl.click({ timeout: STEP_TIMEOUT_MS });
+        await pickTheme(board, "Light");
+        await eventually(async () => !(await isDark(board)), "the light theme");
+        await clickBar(board, BAR_RIG, 0, 0, BARS);
+        await counterIs(board, "1 point highlighted", BARS);
+        await eventually(
+          async () => (await pixelsOf(chartOf(board, BARS), CARTA_BORDER)) > 0,
+          "Carta's lines",
+        );
+        expect(await pixelsOf(chartOf(board, BARS), GRAFITE_BORDER)).toBe(0);
+        // The click on the chart dismissed the popover: open it again.
+        await board.themeControl.click({ timeout: STEP_TIMEOUT_MS });
+        await board.view
+          .getByRole("radiogroup", { name: "Palette" })
+          .getByRole("radio", { name: "Grafite" })
+          .click();
+        await board.view.locator("html[data-palette=grafite]").waitFor({ state: "attached" });
+        await eventually(
+          async () => (await pixelsOf(chartOf(board, BARS), GRAFITE_BORDER)) > 0,
+          "Grafite's lines",
+        );
+        expect(await pixelsOf(chartOf(board, BARS), CARTA_BORDER)).toBe(0);
+        expect(await token(board, "--chart-1")).toBe(CHART_1.light);
+        expect(await ringOfBar(board, BAR_RIG, 0, 0, BARS)).toBe(true);
+        await counterIs(board, "1 point highlighted", BARS);
       },
       TEST_TIMEOUT_MS,
     );

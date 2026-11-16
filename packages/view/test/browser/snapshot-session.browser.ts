@@ -158,7 +158,11 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         };
         expect(validateSnapshotData(data).ok).toBe(true);
         expect(data.snapshot.takenBy).toBe("user");
-        expect(data.snapshot.presentation).toEqual({ theme: "light", density: "comfortable" });
+        expect(data.snapshot.presentation).toEqual({
+          theme: "light",
+          density: "comfortable",
+          palette: "carta",
+        });
         await expectOpensLightComfortable(path);
       },
       TEST_TIMEOUT_MS,

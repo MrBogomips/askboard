@@ -155,6 +155,26 @@ const pixelAtPoint = (element: Element, [x, y]: readonly [number, number]): stri
   return `#${[0, 1, 2].map((at) => (data[at] ?? 0).toString(16).padStart(2, "0")).join("")}`;
 };
 
+// How many canvas pixels hold exactly `colour` ("#rrggbb"); it runs in the view.
+const pixelsOfColour = (element: Element, colour: string): number => {
+  const canvas = element.querySelector("canvas");
+  const context = canvas?.getContext("2d");
+  if (canvas === null || canvas === undefined || context === null || context === undefined) {
+    return 0;
+  }
+  const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
+  const want = [1, 3, 5].map((at) => Number.parseInt(colour.slice(at, at + 2), 16));
+  let found = 0;
+  for (let at = 0; at < data.length; at += 4) {
+    if (data[at] === want[0] && data[at + 1] === want[1] && data[at + 2] === want[2]) found += 1;
+  }
+  return found;
+};
+
+/** How many pixels of the chart's canvas are exactly `colour`, such as an axis or split line's. */
+export const pixelsOf = (chart: Locator, colour: string): Promise<number> =>
+  chart.evaluate(pixelsOfColour, colour);
+
 /** The canvas colour at a position of the chart's box, such as the middle of a bar. */
 export const pixelAt = (
   chart: Locator,

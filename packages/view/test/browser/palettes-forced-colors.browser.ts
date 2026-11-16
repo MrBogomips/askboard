@@ -74,9 +74,28 @@ for (const engine of enginesFor(import.meta.path)) {
           };
         });
         expect(drawn).toEqual({ style: "solid", colour: highlight, width: "2px" });
+        // With the focus elsewhere, the selected segment keeps its own 2 px Highlight outline.
+        await selected.evaluate((element) => (element as HTMLElement).blur());
+        const resting = await selected.evaluate((element) => {
+          const style = getComputedStyle(element);
+          return {
+            focused: element === element.ownerDocument.activeElement,
+            style: style.outlineStyle,
+            colour: style.outlineColor,
+            width: style.outlineWidth,
+          };
+        });
+        expect(resting).toEqual({
+          focused: false,
+          style: "solid",
+          colour: highlight,
+          width: "2px",
+        });
         const other = group.getByRole("radio", { checked: false }).first();
-        const resting = await other.evaluate((element) => getComputedStyle(element).outlineStyle);
-        expect(resting).not.toBe("solid");
+        const unselected = await other.evaluate(
+          (element) => getComputedStyle(element).outlineStyle,
+        );
+        expect(unselected).not.toBe("solid");
       },
       TEST_TIMEOUT_MS,
     );
@@ -129,6 +148,16 @@ for (const engine of enginesFor(import.meta.path)) {
             .evaluate((element) => getComputedStyle(element).forcedColorAdjust);
         expect(await adjust("[data-chart]")).toBe("none");
         expect(await adjust("button")).toBe("auto");
+        // The change fill is matched by its class, wherever a widget draws it.
+        const fill = await board.view.locator("body").evaluate((body) => {
+          const mark = body.ownerDocument.createElement("span");
+          mark.className = "bg-change-subtle";
+          body.append(mark);
+          const found = getComputedStyle(mark).forcedColorAdjust;
+          mark.remove();
+          return found;
+        });
+        expect(fill).toBe("none");
       },
       TEST_TIMEOUT_MS,
     );

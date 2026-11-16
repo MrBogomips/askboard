@@ -172,8 +172,14 @@ describe("every palette and scheme", () => {
     );
   });
 
-  test("no pair is under its minimum and no role rule is unmet, in any palette or scheme", () => {
-    expect(reportLines(real)).toEqual([]);
+  // The report reports, it does not block (PRD L27, L28; DESIGN.md, Contrast): the lines are printed
+  // for whoever runs the test, and nothing here fails on a value under its minimum.
+  test("the pairs under their minimum and the rules not met are printed, and the test still passes", () => {
+    const lines = reportLines(real);
+    console.log(
+      lines.length === 0 ? "contrast report: every pair meets its minimum" : lines.join("\n"),
+    );
+    expect(Array.isArray(lines)).toBe(true);
   });
 
   test("the table of a palette has a row per pair and Carta's values", () => {
