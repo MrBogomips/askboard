@@ -13,6 +13,7 @@ const placeOf = (target: EventTarget | null): KeyPlace => {
       element?.closest("[data-askboard-question]")?.getAttribute("data-askboard-question") ??
       undefined,
     continue: element?.closest("[data-askboard-continue]") != null,
+    send: element?.closest("[data-askboard-submit]") != null,
   };
 };
 

@@ -37,11 +37,11 @@ export const QuestionFooter = ({
     >
       <span>
         {state} · {lead}
-        <bdi>{cutTitle(footer.title)}</bdi>
+        <bdi className="inline-block max-w-full">{cutTitle(footer.title)}</bdi>
         {footer.area === undefined ? null : (
           <>
             {" "}
-            (<bdi>{cutTitle(footer.area)}</bdi>)
+            (<bdi className="inline-block max-w-full">{cutTitle(footer.area)}</bdi>)
           </>
         )}
         {footer.newFromAgent ? ` · ${text("footer.newFromAgent")}` : null}

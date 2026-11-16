@@ -12,8 +12,8 @@ const WORDS: Record<Language, { yes: string; no: string }> = {
   "it-IT": { yes: "Sì", no: "No" },
 };
 
-/** The header an agent wrote with markup and a right-to-left override in it: shown as text only. */
-export const MARKUP_TITLE = "<b>Bold</b> ‮dcba";
+/** The header an agent wrote with markup and a right-to-left override and an isolate close that reopens it: shown as text only. */
+export const MARKUP_TITLE = "<b>Bold</b> \u202edcba\u2069\u202e";
 
 /** A plain question: its header chip is the title the footer and the status message name. */
 const plain = (id: string, language: Language, header = id.toUpperCase()) => ({

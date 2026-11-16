@@ -326,6 +326,25 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await footer.locator("b").count()).toBe(0);
         // The title sits in its own isolate, so its override reaches nothing around it.
         expect(await footer.locator("bdi").textContent()).toBe(MARKUP_TITLE);
+        // And it holds its layout: text after the title stays to the right of it, so the override
+        // reverses nothing around it (the span's parts run left to right).
+        const lefts = await footer
+          .locator("span")
+          .first()
+          .evaluate((span) => {
+            const tail = span.ownerDocument.createTextNode(" TAIL");
+            span.appendChild(tail);
+            const out: number[] = [];
+            for (const node of Array.from(span.childNodes)) {
+              const range = span.ownerDocument.createRange();
+              range.selectNodeContents(node);
+              const rect = range.getBoundingClientRect();
+              if (rect.width > 0) out.push(rect.left);
+            }
+            return out;
+          });
+        expect(lefts.length).toBeGreaterThanOrEqual(3);
+        expect(lefts).toEqual([...lefts].sort((a, b) => a - b));
       },
       TEST_TIMEOUT_MS,
     );
@@ -632,5 +651,26 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         TEST_TIMEOUT_MS,
       );
     }
+
+    test(
+      "All together: Enter held on the last question's Answer never sends; a fresh Enter on Send does",
+      async () => {
+        const { run, board } = await openPlain(start, 2, { delivery: "submitted" });
+        await answerWithKeys(board, "p1");
+        await optionOf(board, "p2", "Yes").check({ timeout: STEP_TIMEOUT_MS });
+        await answerOf(board, "p2").focus();
+        await board.page.keyboard.down("Enter");
+        await eventually(() => isFocused(board.submit), "focus on Send");
+        await board.page.keyboard.down("Enter");
+        await board.page.keyboard.down("Enter");
+        await board.page.keyboard.up("Enter");
+        await hostSettled(board);
+        expect(sentActs(run)).toEqual([]);
+        expect(await isFocused(board.submit)).toBe(true);
+        await board.page.keyboard.press("Enter");
+        await actsSent(run, 1);
+      },
+      TEST_TIMEOUT_MS,
+    );
   });
 }

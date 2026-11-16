@@ -132,7 +132,14 @@ export const createFlow = (deps: FlowDeps): Flow => {
         if (target !== undefined) deps.status.announce(nextMessageOf(target));
       }
       if (output.kind === "send-all") {
-        return { output, run: () => requestFocusTo(deps.focus, acted, "send") };
+        return {
+          output,
+          run: () => {
+            requestFocusTo(deps.focus, acted, "send");
+            // The key that made the last answer ready may still be down: its repeats must not press Send.
+            deps.guard.arm(acted, true);
+          },
+        };
       }
       if (output.kind === "complete") {
         return { output, run: () => requestFocusTo(deps.focus, acted, "completion") };
