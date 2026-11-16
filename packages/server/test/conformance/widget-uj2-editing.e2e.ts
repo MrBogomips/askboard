@@ -116,7 +116,7 @@ const makeTheEdits = async (board: RealBoard): Promise<void> => {
   await board.view
     .locator('[data-node-id="reporting"] [data-change="moved"]')
     .waitFor({ timeout: STEP_TIMEOUT_MS });
-  await board.buttonIn("plan", "Answer").click();
+  await board.card("plan").locator("[data-askboard-primary]").click();
 };
 
 describe("UJ-2 with the five editing features on the real session process", () => {
@@ -131,8 +131,8 @@ describe("UJ-2 with the five editing features on the real session process", () =
     try {
       const board = await openRealBoard(browser, link ?? "");
       await makeTheEdits(board);
-      await board.buttonIn("erp-export", "Postpone").click();
-      await board.barButton("Submit").click();
+      await board.card("erp-export").locator("[data-askboard-postpone]").click();
+      await board.view.locator("[data-askboard-submit]").click();
 
       const collected = await collectedAnswer(session, askId, epoch);
       const [entry] = collected.asks;

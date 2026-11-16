@@ -104,7 +104,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           state: "answered",
           result: { points },
         });
-        await board.receipt("delivered to the agent").waitFor({ timeout: STEP_TIMEOUT_MS });
+        await board.receipt("delivered").waitFor({ timeout: STEP_TIMEOUT_MS });
         // The answered chart keeps both rings.
         expect(await ringOfBar(board, THREE, 0, 0)).toBe(true);
         expect(await ringOfBar(board, THREE, 0, 2)).toBe(true);

@@ -30,6 +30,7 @@ import {
   lifecycleScenario,
   openBoard,
   optionOf,
+  receiptOf,
   sentActs,
   viewText,
 } from "./harness/lifecycle-test.ts";
@@ -46,8 +47,12 @@ const heading = (board: Board, id: string) =>
 const answerYes = async (board: Board, id: string) => {
   await optionOf(board, id, "Yes").click({ timeout: STEP_TIMEOUT_MS });
   await answerOf(board, id).click({ timeout: STEP_TIMEOUT_MS });
-  await card(board, id).getByText("sent", { exact: true }).waitFor({ timeout: STEP_TIMEOUT_MS });
+  await receiptOf(board, id, "sent").waitFor({ timeout: STEP_TIMEOUT_MS });
 };
+
+// "Stay here": these cases answer several questions in turn and look at the board where it is; the
+// moves of "Go to the next" are answering-flow-advance's (answering-flow-guidance, After an answer).
+const STAY = { user: { version: "1.0", afterAnswer: "stay" } };
 
 for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
   describe(`${engine}: presentations and navigation`, () => {
@@ -65,7 +70,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         }
         const outline = board.view.getByRole("navigation", { name: "Outline" });
         await outline.waitFor({ timeout: STEP_TIMEOUT_MS });
-        expect(await outline.getByText("Unanswered", { exact: true }).count()).toBe(4);
+        expect(await outline.getByText("To do", { exact: true }).count()).toBe(4);
         expect(await board.view.getByRole("tablist").count()).toBe(0);
         expectNoCspProblem(run);
       },
@@ -75,7 +80,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     test(
       "tabs: one tab per area with its open count; hidden tabs stay mounted and ready; answering the last open question of a tab clears its count only",
       async () => {
-        const run = await start(lifecycleScenario(tabsAsk, dist));
+        const run = await start({ ...lifecycleScenario(tabsAsk, dist), config: STAY });
         const board = await openBoard(run, [
           "region",
           "payment",
@@ -85,8 +90,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         ]);
         const scope = board.view.getByRole("tab", { name: /Scope/ });
         const delivery = board.view.getByRole("tab", { name: /Delivery/ });
-        expect(await scope.textContent()).toContain("3 open");
-        expect(await delivery.textContent()).toContain("2 open");
+        expect(await scope.textContent()).toContain("3 to do");
+        expect(await delivery.textContent()).toContain("2 to do");
         // The hidden tab's questions are mounted and ready: not busy, though not visible.
         expect(await card(board, "rollout").getAttribute("aria-busy")).toBe("false");
         expect(await card(board, "rollout").isVisible()).toBe(false);
@@ -96,15 +101,13 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           const label = id === "rollout" ? "All at once" : "Yes";
           await optionOf(board, id, label).click({ timeout: STEP_TIMEOUT_MS });
           await answerOf(board, id).click({ timeout: STEP_TIMEOUT_MS });
-          await card(board, id)
-            .getByText("sent", { exact: true })
-            .waitFor({ timeout: STEP_TIMEOUT_MS });
+          await receiptOf(board, id, "sent").waitFor({ timeout: STEP_TIMEOUT_MS });
         }
         await eventually(
-          async () => !((await delivery.textContent()) ?? "").includes("open"),
+          async () => !((await delivery.textContent()) ?? "").includes("to do"),
           "the Delivery tab to show no open question",
         );
-        expect(await scope.textContent()).toContain("3 open");
+        expect(await scope.textContent()).toContain("3 to do");
         expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,
@@ -124,19 +127,19 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
-      "one question per view: Question n of m, Previous and Next stop at the ends, Next open wraps, focus to the heading, no auto-advance",
+      "one question per view: Question n of m, Previous and Next stop at the ends, Next open wraps, focus to the heading, no move with Stay here",
       async () => {
-        const run = await start(lifecycleScenario(onePerViewAsk, dist));
+        const run = await start({ ...lifecycleScenario(onePerViewAsk, dist), config: STAY });
         const board = await openBoard(run, ["q1", "q2", "q3", "q4", "q5"]);
         const navigator = board.view.getByRole("navigation", { name: "Question navigator" });
         await navigator.getByText("Question 1 of 5", { exact: true }).waitFor();
         expect(await viewText(board, "First area").filter({ visible: true }).count()).toBe(1);
         const previous = navigator.getByRole("button", { name: "Previous", exact: true });
         const next = navigator.getByRole("button", { name: "Next", exact: true });
-        const nextOpen = board.header.getByRole("button", { name: /^Next open/ });
+        const nextOpen = board.header.locator("[data-askboard-next-to-do]");
         expect(await previous.isDisabled()).toBe(true);
         await answerYes(board, "q1");
-        // Answering does not advance.
+        // With Stay here, answering does not advance.
         await navigator.getByText("Question 1 of 5", { exact: true }).waitFor();
         await next.click();
         await next.click();
@@ -156,7 +159,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await card(board, "q5").count()).toBe(1);
         expect(await board.view.getByRole("navigation", { name: "Outline" }).count()).toBe(0);
         // The navigator holds no jump of its own: the header's is the only one.
-        expect(await navigator.getByRole("button", { name: /^Next open/ }).count()).toBe(0);
+        expect(await navigator.locator("[data-askboard-next-to-do]").count()).toBe(0);
         expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,
@@ -170,7 +173,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const navigator = board.view.getByRole("navigation", { name: "Question navigator" });
         await navigator.getByText("Question 1 of 5", { exact: true }).waitFor();
         await board.header
-          .getByRole("button", { name: /^Next open/ })
+          .locator("[data-askboard-next-to-do]")
           .click({ timeout: STEP_TIMEOUT_MS });
         await navigator.getByText("Question 2 of 5", { exact: true }).waitFor();
         await eventually(() => isFocused(heading(board, "q2")), "focus on question 2's heading");
@@ -182,7 +185,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     test(
       "the outline jumps into a hidden tab: the tab becomes active and the heading takes focus",
       async () => {
-        const run = await start(lifecycleScenario(tabsAsk, dist));
+        const run = await start({ ...lifecycleScenario(tabsAsk, dist), config: STAY });
         const board = await openBoard(run, ["region", "erp-export"]);
         expect(await card(board, "erp-export").isVisible()).toBe(false);
         const outline = board.view.getByRole("navigation", { name: "Outline" });
@@ -217,14 +220,12 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const run = await start(lifecycleScenario(singleRequestingMoreAsk, dist));
         const board = await openBoard(run, ["database"]);
         expect(await board.view.getByRole("navigation").count()).toBe(0);
-        expect(await board.view.getByRole("button", { name: "Submit" }).count()).toBe(0);
-        expect(await board.view.getByText("Immediate").count()).toBe(0);
+        expect(await board.submit.count()).toBe(0);
+        expect(await board.delivery("immediate").count()).toBe(0);
         expect(await board.header.getByText("open", { exact: false }).count()).toBe(0);
         await optionOf(board, "database", "SQLite").click({ timeout: STEP_TIMEOUT_MS });
         await answerOf(board, "database").click({ timeout: STEP_TIMEOUT_MS });
-        await card(board, "database")
-          .getByText("sent", { exact: true })
-          .waitFor({ timeout: STEP_TIMEOUT_MS });
+        await receiptOf(board, "database", "sent").waitFor({ timeout: STEP_TIMEOUT_MS });
         expect(sentActs(run).map(({ acts }) => acts.map((act) => act.type))).toEqual([["answer"]]);
         await board.header.getByText("Answered", { exact: true }).waitFor();
       },

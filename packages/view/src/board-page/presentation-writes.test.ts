@@ -114,9 +114,24 @@ describe("a toggle's value from the view", () => {
       theme: "dark",
       density: "comfortable",
       contextPlacement: "inline",
+      afterAnswer: "next",
       locked: ["contextPlacement"],
     });
     expect(run.updates.at(-1)?.presentation?.density).toBe("comfortable");
+  });
+
+  test("the settings panel's pick of the after-answer key applies at once and goes to board-host", async () => {
+    const run = await setUp();
+    const reply = run.setPresentation({ key: "afterAnswer", value: "stay" });
+    expect(reply).toEqual({ outcome: "sent" });
+    expect(run.sent).toContainEqual({
+      version,
+      type: "setting",
+      key: "afterAnswer",
+      value: "stay",
+    });
+    expect(run.applied.at(-1)?.afterAnswer).toBe("stay");
+    expect(run.updates.at(-1)?.presentation?.afterAnswer).toBe("stay");
   });
 
   test("a key the project sets is refused, and nothing is sent or applied", async () => {
@@ -176,6 +191,7 @@ describe("the settings panel", () => {
       "dark",
       "compact",
       "inline",
+      "next",
     ]);
   });
 

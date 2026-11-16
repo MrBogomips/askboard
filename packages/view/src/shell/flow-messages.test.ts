@@ -1,7 +1,21 @@
 import { describe, expect, test } from "bun:test";
 import type { ViewQuestion } from "../view-document.ts";
 import type { ViewAct } from "../view-protocol.ts";
-import { addedMessageOf, sentMessageOf } from "./flow-messages.ts";
+import {
+  addedMessageOf,
+  allAnsweredMessagesOf,
+  allReadyMessageOf,
+  areaDoneMessageOf,
+  commandSentMessagesOf,
+  declinedMessagesOf,
+  deliveredMessageOf,
+  nextMessageOf,
+  postponedMessagesOf,
+  prefillUndoneMessageOf,
+  readyLostMessageOf,
+  sentMessageOf,
+  sentMessagesOf,
+} from "./flow-messages.ts";
 
 // The status messages of the answering flow, as pure builders (answering-flow-fixes, design
 // decisions 4 and 5; #182).
@@ -115,5 +129,156 @@ describe("the message of questions the agent added", () => {
     expect(addedMessageOf([questionOf("a", { text: "t".repeat(90) })])?.params?.title).toBe(
       `${"t".repeat(79)}…`,
     );
+  });
+});
+
+// The guided flow's builders (answering-flow-guidance, design decision 7; requirement "Status
+// messages for the guided flow").
+const NEXT = { title: "Cache", n: 4, m: 9 };
+
+describe("the message of a command with the next question named", () => {
+  test("an answer appends the next question to its own message", () => {
+    expect(
+      sentMessagesOf("answer", [answerAct({ choice: ["PostgreSQL"] })], { next: NEXT }),
+    ).toEqual([
+      { key: "status.answerSent", params: { option: "PostgreSQL" } },
+      { key: "status.next", params: { title: "Cache", n: 4, m: 9 } },
+    ]);
+    expect(sentMessagesOf("answer", [answerAct({ values: { a: 1 } })], { next: NEXT })[0]).toEqual({
+      key: "status.answerSentPlain",
+    });
+  });
+
+  test("without a recorded next the message is as before", () => {
+    const acts = [answerAct({ choice: ["A"] })];
+    const plain = { key: "status.answerSent", params: { option: "A" } } as const;
+    expect(sentMessageOf("answer", acts)).toEqual(plain);
+    expect(sentMessagesOf("answer", acts)).toEqual([plain]);
+    expect(sentMessagesOf("answer", acts, {})).toEqual([plain]);
+    expect(sentMessagesOf("answer", [{ type: "postpone", itemId: "p", rev: 1 }])).toEqual([]);
+  });
+
+  test("a revision says the change was sent, and names no next question", () => {
+    expect(
+      sentMessagesOf("answer", [answerAct({ choice: ["B"] })], { revision: true, next: NEXT }),
+    ).toEqual([{ key: "status.changeSent" }]);
+  });
+
+  test("a note alone, and Submit, keep their own message and append the next", () => {
+    const note: ViewAct = { type: "note", itemId: "db", rev: 1, note: "n", when: WHEN };
+    expect(sentMessagesOf("answer", [note], { next: NEXT })[0]).toEqual({ key: "status.noteSent" });
+    expect(sentMessagesOf("submit", [answerAct({ choice: ["A"] }, "one")], { next: NEXT })).toEqual(
+      [
+        { key: "status.submitted", params: { count: 1 } },
+        { key: "status.next", params: { title: "Cache", n: 4, m: 9 } },
+      ],
+    );
+  });
+
+  test("the title is cut at 80 characters, whole code points", () => {
+    expect(nextMessageOf({ title: "t".repeat(90), n: 1, m: 2 }).params?.title).toBe(
+      `${"t".repeat(79)}…`,
+    );
+    expect(nextMessageOf({ title: "😀".repeat(100), n: 1, m: 2 }).params?.title).toBe(
+      `${"😀".repeat(79)}…`,
+    );
+  });
+});
+
+describe("the other messages of the guided flow", () => {
+  test("postponed and declined, with the next question when the board moved", () => {
+    expect(postponedMessagesOf(undefined)).toEqual([{ key: "status.postponed" }]);
+    expect(postponedMessagesOf(NEXT)).toEqual([
+      { key: "status.postponed" },
+      { key: "status.next", params: { title: "Cache", n: 4, m: 9 } },
+    ]);
+    expect(declinedMessagesOf(undefined)).toEqual([{ key: "status.declined" }]);
+    expect(declinedMessagesOf(NEXT)[1]).toEqual({
+      key: "status.next",
+      params: { title: "Cache", n: 4, m: 9 },
+    });
+  });
+
+  test("a ready mark lost names the field to fix, cut at 80", () => {
+    expect(readyLostMessageOf("Ticket")).toEqual({
+      key: "status.readyLost",
+      params: { label: "Ticket" },
+    });
+    expect(readyLostMessageOf("l".repeat(81)).params?.label).toBe(`${"l".repeat(79)}…`);
+  });
+
+  test("an area left with nothing to do names the area, cut at 80", () => {
+    expect(areaDoneMessageOf("Architecture")).toEqual({
+      key: "status.areaDone",
+      params: { area: "Architecture" },
+    });
+    expect(areaDoneMessageOf("a".repeat(81)).params?.area).toBe(`${"a".repeat(79)}…`);
+  });
+
+  test("every question answered is the two lines of the completion panel", () => {
+    expect(allAnsweredMessagesOf({ sent: 9, delivered: 3 })).toEqual([
+      { key: "completion.title" },
+      { key: "completion.counts", params: { s: 9, d: 3 } },
+    ]);
+  });
+
+  test("all ready, a prefill undone, and the delivered count", () => {
+    expect(allReadyMessageOf()).toEqual({ key: "bar.allReady" });
+    expect(prefillUndoneMessageOf()).toEqual({ key: "status.prefillUndone" });
+    expect(deliveredMessageOf({ sent: 5, delivered: 2 })).toEqual({
+      key: "status.delivered",
+      params: { d: 2, s: 5 },
+    });
+  });
+});
+
+describe("the messages of a command the board page reports sent (decision 7)", () => {
+  const next = { title: "Cache", n: 4, m: 9 };
+
+  test("an answer, then the area it finished, then where the board went", () => {
+    expect(
+      commandSentMessagesOf("answer", [answerAct({ choice: ["Yes"] })], {
+        next,
+        areaDone: "Scope",
+      }),
+    ).toEqual([
+      { key: "status.answerSent", params: { option: "Yes" } },
+      { key: "status.areaDone", params: { area: "Scope" } },
+      { key: "status.next", params: { title: "Cache", n: 4, m: 9 } },
+    ]);
+  });
+
+  test("a revision says the change was sent and never moves", () => {
+    expect(
+      commandSentMessagesOf("answer", [answerAct({ choice: ["Yes"] })], {
+        revision: true,
+        next,
+        areaDone: "Scope",
+      }),
+    ).toEqual([{ key: "status.changeSent" }]);
+  });
+
+  test("a postpone or a decline that was sent says so, and where the board went", () => {
+    expect(
+      commandSentMessagesOf("answer", [{ type: "postpone", itemId: "p", rev: 1 }], { next }),
+    ).toEqual([
+      { key: "status.postponed" },
+      { key: "status.next", params: { title: "Cache", n: 4, m: 9 } },
+    ]);
+    const decline = { type: "decline", itemId: "p", rev: 1, when: WHEN } as ViewAct;
+    expect(commandSentMessagesOf("answer", [decline], { areaDone: "Scope" })).toEqual([
+      { key: "status.declined" },
+      { key: "status.areaDone", params: { area: "Scope" } },
+    ]);
+  });
+
+  test("a reopen, with no record, and Submit's command say what they said before", () => {
+    expect(commandSentMessagesOf("answer", [{ type: "reopen", itemId: "p" }])).toEqual([]);
+    expect(
+      commandSentMessagesOf("submit", [answerAct({ choice: ["A"] }, "one")], { next }),
+    ).toEqual([
+      { key: "status.submitted", params: { count: 1 } },
+      { key: "status.next", params: { title: "Cache", n: 4, m: 9 } },
+    ]);
   });
 });

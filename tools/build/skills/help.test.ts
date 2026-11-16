@@ -132,11 +132,19 @@ describe("SKILL.md", () => {
     expect(skill).toContain("never open a board");
   });
 
+  test("names the acts by their labels on the board, and says Send is absent in One by one", () => {
+    expect(skill).toContain("the bar has no Send");
+    expect(skill).not.toContain("Submit");
+    expect(skill).not.toContain("**Postpone.**");
+  });
+
   test("explains the concepts the spec names", () => {
     for (const concept of [
-      "Answer",
-      "Submit",
-      "Postpone",
+      "Send answer",
+      "Send {count} answers",
+      "After answering",
+      "Prefill recommended",
+      "Later",
       "Decline",
       "Explain",
       "Follow-up",
@@ -695,7 +703,9 @@ describe("the board's keys in the help skill", () => {
       expect(section).toContain(`| ${name} | ${where} | ${keysText(entry.keys)} |`);
     }
     expect(section).toContain("outside text fields and widgets | N (N) |");
-    expect(section).toContain("| Previous open | outside text fields and widgets | Shift+N (⇧N) |");
+    expect(section).toContain(
+      "| Previous to do | outside text fields and widgets | Shift+N (⇧N) |",
+    );
     expect(section).toContain(
       "| Answer the question in focus | on a question's own controls | Ctrl+Enter (⌘↩) |",
     );

@@ -8,7 +8,7 @@ import { twoAsk } from "./fixtures/lifecycle-asks.ts";
 import { STEP_TIMEOUT_MS, TEST_TIMEOUT_MS, useEngine } from "./harness/board-test.ts";
 import type { Board } from "./harness/dom.ts";
 import { enginesFrom } from "./harness/engines.ts";
-import { buttonOf, lifecycleScenario, openBoard } from "./harness/lifecycle-test.ts";
+import { answerOf, buttonOf, lifecycleScenario, openBoard } from "./harness/lifecycle-test.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 
 const dist = await readViewBuild();
@@ -28,7 +28,7 @@ const classes = async (board: Board) => ({
 const has = (value: string | null, name: string) => (value ?? "").split(/\s+/).includes(name);
 
 const waitForBoard = async (board: Board) =>
-  buttonOf(board, "database", "Answer").waitFor({ timeout: STEP_TIMEOUT_MS });
+  answerOf(board, "database").waitFor({ timeout: STEP_TIMEOUT_MS });
 
 for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
   describe(`${engine}: theme and density from the settings`, () => {

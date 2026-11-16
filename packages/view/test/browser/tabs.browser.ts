@@ -341,7 +341,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(events).toHaveLength(1);
         expect(events[0]).toMatchObject({ type: "answer", itemId: "plan" });
         expect(events[0]?.results).toEqual({ who: "Ada", days: 5 });
-        await board.receipt("delivered to the agent").waitFor({ timeout: STEP_TIMEOUT_MS });
+        await board.receipt("delivered").waitFor({ timeout: STEP_TIMEOUT_MS });
         await tabNamed(view, "Rest").click();
         await eventually(
           async () => selected(tabNamed(view, "Rest")),

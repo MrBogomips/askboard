@@ -223,17 +223,17 @@ describe("the card and the presses read one revision after Keep mine (review S-1
     expect(pressed.sent).toHaveLength(1);
   });
 
-  test("Select recommended marks the question ready for Submit", () => {
+  test("Prefill recommended selects the question's option and marks nothing ready", () => {
     const stores = board(REV2, { seen: [REV1, REV2], facts, delivery: "submitted" });
     stores.draft.set("plan", undefined);
-    const count = selectRecommended(
+    const batch = selectRecommended(
       documentOf(REV2),
       openState(REV2),
       { ...stores.context, shownOf: stores.shownOf },
       () => false,
     );
-    expect(count).toBe(1);
-    expect(stores.board.work("plan")?.held).toMatchObject({ act: "answer", byRecommended: true });
+    expect(batch).toHaveLength(1);
+    expect(stores.board.work("plan")?.held).toBeUndefined();
   });
 
   test("Submit stays enabled and sends the held answer naming revision 1", () => {
@@ -479,13 +479,15 @@ describe("an act sends what the card shows, an item a later revision removed inc
     expect(stores.sent[0]).toMatchObject(SENT);
   });
 
-  test("Select recommended marks the question and Submit sends them", () => {
+  test("Prefill recommended selects, the user confirms, and Submit sends them", () => {
     const stores = setUp("submitted");
     stores.draft.set("plan", undefined);
     const context = { ...stores.context, shownOf: stores.shownOf };
     expect(
       selectRecommended(documentOf(WITHOUT_B), openState(WITHOUT_B), context, () => false),
-    ).toBe(1);
+    ).toHaveLength(1);
+    expect(stores.board.work("plan")?.held).toBeUndefined();
+    held(stores, WITHOUT_B);
     const pressed = pressOf(stores, WITHOUT_B, facts, stores.shownOf);
     expect(pressed.kind).toBe("send");
     expect(pressed.kind === "send" ? pressed.acts[0] : undefined).toMatchObject({
@@ -550,9 +552,12 @@ describe("Select recommended picks the option the card shows as recommended (tas
   test("the board's Select recommended selects revision 1's option, and Submit sends it naming revision 1", () => {
     const stores = setUp();
     const context = { ...stores.context, shownOf: stores.shownOf };
-    expect(selectRecommended(documentOf(SECOND), openState(SECOND), context, () => false)).toBe(1);
+    expect(
+      selectRecommended(documentOf(SECOND), openState(SECOND), context, () => false),
+    ).toHaveLength(1);
     expect(stores.draft.valueOf("plan")).toEqual(["Yes"]);
-    expect(stores.board.work("plan")?.held).toMatchObject({ act: "answer", byRecommended: true });
+    expect(stores.board.work("plan")?.held).toBeUndefined();
+    held(stores, SECOND);
     const pressed = pressOf(stores, SECOND, facts, stores.shownOf);
     expect(pressed.kind).toBe("send");
     expect(pressed.kind === "send" ? pressed.acts[0] : undefined).toMatchObject({
@@ -588,7 +593,9 @@ describe("Select recommended picks the option the card shows as recommended (tas
     stores.results.set("a", "A");
     stores.draft.set("plan", undefined);
     const context = { ...stores.context, shownOf: stores.shownOf };
-    expect(selectRecommended(documentOf(SECOND), openState(SECOND), context, () => false)).toBe(0);
+    expect(selectRecommended(documentOf(SECOND), openState(SECOND), context, () => false)).toEqual(
+      [],
+    );
     expect(stores.draft.valueOf("plan")).toBeUndefined();
     expect(stores.board.work("plan")?.held).toBeUndefined();
     expect(acceptRecommended(SECOND, context)).toBeUndefined();

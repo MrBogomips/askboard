@@ -12,16 +12,17 @@ import { createDraftStore } from "./draft-store.ts";
 import { press as confirmPress, settle } from "./revision-confirm.ts";
 import {
   confirmedPress,
-  hasRecommendation,
   heldMissingReason,
   heldUnusable,
   heldWorkOf,
   immediateBlocked,
+  prefillCountOf,
   releaseFailed,
   selectRecommended,
   submitActsOf,
   submitPress,
   submitStateOf,
+  undoPrefill,
   updatesLabel,
 } from "./submit.ts";
 
@@ -296,6 +297,7 @@ describe("whether Submit can go (FR-22, AD-20)", () => {
     const { board } = setUp();
     expect(submitStateOf({ ...base, board: board.get() })).toEqual({
       held: 0,
+      answers: 0,
       blocked: [],
       disabled: true,
     });
@@ -309,6 +311,14 @@ describe("whether Submit can go (FR-22, AD-20)", () => {
     expect(submitStateOf({ ...base, board: board.get(), sending: () => true }).disabled).toBe(true);
   });
 
+  test("Send's count is the held answers: a held postpone, decline or note adds to held and not to answers (Q2)", () => {
+    const { board } = setUp();
+    board.edit("payment", 1, () => ({ rev: 1, held: { act: "postpone", order: 0 } }));
+    expect(submitStateOf({ ...base, board: board.get() })).toMatchObject({ held: 1, answers: 0 });
+    board.edit("region", 1, () => ({ rev: 1, held: { act: "answer", order: 1 } }));
+    expect(submitStateOf({ ...base, board: board.get() })).toMatchObject({ held: 2, answers: 1 });
+  });
+
   test("an agent-change notice on a question with held work blocks it and is counted; one on a question without held work does not", () => {
     const { board } = setUp();
     board.edit("payment", 1, () => ({ rev: 1, held: { act: "answer", order: 0 } }));
@@ -316,6 +326,7 @@ describe("whether Submit can go (FR-22, AD-20)", () => {
     const pending = (id: string) => id === "payment" || id === "region";
     expect(submitStateOf({ ...base, board: board.get(), pending })).toEqual({
       held: 1,
+      answers: 1,
       blocked: ["payment"],
       disabled: true,
     });
@@ -327,16 +338,16 @@ describe("whether Submit can go (FR-22, AD-20)", () => {
 describe("Select recommended (FR-3; task 6.6)", () => {
   const rollout = (document.items[1] as ViewArea).props.items[0] as ViewQuestion;
 
-  test("it selects the recommended option where the user has chosen nothing, never replaces a choice, and sends nothing; in submitted delivery Submit sends what is left in place", () => {
+  test("it selects the recommended option where the user has chosen nothing, never replaces a choice, and holds nothing in either mode", () => {
     const { values, board } = setUp();
     values.set("rollout", ["All at once"]);
-    const count = selectRecommended(document, stateOf(), { draft: values, board }, () => false);
-    expect(count).toBe(1);
+    expect(prefillCountOf(document, stateOf(), { draft: values, board }, () => false)).toBe(1);
+    const batch = selectRecommended(document, stateOf(), { draft: values, board }, () => false);
+    expect(batch).toEqual([{ questionId: "region", label: "EU" }]);
     expect(values.valueOf("region")).toEqual(["EU"]);
     expect(values.valueOf("rollout")).toEqual(["All at once"]);
-    expect(board.work("region")?.held).toEqual({ act: "answer", order: 0, byRecommended: true });
+    expect(board.work("region")?.held).toBeUndefined();
     expect(board.work("rollout")?.held).toBeUndefined();
-    expect(hasRecommendation(document)).toBe(true);
     expect(rollout.props.options?.some((option) => option.recommended)).toBe(true);
   });
 
@@ -393,7 +404,14 @@ describe("Select recommended (FR-3; task 6.6)", () => {
         },
       ],
     };
-    expect(hasRecommendation(plain)).toBe(false);
+    expect(
+      prefillCountOf(
+        plain,
+        stateOf(),
+        { draft: setUp("submitted", plain).values, board: setUp("submitted", plain).board },
+        () => false,
+      ),
+    ).toBe(0);
   });
 });
 
@@ -431,46 +449,14 @@ describe("every path to an answer checks the reason (approval-scale-ranking, des
   const mark = (board: ReturnType<typeof board3>["board"], id: string, order: number) =>
     board.edit(id, 1, (work) => ({ ...work, held: { act: "answer", order } }));
 
-  test("Select recommended selects the option, does not mark a question whose reason is missing, and counts it", () => {
+  test("Prefill recommended selects the option whether or not a reason is missing, and holds nothing", () => {
     const { values, results, board } = board3();
     results.set("verdict", revise);
-    const count = selectRecommended(
-      doc,
-      stateOf(),
-      { draft: values, results, board, facts },
-      () => false,
-    );
+    const batch = selectRecommended(doc, stateOf(), { draft: values, board }, () => false);
     expect(values.valueOf("region")).toEqual(["EU"]);
     expect(board.work("region")?.held).toBeUndefined();
-    // `rollout` also has a recommended option and no reason to give: selected and marked.
-    expect(board.work("rollout")?.held?.act).toBe("answer");
-    expect(count).toBe(2);
-  });
-
-  test("with the reason in the note, or a result that needs none, it marks the question ready", () => {
-    const written = board3();
-    written.results.set("verdict", revise);
-    written.board.edit("region", 1, () => ({ rev: 1, note: "Cheaper." }));
-    selectRecommended(
-      doc,
-      stateOf(),
-      { draft: written.values, results: written.results, board: written.board, facts },
-      () => false,
-    );
-    expect(written.board.work("region")?.held).toEqual({
-      act: "answer",
-      order: 0,
-      byRecommended: true,
-    });
-    const plain = board3();
-    plain.results.set("verdict", reject);
-    selectRecommended(
-      doc,
-      stateOf(),
-      { draft: plain.values, results: plain.results, board: plain.board, facts },
-      () => false,
-    );
-    expect(plain.board.work("region")?.held?.act).toBe("answer");
+    expect(board.work("rollout")?.held).toBeUndefined();
+    expect(batch.map((each) => each.questionId)).toEqual(["region", "rollout"]);
   });
 
   test("heldMissingReason names the first held answer, in board order, whose reason is missing", () => {
@@ -799,35 +785,17 @@ describe("Select recommended and Submit with an entry held (checkpoints 2.3 and 
     sending: () => false,
   };
 
-  test("Select recommended selects the option, does not mark a question holding an entry, and counts it", () => {
-    const { values, results, entries, board } = stores();
-    entries.set("days", "21");
-    const count = selectRecommended(
-      doc,
-      stateOf(),
-      { draft: values, results, entries, board },
-      () => false,
-    );
-    expect(values.valueOf("region")).toEqual(["EU"]);
-    expect(board.work("region")?.held).toBeUndefined();
-    // `rollout` has a recommended option and no entry: selected and marked, as before.
-    expect(board.work("rollout")?.held?.act).toBe("answer");
-    expect(count).toBe(2);
-    expect(entries.valueOf("days")).toBe("21");
-  });
-
-  test("with the entry corrected or cleared, Select recommended marks the question ready", () => {
-    const { values, results, entries, board } = stores();
-    selectRecommended(doc, stateOf(), { draft: values, results, entries, board }, () => false);
-    expect(board.work("region")?.held).toEqual({ act: "answer", order: 0, byRecommended: true });
-  });
-
-  test("in immediate delivery it only selects, entry or none", () => {
-    const { values, results, entries, board } = stores("immediate");
-    entries.set("days", "21");
-    selectRecommended(doc, stateOf(), { draft: values, results, entries, board }, () => false);
-    expect(values.valueOf("region")).toEqual(["EU"]);
-    expect(board.work("region")?.held).toBeUndefined();
+  test("Prefill recommended selects the option on a question holding an entry too, and holds nothing, in either mode", () => {
+    for (const delivery of ["submitted", "immediate"] as const) {
+      const { values, entries, board } = stores(delivery);
+      entries.set("days", "21");
+      const batch = selectRecommended(doc, stateOf(), { draft: values, board }, () => false);
+      expect(values.valueOf("region")).toEqual(["EU"]);
+      expect(board.work("region")?.held).toBeUndefined();
+      expect(board.work("rollout")?.held).toBeUndefined();
+      expect(batch.map((each) => each.questionId)).toEqual(["region", "rollout"]);
+      expect(entries.valueOf("days")).toBe("21");
+    }
   });
 
   test("Submit with a held answer whose question holds an entry sends nothing and names the question", () => {
@@ -928,6 +896,7 @@ describe("Submit waits for a question that is loading and leaves a failed one ou
     const load = but("payment", "loading");
     expect(submitStateOf({ ...base, board: board.get(), load })).toEqual({
       held: 2,
+      answers: 2,
       blocked: [],
       disabled: true,
     });
@@ -954,6 +923,7 @@ describe("Submit waits for a question that is loading and leaves a failed one ou
     const load = but("payment", "failed");
     expect(submitStateOf({ ...base, board: board.get(), load })).toEqual({
       held: 1,
+      answers: 1,
       blocked: [],
       disabled: false,
     });
@@ -986,6 +956,7 @@ describe("Submit waits for a question that is loading and leaves a failed one ou
     const load = but("payment", "failed");
     expect(submitStateOf({ ...base, board: board.get(), load })).toEqual({
       held: 0,
+      answers: 0,
       blocked: [],
       disabled: true,
     });
@@ -1067,5 +1038,147 @@ describe("Submit waits for a question that is loading and leaves a failed one ou
     expect(board.get()).toBe(before);
     releaseFailed(document, board, undefined);
     expect(board.get()).toBe(before);
+  });
+});
+
+describe("Prefill recommended only fills drafts (answering-flow-guidance, D8; FR-3, NFR-10)", () => {
+  const fill = (
+    delivery: Delivery,
+    states = stateOf(),
+    skip: (id: string) => boolean = () => false,
+  ) => {
+    const stores = setUp(delivery);
+    const batch = selectRecommended(
+      document,
+      states,
+      { draft: stores.values, board: stores.board },
+      skip,
+    );
+    return { ...stores, batch };
+  };
+
+  test("in either delivery mode it holds nothing, and returns the batch it filled", () => {
+    for (const delivery of ["submitted", "immediate"] as const) {
+      const { values, board, batch } = fill(delivery);
+      expect(batch).toEqual([{ questionId: "region", label: "EU" }, ...batch.slice(1)]);
+      expect(batch.length).toBeGreaterThan(0);
+      for (const { questionId, label } of batch) {
+        expect(values.valueOf(questionId)).toEqual([label]);
+        expect(board.work(questionId)?.held).toBeUndefined();
+      }
+    }
+  });
+
+  test("the count of the label is the batch's size, from the same predicate and with no writes", () => {
+    const cases = [
+      { states: stateOf(), skip: () => false },
+      { states: stateOf({ region: "answered", rollout: "postponed" }), skip: () => false },
+      { states: stateOf(), skip: (id: string) => id === "rollout" },
+    ];
+    for (const { states, skip } of cases) {
+      const probe = setUp("submitted");
+      const before = probe.values.record();
+      const count = prefillCountOf(
+        document,
+        states,
+        { draft: probe.values, board: probe.board },
+        skip,
+      );
+      expect(probe.values.record()).toBe(before);
+      const { batch } = fill("submitted", states, skip);
+      expect(count).toBe(batch.length);
+    }
+  });
+
+  test("a choice, a note-less held act or Other text keeps its question out of the count", () => {
+    const chosen = setUp("submitted");
+    chosen.values.set("region", ["US"]);
+    chosen.board.edit("payment", 1, () => ({ rev: 1, held: { act: "postpone", order: 0 } }));
+    chosen.board.edit("rollout", 1, () => ({ rev: 1, other: "Canary" }));
+    const all = prefillCountOf(
+      document,
+      stateOf(),
+      { draft: setUp("submitted").values, board: setUp("submitted").board },
+      () => false,
+    );
+    expect(
+      prefillCountOf(
+        document,
+        stateOf(),
+        { draft: chosen.values, board: chosen.board },
+        () => false,
+      ),
+    ).toBeLessThan(all);
+  });
+
+  test("a board whose cards recommend nothing has a count of 0", () => {
+    const area = document.items[0] as ViewArea;
+    const plain: ViewDocument = {
+      ...document,
+      items: [
+        {
+          ...area,
+          props: {
+            ...area.props,
+            items: area.props.items.map((question) => ({
+              ...question,
+              props: {
+                ...question.props,
+                options: question.props.options?.map(({ recommended: _, ...option }) => option),
+              },
+            })) as never,
+          },
+        },
+      ],
+    };
+    expect(
+      prefillCountOf(
+        plain,
+        stateOf(),
+        { draft: setUp("submitted", plain).values, board: setUp("submitted", plain).board },
+        () => false,
+      ),
+    ).toBe(0);
+  });
+
+  test("undoPrefill clears only the selections still as filled, on questions holding no act", () => {
+    const { values, board, batch } = fill("submitted");
+    expect(batch.length).toBeGreaterThan(1);
+    const [first, second, ...rest] = batch;
+    if (first === undefined || second === undefined) throw new Error("a batch of two or more");
+    values.set(first.questionId, ["Changed by the user"]);
+    board.edit(second.questionId, 1, () => ({ rev: 1, held: { act: "answer", order: 0 } }));
+    undoPrefill(batch, { draft: values, board });
+    expect(values.valueOf(first.questionId)).toEqual(["Changed by the user"]);
+    expect(values.valueOf(second.questionId)).toEqual([second.label]);
+    for (const each of rest) expect(values.valueOf(each.questionId)).toBeUndefined();
+  });
+
+  test("a restored held answer marked as made by Select recommended is still sent by Submit", () => {
+    const { values, board } = setUp("submitted");
+    values.set("region", ["EU"]);
+    board.edit("region", 1, () => ({
+      rev: 1,
+      held: { act: "answer", order: 0, byRecommended: true },
+    }));
+    const pressed = submitPress(document, board.get(), values.record(), AT, NONE_REPORTED, {
+      state: stateOf(),
+    });
+    expect(pressed.kind).toBe("send");
+    expect(pressed.kind === "send" ? pressed.acts.map((act) => act.type) : []).toEqual(["answer"]);
+  });
+
+  test("Submit sends no draft that is not held", () => {
+    const { values, board } = setUp("submitted");
+    values.set("region", ["EU"]);
+    values.set("payment", ["Stripe"]);
+    board.edit("payment", 1, () => ({ rev: 1, held: { act: "answer", order: 0 } }));
+    const acts = submitActsOf(
+      heldWorkOf(document, board.get()),
+      values.record(),
+      AT,
+      NONE_REPORTED,
+    );
+    expect(acts.map((act) => act.itemId)).toEqual(["payment"]);
   });
 });

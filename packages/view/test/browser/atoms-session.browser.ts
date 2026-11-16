@@ -82,7 +82,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           state: "answered",
           result: 3.5,
         });
-        await board.receipt("delivered to the agent").waitFor({ timeout: STEP_TIMEOUT_MS });
+        await board.receipt("delivered").waitFor({ timeout: STEP_TIMEOUT_MS });
         expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,

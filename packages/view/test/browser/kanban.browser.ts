@@ -778,7 +778,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(events[0]?.changes).toEqual([
           { op: "set", target: "board.a.column", value: "doing" },
         ]);
-        await board.receipt("delivered to the agent").waitFor({ timeout: STEP_TIMEOUT_MS });
+        await board.receipt("delivered").waitFor({ timeout: STEP_TIMEOUT_MS });
         // Delivered, the question is answered and still open to a revision: cards drag.
         expect(await cardOf(board, "a").getAttribute("draggable")).toBe("true");
         expect(await cardOf(board, "a").getAttribute("data-change")).toBe("moved");
@@ -828,7 +828,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await board.receipt("sent").waitFor({ timeout: STEP_TIMEOUT_MS });
         const { events } = await run.session.collect();
         expect(events[0]?.changes).toEqual([{ op: "move", target: "board.d" }]);
-        await board.receipt("delivered to the agent").waitFor({ timeout: STEP_TIMEOUT_MS });
+        await board.receipt("delivered").waitFor({ timeout: STEP_TIMEOUT_MS });
         await run.session.update([{ action: "close" }]);
         await board
           .banner(/closed/i)

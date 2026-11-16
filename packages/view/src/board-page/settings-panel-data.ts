@@ -87,20 +87,26 @@ const CHOICES: Readonly<Record<PresentationKey, readonly (readonly [string, Stri
     ["beside", "settings.beside"],
     ["inline", "settings.inline"],
   ],
+  afterAnswer: [
+    ["next", "settings.goToNext"],
+    ["stay", "settings.stayHere"],
+  ],
 };
 
 const LABELS: Readonly<Record<PresentationKey, StringKey>> = {
   theme: "toggles.theme",
   density: "toggles.density",
   contextPlacement: "settings.contextPlacement",
+  afterAnswer: "settings.afterAnswer",
 };
 
-const ROWS: readonly (readonly [Exclude<ConfigurationKey, "keys">, StringKey])[] = [
-  ["defaultLanguage", "settings.defaultLanguage"],
-  ["askingRule", "settings.askingRules"],
-  ["snapshotFolder", "settings.snapshotFolder"],
-  ["editor", "settings.editor"],
-];
+const ROWS: readonly (readonly [Exclude<ConfigurationKey, "keys" | PresentationKey>, StringKey])[] =
+  [
+    ["defaultLanguage", "settings.defaultLanguage"],
+    ["askingRule", "settings.askingRules"],
+    ["snapshotFolder", "settings.snapshotFolder"],
+    ["editor", "settings.editor"],
+  ];
 
 const PROBLEMS = {
   unreadable: "settings.problemUnreadable",

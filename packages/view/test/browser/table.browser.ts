@@ -196,7 +196,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           await table.frame.locator('td[data-total="days"]').getAttribute("data-derived"),
         ).toBeNull();
         expect(await counterText(table)).toBe("Le tue modifiche: 1");
-        expect(await board.answer.count()).toBe(0);
+        expect((await board.answer.innerText()).trim()).toBe("Invia risposta");
       },
       TEST_TIMEOUT_MS,
     );

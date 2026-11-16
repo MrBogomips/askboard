@@ -240,29 +240,15 @@ describe("submitted delivery with a cell entry held", () => {
   const mark = (board: ReturnType<typeof stores>["board"]) =>
     board.edit(QUESTION, 1, (work) => ({ ...work, held: { act: "answer", order: 0 } }));
 
-  test("Select recommended selects but does not mark the question ready", () => {
-    const { values, results, entries, cells, board } = set();
-    cells.set("costs", CELLS);
-    const count = selectRecommended(
-      document,
-      stateOf(),
-      { draft: values, results, entries, cellEntries: cells, board },
-      () => false,
-    );
-    expect(values.valueOf(QUESTION)).toEqual(["Small"]);
-    expect(board.work(QUESTION)?.held).toBeUndefined();
-    expect(count).toBe(1);
-  });
-
-  test("with the entry cleared, Select recommended marks the question ready", () => {
-    const { values, results, entries, cells, board } = set();
-    selectRecommended(
-      document,
-      stateOf(),
-      { draft: values, results, entries, cellEntries: cells, board },
-      () => false,
-    );
-    expect(board.work(QUESTION)?.held).toEqual({ act: "answer", order: 0, byRecommended: true });
+  test("Prefill recommended selects and marks nothing ready, entry or none", () => {
+    for (const withCells of [true, false]) {
+      const { values, cells, board } = set();
+      if (withCells) cells.set("costs", CELLS);
+      const batch = selectRecommended(document, stateOf(), { draft: values, board }, () => false);
+      expect(values.valueOf(QUESTION)).toEqual(["Small"]);
+      expect(board.work(QUESTION)?.held).toBeUndefined();
+      expect(batch).toHaveLength(1);
+    }
   });
 
   test("Submit is disabled and its press names the question; clearing the entry releases both", () => {

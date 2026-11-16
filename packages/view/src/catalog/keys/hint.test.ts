@@ -349,7 +349,7 @@ describe("the board's group (board-keys, design decision 5)", () => {
     expect(groups.map((group) => group.title)).toEqual(["Questions", "Other"]);
     expect(groups[0]?.rows.map((row) => row.name)).toEqual([
       en("header.nextOpen"),
-      "Previous open",
+      "Previous to do",
       "Answer the question in focus",
       "Send the follow-up",
     ]);
@@ -360,7 +360,7 @@ describe("the board's group (board-keys, design decision 5)", () => {
     const groups = panelGroups(BOARD_KEYS, false, "other", en);
     expect(groups[0]?.rows.map((row) => row.name)).toEqual([
       en("header.nextOpen"),
-      "Previous open",
+      "Previous to do",
     ]);
     expect(groups[1]?.rows.map((row) => row.name)).toEqual(["Show the keys"]);
   });

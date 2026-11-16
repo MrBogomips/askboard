@@ -12,7 +12,8 @@ import { useBoardKeyTable } from "./use-board-keys.ts";
 
 /** What row 2 shows beyond the pill; absent on a single-question board. */
 export type HeaderCounts = {
-  readonly open: number;
+  /** The count to do, named in the ask's language, with the postponed ones when there are any. */
+  readonly openLabel: string;
   /** Goes to the next open question; disabled when there is none to go to. */
   readonly onNextOpen: (() => void) | undefined;
   readonly unreadReplies: number;
@@ -29,6 +30,7 @@ const Counts = ({ counts }: { readonly counts: HeaderCounts }) => {
     <button
       type="button"
       className={BUTTON_SECONDARY}
+      data-askboard-next-to-do=""
       disabled={counts.onNextOpen === undefined}
       onClick={counts.onNextOpen}
     >
@@ -39,9 +41,7 @@ const Counts = ({ counts }: { readonly counts: HeaderCounts }) => {
   return (
     <>
       <span aria-hidden="true" className={SEPARATOR} />
-      <span className="text-control font-semibold text-foreground">
-        {text("header.open", { count: counts.open })}
-      </span>
+      <span className="text-control font-semibold text-foreground">{counts.openLabel}</span>
       {entry === undefined ? jump : <KeyHint entry={entry}>{jump}</KeyHint>}
       {counts.unreadReplies === 0 ? null : (
         <button type="button" className={BUTTON_LINK} onClick={counts.onUnread}>

@@ -75,12 +75,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           await board.view.getByLabel("Days", { exact: true }).fill(typed.days);
           await board.view.getByLabel("Start", { exact: true }).fill(typed.start);
           await board.view.getByLabel("Fee", { exact: true }).fill(typed.fee);
-          await board.view
-            .getByRole("button", {
-              name: language === "it-IT" ? "Rispondi" : "Answer",
-              exact: true,
-            })
-            .click({ timeout: STEP_TIMEOUT_MS });
+          await board.view.locator("[data-askboard-primary]").click({ timeout: STEP_TIMEOUT_MS });
           await actsDone(run, 1);
           const taken = await run.session.snapshot();
           await run.session.exit();

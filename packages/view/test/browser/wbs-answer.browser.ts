@@ -63,7 +63,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           // The UJ-2 board holds two questions, so each "Answer" is found inside the WBS question's.
           const answerButton = board.view
             .locator(`[data-askboard-question="${wbsQuestion.id}"]`)
-            .getByRole("button", { name: "Answer", exact: true });
+            .locator("[data-askboard-primary]");
           const tree = treeGridOf(board);
           await tabUntil(board, async () => (await treeFocus(board)) !== undefined, "the Tree");
           expect(await treeFocus(board)).toEqual({ nodeId: "design" });

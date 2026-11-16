@@ -23,6 +23,7 @@ const presentation: ViewPresentation = {
   theme: "dark",
   density: "compact",
   contextPlacement: "inline",
+  afterAnswer: "stay",
   locked: ["contextPlacement"],
 };
 const data = (message: SettingsMessage = settingsWithEveryKey, language: Locale = "en-US") =>
@@ -39,13 +40,49 @@ describe("the language indicator", () => {
 
 describe("the presentation controls", () => {
   test("hold the choices, the value in effect and the file and key that fix one", () => {
-    const [theme, density, placement] = data().controls;
+    const [theme, density, placement, after] = data().controls;
     expect(theme?.segments.map((segment) => segment.label)).toEqual(["System", "Light", "Dark"]);
     expect(theme?.value).toBe("dark");
     expect(theme?.fixedBy).toBeUndefined();
     expect(density?.segments.map((segment) => segment.label)).toEqual(["Compact", "Comfortable"]);
     expect(placement?.segments.map((segment) => segment.label)).toEqual(["Beside", "Inline"]);
     expect(placement?.fixedBy).toBe(".askboard/config.json · contextPlacement");
+    expect(after?.key).toBe("afterAnswer");
+  });
+
+  test("the after-answer row is a segmented control: its label, its two choices and the value in effect", () => {
+    const after = data().controls[3];
+    expect(after?.label).toBe("After answering");
+    expect(after?.segments).toEqual([
+      { value: "next", label: "Go to the next" },
+      { value: "stay", label: "Stay here" },
+    ]);
+    expect(after?.value).toBe("stay");
+    expect(after?.fixedBy).toBeUndefined();
+    const italian = data(settingsWithEveryKey, "it-IT").controls[3];
+    expect(italian?.label).toBe("Dopo la risposta");
+    expect(italian?.segments.map((segment) => segment.label)).toEqual([
+      "Vai alla prossima",
+      "Resta qui",
+    ]);
+  });
+
+  test("names the project file and key that fix it, and a failed write under its own key", () => {
+    const locked = panelData(
+      settingsWithEveryKey,
+      { ...presentation, locked: ["afterAnswer"] },
+      "en-US",
+      "en-US",
+    ).controls[3];
+    expect(locked?.fixedBy).toBe(".askboard/config.json · afterAnswer");
+    const failed: SettingsMessage = {
+      ...settingsWithEveryKey,
+      write: { key: "afterAnswer", outcome: "failed", reason: "EACCES", path: "/home/u/c.json" },
+    };
+    expect(data(failed).controls[3]?.error).toBe(
+      `Could not save afterAnswer to ${isolate("/home/u/c.json")}: EACCES`,
+    );
+    expect(data(failed).controls[0]?.error).toBeUndefined();
   });
 
   test("show a failed write under its own key with the path, and a saved one nowhere", () => {

@@ -95,13 +95,23 @@ describe("the strings of the answering flow", () => {
     }
   });
 
-  test("no status message claims delivery", () => {
-    for (const key of STRING_KEYS.filter((each) => each.startsWith("status."))) {
+  // Delivery is claimed in two places only, from the receipts (answering-flow-guidance, design
+  // decision 6): the delivered status message and the completion panel's counts.
+  const MAY_SAY_DELIVERED: readonly StringKey[] = ["status.delivered", "completion.counts"];
+
+  test("no status message claims delivery but the two that count it", () => {
+    for (const key of STRING_KEYS.filter(
+      (each) =>
+        (each.startsWith("status.") || each.startsWith("completion.")) &&
+        !MAY_SAY_DELIVERED.includes(each),
+    )) {
       for (const table of [EN_US, IT_IT]) {
         const value = table[key];
         const text = typeof value === "string" ? value : `${value.one}${value.other}`;
         expect(text).not.toMatch(/deliver|consegnat/i);
       }
     }
+    for (const key of MAY_SAY_DELIVERED)
+      expect(t("en-US", key, { s: 1, d: 1 })).toMatch(/deliver/i);
   });
 });

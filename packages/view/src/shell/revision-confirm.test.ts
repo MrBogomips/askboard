@@ -12,6 +12,7 @@ import {
   type Confirmation,
   confirmationOf,
   confirmsRevisionOf,
+  loggedReceiptOf,
   press,
   questionsToConfirm,
   settle,
@@ -354,5 +355,26 @@ describe("which held acts Submit asks about (design decision 6; F-63)", () => {
 
   test("nothing held, nothing listed", () => {
     expect(questionsToConfirm(document, [], stateOf({ first: "delivered" }), factsOf)).toEqual([]);
+  });
+});
+
+describe("the logged receipt (data-askboard-logged-receipt)", () => {
+  test("a logged answer or decline gives its receipt, sent or delivered", () => {
+    expect(loggedReceiptOf(logged("answered", "sent"))).toBe("sent");
+    expect(loggedReceiptOf(logged("answered", "delivered"))).toBe("delivered");
+    expect(loggedReceiptOf(logged("declined", "sent"))).toBe("sent");
+    expect(loggedReceiptOf(logged("declined", "delivered"))).toBe("delivered");
+  });
+
+  test("an open or postponed question, or none, gives none", () => {
+    const status = (state: "open" | "postponed") =>
+      ({ itemId: "plan", rev: 1, state }) as LifecycleQuestionStatus;
+    expect(loggedReceiptOf(status("open"))).toBeUndefined();
+    expect(loggedReceiptOf(status("postponed"))).toBeUndefined();
+    expect(loggedReceiptOf(undefined)).toBeUndefined();
+  });
+
+  test("a receipt that is neither is not shown", () => {
+    expect(loggedReceiptOf(logged("answered", "queued"))).toBeUndefined();
   });
 });

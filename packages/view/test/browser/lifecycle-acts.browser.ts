@@ -35,7 +35,9 @@ import {
   noteOf,
   openBoard,
   optionOf,
+  postponeOf,
   promptArmed,
+  receiptOf,
   sentActs,
   viewText,
 } from "./harness/lifecycle-test.ts";
@@ -44,8 +46,7 @@ import { readViewBuild } from "./harness/view-build.ts";
 const dist = await readViewBuild();
 const EXPLAIN = "Why are you asking, and what changes with each option?";
 
-const pressed = (board: Board, id: string) =>
-  buttonOf(board, id, "Postpone").getAttribute("aria-pressed");
+const pressed = (board: Board, id: string) => postponeOf(board, id).getAttribute("aria-pressed");
 
 // The outline entry's state label of a question.
 const outlineSays = (board: Board, id: string, label: string) =>
@@ -85,7 +86,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         }
         await noteOf(board, "database").waitFor();
         const names = await view.getByRole("button").allTextContents();
-        const order = ["Postpone", "More", "Answer"].map((name) => names.indexOf(name));
+        const order = ["Later", "More", "Send answer"].map((name) => names.indexOf(name));
         expect(order.every((at) => at >= 0)).toBe(true);
         expect([...order].sort((a, b) => a - b)).toEqual(order);
         expect(await buttonOf(board, "database", "More").isDisabled()).toBe(false);
@@ -94,12 +95,13 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
-      "in immediate delivery a postpone and its undo reach board-host, focus moves to the heading, and the question is open again",
+      "in immediate delivery a postpone and its undo reach board-host, focus moves to the next question to do, and the question is open again",
       async () => {
         const run = await start(lifecycleScenario(twoAsk, dist));
         const board = await openBoard(run, ["database", "cache"]);
-        await buttonOf(board, "database", "Postpone").click();
-        await eventually(() => focused(headingOf(board, "database")), "focus on the heading");
+        await postponeOf(board, "database").click();
+        // The act moves on to the next question to do (answering-flow-guidance, After an answer).
+        await eventually(() => focused(headingOf(board, "cache")), "focus on the next heading");
         await actsSent(run, 1);
         await outlineSays(board, "database", "Postponed");
         await eventually(async () => (await pressed(board, "database")) === "true", "pressed");
@@ -108,16 +110,16 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await board.view
           .getByText("You have 1 postponed question: closing loses this ask", { exact: true })
           .waitFor({ timeout: STEP_TIMEOUT_MS });
-        await buttonOf(board, "database", "Postpone").click();
+        await postponeOf(board, "database").click();
         await actsDone(run, 2);
-        await outlineSays(board, "database", "Unanswered");
+        await outlineSays(board, "database", "To do");
         expect(sentActs(run).map((command) => command.acts)).toEqual([
           [{ type: "postpone", itemId: "database", rev: 1 }],
           [{ type: "reopen", itemId: "database" }],
         ]);
         const { events } = await run.session.collect();
         expect(events.map((event) => event.type)).toEqual(["postponed", "reopened"]);
-        await board.header.getByText("2 open", { exact: true }).waitFor();
+        await board.header.getByText("2 to do", { exact: true }).waitFor();
         await eventually(async () => !(await promptArmed(board)), "the prompt disarmed");
         expectNoCspProblem(run);
       },
@@ -129,19 +131,19 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       async () => {
         const run = await start(lifecycleScenario(submittedAsk, dist));
         const board = await openBoard(run, ["database", "cache", "audit"]);
-        await buttonOf(board, "audit", "Postpone").click();
+        await postponeOf(board, "audit").click();
         await outlineSays(board, "audit", "Postponed");
-        await buttonOf(board, "cache", "Postpone").click();
+        await postponeOf(board, "cache").click();
         await board.view
           .getByText("You have 2 postponed questions: closing loses this ask", { exact: true })
           .waitFor({ timeout: STEP_TIMEOUT_MS });
-        await buttonOf(board, "cache", "Postpone").click();
-        await outlineSays(board, "cache", "Unanswered");
+        await postponeOf(board, "cache").click();
+        await outlineSays(board, "cache", "To do");
         expect(await pressed(board, "cache")).toBe("false");
         await optionOf(board, "database", "SQLite").click();
         await answerOf(board, "database").click();
-        await outlineSays(board, "database", "Ready");
-        expect(await buttonOf(board, "database", "Postpone").isDisabled()).toBe(true);
+        await outlineSays(board, "database", "Ready, not sent");
+        expect(await postponeOf(board, "database").isDisabled()).toBe(true);
         expect(sentActs(run)).toEqual([]);
       },
       TEST_TIMEOUT_MS,
@@ -154,10 +156,11 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const board = await openBoard(run, ["database", "cache", "audit"]);
         await noteOf(board, "audit").fill("The compliance team decides this.");
         await chooseFromMore(board, "audit", "Decline");
-        await eventually(() => focused(headingOf(board, "audit")), "focus on the heading");
+        // The decline moves on, wrapping to the first question to do.
+        await eventually(() => focused(headingOf(board, "database")), "focus on the next heading");
         await outlineSays(board, "audit", "Declined");
         expect(sentActs(run)).toEqual([]);
-        await barButton(board, "Submit").click();
+        await board.submit.click();
         const [command] = await actsDone(run, 1);
         expect(command?.acts).toEqual([
           {
@@ -168,7 +171,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
             when: expect.stringMatching(/Z$/),
           },
         ]);
-        await card(board, "audit").getByText("sent", { exact: true }).waitFor();
+        await card(board, "audit")
+          .locator('[data-askboard-state="declined"]')
+          .waitFor({ timeout: STEP_TIMEOUT_MS });
         const { events } = await run.session.collect();
         expect(events).toEqual([
           expect.objectContaining({
@@ -193,14 +198,14 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await outlineSays(board, "cache", "Declined");
         await chooseFromMore(board, "cache", "Decline");
         await actsSent(run, 2);
-        await outlineSays(board, "cache", "Unanswered");
+        await outlineSays(board, "cache", "To do");
         expect(actTypes(run)).toEqual([["decline"], ["reopen"]]);
         await optionOf(board, "database", "SQLite").click();
         await answerOf(board, "database").click();
-        await card(board, "database").getByText("sent", { exact: true }).waitFor();
+        await receiptOf(board, "database", "sent").waitFor();
         await buttonOf(board, "database", "More").click();
         expect(await menuItem(board, "Decline").getAttribute("aria-disabled")).toBe("true");
-        expect(await buttonOf(board, "database", "Postpone").isDisabled()).toBe(true);
+        expect(await postponeOf(board, "database").isDisabled()).toBe(true);
         await board.page.keyboard.press("Escape");
         expectNoCspProblem(run);
       },
@@ -259,33 +264,35 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       async () => {
         const run = await start(lifecycleScenario(submittedAsk, dist));
         const board = await openBoard(run, ["database", "cache", "audit"]);
-        await buttonOf(board, "audit", "Postpone").click();
-        await barButton(board, "Submit").click();
+        await postponeOf(board, "audit").click();
+        await board.submit.click();
         await actsSent(run, 1);
         // The postpone is sent and the board heard it: Postpone shows it, and can undo it.
         await eventually(
           async () =>
-            (await barButton(board, "Submit").isDisabled()) &&
-            !(await buttonOf(board, "audit", "Postpone").isDisabled()) &&
+            (await board.submit.isDisabled()) &&
+            !(await postponeOf(board, "audit").isDisabled()) &&
             (await pressed(board, "audit")) === "true",
           "the postpone sent",
         );
-        await buttonOf(board, "audit", "Postpone").click();
-        await outlineSays(board, "audit", "Unanswered");
+        await postponeOf(board, "audit").click();
+        await outlineSays(board, "audit", "To do");
         await chooseFromMore(board, "audit", "Decline");
         await outlineSays(board, "audit", "Declined");
         await chooseFromMore(board, "audit", "Decline");
-        await outlineSays(board, "audit", "Unanswered");
+        await outlineSays(board, "audit", "To do");
         expect(await pressed(board, "audit")).toBe("false");
         await chooseFromMore(board, "audit", "Decline");
         await outlineSays(board, "audit", "Declined");
         expect(sentActs(run)).toHaveLength(1);
-        await barButton(board, "Submit").click();
+        await board.submit.click();
         const commands = await actsDone(run, 2);
         expect(commands[1]?.acts).toEqual([
           { type: "decline", itemId: "audit", rev: 1, when: expect.stringMatching(/Z$/) },
         ]);
-        await card(board, "audit").getByText("sent", { exact: true }).waitFor();
+        await card(board, "audit")
+          .locator('[data-askboard-state="declined"]')
+          .waitFor({ timeout: STEP_TIMEOUT_MS });
         const { events } = await run.session.collect();
         expect(events).toEqual([
           expect.objectContaining({ type: "postponed", itemId: "audit" }),
@@ -332,7 +339,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await frame.evaluate(() => document.querySelectorAll("li script").length)).toBe(0);
         await optionOf(board, "database", "PostgreSQL").click();
         await answerOf(board, "database").click();
-        await card(board, "database").getByText("sent", { exact: true }).waitFor();
+        await receiptOf(board, "database", "sent").waitFor();
         await actsDone(run, 3);
         const { events } = await run.session.collect();
         expect(events.map((event) => event.type)).toEqual(["answer"]);

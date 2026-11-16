@@ -20,7 +20,6 @@ import { enginesFrom } from "./harness/engines.ts";
 import {
   actsSent,
   answerOf,
-  barButton,
   buttonOf,
   card,
   composerOf,
@@ -30,6 +29,8 @@ import {
   menuItem,
   openBoard,
   optionOf,
+  postponeOf,
+  receiptOf,
   sentActs,
   tabTo,
 } from "./harness/lifecycle-test.ts";
@@ -56,7 +57,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     const { start } = useEngine(engine);
 
     test(
-      "with the keyboard alone the user answers, postpones, sends a follow-up, declines, submits and switches delivery; focus moves to the heading after Postpone and Decline",
+      "with the keyboard alone the user answers, postpones, sends a follow-up, declines, submits and switches delivery; focus moves to the next question to do after Postpone, and, with nothing left to do, goes to Send",
       async () => {
         const run = await start(lifecycleScenario(submittedAsk, dist));
         const board = await openBoard(run, QUESTIONS);
@@ -77,13 +78,13 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await tabTo(board, answerOf(board, "database"));
         expect(await ringShown(answerOf(board, "database"))).toBe(true);
         await keyboard.press("Enter");
-        await outlineSays(board, "database", "Ready");
+        await outlineSays(board, "database", "Ready, not sent");
 
-        // Postpone, then focus on the question's heading.
-        await tabTo(board, buttonOf(board, "cache", "Postpone"));
-        expect(await ringShown(buttonOf(board, "cache", "Postpone"))).toBe(true);
+        // Postpone, then focus on the next question to do's heading (answering-flow-guidance).
+        await tabTo(board, postponeOf(board, "cache"));
+        expect(await ringShown(postponeOf(board, "cache"))).toBe(true);
         await keyboard.press("Enter");
-        await eventually(() => focused(headingOf(board, "cache")), "focus on the cache heading");
+        await eventually(() => focused(headingOf(board, "audit")), "focus on the audit heading");
         await outlineSays(board, "cache", "Postponed");
 
         // A follow-up: Enter on "Ask a follow-up" opens the composer; Ctrl+Enter sends at once.
@@ -110,13 +111,13 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await keyboard.press("ArrowDown");
         await eventually(() => focused(menuItem(board, "Decline")), "focus on Decline");
         await keyboard.press("Enter");
-        await eventually(() => focused(headingOf(board, "audit")), "focus on the audit heading");
+        // Nothing is left to do and acts are held: focus goes to Send (All ready, nothing sent).
+        await eventually(() => focused(board.submit), "focus on Send");
         await outlineSays(board, "audit", "Declined");
         expect(sentActs(run)).toHaveLength(1);
 
         // Submit: one command, in the order the user produced the acts.
-        await tabTo(board, barButton(board, "Submit"));
-        expect(await ringShown(barButton(board, "Submit"))).toBe(true);
+        expect(await ringShown(board.submit)).toBe(true);
         await keyboard.press("Enter");
         const [, submitted] = await actsSent(run, 2);
         expect(submitted?.acts.map((act) => `${act.type}:${act.itemId}`)).toEqual([
@@ -124,18 +125,23 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           "postpone:cache",
           "decline:audit",
         ]);
-        await card(board, "database").getByText("sent", { exact: true }).waitFor();
-        await eventually(() => barButton(board, "Submit").isDisabled(), "nothing held");
-        // Submit leaves focus on the heading of the question in view (answering-flow-fixes, #179):
-        // at Submit focus is outside every card, so "audit" is the question in view by position:
-        // its card crosses the reading line, a third down the band (D3), and ends the page.
-        await eventually(() => focused(headingOf(board, "audit")), "focus on the audit heading");
+        await receiptOf(board, "database", "sent").waitFor();
+        await eventually(() => board.submit.isDisabled(), "nothing held");
+        // Only a postponed question is left, so Submit's focus goes to the completion panel's
+        // heading once the receipts are logged (answering-flow-guidance, Focus after Answer and Submit).
+        await eventually(
+          () =>
+            focused(
+              board.view.locator("[data-askboard-completion] [data-askboard-completion-heading]"),
+            ),
+          "focus on the completion panel's heading",
+        );
 
         // The delivery switch: with nothing held, Enter switches at once.
-        await tabTo(board, barButton(board, "Immediate"), { max: 120 });
+        await tabTo(board, board.delivery("immediate"), { max: 120 });
         await keyboard.press("Enter");
         await eventually(
-          async () => (await barButton(board, "Immediate").getAttribute("aria-pressed")) === "true",
+          async () => (await board.delivery("immediate").getAttribute("aria-pressed")) === "true",
           "immediate delivery",
         );
         expect(sentActs(run)).toHaveLength(2);
@@ -155,7 +161,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await keyboard.press("Enter");
         await tabTo(board, answerOf(board, "cache"));
         await keyboard.press("Enter");
-        await outlineSays(board, "cache", "Ready");
+        await outlineSays(board, "cache", "Ready, not sent");
         await run.session.update([
           {
             action: "change",
@@ -172,8 +178,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await keyboard.press("Enter");
         await actsSent(run, 1);
         await keep.waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
-        await eventually(async () => !(await barButton(board, "Submit").isDisabled()), "Submit");
-        await tabTo(board, barButton(board, "Immediate"));
+        await eventually(async () => !(await board.submit.isDisabled()), "Submit");
+        await tabTo(board, board.delivery("immediate"));
         await keyboard.press("Enter");
         const dialog = board.view.getByRole("alertdialog");
         await dialog.waitFor({ timeout: STEP_TIMEOUT_MS });
@@ -186,7 +192,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await keyboard.press("Escape");
         await dialog.waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
         expect(sentActs(run)).toHaveLength(1);
-        await tabTo(board, barButton(board, "Immediate"));
+        await tabTo(board, board.delivery("immediate"));
         await keyboard.press("Enter");
         await tabTo(board, dialog.getByRole("button", { name: "Send and switch" }));
         await keyboard.press("Enter");

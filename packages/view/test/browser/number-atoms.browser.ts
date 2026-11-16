@@ -57,7 +57,7 @@ const holding = (run: WidgetHostRun, itemId: string, expected: unknown, what: st
 // The latest draft record's entries for the question, as the view mirrored it.
 // The "Answer" button in Italian, which the board's own locator names in English.
 const answerButton = (run: WidgetHostRun): Locator =>
-  run.board.view.getByRole("button", { name: "Rispondi", exact: true });
+  run.board.view.locator("[data-askboard-primary]");
 
 const entriesOf = (run: WidgetHostRun): unknown => {
   const latest = run.drafts.at(-1) as {
@@ -334,11 +334,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         );
         await board
           .question("plan")
-          .getByRole("button", { name: "Rispondi", exact: true })
+          .locator("[data-askboard-primary]")
           .click({ timeout: STEP_TIMEOUT_MS });
-        await board.view
-          .getByText("inviata", { exact: true })
-          .waitFor({ timeout: STEP_TIMEOUT_MS });
+        await board.receipt("sent").waitFor({ timeout: STEP_TIMEOUT_MS });
         const { events } = await run.session.collect();
         expect(events[0]?.results).toEqual({
           days: 3.5,
@@ -361,7 +359,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
-      "Select recommended in submitted delivery selects the option but holds nothing while a field holds an entry; Submit then waits",
+      "Prefill recommended in submitted delivery selects the option but holds nothing while a field holds an entry; Submit then waits",
       async () => {
         const ask = {
           askId: "entry-submit-c3d4",
@@ -391,17 +389,17 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           async () => (await board.view.locator('[id="days:error"]').count()) === 1,
           "the error",
         );
-        await barButton(board, "Select recommended").click();
+        await board.prefill.click();
         await eventually(() => optionOf(board, "region", "EU").isChecked(), "EU selected");
         await hostSettled(board);
         expect(await answerOf(board, "region").getAttribute("aria-pressed")).not.toBe("true");
-        expect(await barButton(board, "Submit").isDisabled()).toBe(true);
+        expect(await board.submit.isDisabled()).toBe(true);
         expect(sentActs(run)).toEqual([]);
         // Corrected, the question can be marked ready, and Submit then sends the answer with the field.
         await board.view.getByLabel("Days", { exact: true }).fill("5");
         await answerOf(board, "region").click({ timeout: STEP_TIMEOUT_MS });
-        await eventually(() => barButton(board, "Submit").isEnabled(), "Submit to be enabled");
-        await barButton(board, "Submit").click();
+        await eventually(() => board.submit.isEnabled(), "Submit to be enabled");
+        await board.submit.click();
         // `collect` hands each event over once: keep what the polling got.
         const events: { results?: unknown }[] = [];
         await eventually(async () => {

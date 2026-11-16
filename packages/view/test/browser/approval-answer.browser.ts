@@ -38,8 +38,10 @@ import {
   chooseFromMore,
   headingOf,
   lifecycleScenario,
+  loggedReceiptOf,
   openBoard,
   optionOf,
+  receiptOf,
   sentActs,
 } from "./harness/lifecycle-test.ts";
 import { hostSettled, viewSettled } from "./harness/probes.ts";
@@ -56,8 +58,7 @@ const WHY = "Show the training as an extra";
 const error = (board: Board, id: string) =>
   card(board, id).getByText(REASON_MISSING, { exact: true });
 const dialog = (board: Board) => board.view.getByRole("alertdialog");
-const delivered = (board: Board, id: string) =>
-  card(board, id).getByText("delivered to the agent", { exact: true });
+const delivered = (board: Board, id: string) => receiptOf(board, id, "delivered");
 
 // The plan answered "Approve with changes" with one rename and a reason, collected and delivered.
 const answerWithChanges = async (run: Parameters<typeof actsDone>[0], board: Board) => {
@@ -280,8 +281,12 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         // disabled on an answered question, so a delivered decline is where it asks.
         await chooseFromMore(board, PLAN, "Decline");
         await actsDone(run, 1);
+        await card(board, PLAN)
+          .locator('[data-askboard-state="declined"]')
+          .waitFor({ timeout: STEP_TIMEOUT_MS });
         await run.session.collect();
-        await delivered(board, PLAN).waitFor({ timeout: STEP_TIMEOUT_MS });
+        // A decline reads Declined whatever its receipt: delivery shows in the card's logged receipt.
+        await loggedReceiptOf(board, PLAN, "delivered").waitFor({ timeout: STEP_TIMEOUT_MS });
         await chooseFromMore(board, PLAN, "Decline");
         await dialog(board).waitFor({ timeout: STEP_TIMEOUT_MS });
         await dialog(board).getByRole("button", { name: "Cancel", exact: true }).click();
@@ -321,7 +326,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await actsDone(run, 1);
         await run.session.collect();
         await delivered(board, REVIEW).waitFor({ timeout: STEP_TIMEOUT_MS });
-        await optionOf(board, REVIEW, "SQLite").click();
+        // "Accept recommended" is offered while the question is to do or in draft: editing the
+        // delivered answer makes it a draft.
+        await optionOf(board, REVIEW, "DynamoDB").click();
         await accept.click();
         await dialog(board).waitFor({ timeout: STEP_TIMEOUT_MS });
         await dialog(board).getByRole("button", { name: "Cancel", exact: true }).click();

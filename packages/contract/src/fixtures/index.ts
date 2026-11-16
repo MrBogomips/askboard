@@ -340,3 +340,13 @@ export {
   KANBAN_REORDER_CHANGES,
   KANBAN_REORDERED_PROPS,
 } from "./kanban-order.ts";
+
+// The after-answer key's fixtures: a configuration holding every key, a board's write of the key
+// and the settings with its row (answering-flow-guidance, task 1.1).
+
+export {
+  afterAnswerConfiguration,
+  afterAnswerSaved,
+  afterAnswerSetting,
+  settingsWithAfterAnswer,
+} from "./after-answer.ts";

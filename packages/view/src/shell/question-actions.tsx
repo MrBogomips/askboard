@@ -2,15 +2,18 @@
 // Answer; DESIGN.md, the same; ask-lifecycle, task 6.5): on the left Postpone, a toggle that
 // undoes when pressed again, and "More", a Radix Dropdown Menu, keyboard operable, holding Explain
 // and Decline, which also undoes when chosen again; on the right the delivery receipt and "Answer".
-// After Postpone or Decline, focus moves to the question's heading (Accessibility Floor, Focus).
+// After Postpone or Decline, the board moves on or focus goes to the question's heading, as After an
+// answer says (answering-flow-guidance, decision 3; Accessibility Floor, Focus).
 // The menu is not modal, so it locks no scroll and adds no style element.
 
 import { DropdownMenu } from "radix-ui";
 import { useId, useRef } from "react";
-import { useStrings } from "../catalog/port.ts";
+import { useLanguage, useStrings } from "../catalog/port.ts";
+import { type Mark, markLabel } from "./board-view.ts";
 import type { FieldToFix } from "./field-block.ts";
 import { QuestionMarker } from "./markers.tsx";
 import { PrimaryButton } from "./primary-button.tsx";
+import { primaryLabelOf } from "./primary-label.ts";
 import type { CardActions, CardState } from "./question-state.ts";
 import { SizeLines } from "./size-lines.tsx";
 import type { SizeNotice } from "./size-notices.ts";
@@ -22,10 +25,19 @@ const MENU =
 
 const MENU_ITEM = `flex cursor-pointer items-center gap-sm rounded-md px-sm py-1 outline-none select-none data-[highlighted]:bg-accent data-[disabled]:cursor-not-allowed data-[disabled]:text-muted-foreground data-[disabled]:opacity-50 ${FOCUS_RING}`;
 
+// The receipt hook (`data-askboard-receipt`) a state keeps: only the three states of a sent answer.
+const RECEIPT_OF: Readonly<Partial<Record<Mark, "queued" | "sent" | "delivered">>> = {
+  "not-sent-yet": "queued",
+  sent: "sent",
+  delivered: "delivered",
+};
+
 export type ActionsRowProps = {
   /** An opened Snapshot: only the delivery receipt shows. */
   readonly opened?: boolean;
   readonly card: CardState;
+  /** The question's state on the ladder: the state line's label and shape (decision 1). */
+  readonly mark: Mark;
   readonly actions: CardActions;
   /**
    * While a field blocks, what describes the disabled "Answer" and the field it names: "Correct
@@ -52,13 +64,17 @@ export type ActionsRowProps = {
    * the More menu's trigger, which a confirmation gives focus back to.
    */
   readonly onDecline: (control: HTMLElement | undefined) => boolean;
-  /** Moves focus to the question's heading. */
-  readonly focusHeading: () => void;
+  /**
+   * Decline went through and the More menu has closed: the card moves on or focuses the heading.
+   * Radix's own focus return to "More" is prevented, so this is where focus goes.
+   */
+  readonly onMenuClosed: () => void;
 };
 
 export const ActionsRow = ({
   opened = false,
   card,
+  mark,
   actions,
   fieldToFix,
   onFixField,
@@ -71,7 +87,7 @@ export const ActionsRow = ({
   onPostpone,
   onExplain,
   onDecline,
-  focusHeading,
+  onMenuClosed,
 }: ActionsRowProps) => {
   // Decline moves focus to the heading once the menu has closed, instead of back to "More".
   const toHeading = useRef(false);
@@ -79,11 +95,20 @@ export const ActionsRow = ({
   const more = useRef<HTMLButtonElement>(null);
   const text = useStrings();
   const answerKey = useBoardKeyTable().find((entry) => entry.action === "board.answer");
-  if (opened) {
-    return card.receipt === undefined ? null : (
-      <span className="text-badge text-muted-foreground">{card.receipt}</span>
-    );
-  }
+  const language = useLanguage();
+  // The state line: the marker beside its label, the one place a question's marker stands on the
+  // card; a Snapshot keeps it where Answer is hidden (DESIGN.md, Delivery receipt).
+  const stateLine = (
+    <span
+      data-askboard-state={mark}
+      data-askboard-receipt={RECEIPT_OF[mark]}
+      className="flex items-center gap-1.5 text-badge text-muted-foreground"
+    >
+      <QuestionMarker mark={mark} />
+      {markLabel(mark, language)}
+    </span>
+  );
+  if (opened) return stateLine;
   return (
     <>
       <div className="flex flex-wrap items-center gap-md">
@@ -91,13 +116,11 @@ export const ActionsRow = ({
           type="button"
           className={`${BUTTON_SECONDARY} aria-pressed:border-foreground-secondary aria-pressed:font-semibold`}
           aria-pressed={actions.postponed}
+          data-askboard-postpone=""
           disabled={!actions.canPostpone}
-          onClick={() => {
-            onPostpone();
-            focusHeading();
-          }}
+          onClick={onPostpone}
         >
-          {actions.postponed ? <QuestionMarker mark="postponed" /> : null}
+          {actions.postponed ? <QuestionMarker mark="postponed" inControl /> : null}
           {text("question.postpone")}
         </button>
         <DropdownMenu.Root modal={false}>
@@ -113,7 +136,7 @@ export const ActionsRow = ({
                 if (!toHeading.current) return;
                 toHeading.current = false;
                 event.preventDefault();
-                focusHeading();
+                onMenuClosed();
               }}
             >
               <DropdownMenu.Item
@@ -133,7 +156,7 @@ export const ActionsRow = ({
               >
                 <span aria-hidden="true" className="flex size-3 items-center justify-center">
                   <DropdownMenu.ItemIndicator>
-                    <QuestionMarker mark="declined" />
+                    <QuestionMarker mark="declined" inControl />
                   </DropdownMenu.ItemIndicator>
                 </span>
                 {text("question.decline")}
@@ -142,9 +165,7 @@ export const ActionsRow = ({
           </DropdownMenu.Portal>
         </DropdownMenu.Root>
         <span className="ml-auto flex items-center gap-md">
-          {card.receipt === undefined ? null : (
-            <span className="text-badge text-muted-foreground">{card.receipt}</span>
-          )}
+          {stateLine}
           {fieldToFix === undefined || locked ? null : (
             <button
               type="button"
@@ -163,8 +184,17 @@ export const ActionsRow = ({
             submitted={submitted}
             onAnswer={onAnswer}
           >
-            {card.ready ? <QuestionMarker mark="ready" /> : null}
-            {text("question.answer")}
+            {card.ready ? <QuestionMarker mark="ready" inControl /> : null}
+            {text(
+              primaryLabelOf({
+                single,
+                delivery: submitted ? "submitted" : "immediate",
+                ready: card.ready,
+                noteOnly: card.noteOnly,
+                // An answered or declined question under edit: it holds its logged receipt.
+                revision: card.phase === "open" && card.receiptKind !== undefined,
+              }),
+            )}
           </PrimaryButton>
           {fieldToFix === undefined || !locked ? null : (
             <span id={hintId} className="sr-only">

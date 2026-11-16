@@ -30,6 +30,7 @@ import {
   lifecycleScenario,
   openBoard,
   optionOf,
+  postponeOf,
 } from "./harness/lifecycle-test.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 
@@ -42,12 +43,12 @@ const FIRST_VIEW: Record<Presentation, string[]> = {
 };
 const HELPER: Record<Language, { submitted: string; immediate: string }> = {
   "en-US": {
-    submitted: 'Answers stay here until you press "Submit".',
-    immediate: "Answers go to the agent as you give them.",
+    submitted: 'Answers stay here until you press "Send answers".',
+    immediate: "Each answer goes to the agent as soon as you send it.",
   },
   "it-IT": {
     submitted: "Le risposte restano qui finché non premi «Invia le risposte».",
-    immediate: "Le risposte arrivano all'agente man mano che le dai.",
+    immediate: "Ogni risposta parte appena la invii.",
   },
 };
 
@@ -64,8 +65,7 @@ const open = async (
 
 const bar = (board: Board): Locator => board.view.getByRole("contentinfo");
 const helper = (board: Board, text: string): Locator => bar(board).getByText(text, { exact: true });
-const jump = (board: Board): Locator =>
-  board.header.getByRole("button", { name: /^(Next open|Prossima aperta)/ });
+const jump = (board: Board): Locator => board.header.locator("[data-askboard-next-to-do]");
 
 type Box = { readonly top: number; readonly bottom: number };
 const boxOf = async (locator: Locator): Promise<Box> => {
@@ -91,8 +91,12 @@ const descriptionOf = (answer: Locator): Promise<{ text: string; visible: boolea
     return { text: target.textContent ?? "", visible: width > 1 && height > 1 };
   });
 
+// "Stay here": the answers below leave the question shown, as the walk through the navigator needs
+// (answering-flow-guidance, After an answer).
+const STAY = { user: { version: "1.0", afterAnswer: "stay" } };
+
 const onePerViewBoard = async (start: ReturnType<typeof useEngine>["start"]) => {
-  const run = await start(lifecycleScenario(onePerViewAsk, dist));
+  const run = await start({ ...lifecycleScenario(onePerViewAsk, dist), config: STAY });
   const board = await openBoard(run, ["q1", "q2", "q3", "q4", "q5"]);
   return { run, board };
 };
@@ -113,24 +117,32 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           const { board } = await open(start, "sections", { delivery: "submitted", language });
           await helper(board, HELPER[language].submitted).waitFor({ timeout: STEP_TIMEOUT_MS });
           expect(await helper(board, HELPER[language].immediate).count()).toBe(0);
+          if (language === "it-IT") {
+            // "Una alla volta": the immediate text, through the bar, and the submitted one gone.
+            await board.delivery("immediate").click({ timeout: STEP_TIMEOUT_MS });
+            await helper(board, HELPER[language].immediate).waitFor({ timeout: STEP_TIMEOUT_MS });
+            expect(await helper(board, HELPER[language].submitted).count()).toBe(0);
+          }
         }
         const { run, board } = await open(start, "sections", { delivery: "submitted" });
         await helper(board, HELPER["en-US"].submitted).waitFor({ timeout: STEP_TIMEOUT_MS });
-        await barButton(board, "Immediate").click({ timeout: STEP_TIMEOUT_MS });
+        await board.delivery("immediate").click({ timeout: STEP_TIMEOUT_MS });
         await helper(board, HELPER["en-US"].immediate).waitFor({ timeout: STEP_TIMEOUT_MS });
         expect(await helper(board, HELPER["en-US"].submitted).count()).toBe(0);
-        await barButton(board, "Submitted").click({ timeout: STEP_TIMEOUT_MS });
+        await board.delivery("submitted").click({ timeout: STEP_TIMEOUT_MS });
         await helper(board, HELPER["en-US"].submitted).waitFor({ timeout: STEP_TIMEOUT_MS });
         expect(await helper(board, HELPER["en-US"].immediate).count()).toBe(0);
         expectNoCspProblem(run);
 
         const single = await start(lifecycleScenario(singleAnsweringAsk, dist));
         const only = await openBoard(single, ["only"]);
-        expect(
-          await bar(only)
-            .getByText(/^Answers (stay|go)/)
-            .count(),
-        ).toBe(0);
+        // Neither helper text shows anywhere on the single board (each was found on the other).
+        for (const language of ["en-US", "it-IT"] as const) {
+          for (const text of Object.values(HELPER[language])) {
+            expect(await helper(only, text).count()).toBe(0);
+            expect(await only.view.getByText(text, { exact: true }).count()).toBe(0);
+          }
+        }
       },
       TEST_TIMEOUT_MS,
     );
@@ -141,9 +153,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const { run, board } = await onePerViewBoard(start);
         const navigator = board.view.getByRole("navigation", { name: "Question navigator" });
         await navigator.getByText("Question 1 of 5", { exact: true }).waitFor();
-        expect(
-          await navigator.getByRole("button", { name: /^(Next open|Prossima aperta)/ }).count(),
-        ).toBe(0);
+        expect(await navigator.locator("[data-askboard-next-to-do]").count()).toBe(0);
         expect(await jump(board).count()).toBe(1);
         const next = navigator.getByRole("button", { name: "Next", exact: true });
         await yes(board, "q1");
@@ -219,9 +229,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       async () => {
         const { board } = await open(start, "sections", { language: "it-IT" });
         await board.question("q4").getByLabel("Ticket").fill("ab-1234");
-        const rispondi = board
-          .question("q4")
-          .getByRole("button", { name: "Rispondi", exact: true });
+        const rispondi = board.question("q4").locator("[data-askboard-primary]");
         await board
           .question("q4")
           .getByRole("button", { name: "Completa prima Nome del servizio." })
@@ -283,7 +291,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await eventually(async () => (await reasonOf(board, "q4").count()) === 0, "no reason");
         await eventually(() => answerOf(board, "q4").isEnabled(), "Answer enabled");
         expect((await descriptionOf(answerOf(board, "q4"))).text).toBe("");
-        expect(await buttonOf(board, "q4", "Postpone").isEnabled()).toBe(true);
+        expect(await postponeOf(board, "q4").isEnabled()).toBe(true);
       },
       TEST_TIMEOUT_MS,
     );

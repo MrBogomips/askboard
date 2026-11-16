@@ -1,14 +1,15 @@
 // The configuration (owner `ask-core`, AD-14; settings-languages design decision 2): one schema for
 // the user file and the project file. `ask-core` is the one reader: it validates each file, merges
 // them key by key and applies the rules a schema cannot say. keyboard-shortcuts-help's minor adds
-// `keys`, the user's key overrides.
+// `keys`, the user's key overrides. answering-flow-guidance's minor adds the presentation key
+// `afterAnswer`, where the board goes after an answer.
 
 import type { KeyOverrides } from "../../keys/notation.ts";
 import { SNAPSHOT_FOLDER } from "../../project-folder.ts";
 import type { SchemaSet } from "../../versions.ts";
 import config from "./config.json" with { type: "json" };
 
-export const CONFIGURATION_VERSION = "1.1";
+export const CONFIGURATION_VERSION = "1.2";
 
 export const configurationSet: SchemaSet = {
   name: "configuration",
@@ -19,7 +20,7 @@ export const configurationSet: SchemaSet = {
 };
 
 /** The keys a board may write into the user file; every other key is read-only on a board. */
-export const PRESENTATION_KEYS = ["theme", "density", "contextPlacement"] as const;
+export const PRESENTATION_KEYS = ["theme", "density", "contextPlacement", "afterAnswer"] as const;
 
 /** AD-14's keys, in the schema's order: the presentation keys, then the behaviour keys. */
 export const CONFIGURATION_KEYS = [
@@ -38,12 +39,14 @@ export type ConfigurationKey = (typeof CONFIGURATION_KEYS)[number];
 export type ThemePreference = "system" | "light" | "dark";
 export type Density = "compact" | "comfortable";
 export type ContextPlacement = "beside" | "inline";
+export type AfterAnswer = "next" | "stay";
 
 /** Each known key's value. */
 export type ConfigurationValues = {
   readonly theme: ThemePreference;
   readonly density: Density;
   readonly contextPlacement: ContextPlacement;
+  readonly afterAnswer: AfterAnswer;
   readonly defaultLanguage: "en-US" | "it-IT";
   /** E4's asking rules (AD-16). */
   readonly askingRule: "none" | "always" | "with-references";
@@ -70,6 +73,7 @@ export const CONFIGURATION_DEFAULTS = {
   theme: "system",
   density: "compact",
   contextPlacement: "beside",
+  afterAnswer: "next",
   defaultLanguage: "en-US",
   askingRule: "none",
   snapshotFolder: SNAPSHOT_FOLDER,

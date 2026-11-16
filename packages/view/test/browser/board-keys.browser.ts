@@ -15,6 +15,7 @@ import {
   type Presentation,
   threeChoicesAsk,
 } from "./fixtures/board-keys-asks.ts";
+import { guidanceAsk } from "./fixtures/guidance-asks.ts";
 import {
   eventually,
   expectNoCspProblem,
@@ -26,6 +27,7 @@ import {
 import type { Board } from "./harness/dom.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import {
+  actsSent,
   answerOf,
   card,
   headingOf,
@@ -33,6 +35,7 @@ import {
   noteOf,
   openBoard,
   optionOf,
+  postponeOf,
   tabTo,
 } from "./harness/lifecycle-test.ts";
 import { viewSettled } from "./harness/probes.ts";
@@ -279,7 +282,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await board.page.keyboard.press("?");
         await boardPanel(board).waitFor({ timeout: STEP_TIMEOUT_MS });
         const text = (await boardPanel(board).textContent()) ?? "";
-        expect(text).toContain("Previous open");
+        expect(text).toContain("Previous to do");
         expect(text).toContain("Sending all held answers has no key.");
         await board.page.keyboard.press("Escape");
         await boardPanel(board).waitFor({ state: "hidden", timeout: STEP_TIMEOUT_MS });
@@ -293,14 +296,14 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       async () => {
         const { board } = await open(start, "sections");
         expect(await keysButton(board).getAttribute("aria-keyshortcuts")).toBe("?");
-        // After "Next open" and before the quick toggles' "Settings".
+        // After "Next to do" and before the quick toggles' "Settings".
         const x = async (locator: Locator): Promise<number> => {
           const box = await locator.boundingBox();
           if (box === null) throw new Error(`no box for ${locator}`);
           return box.x;
         };
         const banner = board.view.getByRole("banner");
-        const jump = banner.getByRole("button", { name: /^Next open/ });
+        const jump = banner.locator("[data-askboard-next-to-do]");
         const settings = banner.getByRole("button", { name: "Settings", exact: true });
         expect(await x(jump)).toBeLessThan(await x(keysButton(board)));
         expect(await x(keysButton(board))).toBeLessThan(await x(settings));
@@ -319,7 +322,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const { board } = await open(start, "sections", {
           user: { version: "1.0", keys: { "board.nextOpen": ["j"] } },
         });
-        const jump = board.view.getByRole("banner").getByRole("button", { name: /^Next open/ });
+        const jump = board.view.getByRole("banner").locator("[data-askboard-next-to-do]");
         await eventually(async () => (await jump.getAttribute("aria-keyshortcuts")) === "J", "J");
         const option = await focusOption(board, "q1");
         await expectKeyIgnored(board, "n", option);
@@ -351,13 +354,10 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
-      "one question per view: the header's Next open, pressed first, shows the second question",
+      "one question per view: the header's Next to do, pressed first, shows the second question",
       async () => {
         const { board } = await open(start, "one-per-view");
-        await board.view
-          .getByRole("banner")
-          .getByRole("button", { name: /^Next open/ })
-          .click();
+        await board.view.getByRole("banner").locator("[data-askboard-next-to-do]").click();
         await expectClearOfBars(board, "q2");
         expect(await card(board, "q2").isVisible()).toBe(true);
         expect(await card(board, "q1").isVisible()).toBe(false);
@@ -377,7 +377,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         }
         await viewSettled(board);
         const option = await focusOption(board, "q1");
-        const jump = board.view.getByRole("banner").getByRole("button", { name: /^Next open/ });
+        const jump = board.view.getByRole("banner").locator("[data-askboard-next-to-do]");
         await eventually(() => jump.isDisabled(), "the jump disabled");
         await expectKeyIgnored(board, "n", option);
         await expectKeyIgnored(board, "Shift+N", option);
@@ -410,11 +410,11 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       "the jump's tooltip, reached by Tab, shows its name with N, and aria-keyshortcuts is N",
       async () => {
         const { board } = await open(start, "sections");
-        const jump = board.view.getByRole("banner").getByRole("button", { name: /^Next open/ });
+        const jump = board.view.getByRole("banner").locator("[data-askboard-next-to-do]");
         await tabTo(board, jump);
         const tooltip = board.view.getByRole("tooltip");
         await tooltip.waitFor({ state: "visible", timeout: STEP_TIMEOUT_MS });
-        expect(await tooltip.textContent()).toContain("Next open");
+        expect(await tooltip.textContent()).toContain("Next to do");
         expect(await tooltip.locator("kbd").allTextContents()).toEqual(["N"]);
         expect(await jump.getAttribute("aria-keyshortcuts")).toBe("N");
       },
@@ -430,8 +430,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await boardPanel(board).waitFor({ timeout: STEP_TIMEOUT_MS });
         const rows = boardPanel(board).locator("li");
         const wanted = [
-          ["Next open", /^N$/],
-          ["Previous open", /^(Shift\+N|⇧N)$/],
+          ["Next to do", /^N$/],
+          ["Previous to do", /^(Shift\+N|⇧N)$/],
           ["Answer the question in focus", /^(Ctrl\+Enter|⌘↩)$/],
           ["Send the follow-up", /^(Ctrl\+Enter|⌘↩)$/],
         ] as const;
@@ -456,7 +456,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const { board } = await open(start, "sections", {
           user: { version: "1.0", keys: { "board.nextOpen": ["j"] } },
         });
-        const jump = board.view.getByRole("banner").getByRole("button", { name: /^Next open/ });
+        const jump = board.view.getByRole("banner").locator("[data-askboard-next-to-do]");
         await eventually(async () => (await jump.getAttribute("aria-keyshortcuts")) === "J", "J");
         await tabTo(board, jump);
         const tooltip = board.view.getByRole("tooltip");
@@ -464,14 +464,81 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(await tooltip.locator("kbd").allTextContents()).toEqual(["J"]);
         await keysButton(board).click();
         await boardPanel(board).waitFor({ timeout: STEP_TIMEOUT_MS });
-        const row = boardPanel(board).locator("li").filter({ hasText: "Next open" });
+        const row = boardPanel(board).locator("li").filter({ hasText: "Next to do" });
         expect(await row.textContent()).toContain("customised");
         expect(await row.locator("kbd").allTextContents()).toEqual(["J"]);
-        const other = boardPanel(board).locator("li").filter({ hasText: "Previous open" });
+        const other = boardPanel(board).locator("li").filter({ hasText: "Previous to do" });
         expect(await other.textContent()).not.toContain("customised");
       },
       TEST_TIMEOUT_MS,
     );
+
+    test(
+      "postponed questions last: Shift+N reaches question 2, which is to do, then question 3, which is postponed",
+      async () => {
+        const run = await start(lifecycleScenario(guidanceAsk(5, { suffix: "k1" }), dist));
+        const ids = ["p1", "p2", "p3", "p4", "p5"];
+        const board = await openBoard(run, ids);
+        await postponeOf(board, "p3").click({ timeout: STEP_TIMEOUT_MS });
+        await eventually(
+          async () =>
+            (await card(board, "p3")
+              .locator("[data-askboard-state]")
+              .getAttribute("data-askboard-state")) === "postponed",
+          "p3 postponed",
+        );
+        for (const [at, id] of ["p1", "p4", "p5"].entries()) {
+          await optionOf(board, id, "Yes").check({ timeout: STEP_TIMEOUT_MS });
+          await answerOf(board, id).click({ timeout: STEP_TIMEOUT_MS });
+          await actsSent(run, at + 2);
+        }
+        // The board moved on to question 2 with a smooth scroll: wait for the move to end, then rest
+        // the focus on question 5's heading, which the key leaves alone.
+        await eventually(
+          async () => (await board.view.locator("[data-askboard-arrived]").count()) === 0,
+          "the arrival mark gone",
+        );
+        await headingOf(board, "p5").focus();
+        await eventually(
+          async () =>
+            (await board.view
+              .locator('[data-askboard-outline="p5"]')
+              .getAttribute("aria-current")) === "true",
+          "p5 in view",
+        );
+        await watchKeys(board);
+        await viewSettled(board);
+        await board.page.keyboard.press("Shift+N");
+        await expectClearOfBars(board, "p2");
+        await viewSettled(board);
+        await board.page.keyboard.press("Shift+N");
+        await expectClearOfBars(board, "p3");
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    for (const [language, title, name] of [
+      ["en-US", "Board keys", "Previous to do"],
+      ["it-IT", "Tasti della board", "Precedente da fare"],
+    ] as const) {
+      test(
+        `the keys panel names the action of Shift+N ${name} in ${language}`,
+        async () => {
+          const ask = { ...boardKeysAsk("sections", `n-${language}`), language };
+          const run = await start(lifecycleScenario(ask, dist));
+          const board = await openBoard(run, IDS);
+          await board.view.getByRole("banner").getByRole("button").last().waitFor();
+          await focusOption(board, "q1");
+          await board.page.keyboard.press("?");
+          const dialog = board.view.getByRole("dialog", { name: title });
+          await dialog.waitFor({ timeout: STEP_TIMEOUT_MS });
+          const row = dialog.locator("li").filter({ hasText: name });
+          expect(await row.count()).toBe(1);
+          expect((await row.locator("kbd").allTextContents()).join("")).toMatch(/^(Shift\+N|⇧N)$/);
+        },
+        TEST_TIMEOUT_MS,
+      );
+    }
 
     test(
       "an ended board has no Keys button",

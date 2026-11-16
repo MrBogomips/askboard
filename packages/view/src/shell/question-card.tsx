@@ -30,6 +30,7 @@ import { type Rendered, renderedOf } from "../catalog/components.ts";
 import { questionTextId, type ReasonStrings, useLanguage, useStrings } from "../catalog/port.ts";
 import type { ViewQuestion } from "../view-document.ts";
 import type { ViewLock } from "../view-protocol.ts";
+import type { ActResult } from "./after-answer.ts";
 import {
   changeCountOf,
   changePending,
@@ -49,7 +50,7 @@ import {
   itemIdsOf,
   type QuestionWork,
 } from "./board-draft.ts";
-import { markOf } from "./board-view.ts";
+import { type Ladder, markLabel, markOf } from "./board-view.ts";
 import {
   type AnswerContext,
   type AnswerOutcome,
@@ -72,10 +73,12 @@ import type { ViewChannel } from "./channel.ts";
 import { ContextColumn } from "./context-column.tsx";
 import { couldSplit, layoutOf } from "./context-layout.ts";
 import { fieldToFixOf, holdsBlock } from "./field-block.ts";
+import type { Flow, FlowAct } from "./flow.ts";
 import { focusField } from "./focus-field.ts";
-import { QuestionMarker } from "./markers.tsx";
+import type { Footer, SentRecords } from "./guided-flow.ts";
 import type { OpenedSnapshot } from "./opened-snapshot.ts";
 import { ActionsRow } from "./question-actions.tsx";
+import { QuestionFooter } from "./question-footer.tsx";
 import {
   type CardState,
   cardActions,
@@ -93,6 +96,7 @@ import {
   type Confirmation,
   confirmationOf,
   type FocusTarget,
+  loggedReceiptOf,
   settleConfirmation,
 } from "./revision-confirm.ts";
 import type { SizeNotices } from "./size-notices.ts";
@@ -111,7 +115,7 @@ import {
   TEXT_FIELD_INVALID,
 } from "./styles.ts";
 import { Thread, type ThreadRequests } from "./thread.tsx";
-import { explainPending } from "./thread-text.ts";
+import { explainPending, timeOf } from "./thread-text.ts";
 import { useBoardKeyTable } from "./use-board-keys.ts";
 
 export type CardContext = RenderContext & {
@@ -127,12 +131,18 @@ export type CardContext = RenderContext & {
   readonly threads: ThreadRequests;
   /** Requests for a card to ask for its reason, which Submit makes (design decision 6). */
   readonly reasons: ReasonRequests;
+  /** When each question's note alone was sent (ISO instant), kept in the page's memory only. */
+  readonly noteSent: Store<ReadonlyMap<string, string>>;
   /** The lines for a message too large: an answer or a Submit not sent, a draft left out. */
   readonly notices?: SizeNotices;
   /** Set when the page is an opened Snapshot: every card is read-only and offers no act. */
   readonly opened?: OpenedSnapshot | undefined;
   /** What the board says to a screen reader; the answer key says why it sent nothing. */
   readonly status?: Pick<StatusMessages, "announce">;
+  /** The footer of the card the board stayed on, with "Stay here" (answering-flow-guidance, decision 3). */
+  readonly footer: Store<Footer | undefined>;
+  /** What the flow recorded at each act for the messages its command says once sent (decision 7). */
+  readonly recorded: SentRecords;
 };
 
 type CardProps = {
@@ -143,9 +153,13 @@ type CardProps = {
   readonly delivery: Delivery;
   /** The single-question board, whose "Answer" is its only primary. */
   readonly single: boolean;
+  /** The board's ladder inputs: the one source of every surface's state (decision 1). */
+  readonly ladder: Ladder;
   /** The question's heading level: 3 under an area's heading. */
   readonly level?: 2 | 3;
   readonly context: CardContext;
+  /** What follows an act: the move to the next question to do, or the footer (decision 3). */
+  readonly flow: Flow;
 };
 
 // What the card follows while the board has no results store.
@@ -302,10 +316,13 @@ const extrasOf = (
 const OptionsLabel = ({
   question,
   disabled,
+  offered,
   onAccept,
 }: {
   readonly question: ViewQuestion;
   readonly disabled: boolean;
+  /** Whether the question is to do or in draft (a revision being edited included): none once it is answered, ready or declined. */
+  readonly offered: boolean;
   /** Pressed on `control`, the button, which a confirmation gives focus back to. */
   readonly onAccept: (control: HTMLElement) => void;
 }) => {
@@ -315,7 +332,8 @@ const OptionsLabel = ({
       <p className={SECTION_LABEL}>
         {text(question.props.multiSelect === true ? "question.options" : "question.optionsPickOne")}
       </p>
-      {question.props.options?.some((option) => option.recommended === true) !== true ? null : (
+      {!offered ||
+      question.props.options?.some((option) => option.recommended === true) !== true ? null : (
         <button
           type="button"
           className={BUTTON_LINK}
@@ -338,9 +356,12 @@ const OpenPrompt = ({
   readOnly,
   reason,
   error,
+  sentAt,
   onChange,
 }: {
   readonly questionId: string;
+  /** When the note alone was sent, if it was: "Note sent {time}" shows under the field. */
+  readonly sentAt: string | undefined;
   readonly note: string;
   readonly readOnly: boolean;
   /** The strings of the reason the answer requires, if it requires one. */
@@ -350,6 +371,7 @@ const OpenPrompt = ({
   readonly onChange: (text: string) => void;
 }) => {
   const text = useStrings();
+  const language = useLanguage();
   const errorId = `${noteFieldId(questionId)}:error`;
   return (
     <div className="flex flex-col gap-1">
@@ -373,12 +395,17 @@ const OpenPrompt = ({
           {text(reason.missing)}
         </p>
       ) : null}
+      {sentAt === undefined ? null : (
+        <p data-askboard-note-sent="" className="text-badge text-muted-foreground">
+          {text("question.noteSentAt", { time: timeOf(sentAt, language) })}
+        </p>
+      )}
     </div>
   );
 };
 
 export const QuestionCard = (props: CardProps) => {
-  const { question, state, lock, delivery, single, context, level = 2 } = props;
+  const { question, state, lock, delivery, single, context, ladder, flow, level = 2 } = props;
   const Heading = level === 3 ? "h3" : "h2";
   const language = useLanguage();
   const text = useStrings();
@@ -432,7 +459,14 @@ export const QuestionCard = (props: CardProps) => {
     asking("needs-reason");
   }, [requested, question.id, context.reasons, asking]);
   const { header, text: questionText } = shown.props;
-  const mark = markOf(question.id, state, context.board.get().questions);
+  const mark = markOf(question.id, state, context.board.get().questions, ladder);
+  const noteSentAt = useSyncExternalStore(context.noteSent.subscribe, () =>
+    context.noteSent.get().get(question.id),
+  );
+  const footer = useSyncExternalStore(context.footer.subscribe, () => {
+    const held = context.footer.get();
+    return held?.from === question.id ? held : undefined;
+  });
   // An answer or decline names the revision the work was made on; the other acts the current one.
   // Its gates read the revision the card shows (document-review, design decision 15; Issue #92).
   const acting: AnswerContext = {
@@ -442,6 +476,27 @@ export const QuestionCard = (props: CardProps) => {
     shownOf: () => shown,
   };
   const focusHeading = focusHeadingOf(question.id);
+  // What follows an act (decision 3): asked of the flow at the act, and run at once, or for Decline
+  // once the More menu has closed. A move or a footer takes the focus itself; the other outputs
+  // leave it to the card (the question's heading, as the base's decision 1 says).
+  const moved = useRef(false);
+  const deferred = useRef<(() => void) | undefined>(undefined);
+  const revisionNow = status?.state === "answered" || status?.state === "declined";
+  const runFlow = (act: FlowAct, result: ActResult, undo = false, defer = false) => {
+    const { output, run } = flow.act(question.id, act, result, { revision: revisionNow, undo });
+    // "complete" waits for the panel, which shows once the receipts are logged: the heading keeps
+    // the focus until then, so it never falls to the page.
+    moved.current = output.kind !== "stay" && output.kind !== "complete";
+    if (defer) deferred.current = run;
+    else run();
+  };
+  // "Decline" went through and the menu has closed: the flow's move, else the question's heading.
+  const afterMenu = () => {
+    const run = deferred.current;
+    deferred.current = undefined;
+    run?.();
+    if (!moved.current) focusHeading();
+  };
   // "Answer" and Decline on a verdict the agent has received wait for the user's confirmation, in
   // a modal dialog (design decision 6): confirming acts as the button does, Cancel changes nothing.
   // The dialog has no trigger, so Radix restores no focus: the confirmation keeps the control
@@ -456,21 +511,37 @@ export const QuestionCard = (props: CardProps) => {
     return next === undefined;
   };
   // "Answer", and "Accept recommended" once it has selected, take one path: the reason check, then
-  // the confirmation, then the act.
+  // the confirmation, then the act, and what follows it.
   const onAnswer = (control: HTMLElement) => {
     outcomeOfPress.current = undefined;
-    const pressed = pressAnswer(question, acting, status, asking);
+    moved.current = false;
+    const pressed = pressAnswer(question, acting, status, (outcome) => {
+      asking(outcome);
+      if (outcome !== "needs-reason") runFlow("answer", outcome);
+    });
     if (pressed.kind === "needs-reason") asking("needs-reason");
-    // An answer sent at once moves focus to the heading when the act is taken, never when its
-    // command settles (answering-flow-fixes, design decision 1); marking ready keeps it on "Answer".
-    if (pressed.kind === "done" && sentResult(outcomeOfPress.current)) focusHeading();
+    // An answer sent at once moves focus when the act is taken, never when its command settles
+    // (answering-flow-fixes, design decision 1): to the next question or "Continue" when the flow
+    // moves, else to the heading; marking ready keeps it on "Answer".
+    if (pressed.kind === "done" && sentResult(outcomeOfPress.current) && !moved.current) {
+      focusHeading();
+    }
     chosen.current = false;
     setWaiting(
       confirmationOf("answer", pressed.kind === "waiting" ? pressed.waiting : undefined, control),
     );
   };
   const onDecline = (control: HTMLElement | undefined) =>
-    askDecline(control, () => decline(question, status?.state, acting));
+    askDecline(control, () => {
+      const taken = decline(question, status?.state, acting);
+      runFlow("decline", taken === undefined ? undefined : "took-effect", taken === "undone", true);
+    });
+  const onPostpone = () => {
+    moved.current = false;
+    const taken = postpone(question, status?.state, acting);
+    runFlow("postpone", taken === undefined ? undefined : "took-effect", taken === "undone");
+    if (!moved.current) focusHeading();
+  };
   const focusAfterClose = () => {
     const target = afterClose.current;
     afterClose.current = undefined;
@@ -485,6 +556,8 @@ export const QuestionCard = (props: CardProps) => {
   // reverses molecules decision 11's "no value is seeded").
   const seeding = useRef(false);
   const revise = () => {
+    // An edit to the question ends the footer of "Stay here" (decision 3).
+    if (context.footer.get()?.from === question.id) context.footer.set(undefined);
     if (status?.state !== "answered" || seeding.current) return;
     const held = context.results?.record();
     const typed = entriesWithCells(context.entries?.record(), context.cellEntries?.record());
@@ -569,6 +642,7 @@ export const QuestionCard = (props: CardProps) => {
           <OptionsLabel
             question={shown}
             disabled={readOnly || pending || blocked}
+            offered={mark === "todo" || mark === "draft"}
             onAccept={(control) => {
               revise();
               selectRecommendedOption(shown, acting);
@@ -608,6 +682,7 @@ export const QuestionCard = (props: CardProps) => {
     <section
       ref={section}
       data-askboard-question={question.id}
+      data-askboard-logged-receipt={loggedReceiptOf(status)}
       aria-busy={load === "loading"}
       aria-labelledby={questionTextId(question.id)}
       className="flex flex-col gap-md rounded-lg border border-border bg-card p-lg"
@@ -637,10 +712,9 @@ export const QuestionCard = (props: CardProps) => {
           }}
         />
       )}
-      {header === undefined && mark === "unanswered" ? null : (
+      {header === undefined ? null : (
         <div className="flex items-center gap-sm">
-          {mark === "unanswered" ? null : <QuestionMarker mark={mark} />}
-          {header === undefined ? null : <span className={CHIP}>{header}</span>}
+          <span className={CHIP}>{header}</span>
         </div>
       )}
       {split ? (
@@ -667,6 +741,7 @@ export const QuestionCard = (props: CardProps) => {
             readOnly={readOnly}
             reason={reason}
             error={reasonError}
+            sentAt={noteSentAt}
             onChange={(note) => {
               revise();
               context.board.edit(question.id, question.rev, ({ note: _, ...rest }) =>
@@ -676,6 +751,7 @@ export const QuestionCard = (props: CardProps) => {
           />
           <ActionsRow
             opened={opened}
+            mark={mark}
             card={card}
             actions={actions}
             fieldToFix={fieldToFix}
@@ -688,11 +764,18 @@ export const QuestionCard = (props: CardProps) => {
             single={single}
             submitted={!single && delivery === "submitted"}
             onAnswer={onAnswer}
-            onPostpone={() => postpone(question, status?.state, acting)}
+            onPostpone={onPostpone}
             onExplain={() => explain(question, acting, language)}
             onDecline={onDecline}
-            focusHeading={focusHeading}
+            onMenuClosed={afterMenu}
           />
+          {footer === undefined ? null : (
+            <QuestionFooter
+              footer={footer}
+              state={markLabel(mark, language)}
+              onContinue={() => flow.proceed()}
+            />
+          )}
           <Thread
             questionId={question.id}
             thread={status?.thread}

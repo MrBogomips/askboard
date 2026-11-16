@@ -22,10 +22,10 @@ const rendered = (language?: Locale): string =>
 
 describe("the port's language", () => {
   test("is en-US when nothing provides one", () => {
-    expect(rendered()).toBe("en-US: Answer · 2 messages");
+    expect(rendered()).toBe("en-US: Send answer · 2 messages");
   });
 
   test("is the one the board provides", () => {
-    expect(rendered("it-IT")).toBe("it-IT: Rispondi · 2 messaggi");
+    expect(rendered("it-IT")).toBe("it-IT: Invia risposta · 2 messaggi");
   });
 });

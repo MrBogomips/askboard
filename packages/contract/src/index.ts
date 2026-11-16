@@ -1211,3 +1211,7 @@ export {
   BOARD_PART,
   type BoardKeyAction,
 } from "./keys/index.ts";
+
+// The after-answer presentation key's value type (answering-flow-guidance, task 1.1).
+
+export type { AfterAnswer } from "./schemas/configuration/index.ts";

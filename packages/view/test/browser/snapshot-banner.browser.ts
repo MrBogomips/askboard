@@ -91,7 +91,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           .waitFor({ timeout: STEP_TIMEOUT_MS });
         const view = board.view;
         await eventually(async () => (await view.getByText(/\d+ open/).count()) === 0, "no count");
-        expect(await view.getByRole("button", { name: /Next open/ }).count()).toBe(0);
+        expect(await view.locator("[data-askboard-next-to-do]").count()).toBe(0);
         expect(await board.agentPill.count()).toBe(0);
         const follow = view.getByRole("button", { name: "Ask a follow-up" }).first();
         expect(await follow.isDisabled()).toBe(true);

@@ -3,6 +3,16 @@
 // state relies on colour alone. Markers are decoration (`aria-hidden`); their state is always in
 // text beside them.
 
+import {
+  IconDeclined,
+  IconDelivered,
+  IconDraft,
+  IconNotSentYet,
+  IconPostponed,
+  IconReady,
+  IconSent,
+  IconToDo,
+} from "../icons/index.ts";
 import type { Mark, AskPill as Pill } from "./board-view.ts";
 
 const PILLS: Readonly<Record<Pill["kind"], { pill: string; marker: string }>> = {
@@ -48,45 +58,34 @@ export const AskPill = ({ pill }: { readonly pill: Pill }) => {
   );
 };
 
-/** A question's marker: the ask markers for unanswered and answered, then held, postponed, declined. */
-export const QuestionMarker = ({ mark }: { readonly mark: Mark }) => {
-  switch (mark) {
-    case "unanswered":
-      return (
-        <span
-          aria-hidden="true"
-          className="size-2 shrink-0 rounded-full border border-ask-waiting"
-        />
-      );
-    case "answered":
-      return <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-ask-answered" />;
-    case "ready":
-      // A dot in a ring (`question-marker-held`).
-      return (
-        <span
-          aria-hidden="true"
-          className="flex size-2.5 shrink-0 items-center justify-center rounded-full border border-ask-answered"
-        >
-          <span className="size-1 rounded-full bg-ask-answered" />
-        </span>
-      );
-    case "postponed":
-      // Two short bars (`question-marker-postponed`).
-      return (
-        <span aria-hidden="true" className="flex h-2 shrink-0 gap-0.5">
-          <span className="h-2 w-0.5 bg-muted-foreground" />
-          <span className="h-2 w-0.5 bg-muted-foreground" />
-        </span>
-      );
-    case "declined":
-      // A slashed ring (`question-marker-declined`).
-      return (
-        <span
-          aria-hidden="true"
-          className="relative flex size-2.5 shrink-0 items-center justify-center rounded-full border border-foreground-secondary"
-        >
-          <span className="h-px w-2.5 -rotate-45 bg-foreground-secondary" />
-        </span>
-      );
-  }
+// The icon and the colour of each state of the ladder (DESIGN.md, Markers; design decision 11).
+const MARKS = {
+  todo: { Icon: IconToDo, tone: "text-ask-waiting" },
+  draft: { Icon: IconDraft, tone: "text-ask-partial" },
+  ready: { Icon: IconReady, tone: "text-ask-answered" },
+  "not-sent-yet": { Icon: IconNotSentYet, tone: "text-foreground-secondary" },
+  sent: { Icon: IconSent, tone: "text-ask-partial" },
+  delivered: { Icon: IconDelivered, tone: "text-ask-answered" },
+  postponed: { Icon: IconPostponed, tone: "text-muted-foreground" },
+  declined: { Icon: IconDeclined, tone: "text-foreground-secondary" },
+} as const satisfies Record<Mark, { Icon: unknown; tone: string }>;
+
+/**
+ * A question's marker: the icon of its state of the ladder, so that none relies on colour alone
+ * (DESIGN.md, Markers): a ring for To do, a pencil for Draft, a parcel for Ready, an hourglass for
+ * Not sent yet, a paper plane for Sent, two ticks for Delivered, a clock for Postponed, a barred
+ * circle for Declined. Decoration (`aria-hidden`): the state is always in text beside it.
+ */
+export const QuestionMarker = ({
+  mark,
+  inControl = false,
+}: {
+  readonly mark: Mark;
+  /** Drawn inside a button, beside its own label: not the state line's marker, so no hook. */
+  readonly inControl?: boolean;
+}) => {
+  const { Icon, tone } = MARKS[mark];
+  // The test hook names the marker beside a state's label (`data-askboard-marker`, decision 5).
+  const hook = inControl ? {} : { "data-askboard-marker": mark };
+  return <Icon {...hook} className={`size-3.5 shrink-0 ${tone}`} />;
 };

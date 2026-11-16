@@ -60,6 +60,7 @@ import {
   mirrored,
   openBoard,
   optionOf,
+  receiptOf,
   sentActs,
   sentDrafts,
 } from "./harness/lifecycle-test.ts";
@@ -205,9 +206,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         expect(item.questionId).toBe("plan");
         expect(item.state).toBe("answered");
         expect(item.result).toEqual({ annotations });
-        await card(board, "plan")
-          .getByText("delivered to the agent", { exact: true })
-          .waitFor({ timeout: STEP_TIMEOUT_MS });
+        await receiptOf(board, "plan", "delivered").waitFor({ timeout: STEP_TIMEOUT_MS });
         expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,
@@ -402,8 +401,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await eventually(() => answerOf(board, "plan").isEnabled(), "Answer to be enabled");
         await answerOf(board, "plan").click({ timeout: STEP_TIMEOUT_MS });
         await mirrored(run, (record) => record.questions.plan?.held?.act === "answer", "held");
-        await eventually(async () => !(await barButton(board, "Submit").isDisabled()), "Submit");
-        await barButton(board, "Submit").click({ timeout: STEP_TIMEOUT_MS });
+        await eventually(async () => !(await board.submit.isDisabled()), "Submit");
+        await board.submit.click({ timeout: STEP_TIMEOUT_MS });
         await eventually(
           () => sentActs(run).some((each) => each.acts.some((act) => act.type === "answer")),
           "the answer to be sent",
@@ -570,8 +569,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await answerOf(board, "plan").click({ timeout: STEP_TIMEOUT_MS });
         await mirrored(run, (record) => record.questions.plan?.held?.act === "answer", "held");
         expect(await hintOf(board)).toBeUndefined();
-        await eventually(async () => !(await barButton(board, "Submit").isDisabled()), "Submit");
-        await barButton(board, "Submit").click({ timeout: STEP_TIMEOUT_MS });
+        await eventually(async () => !(await board.submit.isDisabled()), "Submit");
+        await board.submit.click({ timeout: STEP_TIMEOUT_MS });
         await eventually(
           () => sentActs(run).some((each) => each.acts.some((act) => act.type === "answer")),
           "the answer to be sent",
@@ -587,7 +586,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
-      "Select recommended marks a question holding that read-only Document review ready, rather than skipping it",
+      "Prefill recommended selects the option of a question holding that read-only Document review, rather than skipping it, and the user's confirm marks it ready",
       async () => {
         const first = database("plan");
         const ask = {
@@ -606,7 +605,10 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await choose(board, "Keep mine");
         await readOnlyLine(board);
         await eventually(async () => (await detached(board.view).count()) === 1, "the list");
-        await barButton(board, "Select recommended").click({ timeout: STEP_TIMEOUT_MS });
+        await board.prefill.click({ timeout: STEP_TIMEOUT_MS });
+        // The prefill fills drafts only: the user confirms each question to make it ready.
+        await answerOf(board, "plan").click({ timeout: STEP_TIMEOUT_MS });
+        await answerOf(board, "other").click({ timeout: STEP_TIMEOUT_MS });
         await mirrored(
           run,
           (record) =>

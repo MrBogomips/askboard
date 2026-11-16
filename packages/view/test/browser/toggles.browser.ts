@@ -8,7 +8,7 @@ import { twoAsk } from "./fixtures/lifecycle-asks.ts";
 import { eventually, STEP_TIMEOUT_MS, TEST_TIMEOUT_MS, useEngine } from "./harness/board-test.ts";
 import type { Board } from "./harness/dom.ts";
 import { enginesFrom } from "./harness/engines.ts";
-import { buttonOf, lifecycleScenario, openBoard } from "./harness/lifecycle-test.ts";
+import { answerOf, buttonOf, lifecycleScenario, openBoard } from "./harness/lifecycle-test.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 
 const dist = await readViewBuild();
@@ -50,7 +50,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       async () => {
         const run = await start(scenario({ user: file({ theme: "dark" }) }));
         const board = await openBoard(run, ["database", "cache"]);
-        await buttonOf(board, "database", "Answer").waitFor({ timeout: STEP_TIMEOUT_MS });
+        await answerOf(board, "database").waitFor({ timeout: STEP_TIMEOUT_MS });
         await theme(board).waitFor({ timeout: STEP_TIMEOUT_MS });
         const labels = async (group: ReturnType<typeof theme>) =>
           group.getByRole("radio").allTextContents();

@@ -35,17 +35,17 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       async () => {
         const run = await start(lifecycleScenario(submittedAsk, dist));
         const board = await openBoard(run, ["database", "cache", "audit"]);
-        await board.header.getByText("3 open", { exact: true }).waitFor();
+        await board.header.getByText("3 to do", { exact: true }).waitFor();
         await optionOf(board, "database", "SQLite").click();
         await answerOf(board, "database").click();
         await optionOf(board, "cache", "Yes").click();
         await answerOf(board, "cache").click();
         await board.header
-          .getByText("1 open", { exact: true })
+          .getByText("1 to do", { exact: true })
           .waitFor({ timeout: STEP_TIMEOUT_MS });
         expect(await board.header.getByText("Waiting", { exact: true }).count()).toBe(1);
         const outline = board.view.getByRole("navigation", { name: "Outline" });
-        expect(await outline.getByText("Ready", { exact: true }).count()).toBe(2);
+        expect(await outline.getByText("Ready, not sent", { exact: true }).count()).toBe(2);
         expect(sentActs(run)).toEqual([]);
         // Row 1 holds the title; row 2 the pill and the counts.
         await board.header.getByRole("heading", { name: "Release checklist" }).waitFor();
@@ -63,7 +63,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await board.header
           .getByText("Partly answered 1/4", { exact: true })
           .waitFor({ timeout: STEP_TIMEOUT_MS });
-        await board.header.getByText("3 open", { exact: true }).waitFor();
+        await board.header.getByText("3 to do", { exact: true }).waitFor();
         await run.session.update([
           {
             action: "add",
@@ -72,11 +72,11 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           },
         ]);
         await board.header
-          .getByText("4 open", { exact: true })
+          .getByText("4 to do", { exact: true })
           .waitFor({ timeout: STEP_TIMEOUT_MS });
         const outline = board.view.getByRole("navigation", { name: "Outline" });
         await outline.getByText("New", { exact: true }).waitFor({ timeout: STEP_TIMEOUT_MS });
-        await board.header.getByRole("button", { name: "Next open", exact: true }).click();
+        await board.header.locator("[data-askboard-next-to-do]").click();
         await eventually(
           () =>
             isFocused(
@@ -87,7 +87,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await outline
           .getByText("New", { exact: true })
           .waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
-        await board.header.getByRole("button", { name: "Next open", exact: true }).click();
+        await board.header.locator("[data-askboard-next-to-do]").click();
         await eventually(
           () => isFocused(card(board, "two").getByRole("heading", { name: "Question two?" })),
           "focus on the next open question's heading, wrapping",

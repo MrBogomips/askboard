@@ -55,6 +55,6 @@ export const snapshotPresentationOf = (opened: OpenedSnapshot): ViewPresentation
   const recorded: unknown = opened.presentation;
   if (typeof recorded !== "object" || recorded === null) return DEFAULT_PRESENTATION;
   const { theme, density } = recorded as { theme?: unknown; density?: unknown };
-  const candidate = { theme, density, contextPlacement: "beside", locked: [] };
+  const candidate = { theme, density, contextPlacement: "beside", afterAnswer: "next", locked: [] };
   return isPresentation(candidate) ? candidate : DEFAULT_PRESENTATION;
 };

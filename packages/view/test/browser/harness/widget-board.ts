@@ -11,7 +11,14 @@ import type { ViewDocument } from "../../../src/view-document.ts";
 import type { ViewMessage } from "../../../src/view-protocol.ts";
 import { useEngine } from "./board-test.ts";
 import type { Engine } from "./engines.ts";
-import { barButton, buttonOf, lifecycleScenario, openBoard, sentActs } from "./lifecycle-test.ts";
+import {
+  barButton,
+  buttonOf,
+  lifecycleScenario,
+  openBoard,
+  postponeOf,
+  sentActs,
+} from "./lifecycle-test.ts";
 import { type AskInput, askInputFor } from "./scenario-ask.ts";
 import { targetFrom } from "./target.ts";
 import type { ViewBuild } from "./view-build.ts";
@@ -82,8 +89,8 @@ const sessionHost =
         return events.filter((event) => event.type === "answer") as readonly LoggedAnswer[];
       },
       submit: async () => {
-        for (const { id } of others) await buttonOf(board, id, "Postpone").click();
-        await barButton(board, "Submit").click();
+        for (const { id } of others) await postponeOf(board, id).click();
+        await board.submit.click();
       },
       board,
       browser: run.browser,

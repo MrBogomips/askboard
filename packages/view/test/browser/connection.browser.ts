@@ -72,11 +72,11 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await first.receipt("sent").waitFor({ timeout: STEP_TIMEOUT_MS });
         await actsApplied(run, 1);
         await run.session.collected();
-        await first.receipt("delivered to the agent").waitFor({ timeout: STEP_TIMEOUT_MS });
+        await first.receipt("delivered").waitFor({ timeout: STEP_TIMEOUT_MS });
         const second = await run.open();
         await shows(first, MOVED);
         await first.continueHere.waitFor({ state: "visible", timeout: STEP_TIMEOUT_MS });
-        await second.receipt("delivered to the agent").waitFor({ timeout: STEP_TIMEOUT_MS });
+        await second.receipt("delivered").waitFor({ timeout: STEP_TIMEOUT_MS });
         await run.session.exit();
         await shows(second, DISCARDED);
         await expectNoReconnect(run, second);
@@ -165,7 +165,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await first.receipt("sent").waitFor({ timeout: STEP_TIMEOUT_MS });
         await actsApplied(run, 1);
         await run.session.collected();
-        await first.receipt("delivered to the agent").waitFor({ timeout: STEP_TIMEOUT_MS });
+        await first.receipt("delivered").waitFor({ timeout: STEP_TIMEOUT_MS });
         const second = await run.open();
         await shows(first, MOVED);
         expect(await enabledCount(first.options)).toBe(0);
@@ -174,7 +174,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await shows(second, MOVED);
         await second.continueHere.waitFor({ state: "visible", timeout: STEP_TIMEOUT_MS });
         await first.banner(MOVED).first().waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
-        await first.receipt("delivered to the agent").waitFor({ timeout: STEP_TIMEOUT_MS });
+        await first.receipt("delivered").waitFor({ timeout: STEP_TIMEOUT_MS });
         expect(await first.continueHere.count()).toBe(0);
         await expectNoReconnect(run, second);
         expectPageHalf(run, clicked);
@@ -191,7 +191,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await run.session.drop();
         await shows(board, CONNECTION_LOST);
         const clicked = await answerWith(board, "PostgreSQL");
-        await board.receipt("not sent yet").waitFor({ timeout: STEP_TIMEOUT_MS });
+        await board.receipt("queued").waitFor({ timeout: STEP_TIMEOUT_MS });
         // Long enough that an answer stamped when it is sent, not when the user acted, shows.
         await quiet(
           "an answer is stamped when it is sent, not when the user acted, only if time passes between the two",

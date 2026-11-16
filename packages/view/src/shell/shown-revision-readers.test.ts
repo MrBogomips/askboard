@@ -5,6 +5,7 @@
 // while the shown revision recommends an option. Every case differs between the two revisions.
 
 import { describe, expect, test } from "bun:test";
+import type { LifecycleBoardState } from "@askboard/contract";
 import { plainChoiceBoardDocument } from "@askboard/contract/fixtures";
 import type { ComponentFacts } from "../catalog/port.ts";
 import type { ViewDocument, ViewQuestion, WidgetItem } from "../view-document.ts";
@@ -12,7 +13,7 @@ import { createRevisions, shownOfBoard } from "./agent-change.ts";
 import { createBoardDraft } from "./board-draft.ts";
 import { startFromPrevious } from "./card-acts.ts";
 import { createDraftStore } from "./draft-store.ts";
-import { hasRecommendation } from "./submit.ts";
+import { prefillCountOf } from "./submit.ts";
 
 const [first] = plainChoiceBoardDocument.items;
 const field = (id: string, accepts: string): WidgetItem =>
@@ -96,23 +97,38 @@ describe("whether Select recommended shows, on the shown revision (row 26)", () 
     revisions.record(documentOf(before));
     revisions.record(documentOf(after));
     if (kept) board.edit("plan", before.rev, () => ({ rev: before.rev }));
-    return { document: documentOf(after), shownOf: shownOfBoard(board, revisions) };
+    return { document: documentOf(after), board, shownOf: shownOfBoard(board, revisions) };
   };
+  // Whether "Prefill recommended" has anything to fill: the question is open, and no choice is made.
+  const count = (
+    document: ReturnType<typeof documentOf>,
+    board: ReturnType<typeof createBoardDraft>,
+    shownOf?: ReturnType<typeof shownOfBoard>,
+  ) =>
+    prefillCountOf(
+      document,
+      {
+        ask: "waiting",
+        questions: [{ itemId: "plan", rev: 2, state: "open" }],
+      } as unknown as LifecycleBoardState,
+      { draft: createDraftStore(), board, shownOf },
+      () => false,
+    ) > 0;
 
   test("holds when only the shown revision recommends", () => {
-    const { document, shownOf } = shownOver(recommending, plain, true);
-    expect(hasRecommendation(document)).toBe(false);
-    expect(hasRecommendation(document, shownOf)).toBe(true);
+    const { document, board, shownOf } = shownOver(recommending, plain, true);
+    expect(count(document, board)).toBe(false);
+    expect(count(document, board, shownOf)).toBe(true);
   });
 
   test("does not hold when only revision 2 recommends", () => {
-    const { document, shownOf } = shownOver(questionOf([], 1), recommending2, true);
-    expect(hasRecommendation(document)).toBe(true);
-    expect(hasRecommendation(document, shownOf)).toBe(false);
+    const { document, board, shownOf } = shownOver(questionOf([], 1), recommending2, true);
+    expect(count(document, board)).toBe(true);
+    expect(count(document, board, shownOf)).toBe(false);
   });
 
   test("with no work the current revision decides", () => {
-    const { document, shownOf } = shownOver(recommending, plain, false);
-    expect(hasRecommendation(document, shownOf)).toBe(false);
+    const { document, board, shownOf } = shownOver(recommending, plain, false);
+    expect(count(document, board, shownOf)).toBe(false);
   });
 });

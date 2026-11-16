@@ -57,7 +57,8 @@ import type { DerivedStore } from "./derived-store.ts";
 import type { DraftStore } from "./draft-store.ts";
 import { entryIdsOf } from "./entries.ts";
 import { holdsBlock } from "./field-block.ts";
-import { sentMessageOf } from "./flow-messages.ts";
+import { commandSentMessagesOf } from "./flow-messages.ts";
+import type { SentRecords } from "./guided-flow.ts";
 import {
   type AnswerRole,
   answerOf,
@@ -80,6 +81,8 @@ export type Senders = {
   readonly notices?: SizeNotices;
   /** What the board says to a screen reader about an act that went out (answering-flow-fixes, #182). */
   readonly status?: Pick<StatusMessages, "announce">;
+  /** What the flow recorded at each act for the messages its command says once sent (decision 7). */
+  readonly recorded?: SentRecords;
 };
 
 /** What sent a command: a card's own act, or the bottom bar's Submit (oversized-acts). */
@@ -89,7 +92,7 @@ export type SentVia = "answer" | "submit";
 // command over the board's message limit comes back refused with its size: each question it named
 // shows that nothing was sent, and the work and the held acts stay (oversized-acts, decision 2).
 const dispatch = (
-  { channel, acts, notices, status }: Senders,
+  { channel, acts, notices, status, recorded }: Senders,
   held: readonly ViewAct[],
   message: ViewMessage,
   via: SentVia = "answer",
@@ -103,9 +106,10 @@ const dispatch = (
       acts.replied(key, read);
       // Only a command the board page started is announced as sent: a queued or refused one is
       // spoken for by the connection banner, the "not sent yet" receipt and the size lines (NFR-10).
+      // The flow recorded where the board went at the act; it is said only now (NFR-10).
+      const record = recorded?.take(questionIds);
       if (read?.outcome === "sent") {
-        const message = sentMessageOf(via, held);
-        if (message !== undefined) status?.announce(message);
+        for (const message of commandSentMessagesOf(via, held, record)) status?.announce(message);
       }
       if (read?.outcome === "refused") {
         console.error(`askboard: the board page did not send the ${message.type}: ${read.detail}`);
@@ -113,6 +117,7 @@ const dispatch = (
       }
     },
     (error: unknown) => {
+      recorded?.take(questionIds);
       acts.drop(key);
       console.error(`askboard: the ${message.type} did not reach the board page:`, error);
     },
@@ -174,6 +179,12 @@ const shownIn = (question: ViewQuestion, context: Pick<AnswerContext, "shownOf">
   context.shownOf?.(question) ?? question;
 
 export type { AnswerResult };
+
+/**
+ * What Postpone or Decline did: `took-effect` (sent, or held for Submit), `undone` (it took back a
+ * postpone or a decline, sent or held), none is a press that did nothing.
+ */
+export type ActTaken = "took-effect" | "undone";
 
 /** What "Answer" gave: its result, or none when a field blocks or there is nothing to send. */
 export type AnswerOutcome = AnswerResult | undefined;
@@ -401,27 +412,28 @@ export const postpone = (
   question: ViewQuestion,
   phase: QuestionPhase,
   context: AnswerContext,
-): void => {
+): ActTaken => {
   const { board } = context;
   const work = board.work(question.id);
   const held = work?.held?.act;
   if (held === "postpone" || held === "reopen") {
     unhold(question, board);
-    return;
+    return "undone";
   }
   if (phase === "postponed" && holdsUndo(work)) {
     takeBackUndo(question, board);
-    return;
+    return "undone";
   }
   if (context.delivery === "submitted") {
     toggleHeld(question, context, phase === "postponed" ? "reopen" : "postpone");
-    return;
+    return phase === "postponed" ? "undone" : "took-effect";
   }
   sendActs(context, [
     phase === "postponed"
       ? { type: "reopen", itemId: question.id }
       : { type: "postpone", itemId: question.id, rev: question.rev },
   ]);
+  return phase === "postponed" ? "undone" : "took-effect";
 };
 
 /**
@@ -435,25 +447,25 @@ export const decline = (
   question: ViewQuestion,
   phase: QuestionPhase,
   context: AnswerContext,
-): void => {
+): ActTaken => {
   const { board } = context;
   const work = board.work(question.id);
   const held = work?.held?.act;
   if (held === "decline") {
     unhold(question, board);
-    return;
+    return "undone";
   }
   if (phase === "declined" && holdsUndo(work)) {
     takeBackUndo(question, board);
-    return;
+    return "undone";
   }
   if (context.delivery === "submitted") {
     toggleHeld(question, context, phase === "declined" ? "reopen" : "decline");
-    return;
+    return phase === "declined" ? "undone" : "took-effect";
   }
   if (phase === "declined") {
     sendActs(context, [{ type: "reopen", itemId: question.id }]);
-    return;
+    return "undone";
   }
   const note = work?.note;
   sendActs(context, [
@@ -465,6 +477,7 @@ export const decline = (
       when: now(),
     },
   ]);
+  return "took-effect";
 };
 
 const followUp = (question: ViewQuestion, text: string): ViewAct => ({

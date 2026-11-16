@@ -4,12 +4,8 @@
 // data and the board page's updates; a Snapshot, with no board page, has no density or panel and
 // saves nothing (E7).
 
-import {
-  ASKBOARD_FOLDER,
-  type PresentationKey,
-  type PresentationSetting,
-} from "@askboard/contract";
-import type { ViewPresentation } from "../view-protocol.ts";
+import { ASKBOARD_FOLDER, type PresentationKey } from "@askboard/contract";
+import type { ViewPresentation, ViewPresentationSetting } from "../view-protocol.ts";
 import type { Store } from "./store.ts";
 
 export type PresentationControls = {
@@ -17,7 +13,7 @@ export type PresentationControls = {
   /** Whether a board page hosts the view: false in a Snapshot. */
   readonly hosted: boolean;
   /** A toggle's new value: sent to the board page, or, in a Snapshot, applied here only. */
-  readonly set: (setting: PresentationSetting) => void;
+  readonly set: (setting: ViewPresentationSetting) => void;
   /** "Settings": the board page opens its panel. */
   readonly openSettings: () => void;
 };
@@ -27,6 +23,7 @@ export const DEFAULT_PRESENTATION: ViewPresentation = {
   theme: "system",
   density: "compact",
   contextPlacement: "beside",
+  afterAnswer: "next",
   locked: [],
 };
 

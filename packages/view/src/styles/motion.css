@@ -1,0 +1,41 @@
+/* Motion (answering-flow-guidance, decisions 4 and 12; DESIGN.md, Motion): the board's own motion is
+   the move to the next question and the arrival mark below. Under `prefers-reduced-motion: reduce`
+   no animation or transition of the view or of the board page lasts (WCAG 2.2 SC 2.3.3): this rule
+   covers every element, the reading panel's skeleton pulse included, and the scroll is instant
+   (`revealAndFocus` reads the same query).
+
+   The arrival mark (answering-flow-guidance, decision 4; DESIGN.md, Arrival mark): the card the
+   board has moved to shows a 2px `primary` edge on its left for a moment (`data-askboard-arrived`,
+   set for 1.2 s by `revealAndFocus`). The edge is static; it fades only where the user has no
+   preference for less motion. */
+@layer components {
+  [data-askboard-arrived] {
+    box-shadow: inset 2px 0 0 var(--primary);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    [data-askboard-arrived] {
+      animation: askboard-arrival 1.2s ease-out forwards;
+    }
+
+    @keyframes askboard-arrival {
+      from {
+        box-shadow: inset 2px 0 0 var(--primary);
+      }
+      to {
+        box-shadow: inset 2px 0 0 transparent;
+      }
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 0s !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0s !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}

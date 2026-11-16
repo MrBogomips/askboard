@@ -23,6 +23,7 @@ import {
   lifecycleScenario,
   openBoard,
   optionOf,
+  receiptOf,
 } from "./harness/lifecycle-test.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 
@@ -91,9 +92,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await optionOf(board, "fix", "Fix A").click();
         expect(await answerOf(board, "fix").isEnabled()).toBe(true);
         await answerOf(board, "fix").click();
-        await card(board, "fix")
-          .getByText("sent", { exact: true })
-          .waitFor({ timeout: STEP_TIMEOUT_MS });
+        await receiptOf(board, "fix", "sent").waitFor({ timeout: STEP_TIMEOUT_MS });
         expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,

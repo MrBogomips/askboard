@@ -18,6 +18,7 @@ import {
 import type { Board } from "./harness/dom.ts";
 import { enginesFrom } from "./harness/engines.ts";
 import {
+  answerOf,
   buttonOf,
   card,
   lifecycleScenario,
@@ -215,7 +216,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const run = await start(scenario(singleContextAsk));
         const board = await openBoard(run, ["only"]);
         await expectBeside(board, "only");
-        await buttonOf(board, "only", "Answer").waitFor();
+        await answerOf(board, "only").waitFor();
       },
       TEST_TIMEOUT_MS,
     );

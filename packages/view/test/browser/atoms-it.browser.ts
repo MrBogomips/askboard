@@ -50,7 +50,7 @@ const ENGLISH = [
   "A whole number",
   "On or after",
   "days",
-  "Answer",
+  "Send answer",
 ];
 
 for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {

@@ -51,7 +51,7 @@ const open = async (
 const outlineEntry = (board: Board, id: string): Locator =>
   board.view.locator(`[data-askboard-outline="${id}"]`);
 const nextOpen = (board: Board): Locator =>
-  board.view.getByRole("banner").getByRole("button", { name: /^Next open/ });
+  board.view.getByRole("banner").locator("[data-askboard-next-to-do]");
 
 /** The outline entries marked current, by question ID. */
 const currentMarks = (board: Board): Promise<string[]> =>
@@ -223,9 +223,10 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await scrollToLine(board, "q5");
         await expectCurrent(board, "q5");
         await answerWithKeys(board, "q5");
-        await eventually(() => isFocused(headingOf(board, "q5")), "focus on the q5 heading");
-        await nextOpen(board).click({ timeout: STEP_TIMEOUT_MS });
+        // "Go to the next" (the default) moves on from q5 to q6; the jump then goes on from there.
         await eventually(() => isFocused(headingOf(board, "q6")), "focus on the q6 heading");
+        await nextOpen(board).click({ timeout: STEP_TIMEOUT_MS });
+        await eventually(() => isFocused(headingOf(board, "q7")), "focus on the q7 heading");
       },
       TEST_TIMEOUT_MS,
     );
@@ -248,7 +249,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
-      "Submit moves focus to the heading of the question in view when it is a mid-board question",
+      "Submit moves focus to the next question to do after the question in view, a mid-board question",
       async () => {
         const { run, board } = await open(start, "sections", "submitted");
         await answerWithKeys(board, "q1");
@@ -259,10 +260,11 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await blurCards(board);
         await scrollToLine(board, "q5");
         await expectCurrent(board, "q5");
-        await barButton(board, "Submit").focus();
+        await board.submit.focus();
         await board.page.keyboard.press("Enter");
         await actsSent(run, 1);
-        await eventually(() => isFocused(headingOf(board, "q5")), "focus on the q5 heading");
+        // Submit moves focus to the next question to do after the question in view (q5).
+        await eventually(() => isFocused(headingOf(board, "q6")), "focus on the q6 heading");
       },
       TEST_TIMEOUT_MS,
     );

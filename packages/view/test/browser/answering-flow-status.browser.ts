@@ -81,7 +81,7 @@ const answerYes = async (board: Board, id: string): Promise<void> => {
 };
 
 const answerIt = (board: Board, id: string) =>
-  board.question(id).getByRole("button", { name: "Rispondi", exact: true });
+  board.question(id).locator("[data-askboard-primary]");
 
 const added = (id: string) => ({
   action: "add",
@@ -117,11 +117,11 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       async () => {
         const { run, board } = await open(start);
         await answerYes(board, "q1");
-        await said(board, "Answer sent: Yes.");
+        await said(board, "Answer sent: Yes. Next: Q2, 2 of 9.");
         await actsSent(run, 1);
         await run.session.collected();
-        await board.receipt("delivered to the agent").first().waitFor({ timeout: STEP_TIMEOUT_MS });
-        await said(board, "Answer sent: Yes.");
+        await board.receipt("delivered").first().waitFor({ timeout: STEP_TIMEOUT_MS });
+        await said(board, "Answer sent: Yes. Next: Q2, 2 of 9.");
         expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,
@@ -137,7 +137,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           .first()
           .waitFor({ timeout: STEP_TIMEOUT_MS });
         await answerYes(board, "q1");
-        await board.receipt("not sent yet").waitFor({ timeout: STEP_TIMEOUT_MS });
+        await board.receipt("queued").waitFor({ timeout: STEP_TIMEOUT_MS });
         await settled(board);
         expect(await regionText(board)).toBe("");
         await run.session.restore();
@@ -154,7 +154,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           .getByRole("textbox", { name: "Service name" })
           .fill("billing", { timeout: STEP_TIMEOUT_MS });
         await answerOf(board, "q4").click({ timeout: STEP_TIMEOUT_MS });
-        await said(board, "Answer sent.");
+        await said(board, "Answer sent. Next: Q5, 5 of 9.");
       },
       TEST_TIMEOUT_MS,
     );
@@ -175,9 +175,9 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       async () => {
         const { run, board } = await open(start, { delivery: "submitted" });
         await answerYes(board, "q1");
-        await said(board, "Answer ready, not sent. 1 ready.");
+        await said(board, "Answer ready, not sent. 1 ready. Next: Q2, 2 of 9.");
         await answerYes(board, "q2");
-        await said(board, "Answer ready, not sent. 2 ready.");
+        await said(board, "Answer ready, not sent. 2 ready. Next: Q3, 3 of 9.");
         expect(await actsSent(run, 0)).toEqual([]);
       },
       TEST_TIMEOUT_MS,
@@ -192,7 +192,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await settled(board);
         expect(await regionText(board)).toBe("");
         await answerYes(board, "q2");
-        await said(board, "Answer ready, not sent. 1 ready.");
+        await said(board, "Answer ready, not sent. 1 ready. Next: Q3, 3 of 9.");
       },
       TEST_TIMEOUT_MS,
     );
@@ -203,8 +203,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const { run, board } = await open(start, { delivery: "submitted" });
         await answerYes(board, "q1");
         await answerYes(board, "q2");
-        await said(board, "Answer ready, not sent. 2 ready.");
-        await barButton(board, "Submit").click({ timeout: STEP_TIMEOUT_MS });
+        await said(board, "Answer ready, not sent. 2 ready. Next: Q3, 3 of 9.");
+        await board.submit.click({ timeout: STEP_TIMEOUT_MS });
         await actsSent(run, 1);
         await said(board, "2 answers sent.");
       },
@@ -212,13 +212,15 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
-      "Select recommended says how many it prefilled and that nothing was sent, every press, none included",
+      "Prefill recommended says how many it prefilled and that nothing was sent, and its undo says so",
       async () => {
         const { run, board } = await open(start, { delivery: "submitted" });
-        await barButton(board, "Select recommended").click({ timeout: STEP_TIMEOUT_MS });
+        await board.prefill.click({ timeout: STEP_TIMEOUT_MS });
         await said(board, "4 questions prefilled. Nothing was sent.");
-        await barButton(board, "Select recommended").click({ timeout: STEP_TIMEOUT_MS });
-        await said(board, "0 questions prefilled. Nothing was sent.");
+        // The button goes at 0, so there is no press that prefills none (answering-flow-guidance, D8).
+        expect(await board.prefill.count()).toBe(0);
+        await board.view.locator("[data-askboard-undo]").click({ timeout: STEP_TIMEOUT_MS });
+        await said(board, "Prefill undone.");
         expect(await actsSent(run, 0)).toEqual([]);
       },
       TEST_TIMEOUT_MS,
@@ -319,7 +321,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const { board } = await open(start, { language: "it-IT" });
         await optionOf(board, "q1", "Sì").check({ timeout: STEP_TIMEOUT_MS });
         await answerIt(board, "q1").click({ timeout: STEP_TIMEOUT_MS });
-        await said(board, "Risposta inviata: Sì.");
+        await said(board, "Risposta inviata: Sì. Prossima: Q2, 2 di 9.");
       },
       TEST_TIMEOUT_MS,
     );
@@ -330,10 +332,10 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const { board } = await open(start, { language: "it-IT", delivery: "submitted" });
         await optionOf(board, "q1", "Sì").check({ timeout: STEP_TIMEOUT_MS });
         await answerIt(board, "q1").click({ timeout: STEP_TIMEOUT_MS });
-        await said(board, "Risposta pronta, non inviata. 1 pronta.");
+        await said(board, "Risposta pronta, non inviata. 1 pronta. Prossima: Q2, 2 di 9.");
         await optionOf(board, "q2", "Sì").check({ timeout: STEP_TIMEOUT_MS });
         await answerIt(board, "q2").click({ timeout: STEP_TIMEOUT_MS });
-        await said(board, "Risposta pronta, non inviata. 2 pronte.");
+        await said(board, "Risposta pronta, non inviata. 2 pronte. Prossima: Q3, 3 di 9.");
       },
       TEST_TIMEOUT_MS,
     );

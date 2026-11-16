@@ -11,7 +11,7 @@ import { HeaderActions, type HeaderCounts } from "./header-actions.tsx";
 // board's keys panel, The user's keys on the board's own keys).
 
 const counts = (over: Partial<HeaderCounts> = {}): HeaderCounts => ({
-  open: 2,
+  openLabel: "2 to do",
   onNextOpen: () => {},
   unreadReplies: 0,
   onUnread: () => {},
@@ -54,17 +54,17 @@ const draw = (
     ),
   );
 
-describe("Next open", () => {
+describe("Next to do", () => {
   test("carries aria-keyshortcuts N", () => {
-    expect(draw()).toMatch(/<button[^>]*aria-keyshortcuts="N"[^>]*>Next open/);
+    expect(draw()).toMatch(/<button[^>]*aria-keyshortcuts="N"[^>]*>Next to do/);
   });
 
   test("J under overrides, none with an empty list", () => {
     expect(draw({ overrides: { "board.nextOpen": ["j"] } })).toMatch(
-      /aria-keyshortcuts="J"[^>]*>Next open/,
+      /aria-keyshortcuts="J"[^>]*>Next to do/,
     );
     expect(draw({ overrides: { "board.nextOpen": [] } })).not.toMatch(
-      /aria-keyshortcuts="[^"]*"[^>]*>Next open/,
+      /aria-keyshortcuts="[^"]*"[^>]*>Next to do/,
     );
   });
 });
@@ -73,7 +73,7 @@ describe("the Keys button", () => {
   test("shows on a live board, after the counts, with ?", () => {
     const html = draw();
     expect(html).toMatch(/<button[^>]*aria-keyshortcuts="\?"[^>]*>Keys<\/button>/);
-    expect(html.indexOf(">Keys</button>")).toBeGreaterThan(html.indexOf("Next open"));
+    expect(html.indexOf(">Keys</button>")).toBeGreaterThan(html.indexOf("Next to do"));
     expect(html).toContain('aria-haspopup="dialog"');
   });
 

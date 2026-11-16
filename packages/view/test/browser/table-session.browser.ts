@@ -144,7 +144,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           { id: "pm", role: "Project manager", days: 18, rate: "960.00" },
           { id: "u-1", role: "QA", days: 10, rate: "500.00" },
         ]);
-        await board.receipt("delivered to the agent").waitFor({ timeout: STEP_TIMEOUT_MS });
+        await board.receipt("delivered").waitFor({ timeout: STEP_TIMEOUT_MS });
         expectNoCspProblem(run);
       },
       TEST_TIMEOUT_MS,

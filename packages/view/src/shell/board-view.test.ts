@@ -7,11 +7,16 @@ import {
   askPillOf,
   endedOf,
   groupsOf,
+  isOpen,
+  type Ladder,
+  markLabel,
   markOf,
   nextAfterRemoval,
   nextOpenFrom,
   nextOpenOrder,
   openCountOf,
+  openLabelOf,
+  postponedCountOf,
   postponedWarningOf,
   presentationOf,
   previousOpenFrom,
@@ -34,6 +39,11 @@ const allOpen = stateOf(
   ids.map((itemId) => ({ itemId, rev: 1, state: "open" })),
 );
 const noWork = new Map<string, QuestionWork>();
+const none: Ladder = { flightOf: () => undefined, revisingOf: () => false };
+const revisingOnly = (...revising: string[]): Ladder => ({
+  flightOf: () => undefined,
+  revisingOf: (id) => revising.includes(id),
+});
 const held = (entries: [string, QuestionWork["held"]][]) =>
   new Map(entries.map(([id, act]) => [id, { rev: 1, held: act }] as const));
 
@@ -107,12 +117,12 @@ describe("counting (EXPERIENCE.md, Counting; FR-24)", () => {
       },
       { itemId: "erp-export", rev: 1, state: "open" },
     ]);
-    expect(openCountOf(lifecycleBoardDocument, state, noWork)).toBe(3);
+    expect(openCountOf(lifecycleBoardDocument, state, noWork, none)).toBe(3);
     const work = held([
       ["region", { act: "answer", order: 0 }],
       ["erp-export", { act: "postpone", order: 1 }],
     ]);
-    expect(openCountOf(lifecycleBoardDocument, state, work)).toBe(2);
+    expect(openCountOf(lifecycleBoardDocument, state, work, none)).toBe(2);
   });
 
   test("a tab's count is its area's", () => {
@@ -121,8 +131,8 @@ describe("counting (EXPERIENCE.md, Counting; FR-24)", () => {
       ViewArea,
     ];
     const work = held([["region", { act: "answer", order: 0 }]]);
-    expect(tabOpenCount(scope, allOpen, work)).toBe(2);
-    expect(tabOpenCount(delivery, allOpen, work)).toBe(2);
+    expect(tabOpenCount(scope, allOpen, work, none)).toBe(2);
+    expect(tabOpenCount(delivery, allOpen, work, none)).toBe(2);
   });
 
   test("the ask pill shows only what the agent has received", () => {
@@ -171,7 +181,7 @@ describe("counting (EXPERIENCE.md, Counting; FR-24)", () => {
     expect(askPillOf(allOpen, "moved")).toEqual({ kind: "waiting", label: "Waiting" });
   });
 
-  test("each question's own mark: unanswered, ready, answered, postponed or declined", () => {
+  test("each question's own mark: to do, ready, sent, postponed or declined", () => {
     const state = stateOf("partly-answered", [
       { itemId: "region", rev: 1, state: "open" },
       answeredAs("payment"),
@@ -188,17 +198,17 @@ describe("counting (EXPERIENCE.md, Counting; FR-24)", () => {
       ["region", { act: "answer", order: 0 }],
       ["erp-export", { act: "decline", order: 1 }],
     ]);
-    expect(ids.map((id) => markOf(id, state, work))).toEqual([
+    expect(ids.map((id) => markOf(id, state, work, none))).toEqual([
       "ready",
-      "answered",
+      "sent",
       "postponed",
       "declined",
       "declined",
     ]);
-    expect(markOf("region", allOpen, held([["region", { act: "postpone", order: 0 }]]))).toBe(
+    expect(markOf("region", allOpen, held([["region", { act: "postpone", order: 0 }]]), none)).toBe(
       "postponed",
     );
-    expect(markOf("region", allOpen, noWork)).toBe("unanswered");
+    expect(markOf("region", allOpen, noWork, none)).toBe("todo");
   });
 
   test("held work shows as Submit will leave it: an undo reopens, a note alone leaves the question open, a ready revision is ready (task 6.6)", () => {
@@ -221,15 +231,15 @@ describe("counting (EXPERIENCE.md, Counting; FR-24)", () => {
       ["rollout", { act: "note", order: 3 }],
       ["erp-export", { act: "note", order: 4 }],
     ]);
-    expect(ids.map((id) => markOf(id, state, work))).toEqual([
-      "unanswered",
+    expect(ids.map((id) => markOf(id, state, work, none))).toEqual([
+      "todo",
       "ready",
-      "unanswered",
-      "unanswered",
+      "todo",
+      "todo",
       "postponed",
     ]);
-    expect(openCountOf(lifecycleBoardDocument, state, work)).toBe(4);
-    expect(postponedWarningOf(lifecycleBoardDocument, state, work)).toBe(
+    expect(openCountOf(lifecycleBoardDocument, state, work, none)).toBe(4);
+    expect(postponedWarningOf(lifecycleBoardDocument, state, work, none)).toBe(
       "You have 1 postponed question: closing loses this ask",
     );
   });
@@ -250,17 +260,17 @@ describe("counting (EXPERIENCE.md, Counting; FR-24)", () => {
         },
       ],
     ]);
-    expect(markOf("region", state, work)).toBe("unanswered");
-    expect(postponedWarningOf(lifecycleBoardDocument, state, work)).toBeUndefined();
+    expect(markOf("region", state, work, none)).toBe("todo");
+    expect(postponedWarningOf(lifecycleBoardDocument, state, work, none)).toBeUndefined();
   });
 
   test("the postponed warning counts the postponed questions still open", () => {
-    expect(postponedWarningOf(lifecycleBoardDocument, allOpen, noWork)).toBeUndefined();
+    expect(postponedWarningOf(lifecycleBoardDocument, allOpen, noWork, none)).toBeUndefined();
     const state = stateOf("partly-answered", [
       { itemId: "region", rev: 1, state: "postponed" },
       ...ids.slice(1).map((itemId) => ({ itemId, rev: 1, state: "open" })),
     ]);
-    expect(postponedWarningOf(lifecycleBoardDocument, state, noWork)).toBe(
+    expect(postponedWarningOf(lifecycleBoardDocument, state, noWork, none)).toBe(
       "You have 1 postponed question: closing loses this ask",
     );
     expect(
@@ -268,8 +278,156 @@ describe("counting (EXPERIENCE.md, Counting; FR-24)", () => {
         lifecycleBoardDocument,
         state,
         held([["payment", { act: "postpone", order: 0 }]]),
+        none,
       ),
     ).toBe("You have 2 postponed questions: closing loses this ask");
+  });
+});
+
+describe("the ladder on every surface (answering-flow-guidance, decision 1; EXPERIENCE.md, Counting)", () => {
+  const delivered = (itemId: string) => answeredAs(itemId, { receipt: "delivered" });
+  const state = stateOf("partly-answered", [
+    delivered("region"),
+    answeredAs("payment"),
+    { itemId: "analytics", rev: 1, state: "open" },
+    { itemId: "rollout", rev: 1, state: "open" },
+    { itemId: "erp-export", rev: 1, state: "postponed" },
+  ]);
+
+  test("the receipt of the logged answer is the state: Sent is not Delivered", () => {
+    expect(markOf("region", state, noWork, none)).toBe("delivered");
+    expect(markOf("payment", state, noWork, none)).toBe("sent");
+  });
+
+  test("a command that queued is Not sent yet, a settled or unsettled one is not", () => {
+    const queued: Ladder = { ...none, flightOf: () => ({ outcome: "queued" }) };
+    const sending: Ladder = { ...none, flightOf: () => ({ outcome: undefined }) };
+    const sent: Ladder = { ...none, flightOf: () => ({ outcome: "sent" }) };
+    expect(markOf("analytics", state, noWork, queued)).toBe("not-sent-yet");
+    expect(markOf("analytics", state, noWork, sending)).toBe("todo");
+    expect(markOf("analytics", state, noWork, sent)).toBe("todo");
+  });
+
+  test("answer work on an open question is a draft; none is to do", () => {
+    expect(markOf("analytics", state, noWork, revisingOnly("analytics"))).toBe("draft");
+    expect(markOf("analytics", state, noWork, none)).toBe("todo");
+  });
+
+  test("an answered question under revision reads Draft, never Delivered or Sent", () => {
+    const own = revisingOnly("region", "payment");
+    expect(markOf("region", state, noWork, own)).toBe("draft");
+    expect(markOf("payment", state, noWork, own)).toBe("draft");
+  });
+
+  test("a held answer is Ready whatever the receipt, a held act over a revision decides first", () => {
+    const work = held([["region", { act: "answer", order: 0 }]]);
+    expect(markOf("region", state, work, revisingOnly("region"))).toBe("ready");
+  });
+
+  test("the count to do is to do, draft and postponed; a revision and a ready question are not counted", () => {
+    const own = revisingOnly("region", "analytics");
+    // region: a revision (draft, not counted); analytics: a first draft (counted); rollout: to do;
+    // erp-export: postponed (counted); payment: sent.
+    expect(openCountOf(lifecycleBoardDocument, state, noWork, own)).toBe(3);
+    const ready = held([["rollout", { act: "answer", order: 0 }]]);
+    expect(openCountOf(lifecycleBoardDocument, state, ready, own)).toBe(2);
+  });
+
+  test("a reopened question being edited is a first draft: it reads Draft and counts as to do", () => {
+    const declined = stateOf("partly-answered", [
+      {
+        itemId: "region",
+        rev: 1,
+        state: "declined",
+        answer: { declined: true, when, receipt: "sent" },
+      },
+      answeredAs("payment"),
+      ...["analytics", "rollout", "erp-export"].map((itemId) => ({
+        itemId,
+        rev: 1,
+        state: "open",
+      })),
+    ]);
+    const own = revisingOnly("region", "payment");
+    // A revision with no undo is not counted: three to do (analytics, rollout, erp-export).
+    expect(isOpen("region", declined, noWork, own)).toBe(false);
+    expect(openCountOf(lifecycleBoardDocument, declined, noWork, own)).toBe(3);
+    // The undo held (a decline's reopen), the option selected: a first draft, one more to do.
+    const reopened = held([["region", { act: "reopen", order: 0 }]]);
+    expect(markOf("region", declined, reopened, own)).toBe("draft");
+    expect(isOpen("region", declined, reopened, own)).toBe(true);
+    expect(openCountOf(lifecycleBoardDocument, declined, reopened, own)).toBe(4);
+    // The same for a logged answer and a held undo beneath another work (`undone`).
+    const undone = new Map<string, QuestionWork>([
+      ["payment", { rev: 1, undo: { act: "reopen", order: 0 } }],
+    ]);
+    expect(markOf("payment", declined, undone, own)).toBe("draft");
+    expect(isOpen("payment", declined, undone, own)).toBe(true);
+    expect(openCountOf(lifecycleBoardDocument, declined, undone, own)).toBe(4);
+  });
+
+  test("a reopen on its way keeps the edited question to do", () => {
+    const reopening: Ladder = {
+      flightOf: (id) => (id === "payment" ? { outcome: "sent", act: "reopen" } : undefined),
+      revisingOf: (id) => id === "payment",
+    };
+    expect(markOf("payment", state, noWork, reopening)).toBe("draft");
+    expect(isOpen("payment", state, noWork, reopening)).toBe(true);
+  });
+
+  test("a revision is never a next-question target; a first draft is", () => {
+    const own = revisingOnly("region", "analytics");
+    expect(nextOpenOrder(lifecycleBoardDocument, state, noWork, own, new Set())).toEqual([
+      "analytics",
+      "rollout",
+      "erp-export",
+    ]);
+    expect(isOpen("region", state, noWork, own)).toBe(false);
+    expect(isOpen("analytics", state, noWork, own)).toBe(true);
+  });
+
+  test("a tab's count follows the same rule", () => {
+    const [scope, delivery] = lifecycleBoardDocument.items as unknown as readonly [
+      ViewArea,
+      ViewArea,
+    ];
+    // Scope holds region (a revision, not counted), payment (sent) and analytics (a first draft).
+    const own = revisingOnly("region", "analytics");
+    expect(tabOpenCount(scope, state, noWork, own)).toBe(1);
+    expect(tabOpenCount(delivery, state, noWork, own)).toBe(2);
+  });
+
+  test("each state has its label in both languages, the receipt's words for the three it gave", () => {
+    const states = [
+      "todo",
+      "draft",
+      "ready",
+      "not-sent-yet",
+      "sent",
+      "delivered",
+      "postponed",
+      "declined",
+    ] as const;
+    expect(states.map((mark) => markLabel(mark))).toEqual([
+      "To do",
+      "Draft",
+      "Ready, not sent",
+      "Not sent yet",
+      "Sent",
+      "Delivered to the agent",
+      "Postponed",
+      "Declined",
+    ]);
+    expect(states.map((mark) => markLabel(mark, "it-IT"))).toEqual([
+      "Da fare",
+      "Bozza",
+      "Pronta, non inviata",
+      "Non ancora inviata",
+      "Inviata",
+      "Consegnata all'agente",
+      "Rimandata",
+      "Rifiutata",
+    ]);
   });
 });
 
@@ -282,14 +440,11 @@ describe("the next-open jump (EXPERIENCE.md, Next-open jump)", () => {
       { itemId: "rollout", rev: 1, state: "open" },
       { itemId: "erp-export", rev: 1, state: "open" },
     ]);
-    expect(nextOpenOrder(lifecycleBoardDocument, state, noWork, new Set(["rollout"]))).toEqual([
-      "rollout",
-      "region",
-      "analytics",
-      "erp-export",
-    ]);
+    expect(
+      nextOpenOrder(lifecycleBoardDocument, state, noWork, none, new Set(["rollout"])),
+    ).toEqual(["rollout", "region", "analytics", "erp-export"]);
     const work = held([["region", { act: "answer", order: 0 }]]);
-    expect(nextOpenOrder(lifecycleBoardDocument, state, work, new Set())).toEqual([
+    expect(nextOpenOrder(lifecycleBoardDocument, state, work, none, new Set())).toEqual([
       "analytics",
       "rollout",
       "erp-export",
@@ -307,19 +462,19 @@ describe("the jump from the question in view (EXPERIENCE.md, Question navigator)
   ]);
 
   test("forward from the question in view, wrapping to the start (question 4 of 5: 5, then 2)", () => {
-    expect(nextOpenFrom(lifecycleBoardDocument, state, noWork, new Set(), "rollout")).toBe(
+    expect(nextOpenFrom(lifecycleBoardDocument, state, noWork, none, new Set(), "rollout")).toBe(
       "erp-export",
     );
-    expect(nextOpenFrom(lifecycleBoardDocument, state, noWork, new Set(), "erp-export")).toBe(
+    expect(nextOpenFrom(lifecycleBoardDocument, state, noWork, none, new Set(), "erp-export")).toBe(
       "payment",
     );
   });
 
   test("an unseen question the agent added first; the first open one when none is in view", () => {
     expect(
-      nextOpenFrom(lifecycleBoardDocument, state, noWork, new Set(["erp-export"]), "region"),
+      nextOpenFrom(lifecycleBoardDocument, state, noWork, none, new Set(["erp-export"]), "region"),
     ).toBe("erp-export");
-    expect(nextOpenFrom(lifecycleBoardDocument, state, noWork, new Set(), undefined)).toBe(
+    expect(nextOpenFrom(lifecycleBoardDocument, state, noWork, none, new Set(), undefined)).toBe(
       "payment",
     );
   });
@@ -329,12 +484,16 @@ describe("the jump from the question in view (EXPERIENCE.md, Question navigator)
       "answered",
       ids.map((id) => answeredAs(id)),
     );
-    expect(nextOpenFrom(lifecycleBoardDocument, done, noWork, new Set(), "region")).toBeUndefined();
+    expect(
+      nextOpenFrom(lifecycleBoardDocument, done, noWork, none, new Set(), "region"),
+    ).toBeUndefined();
     const one = stateOf("partly-answered", [
       { itemId: "region", rev: 1, state: "open" },
       ...ids.slice(1).map((id) => answeredAs(id)),
     ]);
-    expect(nextOpenFrom(lifecycleBoardDocument, one, noWork, new Set(), "region")).toBeUndefined();
+    expect(
+      nextOpenFrom(lifecycleBoardDocument, one, noWork, none, new Set(), "region"),
+    ).toBeUndefined();
   });
 });
 
@@ -368,7 +527,7 @@ describe("previousOpenFrom (board-keys, design decision 3; mirrors nextOpenFrom)
     answeredAs("erp-export"),
   ]);
   const from = (current: string | undefined, s = state) =>
-    previousOpenFrom(lifecycleBoardDocument, s, noWork, current);
+    previousOpenFrom(lifecycleBoardDocument, s, noWork, none, current);
 
   test("from question 4 with 1, 2 and 4 open, the question 2", () => {
     expect(from("rollout")).toBe("payment");
@@ -404,8 +563,119 @@ describe("previousOpenFrom (board-keys, design decision 3; mirrors nextOpenFrom)
   test("the order is the board's: unseen questions get no priority, unlike the jump forward", () => {
     // Forward, an unseen question the agent added comes first; backward, only board order counts.
     const unseen = new Set(["rollout"]);
-    expect(nextOpenFrom(lifecycleBoardDocument, state, noWork, unseen, "payment")).toBe("rollout");
-    expect(previousOpenFrom(lifecycleBoardDocument, state, noWork, "rollout")).toBe("payment");
-    expect(previousOpenFrom(lifecycleBoardDocument, state, noWork, "payment")).toBe("region");
+    expect(nextOpenFrom(lifecycleBoardDocument, state, noWork, none, unseen, "payment")).toBe(
+      "rollout",
+    );
+    expect(previousOpenFrom(lifecycleBoardDocument, state, noWork, none, "rollout")).toBe(
+      "payment",
+    );
+    expect(previousOpenFrom(lifecycleBoardDocument, state, noWork, none, "payment")).toBe("region");
+  });
+});
+
+describe("postponed questions last (answering-flow-guidance, decision 2)", () => {
+  // region: to do, payment: postponed, analytics: first draft, rollout: answered, erp-export: to do.
+  const state = stateOf("partly-answered", [
+    { itemId: "region", rev: 1, state: "open" },
+    { itemId: "payment", rev: 1, state: "postponed" },
+    { itemId: "analytics", rev: 1, state: "open" },
+    answeredAs("rollout"),
+    { itemId: "erp-export", rev: 1, state: "open" },
+  ]);
+  const draftOf = new Map<string, QuestionWork>([["analytics", { rev: 1 }]]);
+  const next = (current: string | undefined, unseen: string[] = [], work = noWork) =>
+    nextOpenFrom(lifecycleBoardDocument, state, work, none, new Set(unseen), current);
+  const previous = (current: string | undefined) =>
+    previousOpenFrom(lifecycleBoardDocument, state, noWork, none, current);
+
+  test("forward: the to-do questions after the one in view, wrapping, then the postponed ones", () => {
+    expect(next("region")).toBe("analytics");
+    expect(next("analytics")).toBe("erp-export");
+    // erp-export is the last to do: the pass wraps to the first to do before any postponed one.
+    expect(next("erp-export")).toBe("region");
+    expect(next("rollout")).toBe("erp-export");
+  });
+
+  test("forward: with nothing to do but the postponed, the postponed one is reached", () => {
+    const only = stateOf("partly-answered", [
+      answeredAs("region"),
+      { itemId: "payment", rev: 1, state: "postponed" },
+      answeredAs("analytics"),
+      answeredAs("rollout"),
+      answeredAs("erp-export"),
+    ]);
+    expect(nextOpenFrom(lifecycleBoardDocument, only, noWork, none, new Set(), "rollout")).toBe(
+      "payment",
+    );
+    expect(
+      nextOpenFrom(lifecycleBoardDocument, only, noWork, none, new Set(), "payment"),
+    ).toBeUndefined();
+  });
+
+  test("forward: from the last to-do question when the rest are answered, the postponed one", () => {
+    const rest = stateOf("partly-answered", [
+      answeredAs("region"),
+      { itemId: "payment", rev: 1, state: "postponed" },
+      answeredAs("analytics"),
+      answeredAs("rollout"),
+      { itemId: "erp-export", rev: 1, state: "open" },
+    ]);
+    expect(nextOpenFrom(lifecycleBoardDocument, rest, noWork, none, new Set(), "erp-export")).toBe(
+      "payment",
+    );
+  });
+
+  test("forward: an unseen question the agent added comes first, a draft counts as to do", () => {
+    expect(next("region", ["erp-export"])).toBe("erp-export");
+    expect(next("region", [], draftOf)).toBe("analytics");
+  });
+
+  test("backward: the to-do and first-draft questions before the one in view, wrapping, then the postponed ones", () => {
+    expect(previous("erp-export")).toBe("analytics");
+    expect(previous("rollout")).toBe("analytics");
+    expect(previous("payment")).toBe("region");
+    // From the first to-do question the pass wraps to the last to do, not to the postponed one.
+    expect(previous("region")).toBe("erp-export");
+  });
+
+  test("backward: with nothing to do but the postponed, the postponed one is reached", () => {
+    const only = stateOf("partly-answered", [
+      answeredAs("region"),
+      { itemId: "payment", rev: 1, state: "postponed" },
+      answeredAs("analytics"),
+      answeredAs("rollout"),
+      answeredAs("erp-export"),
+    ]);
+    expect(previousOpenFrom(lifecycleBoardDocument, only, noWork, none, "rollout")).toBe("payment");
+    expect(previousOpenFrom(lifecycleBoardDocument, only, noWork, none, undefined)).toBe("payment");
+  });
+
+  test("backward: unseen questions get no priority", () => {
+    expect(previous("analytics")).toBe("region");
+  });
+});
+
+describe("the header's count names the postponed (answering-flow-guidance, decision 5)", () => {
+  const state = stateOf("partly-answered", [
+    { itemId: "region", rev: 1, state: "open" },
+    { itemId: "payment", rev: 1, state: "postponed" },
+    { itemId: "analytics", rev: 1, state: "postponed" },
+    answeredAs("rollout"),
+    { itemId: "erp-export", rev: 1, state: "open" },
+  ]);
+
+  test("postponedCountOf counts the postponed questions, held postpones included", () => {
+    expect(postponedCountOf(lifecycleBoardDocument, state, noWork, none)).toBe(2);
+    const work = held([["region", { act: "postpone", order: 0 }]]);
+    expect(postponedCountOf(lifecycleBoardDocument, state, work, none)).toBe(3);
+    expect(postponedCountOf(lifecycleBoardDocument, allOpen, noWork, none)).toBe(0);
+  });
+
+  test("openPostponed when a postponed question is to do, open alone otherwise", () => {
+    expect(openLabelOf(4, 1, "en-US")).toBe("4 to do (1 postponed)");
+    expect(openLabelOf(4, 1, "it-IT")).toBe("4 da fare (di cui 1 rimandata)");
+    expect(openLabelOf(4, 2, "it-IT")).toBe("4 da fare (di cui 2 rimandate)");
+    expect(openLabelOf(3, 0, "en-US")).toBe("3 to do");
+    expect(openLabelOf(3, 0, "it-IT")).toBe("3 da fare");
   });
 });

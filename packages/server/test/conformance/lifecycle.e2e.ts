@@ -161,38 +161,47 @@ const AREAS = {
   ],
 };
 
-const pressed = (board: RealBoard, itemId: string, name: string, value: boolean) =>
+const pressed = (board: RealBoard, itemId: string, value: boolean) =>
   board
     .card(itemId)
-    .getByRole("button", { name, exact: true, pressed: value })
+    .locator(`[data-askboard-postpone][aria-pressed="${value}"]`)
+    .waitFor({ timeout: STEP_TIMEOUT_MS });
+
+const pressedPrimary = (board: RealBoard, itemId: string) =>
+  board
+    .card(itemId)
+    .locator('[data-askboard-primary][aria-pressed="true"]')
     .waitFor({ timeout: STEP_TIMEOUT_MS });
 
 const sent = (board: RealBoard, itemId: string) =>
-  board.card(itemId).getByText("sent", { exact: true }).waitFor({ timeout: STEP_TIMEOUT_MS });
+  board
+    .card(itemId)
+    .locator('[data-askboard-receipt="sent"]')
+    .waitFor({ timeout: STEP_TIMEOUT_MS });
 
 /** The user's acts on the real board page, in immediate delivery, then in submitted delivery. */
 const actOnTheBoard = async (board: RealBoard) => {
   await board.optionIn("database", "PostgreSQL").click();
   await board.noteIn("database").fill("Managed, in the EU.");
-  await board.buttonIn("database", "Answer").click();
+  await board.card("database").locator("[data-askboard-primary]").click();
   await sent(board, "database");
-  await board.buttonIn("cache", "Postpone").click();
-  await pressed(board, "cache", "Postpone", true);
-  await board.buttonIn("cache", "Postpone").click();
-  await pressed(board, "cache", "Postpone", false);
+  await board.card("cache").locator("[data-askboard-postpone]").click();
+  await pressed(board, "cache", true);
+  await board.card("cache").locator("[data-askboard-postpone]").click();
+  await pressed(board, "cache", false);
   await board.noteIn("audit").fill("Compliance decides this.");
   await board.buttonIn("audit", "More").click();
   await board.menuItem("Decline").click();
   await board.optionIn("database", "SQLite").click();
-  await board.buttonIn("database", "Answer").click();
-  await board.barButton("Submitted").click();
+  await board.card("database").locator("[data-askboard-primary]").click();
+  await board.view.locator('[data-askboard-delivery="submitted"]').click();
   await board.optionIn("cache", "Yes").click();
-  await board.buttonIn("cache", "Answer").click();
-  await pressed(board, "cache", "Answer", true);
+  await board.card("cache").locator("[data-askboard-primary]").click();
+  await pressedPrimary(board, "cache");
   await board.optionIn("rollout", "Behind a flag").click();
-  await board.buttonIn("rollout", "Answer").click();
-  await pressed(board, "rollout", "Answer", true);
-  await board.barButton("Submit").click();
+  await board.card("rollout").locator("[data-askboard-primary]").click();
+  await pressedPrimary(board, "rollout");
+  await board.view.locator("[data-askboard-submit]").click();
   await sent(board, "cache");
   await sent(board, "rollout");
 };
@@ -280,7 +289,7 @@ describe("an ask with areas, end to end on the real board page", () => {
       for (const id of ["database", "audit", "cache", "rollout"]) {
         await board
           .card(id)
-          .getByText("delivered to the agent", { exact: true })
+          .locator(`[data-askboard-state="${id === "audit" ? "declined" : "delivered"}"]`)
           .waitFor({ timeout: STEP_TIMEOUT_MS });
       }
       expect(board.errors).toEqual([]);

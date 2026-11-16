@@ -52,7 +52,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           const tree = treeGridOf(board);
           const answerButton = board.view
             .locator(`[data-askboard-question="${wbsQuestion.id}"]`)
-            .getByRole("button", { name: "Answer", exact: true });
+            .locator("[data-askboard-primary]");
           await tabUntil(board, async () => (await treeFocus(board)) !== undefined, "the Tree");
           // `ux`: most likely, 5 to 4; nothing else.
           await expectSteps(run, tree, [

@@ -64,6 +64,7 @@ const dark: ViewPresentation = {
   theme: "dark",
   density: "compact",
   contextPlacement: "inline",
+  afterAnswer: "next",
   locked: ["contextPlacement"],
 };
 

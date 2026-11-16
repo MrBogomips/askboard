@@ -81,7 +81,7 @@ const asExample = (value: unknown, epoch: string): Json => {
 /** The user's edits of the work breakdown, by key only, and "Answer" on `plan` (the approved ones). */
 const editAndMarkReady = async (board: RealBoard): Promise<void> => {
   await board.view.getByRole("treegrid").waitFor({ timeout: STEP_TIMEOUT_MS });
-  const planAnswer = board.buttonIn("plan", "Answer");
+  const planAnswer = board.card("plan").locator("[data-askboard-primary]");
   await tabUntil(board, async () => (await treeFocus(board)) !== undefined, "the Tree");
   expect(await treeFocus(board)).toEqual({ nodeId: "design" });
   // `ux`: most likely, 5 to 4.
@@ -146,8 +146,8 @@ describe("UJ-2 on the real session process", () => {
       const board = await openRealBoard(browser, link ?? "");
       await editAndMarkReady(board);
       // `erp-export` is left for later and the board submits.
-      await board.buttonIn("erp-export", "Postpone").click();
-      await board.barButton("Submit").click();
+      await board.card("erp-export").locator("[data-askboard-postpone]").click();
+      await board.view.locator("[data-askboard-submit]").click();
 
       const collected = await collectedAnswer(session, askId, epoch);
       const [entry] = collected.asks;

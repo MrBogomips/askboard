@@ -145,13 +145,13 @@ const reachMarks = async (
 const LANGUAGES = [
   {
     language: "en-US",
-    jump: "Next open",
+    jump: "Next to do",
     replies: "1 new reply",
     changed: "The agent updated this",
   },
   {
     language: "it-IT",
-    jump: "Prossima aperta",
+    jump: "Prossima da fare",
     replies: "1 nuova risposta",
     changed: "Aggiornata dall'agente",
   },
@@ -177,6 +177,8 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           expect(
             await button.evaluate((element) => element.lastElementChild?.tagName.toLowerCase()),
           ).toBe("svg");
+          // The arrow points right: one label, no direction glyph (answering-flow-guidance, D11).
+          expect(await svgs.first().getAttribute("class")).toContain("lucide-arrow-right");
         },
         TEST_TIMEOUT_MS,
       );
@@ -274,7 +276,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           await board.view
             .locator(theme === "Dark" ? "html.dark" : "html:not(.dark)")
             .waitFor({ state: "attached" });
-          const jumpButton = board.header.getByRole("button", { name: "Next open" });
+          const jumpButton = board.header.locator("[data-askboard-next-to-do]");
           const hint = board.view
             .locator('[data-context-part="hint"]')
             .filter({ hasText: "opens in browser" });
@@ -333,7 +335,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
             .filter({ hasText: "opens in browser" });
           await hint.waitFor({ timeout: STEP_TIMEOUT_MS });
           expect(await hint.locator("svg").count()).toBe(1);
-          const jumpButton = page.getByRole("button", { name: "Next open", exact: true });
+          const jumpButton = page.locator("[data-askboard-next-to-do]");
           expect(await jumpButton.locator("svg").count()).toBe(1);
           await page.waitForLoadState("networkidle");
           expect(requests).toEqual([]);

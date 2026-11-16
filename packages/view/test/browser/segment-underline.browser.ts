@@ -8,7 +8,7 @@ import { twoAsk } from "./fixtures/lifecycle-asks.ts";
 import { STEP_TIMEOUT_MS, TEST_TIMEOUT_MS, useEngine } from "./harness/board-test.ts";
 import { tokenColor } from "./harness/design-colors.ts";
 import { enginesFrom } from "./harness/engines.ts";
-import { buttonOf, lifecycleScenario, openBoard } from "./harness/lifecycle-test.ts";
+import { answerOf, buttonOf, lifecycleScenario, openBoard } from "./harness/lifecycle-test.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 
 const dist = await readViewBuild();
@@ -36,7 +36,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       async () => {
         const run = await start({ ...lifecycleScenario(ask, dist), config: {} });
         const board = await openBoard(run, ["database", "cache"]);
-        await buttonOf(board, "database", "Answer").waitFor({ timeout: STEP_TIMEOUT_MS });
+        await answerOf(board, "database").waitFor({ timeout: STEP_TIMEOUT_MS });
         const header = board.view.getByRole("banner");
         for (const [group, chosen, other] of [
           ["Theme", "System", "Dark"],
@@ -50,7 +50,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           expect(resting.weight).not.toBe("600");
         }
         // The delivery switch of the bottom bar.
-        const delivery = board.view.getByRole("group", { name: /delivery/i });
+        const delivery = board.view.getByRole("group", { name: /sending answers/i });
         const pressed = delivery.locator('[aria-pressed="true"]');
         expect(await underline(pressed)).toEqual(CHOSEN);
         // The settings panel, on the board page.

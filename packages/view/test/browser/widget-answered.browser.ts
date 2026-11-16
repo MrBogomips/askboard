@@ -67,7 +67,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await board.receipt("sent").waitFor({ timeout: STEP_TIMEOUT_MS });
         await expectEdited(board);
         const { events } = await run.session.collect();
-        await board.receipt("delivered to the agent").waitFor({ timeout: STEP_TIMEOUT_MS });
+        await board.receipt("delivered").waitFor({ timeout: STEP_TIMEOUT_MS });
         await expectEdited(board);
         // The draft holds no value for the widgets once the answer is logged.
         await eventually(
@@ -96,7 +96,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await second.receipt("sent").waitFor({ timeout: STEP_TIMEOUT_MS });
         await expectEdited(second);
         await run.session.collected();
-        await second.receipt("delivered to the agent").waitFor({ timeout: STEP_TIMEOUT_MS });
+        await second.receipt("delivered").waitFor({ timeout: STEP_TIMEOUT_MS });
       },
       TEST_TIMEOUT_MS,
     );

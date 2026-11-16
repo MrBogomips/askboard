@@ -842,6 +842,7 @@ describe("the presentation in an update (settings-languages, task 8.2)", () => {
     theme: "light",
     density: "comfortable",
     contextPlacement: "beside",
+    afterAnswer: "next",
     locked: ["theme", "contextPlacement"],
   } as const;
 
@@ -850,11 +851,28 @@ describe("the presentation in an update (settings-languages, task 8.2)", () => {
     expect(readViewUpdate(viewUpdateResult(update).structuredContent)).toEqual(update);
   });
 
+  test("requires the after-answer key, whose values are next and stay, and admits it in locked", () => {
+    const { afterAnswer: _, ...without } = presentation;
+    expect(
+      readViewUpdate({ type: "state", state: waiting, presentation: without }),
+    ).toBeUndefined();
+    for (const value of ["next", "stay"] as const) {
+      const update = {
+        type: "state",
+        state: waiting,
+        presentation: { ...presentation, afterAnswer: value, locked: ["afterAnswer"] },
+      } as const;
+      expect(readViewUpdate(viewUpdateResult(update).structuredContent)).toEqual(update);
+    }
+  });
+
   test("an update whose presentation the view cannot apply is not an update", () => {
     for (const wrong of [
       { ...presentation, theme: "auto" },
       { ...presentation, density: "tight" },
       { ...presentation, contextPlacement: "left" },
+      { ...presentation, afterAnswer: "back" },
+      { ...presentation, afterAnswer: undefined },
       { ...presentation, locked: ["language"] },
       { ...presentation, locked: "theme" },
       { theme: "dark" },
@@ -988,6 +1006,24 @@ describe("the presentation messages the view sends (settings-languages, task 8.3
       { key: "theme", value: "dark", extra: true },
     ]) {
       const read = readViewMessage({ name: `${VIEW_TOOL_PREFIX}setting`, arguments: arguments_ });
+      expect(read.ok).toBe(false);
+    }
+  });
+
+  test("no view control writes the after-answer key, so its setting is refused whatever the value", () => {
+    for (const value of ["next", "stay", "back"]) {
+      const read = readViewMessage({
+        name: `${VIEW_TOOL_PREFIX}setting`,
+        arguments: { key: "afterAnswer", value },
+      });
+      expect(read.ok).toBe(false);
+    }
+    // The keys a view control writes keep their value check.
+    for (const key of ["theme", "density", "contextPlacement"]) {
+      const read = readViewMessage({
+        name: `${VIEW_TOOL_PREFIX}setting`,
+        arguments: { key, value: "next" },
+      });
       expect(read.ok).toBe(false);
     }
   });

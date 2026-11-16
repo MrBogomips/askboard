@@ -34,6 +34,7 @@ const dark: ViewPresentation = {
   theme: "dark",
   density: "comfortable",
   contextPlacement: "inline",
+  afterAnswer: "next",
   locked: ["density"],
 };
 

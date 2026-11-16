@@ -60,7 +60,10 @@ export type BottomBarProps = {
   readonly delivery: Delivery;
   readonly warning: string | undefined;
   readonly submit: SubmitState;
-  readonly recommendations: boolean;
+  /** The questions "Prefill recommended" can fill now: the label's count, the button absent at 0. */
+  readonly prefillCount: number;
+  /** A prefill still live: what it filled and "Undo", which clears it (decision 8). */
+  readonly prefilled?: { readonly count: number; readonly onUndo: () => void };
   /** Nothing on the board acts: it moved, or the ask ended. */
   readonly locked: boolean;
   readonly context: Senders & {
@@ -71,6 +74,8 @@ export type BottomBarProps = {
     readonly board: BoardDraft;
     readonly derived: DerivedStore;
   };
+  /** "All together", nothing left to do, acts held: the line beside Send (decision 6). */
+  readonly allReady?: boolean;
   readonly onSelectRecommended: () => void;
   /** The items of a question the card makes read-only; Submit's field block skips them. */
   readonly readOnlyOf?: ReadOnlyOf;
@@ -101,7 +106,7 @@ export const BottomBar = (props: BottomBarProps) => {
     delivery,
     warning,
     submit,
-    recommendations,
+    prefillCount,
     locked,
     context,
     readOnlyOf,
@@ -116,9 +121,9 @@ export const BottomBar = (props: BottomBarProps) => {
   >();
   const submitButton = useRef<HTMLButtonElement>(null);
   const immediateButton = useRef<HTMLButtonElement>(null);
-  // What the replace dialog's Submit did, for where focus goes once it has closed: "submitted" sent
-  // (the heading), "switched" sent and switched to immediate delivery (the switch, since Submit is
-  // disabled there), nothing: back to Submit.
+  // What the replace dialog's Send did, for where focus goes once it has closed: "submitted" sent
+  // (the heading), "switched" sent and switched to immediate delivery (the switch, since Send is
+  // absent there), nothing: back to Send.
   const sent = useRef<"submitted" | "switched" | undefined>(undefined);
   const text = useStrings();
   const language = useLanguage();
@@ -213,6 +218,7 @@ export const BottomBar = (props: BottomBarProps) => {
           ref={immediateButton}
           type="button"
           className={SEGMENT}
+          data-askboard-delivery="immediate"
           aria-pressed={delivery === "immediate"}
           disabled={locked || blockedSwitch}
           onClick={toImmediate}
@@ -222,6 +228,7 @@ export const BottomBar = (props: BottomBarProps) => {
         <button
           type="button"
           className={SEGMENT}
+          data-askboard-delivery="submitted"
           aria-pressed={delivery === "submitted"}
           disabled={locked}
           onClick={() => context.board.setDelivery("submitted")}
@@ -232,18 +239,35 @@ export const BottomBar = (props: BottomBarProps) => {
       <span className="text-body text-muted-foreground">
         {delivery === "immediate"
           ? text("bar.immediateHelp")
-          : text("bar.submittedHelp", { submit: text("bar.submit") })}
+          : text("bar.submittedHelp", { submit: text("bar.submitName") })}
       </span>
       {warning === undefined ? null : <Warning warning={warning} />}
       <span className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-sm">
-        {recommendations ? (
+        {props.prefilled === undefined ? null : (
+          <>
+            <span data-askboard-prefilled="" className="text-body text-foreground-secondary">
+              {text("status.prefilled", { count: props.prefilled.count })}
+            </span>
+            <button
+              type="button"
+              className={BUTTON_SECONDARY}
+              data-askboard-undo=""
+              disabled={locked}
+              onClick={props.prefilled.onUndo}
+            >
+              {text("bar.undoPrefill")}
+            </button>
+          </>
+        )}
+        {prefillCount > 0 ? (
           <button
             type="button"
             className={BUTTON_SECONDARY}
+            data-askboard-prefill=""
             disabled={locked}
             onClick={props.onSelectRecommended}
           >
-            {text("bar.selectRecommended")}
+            {text("bar.selectRecommended", { count: prefillCount })}
           </button>
         ) : null}
         {snapshot}
@@ -252,15 +276,25 @@ export const BottomBar = (props: BottomBarProps) => {
             {updatesLabel(submit.blocked.length, language)}
           </button>
         )}
-        <button
-          ref={submitButton}
-          type="button"
-          className={BUTTON_PRIMARY}
-          disabled={submit.disabled}
-          onClick={() => send()}
-        >
-          {text("bar.submit")}
-        </button>
+        {delivery === "immediate" || props.allReady !== true ? null : (
+          <span data-askboard-all-ready="" className="text-body text-foreground-secondary">
+            {text("bar.allReady")}
+          </span>
+        )}
+        {delivery === "immediate" ? null : (
+          <button
+            ref={submitButton}
+            type="button"
+            data-askboard-submit=""
+            className={BUTTON_PRIMARY}
+            disabled={submit.disabled}
+            onClick={() => send()}
+          >
+            {submit.answers > 0
+              ? text("bar.submit", { count: submit.answers })
+              : text("bar.submitPlain")}
+          </button>
+        )}
       </span>
       {feedback}
       <AlertDialog.Root open={confirming} onOpenChange={setConfirming}>
@@ -313,7 +347,10 @@ export const BottomBar = (props: BottomBarProps) => {
           <AlertDialog.Content
             className={DIALOG}
             onCloseAutoFocus={(event) => {
-              // The dialog has no trigger, so Radix restores no focus: the heading after a send, the switch after Send and switch, Submit when nothing was sent (D1).
+              // The dialog has no trigger, so Radix restores no focus: the heading after a send, the
+              // switch after Send and switch, Send when nothing was sent (D1). The dialog opens
+              // only from Send, in "All together", and the mode changes only through the "switched"
+              // path above, so Send is always there when nothing was sent.
               event.preventDefault();
               const did = sent.current;
               sent.current = undefined;
@@ -334,6 +371,7 @@ export const BottomBar = (props: BottomBarProps) => {
                 {text("bar.cancel")}
               </AlertDialog.Cancel>
               <AlertDialog.Action
+                data-askboard-confirm=""
                 className={BUTTON_PRIMARY}
                 disabled={submit.disabled}
                 onClick={(event) => {
@@ -342,7 +380,7 @@ export const BottomBar = (props: BottomBarProps) => {
                   confirmReplacing();
                 }}
               >
-                {text("bar.submit")}
+                {text("revision.confirmSend")}
               </AlertDialog.Action>
             </div>
           </AlertDialog.Content>

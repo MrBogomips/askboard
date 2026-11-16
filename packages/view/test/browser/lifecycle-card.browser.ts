@@ -19,11 +19,13 @@ import {
   actsDone,
   answerOf,
   card,
+  headingOf,
   lifecycleScenario,
   mirrored,
   noteOf,
   openBoard,
   optionOf,
+  receiptOf,
   sentActs,
   sentDrafts,
 } from "./harness/lifecycle-test.ts";
@@ -33,7 +35,7 @@ import { readViewBuild } from "./harness/view-build.ts";
 const dist = await readViewBuild();
 
 const sent = (board: Board, id: string) =>
-  card(board, id).getByText("sent", { exact: true }).waitFor({ timeout: STEP_TIMEOUT_MS });
+  receiptOf(board, id, "sent").waitFor({ timeout: STEP_TIMEOUT_MS });
 
 const checked = async (board: Board, id: string, labels: readonly string[]) => {
   const states: Record<string, boolean> = {};
@@ -235,7 +237,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       async () => {
         const run = await start(lifecycleScenario(twoAsk, dist));
         const board = await openBoard(run, ["database", "cache"]);
-        await board.header.getByText("2 open", { exact: true }).waitFor();
+        await board.header.getByText("2 to do", { exact: true }).waitFor();
         expect(await answerOf(board, "database").isDisabled()).toBe(true);
         await noteOf(board, "database").fill("Ask the ops team first.");
         await answerOf(board, "database").click();
@@ -252,7 +254,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
             when: expect.any(String),
           },
         ]);
-        await board.header.getByText("2 open", { exact: true }).waitFor();
+        await board.header.getByText("2 to do", { exact: true }).waitFor();
         expect(await answerOf(board, "database").isDisabled()).toBe(true);
         const { events } = await run.session.collect();
         expect(events.map((event) => event.type)).toEqual(["note"]);
@@ -326,9 +328,13 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           async () => (await answerOf(board, "database").getAttribute("aria-pressed")) === "true",
           "database ready",
         );
+        // The first confirm moves on to the next question to do (answering-flow-guidance, After an
+        // answer); the keys below act once the board has come to rest there.
+        await eventually(() => isFocused(headingOf(board, "cache")), "focus on cache's heading");
+        // Taking focus back to the option brings its question into view, which the draft mirrors.
+        await optionOf(board, "database", "SQLite").focus();
         await draftSettled(board);
         const before = sentDrafts(run).length;
-        await optionOf(board, "database", "SQLite").focus();
         await board.page.keyboard.press("Space");
         await board.page.keyboard.press("Enter");
         await draftSettled(board);

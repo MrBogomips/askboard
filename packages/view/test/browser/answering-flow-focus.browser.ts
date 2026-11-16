@@ -15,6 +15,7 @@ import {
   singleAnsweringAsk,
 } from "./fixtures/answering-flow-asks.ts";
 import { reviewedAsk } from "./fixtures/approval-asks.ts";
+import { guidanceAsk } from "./fixtures/guidance-asks.ts";
 import { decisionOf } from "./harness/approval-board.ts";
 import {
   eventually,
@@ -35,9 +36,11 @@ import {
   card,
   headingOf,
   lifecycleScenario,
+  loggedReceiptOf,
   noteOf,
   openBoard,
   optionOf,
+  receiptOf,
 } from "./harness/lifecycle-test.ts";
 import { readViewBuild } from "./harness/view-build.ts";
 
@@ -63,7 +66,7 @@ const open = async (
 };
 
 const nextOpen = (board: Board): Locator =>
-  board.view.getByRole("banner").getByRole("button", { name: /^Next open/ });
+  board.view.getByRole("banner").locator("[data-askboard-next-to-do]");
 const outlineEntry = (board: Board, id: string): Locator =>
   board.view.locator(`[data-askboard-outline="${id}"]`);
 
@@ -190,14 +193,14 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
 
     for (const presentation of ["sections", "tabs", "one-per-view"] as const) {
       test(
-        `Answer in ${presentation} with the keyboard leaves focus on the question's heading`,
+        `Answer in ${presentation} with the keyboard moves focus to the next question to do's heading`,
         async () => {
           const { run, board } = await open(start, presentation);
           await answerWithKeys(board, "q1");
           await actsSent(run, 1);
-          await eventually(() => isFocused(headingOf(board, "q1")), "focus on the q1 heading");
-          // One question per view still shows the same question.
-          expect(await headingOf(board, "q1").isVisible()).toBe(true);
+          await eventually(() => isFocused(headingOf(board, "q2")), "focus on the q2 heading");
+          // One question per view shows the next question to do.
+          expect(await headingOf(board, "q2").isVisible()).toBe(true);
           expect(await focusOnPage(board)).toBe(false);
         },
         TEST_TIMEOUT_MS,
@@ -205,21 +208,42 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     }
 
     test(
-      "Answer in Italian leaves focus on the heading too",
+      "Answer in Italian moves focus to the next question to do's heading too",
       async () => {
         const { run, board } = await open(start, "sections", "immediate", "it-IT");
         await optionOf(board, "q1", "Sì").focus();
         await board.page.keyboard.press(" ");
-        await card(board, "q1").getByRole("button", { name: "Rispondi", exact: true }).focus();
+        await card(board, "q1").locator("[data-askboard-primary]").focus();
         await board.page.keyboard.press("Enter");
         await actsSent(run, 1);
-        await eventually(() => isFocused(headingOf(board, "q1")), "focus on the q1 heading");
+        await eventually(() => isFocused(headingOf(board, "q2")), "focus on the q2 heading");
       },
       TEST_TIMEOUT_MS,
     );
 
     test(
-      "the last open question: Answer leaves focus on its heading",
+      "the last open question of a board: Answer leaves focus on the completion panel's heading",
+      async () => {
+        const run = await start(lifecycleScenario(guidanceAsk(2), dist));
+        const board = await openBoard(run, ["p1", "p2"]);
+        await answerWithKeys(board, "p1");
+        await actsSent(run, 1);
+        await eventually(() => isFocused(headingOf(board, "p2")), "focus on the p2 heading");
+        await answerWithKeys(board, "p2");
+        await actsSent(run, 2);
+        await eventually(
+          () =>
+            isFocused(
+              board.view.locator("[data-askboard-completion] [data-askboard-completion-heading]"),
+            ),
+          "focus on the panel's heading",
+        );
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "a single-question board: Answer leaves focus on its heading, with no panel",
       async () => {
         const run = await start(lifecycleScenario(singleAnsweringAsk, dist));
         const board = await openBoard(run, ["only"]);
@@ -231,13 +255,13 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
-      "Accept recommended sends the answer and leaves focus on the heading",
+      "Accept recommended sends the answer and moves focus to the next question to do's heading",
       async () => {
         const { run, board } = await open(start, "sections");
         await buttonOf(board, "q1", "Accept recommended").focus();
         await board.page.keyboard.press("Enter");
         await actsSent(run, 1);
-        await eventually(() => isFocused(headingOf(board, "q1")), "focus on the q1 heading");
+        await eventually(() => isFocused(headingOf(board, "q2")), "focus on the q2 heading");
       },
       TEST_TIMEOUT_MS,
     );
@@ -251,9 +275,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await answerOf(board, PLAN).click({ timeout: STEP_TIMEOUT_MS });
         await actsDone(run, 1);
         await run.session.collectJson();
-        await card(board, PLAN)
-          .getByText("delivered to the agent", { exact: true })
-          .waitFor({ timeout: STEP_TIMEOUT_MS });
+        await receiptOf(board, PLAN, "delivered").waitFor({ timeout: STEP_TIMEOUT_MS });
         await decisionOf(board, PLAN, "Reject").click({ timeout: STEP_TIMEOUT_MS });
         await answerOf(board, PLAN).click({ timeout: STEP_TIMEOUT_MS });
         const dialog = board.view.getByRole("alertdialog");
@@ -265,7 +287,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
-      "submitted delivery: Answer marks ready and keeps focus; Submit moves focus to the heading of the question in view; Send and switch never drops focus to the page",
+      "submitted delivery: the first confirm moves on to the next question to do; Submit moves focus to the heading of the next question to do after the question in view, never to the page",
       async () => {
         const { run, board } = await open(start, "sections", "submitted");
         await answerWithKeys(board, "q1");
@@ -273,7 +295,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           async () => ((await outlineEntry(board, "q1").textContent()) ?? "").includes("Ready"),
           "q1 ready",
         );
-        expect(await isFocused(answerOf(board, "q1"))).toBe(true);
+        await eventually(() => isFocused(headingOf(board, "q2")), "focus on the q2 heading");
         expect(await answerOf(board, "q1").isEnabled()).toBe(true);
         await answerWithKeys(board, "q2");
         await eventually(
@@ -281,7 +303,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           "q2 ready",
         );
         // Scroll so that question 5 is the question in view (the card crossing the reading line),
-        // with focus on no card: Submit then focuses question 5's heading (#181).
+        // with focus on no card: Submit then focuses the next question to do after it (#181).
         await board.view.locator("body").evaluate((body) => {
           const active = body.ownerDocument.activeElement;
           if (active instanceof HTMLElement) active.blur();
@@ -300,11 +322,34 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           async () => (await outlineEntry(board, "q5").getAttribute("aria-current")) === "true",
           "q5 marked current",
         );
-        await barButton(board, "Submit").focus();
+        await board.submit.focus();
         await board.page.keyboard.press("Enter");
         await actsSent(run, 1);
-        await eventually(() => isFocused(headingOf(board, "q5")), "focus on the q5 heading");
+        await eventually(() => isFocused(headingOf(board, "q6")), "focus on the q6 heading");
         expect(await focusOnPage(board)).toBe(false);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    test(
+      "Marking ready keeps focus: a changed answer confirmed in All together is ready, the board has not moved, and focus stays on the primary, which reads Edit",
+      async () => {
+        const { run, board } = await open(start, "sections", "submitted");
+        await answerWithKeys(board, "q1");
+        await board.submit.click({ timeout: STEP_TIMEOUT_MS });
+        await actsDone(run, 1);
+        await optionOf(board, "q1", "No").focus();
+        await board.page.keyboard.press(" ");
+        await eventually(() => optionOf(board, "q1", "No").isChecked(), "No chosen on q1");
+        await answerOf(board, "q1").focus();
+        await board.page.keyboard.press("Enter");
+        await eventually(
+          async () => (await answerOf(board, "q1").getAttribute("aria-pressed")) === "true",
+          "the change ready",
+        );
+        expect(await isFocused(answerOf(board, "q1"))).toBe(true);
+        expect(((await answerOf(board, "q1").textContent()) ?? "").includes("Edit")).toBe(true);
+        expect(await isFocused(headingOf(board, "q2"))).toBe(false);
       },
       TEST_TIMEOUT_MS,
     );
@@ -318,7 +363,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           async () => ((await outlineEntry(board, "q1").textContent()) ?? "").includes("Ready"),
           "q1 ready",
         );
-        await barButton(board, "Immediate").click({ timeout: STEP_TIMEOUT_MS });
+        await board.delivery("immediate").click({ timeout: STEP_TIMEOUT_MS });
         await board.view
           .getByRole("alertdialog")
           .getByRole("button", { name: "Send and switch", exact: true })
@@ -329,7 +374,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           timeout: STEP_TIMEOUT_MS,
         });
         await eventually(
-          () => isFocused(barButton(board, "Immediate")),
+          () => isFocused(board.delivery("immediate")),
           "focus on the Immediate button",
         );
       },
@@ -350,14 +395,14 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           );
         };
         await markReady("Approve");
-        await barButton(board, "Submit").click({ timeout: STEP_TIMEOUT_MS });
+        await board.submit.click({ timeout: STEP_TIMEOUT_MS });
         await actsDone(run, 1);
         await markReady("Reject");
         await run.session.collect();
-        await card(board, PLAN)
-          .getByText("delivered to the agent", { exact: true })
-          .waitFor({ timeout: STEP_TIMEOUT_MS });
-        await barButton(board, "Immediate").click({ timeout: STEP_TIMEOUT_MS });
+        // The card reads "Ready, not sent" over the delivered answer: delivery shows in its logged
+        // receipt.
+        await loggedReceiptOf(board, PLAN, "delivered").waitFor({ timeout: STEP_TIMEOUT_MS });
+        await board.delivery("immediate").click({ timeout: STEP_TIMEOUT_MS });
         const dialog = board.view.getByRole("alertdialog");
         await dialog
           .getByRole("button", { name: "Send and switch", exact: true })
@@ -365,13 +410,11 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         await dialog
           .getByText("Send new answers?", { exact: true })
           .waitFor({ timeout: STEP_TIMEOUT_MS });
-        await dialog
-          .getByRole("button", { name: "Submit", exact: true })
-          .click({ timeout: STEP_TIMEOUT_MS });
+        await board.confirmSend.click({ timeout: STEP_TIMEOUT_MS });
         await dialog.waitFor({ state: "detached", timeout: STEP_TIMEOUT_MS });
         await actsDone(run, 2);
         await eventually(
-          () => isFocused(barButton(board, "Immediate")),
+          () => isFocused(board.delivery("immediate")),
           "focus on the Immediate button",
         );
       },
@@ -384,9 +427,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const { board } = await open(start, "sections");
         await answerWithKeys(board, "q1");
         await noteOf(board, "q2").focus();
-        await card(board, "q1")
-          .getByText("sent", { exact: true })
-          .waitFor({ timeout: STEP_TIMEOUT_MS });
+        await receiptOf(board, "q1", "sent").waitFor({ timeout: STEP_TIMEOUT_MS });
         expect(await isFocused(noteOf(board, "q2"))).toBe(true);
       },
       TEST_TIMEOUT_MS,

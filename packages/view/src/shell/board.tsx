@@ -17,8 +17,9 @@
 
 import type { LifecycleBoardState } from "@askboard/contract";
 import { Tabs } from "radix-ui";
-import { type ReactNode, useEffect, useSyncExternalStore } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { questionTextId, useLanguage, useStrings } from "../catalog/port.ts";
+import { IconAreaDone } from "../icons/index.ts";
 import {
   areaOf,
   questionsOf,
@@ -38,9 +39,12 @@ import {
   endedOf,
   type Group,
   groupsOf,
+  type Ladder,
   markOf,
   nextOpenFrom,
   openCountOf,
+  openLabelOf,
+  postponedCountOf,
   postponedWarningOf,
   presentationOf,
   previousOpenFrom,
@@ -50,20 +54,42 @@ import {
 import { BottomBar } from "./bottom-bar.tsx";
 import { CARD_ACTS } from "./card-acts.ts";
 import { entriesWithCells } from "./cell-entries.ts";
+import { type Completion, completionOf, receiptCountsOf, shownCompletionOf } from "./completion.ts";
+import { COMPLETION_HEADING, CompletionPanel } from "./completion-panel.tsx";
+import { createDeliveredGate } from "./delivered-messages.ts";
+import type { DraftStore } from "./draft-store.ts";
+import { createFlow, type Flow, type FlowView } from "./flow.ts";
+import {
+  allAnsweredMessagesOf,
+  allReadyMessageOf,
+  prefillUndoneMessageOf,
+} from "./flow-messages.ts";
+import { nextOfFlow } from "./guided-flow.ts";
 import type { HeaderData } from "./header-data.ts";
-import { type HeadingRequest, requestHeading } from "./heading-request.ts";
+import { type HeadingRequest, requestFocusTo, requestHeading } from "./heading-request.ts";
+import type { HeldKeyGuard } from "./held-key-guard.ts";
 import { type EntryMarks, Outline, QuestionNavigator } from "./navigators.tsx";
 import type { PresentationControls } from "./presentation-controls.ts";
 import { type CardContext, QuestionCard } from "./question-card.tsx";
 import { revealAndFocus } from "./reveal.ts";
+import { revisingOfBoard } from "./revising.ts";
 import { type SnapshotControl, snapshotOfferOf } from "./snapshot-control.ts";
 import { SnapshotTopLine } from "./snapshot-top-line.tsx";
 import type { StatusMessages } from "./status-messages.ts";
 import { StatusRegion } from "./status-region.tsx";
 import type { Store } from "./store.ts";
 import { FOCUS_RING, INFO_BADGE } from "./styles.ts";
-import { hasRecommendation, releaseFailed, selectRecommended, submitStateOf } from "./submit.ts";
+import {
+  type PrefillBatch,
+  prefillCountOf,
+  releaseFailed,
+  selectRecommended,
+  submitStateOf,
+  undoPrefill,
+} from "./submit.ts";
 import { useBoardKeyTable } from "./use-board-keys.ts";
+import { useHeaderHeight } from "./use-header-height.ts";
+import { useHeldKeyGuard } from "./use-held-key-guard.ts";
 import { useQuestionInView } from "./use-question-in-view.ts";
 
 /** What the board page last told the view, with the latest board document. */
@@ -75,6 +101,10 @@ export type BoardView = {
 };
 
 type Shared = {
+  /** The ladder's inputs, one for every surface of the board (answering-flow-guidance, decision 1). */
+  readonly ladder: Ladder;
+  /** What follows an act: the move or the footer (decision 3). */
+  readonly flow: Flow;
   readonly document: ViewDocument;
   readonly state: LifecycleBoardState;
   readonly lock: ViewLock | undefined;
@@ -90,6 +120,8 @@ export type BoardContext = CardContext & {
   readonly removed: Store<boolean>;
   /** What the board says to a screen reader (answering-flow-fixes, #182). */
   readonly status: StatusMessages;
+  /** Keeps a held key's repeats from the card the board moved to (decision 3; NFR-10). */
+  readonly guard: HeldKeyGuard;
 };
 
 /**
@@ -135,6 +167,8 @@ const Card = ({
     single={presentationOf(shared.document) === "single"}
     level={level ?? 2}
     context={shared.context}
+    ladder={shared.ladder}
+    flow={shared.flow}
   />
 );
 
@@ -180,15 +214,18 @@ const TabsBody = ({
   readonly unseen: ReadonlySet<string>;
 }) => {
   const text = useStrings();
+  const headerHeight = useHeaderHeight();
   return (
     <Tabs.Root value={active} onValueChange={onActivate} className="flex flex-col gap-lg">
       <Tabs.List
         aria-label={text("areas.label")}
-        className="flex gap-1 overflow-x-auto border-b border-border"
+        data-askboard-tab-strip=""
+        style={{ top: headerHeight }}
+        className="sticky z-[5] flex gap-1 overflow-x-auto border-b border-border bg-background"
       >
         {groups.map((group) => {
           const area = shared.document.items.find((item) => item.id === group.id) as ViewArea;
-          const open = tabOpenCount(area, shared.state, shared.draft.questions);
+          const open = tabOpenCount(area, shared.state, shared.draft.questions, shared.ladder);
           const fresh = group.questions.some((question) => unseen.has(question.id));
           return (
             <Tabs.Trigger
@@ -199,7 +236,12 @@ const TabsBody = ({
               <span className="max-w-48 truncate" title={group.title}>
                 {group.title}
               </span>
-              {open === 0 ? null : (
+              {open === 0 ? (
+                <>
+                  <IconAreaDone data-askboard-tab-done="" className="size-3.5 shrink-0" />
+                  <span className="sr-only">{text("areas.done")}</span>
+                </>
+              ) : (
                 <span className="text-badge">{text("areas.open", { count: open })}</span>
               )}
               {fresh ? <span className={INFO_BADGE}>{text("mark.new")}</span> : null}
@@ -248,14 +290,47 @@ const OneQuestionBody = ({
   </div>
 );
 
-// Focus moves to a question's heading once the navigation has rendered (Accessibility Floor).
-const useHeadingFocus = (focus: Store<HeadingRequest | undefined>) => {
+// How long a request for the completion panel's heading waits for the panel, in milliseconds.
+const PANEL_WAIT_MS = 10_000;
+
+// Focus moves to a question's heading once the navigation has rendered (Accessibility Floor), or to
+// the send button; a request for the completion panel's heading waits until the panel shows (the
+// receipts are logged then, decision 6) and is dropped when the user has moved focus off the card
+// the act was taken on, so the move never takes a focus the user chose.
+const useHeadingFocus = (focus: Store<HeadingRequest | undefined>, panelShown: boolean) => {
   const target = useSyncExternalStore(focus.subscribe, focus.get);
+  const waiting = useRef<HeadingRequest | undefined>(undefined);
   useEffect(() => {
     if (target === undefined) return;
+    if (target.to === "completion") {
+      waiting.current = target;
+      const timer = window.setTimeout(() => {
+        if (waiting.current === target) waiting.current = undefined;
+      }, PANEL_WAIT_MS);
+      return () => window.clearTimeout(timer);
+    }
+    waiting.current = undefined;
+    if (target.to === "send") {
+      const send = document.querySelector("[data-askboard-submit]");
+      if (send instanceof HTMLElement) revealAndFocus(send);
+      return;
+    }
     const heading = document.getElementById(questionTextId(target.id));
-    if (heading !== null) revealAndFocus(heading);
+    if (heading !== null) revealAndFocus(heading, { smooth: target.smooth === true });
   }, [target]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `target` re-runs it when a request lands
+  useEffect(() => {
+    const request = waiting.current;
+    if (request === undefined || !panelShown) return;
+    waiting.current = undefined;
+    const card = document
+      .getElementById(questionTextId(request.id))
+      ?.closest("[data-askboard-question]");
+    const active = document.activeElement;
+    const held = active === null || active === document.body || card?.contains(active) === true;
+    const heading = document.querySelector(COMPLETION_HEADING);
+    if (held && heading instanceof HTMLElement) revealAndFocus(heading);
+  }, [panelShown, target]);
   return (id: string) => requestHeading(focus, id);
 };
 
@@ -271,6 +346,20 @@ const takesSelection = (
   context.tracker.questionStatus(question.id) === "visible" &&
   context.acts.of(question.id, CARD_ACTS) === undefined &&
   !changePending(question, draft.questions.get(question.id), kept);
+
+const NO_SUBSCRIBE = () => () => {};
+const NO_REVISING_SET: () => ReadonlySet<string> = (() => {
+  const none: ReadonlySet<string> = new Set();
+  return () => none;
+})();
+const NO_RECORD = (() => {
+  const none = new Map();
+  return () => none;
+})();
+
+// The board redraws when a store of values changes: a first draft shows as Draft at once.
+const useRecord = (store: DraftStore | undefined) =>
+  useSyncExternalStore(store?.subscribe ?? NO_SUBSCRIBE, store?.record ?? NO_RECORD);
 
 export const Board = ({
   view,
@@ -292,10 +381,111 @@ export const Board = ({
     context.attention.subscribe,
     context.attention.get,
   );
-  const focusHeading = useHeadingFocus(context.focus);
-  const shared: Shared = { document, state, lock, draft, context };
+  // The ladder's inputs, once for every surface: the card's command in flight, and whether a
+  // question holds answer work, from the board's revising set and the stores a first draft sits in.
+  const revisingSet = useSyncExternalStore(
+    context.revisingSnapshot?.subscribe ?? NO_SUBSCRIBE,
+    context.revisingSnapshot?.get ?? NO_REVISING_SET,
+  );
+  useRecord(context.draft);
+  useRecord(context.results);
+  useRecord(context.entries);
+  useRecord(context.cellEntries);
+  const ladder: Ladder = {
+    flightOf: (questionId) => {
+      const flight = context.acts.of(questionId, CARD_ACTS);
+      if (flight === undefined) return undefined;
+      const act = flight.acts.find(
+        (each) => each.itemId === questionId && CARD_ACTS.includes(each.type),
+      );
+      return { outcome: flight.outcome, act: act?.type };
+    },
+    revisingOf: revisingOfBoard(context, revisingSet, { document, state }),
+  };
   const presentation = presentationOf(document);
   const questions = questionsOf(document);
+  // The completion panel, or "All ready" beside Send, from the receipts and the work (decision 6).
+  const completion: Completion = shownCompletionOf(
+    completionOf(
+      document,
+      state,
+      draft.questions,
+      ladder.flightOf,
+      (question) => ladder.revisingOf(question.id),
+      presentation === "single" ? "immediate" : draft.delivery,
+    ),
+    { locked: lock !== undefined, snapshot: context.opened !== undefined },
+  );
+  const panelShown = completion.kind === "done" || completion.kind === "postponed";
+  const focusHeading = useHeadingFocus(context.focus, panelShown);
+  const announced = useRef(completion.kind);
+  useEffect(() => {
+    const before = announced.current;
+    announced.current = completion.kind;
+    if (before === completion.kind) return;
+    if (completion.kind === "done") {
+      for (const message of allAnsweredMessagesOf(completion)) context.status.announce(message);
+    } else if (completion.kind === "send-all") context.status.announce(allReadyMessageOf());
+  }, [completion, context.status]);
+  // The delivered count, said at most once every five seconds, from receipts alone (decision 6).
+  const gate = useMemo(() => createDeliveredGate(), []);
+  const opened = context.opened !== undefined;
+  useEffect(() => {
+    if (opened) return;
+    gate.observe(receiptCountsOf(document, state), Date.now());
+    const due = gate.dueAt();
+    if (due === undefined) return;
+    const timer = window.setTimeout(
+      () => {
+        const message = gate.due(Date.now());
+        if (message !== undefined) context.status.announce(message);
+      },
+      Math.max(0, due - Date.now()) + 25,
+    );
+    return () => window.clearTimeout(timer);
+  }, [document, state, gate, opened, context.status]);
+  // What follows an act, asked at the act of the card (answering-flow-guidance, decision 3): the
+  // flow reads the board as it stands then, through a ref the render keeps current, and the work
+  // afresh from the store, which the act has just changed.
+  const setting = useSyncExternalStore(
+    extras.presentation.presentation.subscribe,
+    () => extras.presentation.presentation.get().afterAnswer,
+  );
+  const latest = useRef<Omit<FlowView, "work"> | undefined>(undefined);
+  latest.current = {
+    document,
+    state,
+    ladder,
+    unseen: attention.unseen,
+    setting,
+    delivery: presentation === "single" ? "immediate" : draft.delivery,
+    single: presentation === "single",
+  };
+  const flow = useMemo(
+    () =>
+      createFlow({
+        view: () => ({
+          ...(latest.current as Omit<FlowView, "work">),
+          work: context.board.get().questions,
+        }),
+        footer: context.footer,
+        recorded: context.recorded,
+        focus: context.focus,
+        removed: context.removed,
+        show: (id) => context.board.setInView(id),
+        status: context.status,
+        guard: context.guard,
+      }),
+    [context],
+  );
+  useHeldKeyGuard(context.guard);
+  // The footer of "Stay here" goes when the board no longer holds the question it names.
+  const footer = useSyncExternalStore(context.footer.subscribe, context.footer.get);
+  const footerGone = footer !== undefined && !questions.some((each) => each.id === footer.target);
+  useEffect(() => {
+    if (footerGone) context.footer.set(undefined);
+  }, [footerGone, context.footer]);
+  const shared: Shared = { ladder, flow, document, state, lock, draft, context };
   // Submit waits for a held act's question that is loading or failed (Issue #103): the board
   // redraws when any question's status changes, whatever else it reads of the tracker.
   const statuses = useSyncExternalStore(context.tracker.subscribe, () =>
@@ -322,16 +512,20 @@ export const Board = ({
   };
   // The jumps start at the question the board shows (shownQuestionOf).
   const viewing = shownQuestionOf(document, current);
-  const target = nextOpenFrom(document, state, draft.questions, attention.unseen, viewing);
+  const target = nextOpenFrom(document, state, draft.questions, ladder, attention.unseen, viewing);
   const nextOpen = target === undefined ? undefined : () => go(target);
-  const before = previousOpenFrom(document, state, draft.questions, viewing);
+  const before = previousOpenFrom(document, state, draft.questions, ladder, viewing);
   const previousOpen = before === undefined ? undefined : () => go(before);
   const panel = useBoardPanel();
   const boardTable = useBoardKeyTable();
   const firstOf = (ids: ReadonlySet<string> | ReadonlyMap<string, number>) =>
     questions.find((question) => ids.has(question.id))?.id;
   const counts: HeaderCounts = {
-    open: openCountOf(document, state, draft.questions),
+    openLabel: openLabelOf(
+      openCountOf(document, state, draft.questions, ladder),
+      postponedCountOf(document, state, draft.questions, ladder),
+      language,
+    ),
     onNextOpen: nextOpen,
     unreadReplies: [...attention.unread.values()].reduce((sum, count) => sum + count, 0),
     onUnread: () => {
@@ -358,7 +552,7 @@ export const Board = ({
     boardTable,
   );
   const marksOf = (question: ViewQuestion): EntryMarks => ({
-    mark: markOf(question.id, state, draft.questions),
+    mark: markOf(question.id, state, draft.questions, ladder),
     isNew: attention.unseen.has(question.id),
     unread: attention.unread.get(question.id) ?? 0,
     changed: changed.has(question.id),
@@ -371,6 +565,10 @@ export const Board = ({
     context.board.setInView,
   );
   const [first] = questions;
+  const panelNode =
+    completion.kind === "done" || completion.kind === "postponed" ? (
+      <CompletionPanel completion={completion} onGoToFirst={go} />
+    ) : null;
   let body: ReactNode;
   if (single || first === undefined) {
     body = (
@@ -383,6 +581,7 @@ export const Board = ({
     const at = questions.findIndex((question) => question.id === shown);
     body = (
       <main className="flex flex-col gap-lg p-lg">
+        {panelNode}
         <OneQuestionBody
           questions={questions}
           current={shown}
@@ -406,6 +605,7 @@ export const Board = ({
       <div className="flex flex-1">
         <Outline groups={groups} current={current} marksOf={marksOf} onJump={go} />
         <main className="flex min-w-0 flex-1 flex-col gap-xl p-lg">
+          {panelNode}
           {presentation === "tabs" ? (
             <TabsBody
               groups={groups}
@@ -432,6 +632,54 @@ export const Board = ({
   const readOnlyOf = readOnlyOfBoard(context.board, context.revisions);
   // The question each card shows: the gates of Submit and "Select recommended" read it (Issue #92).
   const shownOf = shownOfBoard(context.board, context.revisions);
+  // "Prefill recommended" (decision 8): the questions that can take it, and the batch the last press
+  // filled, which lives until the user's next edit or act on the board.
+  const skipPrefill = (id: string) => {
+    const question = questions.find((each) => each.id === id);
+    return question === undefined || !takesSelection(context, question, draft, kept, lock);
+  };
+  const prefillCount =
+    lock !== undefined || context.opened !== undefined
+      ? 0
+      : prefillCountOf(
+          document,
+          state,
+          { draft: context.draft, board: context.board, shownOf },
+          skipPrefill,
+        );
+  const [batch, setBatch] = useState<
+    { items: PrefillBatch; mark: readonly unknown[] } | undefined
+  >();
+  const [focusing, setFocusing] = useState({ undo: 0, prefill: 0 });
+  const markOfStores = (): readonly unknown[] => [
+    context.draft.record(),
+    context.results?.record(),
+    context.entries?.record(),
+    context.cellEntries?.record(),
+    context.board.get().questions,
+    context.acts.version(),
+  ];
+  const marks = markOfStores();
+  const liveBatch = batch?.mark.every((each, at) => each === marks[at]) ? batch : undefined;
+  useEffect(() => {
+    if (batch !== undefined && liveBatch === undefined) setBatch(undefined);
+  }, [batch, liveBatch]);
+  const onUndo = () => {
+    if (liveBatch === undefined) return;
+    setBatch(undefined);
+    undoPrefill(liveBatch.items, { draft: context.draft, board: context.board });
+    context.status.announce(prefillUndoneMessageOf());
+    setFocusing((count) => ({ ...count, prefill: count.prefill + 1 }));
+  };
+  useEffect(() => {
+    if (focusing.undo > 0)
+      globalThis.document.querySelector<HTMLElement>("[data-askboard-undo]")?.focus();
+  }, [focusing.undo]);
+  useEffect(() => {
+    if (focusing.prefill > 0) {
+      globalThis.document.querySelector<HTMLElement>("[data-askboard-prefill]")?.focus();
+    }
+  }, [focusing.prefill]);
   const submit = submitStateOf({
     document,
     board: draft,
@@ -474,29 +722,29 @@ export const Board = ({
           document={document}
           state={state}
           delivery={delivery}
-          warning={postponedWarningOf(document, state, draft.questions, language)}
+          warning={postponedWarningOf(document, state, draft.questions, ladder, language)}
           submit={submit}
-          recommendations={hasRecommendation(document, shownOf)}
+          allReady={completion.kind === "send-all"}
+          prefillCount={prefillCount}
+          prefilled={
+            liveBatch === undefined ? undefined : { count: liveBatch.items.length, onUndo }
+          }
           readOnlyOf={readOnlyOf}
           shownOf={shownOf}
           load={context.tracker.questionStatus}
           locked={lock !== undefined}
           context={context}
           onSelectRecommended={() => {
-            const count = selectRecommended(
+            const items = selectRecommended(
               document,
               state,
-              { ...context, readOnlyOf, shownOf },
-              (id) => {
-                const question = questions.find((each) => each.id === id);
-                return (
-                  question === undefined || !takesSelection(context, question, draft, kept, lock)
-                );
-              },
+              { draft: context.draft, board: context.board, shownOf },
+              skipPrefill,
             );
-            // Every press says how many were prefilled, none included; nothing was sent.
-            context.status.announce({ key: "status.prefilled", params: { count } });
-            return count;
+            // Every press says how many were prefilled; nothing was sent. "Undo" takes the focus.
+            context.status.announce({ key: "status.prefilled", params: { count: items.length } });
+            setBatch({ items, mark: markOfStores() });
+            setFocusing((count) => ({ ...count, undo: count.undo + 1 }));
           }}
           // The card focuses its prompt itself: the heading's focus would run after it (the board's
           // effect follows the card's) and take it away.
@@ -507,8 +755,26 @@ export const Board = ({
           onJump={go}
           // The question in view, else the first, takes the focus once Submit has sent.
           onSubmitted={() => {
-            const id = current ?? questions[0]?.id;
-            if (id !== undefined) focusHeading(id);
+            // The next question to do after the one in view, while one is left; else the completion
+            // panel's heading once it shows (Focus after Answer and Submit).
+            const next = nextOfFlow(
+              document,
+              state,
+              context.board.get().questions,
+              ladder,
+              attention.unseen,
+              viewing ?? "",
+            );
+            const id = next?.id ?? current ?? questions[0]?.id;
+            if (next !== undefined && id !== undefined) focusHeading(id);
+            else if (id !== undefined) {
+              // Nothing left to do: the heading of the question in view takes the focus now, never
+              // the disabled Send or the page, and the panel's heading follows once it shows.
+              // Directly, not through the store: two requests in one tick leave only the last.
+              const heading = globalThis.document.getElementById(questionTextId(id));
+              if (heading !== null) revealAndFocus(heading);
+              requestFocusTo(context.focus, id, "completion");
+            }
           }}
           snapshot={extras.snapshot}
           snapshotOffer={snapshotOfferOf(lock, connection)}

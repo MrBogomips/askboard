@@ -73,7 +73,13 @@ describe("the fields the view boots from, as the table of update fields marks th
   const AT_BOOT: { readonly [K in BootField]: NonNullable<ViewUpdate[K]> } = {
     origin: { who: { label: "Main agent" }, project: "order-service", directory: "." },
     agent: "waiting",
-    presentation: { theme: "dark", density: "comfortable", contextPlacement: "inline", locked: [] },
+    presentation: {
+      theme: "dark",
+      density: "comfortable",
+      contextPlacement: "inline",
+      afterAnswer: "next",
+      locked: [],
+    },
   };
   const version = BOARD_PROTOCOL_VERSION;
   const board: HostMessage = { version, type: "board", document: plainChoiceBoardDocument };
@@ -137,6 +143,7 @@ describe("the presentation in the block (settings-languages, task 8.2)", () => {
     theme: "dark",
     density: "comfortable",
     contextPlacement: "inline",
+    afterAnswer: "next",
     locked: ["density"],
   } as const;
 

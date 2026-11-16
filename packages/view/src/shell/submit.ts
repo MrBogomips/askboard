@@ -174,6 +174,8 @@ export type SubmitInputs = {
 export type SubmitState = {
   /** How many acts are held. */
   readonly held: number;
+  /** How many of them are answers: Send's count (Q2; "Send" alone when none is). */
+  readonly answers: number;
   /** The held questions an agent-change notice sits on, in board order. */
   readonly blocked: readonly string[];
   readonly disabled: boolean;
@@ -282,7 +284,8 @@ export const submitStateOf = (inputs: SubmitInputs): SubmitState => {
       inputs.readOnlyOf,
       inputs.shownOf,
     ) !== undefined;
-  return { held: held.length, blocked, disabled };
+  const answers = held.filter(({ work }) => work.held.act === "answer").length;
+  return { held: held.length, answers, blocked, disabled };
 };
 
 /**
@@ -296,58 +299,33 @@ export const immediateBlocked = (submit: SubmitState, delivery: Delivery): boole
 export const updatesLabel = (count: number, language: Locale = "en-US"): string =>
   t(language, "bar.updates", { count });
 
-/**
- * Whether any question has a recommended option: "Select recommended" shows only then. A question
- * counts by the revision the card shows (`shownOf`), the one `selectRecommended` reads, so the
- * button shows exactly when pressing it can select something (document-review, design decision 15;
- * Issue #93).
- */
-export const hasRecommendation = (document: ViewDocument, shownOf?: ShownOf): boolean =>
-  questionsOf(document).some(
-    (question) => recommendedOf(shownOf?.(question) ?? question) !== undefined,
-  );
-
 // Whether the user has chosen something on the question: an option, or "Other…".
 const hasChoice = (question: ViewQuestion, values: DraftRecord, work: QuestionWork | undefined) => {
   const chosen = values.get(question.id);
   return (Array.isArray(chosen) && chosen.length > 0) || work?.other !== undefined;
 };
 
-/**
- * "Select recommended": the recommended option on every question that is open (not answered,
- * declined or postponed), holds no act but a note, and where the user has chosen nothing, unless
- * `skip` says the question cannot take it now. In submitted delivery each selection is held for
- * Submit, marked as made by it, unless a held result requires a reason the note lacks, or a field
- * of the question blocks (an entry, a failed check, an empty required field): that question keeps its selection and is not marked ready, as
- * "Answer" would refuse it; nothing is sent (AD-10). Returns how many it selected, marked or not.
- */
-export const selectRecommended = (
+/** What "Prefill recommended" filled, by question: the option label it selected. */
+export type PrefillBatch = readonly { readonly questionId: string; readonly label: string }[];
+
+type PrefillStores = {
+  readonly draft: DraftStore;
+  readonly board: BoardDraft;
+  readonly shownOf?: ShownOf | undefined;
+};
+
+// The questions "Prefill recommended" fills, with the option each takes: open (not answered, declined
+// or postponed), holding no act but a note, with the user's choice absent, unless `skip` says the
+// question cannot take it now. The option is the one the card shows as recommended, on the revision
+// the card shows (Issue #93).
+const prefillTargetsOf = (
   document: ViewDocument,
   state: LifecycleBoardState,
-  {
-    draft,
-    results,
-    entries,
-    cellEntries,
-    board,
-    facts,
-    readOnlyOf,
-    shownOf,
-  }: {
-    readonly draft: DraftStore;
-    readonly results?: DraftStore | undefined;
-    readonly entries?: DraftStore | undefined;
-    readonly cellEntries?: DraftStore | undefined;
-    readonly board: BoardDraft;
-    readonly facts?: AnswerContext["facts"];
-    readonly readOnlyOf?: ReadOnlyOf | undefined;
-    readonly shownOf?: ShownOf | undefined;
-  },
+  { draft, board, shownOf }: PrefillStores,
   skip: (questionId: string) => boolean,
-): number => {
-  let count = 0;
+): PrefillBatch => {
+  const targets: { questionId: string; label: string }[] = [];
   for (const question of questionsOf(document)) {
-    // The option the card shows as recommended, on the revision the card shows (Issue #93).
     const recommended = recommendedOf(shownOf?.(question) ?? question);
     const status = state.questions.find((each) => each.itemId === question.id)?.state;
     const work = board.work(question.id);
@@ -356,33 +334,49 @@ export const selectRecommended = (
     if ((held !== undefined && held !== "note") || hasChoice(question, draft.record(), work)) {
       continue;
     }
-    draft.set(question.id, [recommended.label]);
-    const lacksReason = answerNeedsReason(question, {
-      draft,
-      results,
-      board,
-      facts,
-      delivery: board.get().delivery,
-      shownOf,
-    });
-    const blocked = blockedBy(question, {
-      results,
-      entries,
-      cellEntries,
-      facts,
-      readOnlyOf,
-      shownOf,
-    });
-    if (board.get().delivery === "submitted" && !lacksReason && !blocked) {
-      const order = nextHeldOrder(board);
-      board.edit(question.id, question.rev, (current) => ({
-        ...current,
-        held: { act: "answer", order, byRecommended: true },
-      }));
-    }
-    count += 1;
+    targets.push({ questionId: question.id, label: recommended.label });
   }
-  return count;
+  return targets;
+};
+
+/**
+ * "Prefill recommended": the recommended option on every question `prefillTargetsOf` names, as a
+ * draft only, in either delivery mode: nothing is sent and nothing is marked ready, so Submit sends
+ * what the user confirmed (decision 8; FR-3, NFR-10). Returns the batch it filled, for the bar's
+ * count and for `undoPrefill`.
+ */
+export const selectRecommended = (
+  document: ViewDocument,
+  state: LifecycleBoardState,
+  stores: PrefillStores,
+  skip: (questionId: string) => boolean,
+): PrefillBatch => {
+  const batch = prefillTargetsOf(document, state, stores, skip);
+  for (const { questionId, label } of batch) stores.draft.set(questionId, [label]);
+  return batch;
+};
+
+/** The count in the label of "Prefill recommended": the same predicate, with no write. */
+export const prefillCountOf = (
+  document: ViewDocument,
+  state: LifecycleBoardState,
+  stores: PrefillStores,
+  skip: (questionId: string) => boolean,
+): number => prefillTargetsOf(document, state, stores, skip).length;
+
+/**
+ * "Undo" of a prefill: clears each selection that still equals the label the prefill set, on a
+ * question holding no held act. A choice the user changed since, or marked ready, stays.
+ */
+export const undoPrefill = (
+  batch: PrefillBatch,
+  { draft, board }: Pick<PrefillStores, "draft" | "board">,
+): void => {
+  for (const { questionId, label } of batch) {
+    const current = draft.valueOf(questionId);
+    const unchanged = Array.isArray(current) && current.length === 1 && current[0] === label;
+    if (unchanged && board.work(questionId)?.held === undefined) draft.set(questionId, undefined);
+  }
 };
 
 /**

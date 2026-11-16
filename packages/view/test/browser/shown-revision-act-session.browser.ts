@@ -122,7 +122,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     );
 
     test(
-      "Select recommended and Submit send the answer the card shows as ready, naming revision 1, though revision 2's field check would refuse the text",
+      "Prefill recommended, a confirm and Submit send the answer the card shows as ready, naming revision 1, though revision 2's field check would refuse the text",
       async () => {
         const run = await start(lifecycleScenario(submittedAsk(), dist));
         const board = await openBoard(run, ["plan", "other"]);
@@ -139,9 +139,11 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
           },
         ]);
         await keepMine(board);
-        await barButton(board, "Select recommended").click();
-        await eventually(() => barButton(board, "Submit").isEnabled(), "Submit to be enabled");
-        await barButton(board, "Submit").click();
+        await board.prefill.click();
+        // The prefill fills the draft only: the user's confirm marks it ready for Submit.
+        await answerOf(board, "plan").click();
+        await eventually(() => board.submit.isEnabled(), "Submit to be enabled");
+        await board.submit.click();
         const answered = () =>
           sentActs(run)
             .flatMap((command) => command.acts)
