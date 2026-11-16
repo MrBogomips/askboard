@@ -177,6 +177,14 @@ Every act SHALL work from the keyboard with a visible focus ring: options, "Othe
 - **WHEN** with "Go to the next" the user postpones a question while another is to do
 - **THEN** focus moves to the next question to do's heading
 
+#### Scenario: Tab from a heading to its widget in each engine
+- **WHEN** in Chromium, Firefox and WebKit the user focuses the heading of a question holding a Tree (by a jump or Shift+Tab) and presses Tab
+- **THEN** focus enters the Tree before it reaches any control of another question
+
+#### Scenario: Tab reaches the delivery switch in each engine
+- **WHEN** in Chromium, Firefox and WebKit the user presses Tab repeatedly from the header's "Keys" button
+- **THEN** focus reaches the outbox's delivery switch before it comes back to "Keys"
+
 ### Requirement: Theme follows the system
 The board SHALL follow the system's light or dark preference with DESIGN.md's tokens, the board page setting the view's `.dark` class.
 
@@ -4270,8 +4278,12 @@ Each move of focus to a question's heading, or to a field to fix, SHALL first sc
 - **WHEN** a message shows in the feedback tray and the user jumps to a question whose heading would sit beside it
 - **THEN** the heading lies wholly below the tray's bottom edge, and has focus
 
+#### Scenario: A jump in each engine
+- **WHEN** in Chromium, Firefox and WebKit, at 1280×800 with sections, the user activates "Next to do" towards a heading below the viewport, and again towards a heading in another tab
+- **THEN** within one second the target heading has focus and lies wholly between the header, or the tab strip, and the viewport's bottom edge
+
 ### Requirement: The question in view
-With sections or tabs, the question in view SHALL be the one whose card holds focus while that card shows between the sticky bars; else the one whose card crosses a reading line a third of the way down that space, or the last card above the line; at the end of the page, the last card shown. It SHALL follow scrolling and focus moves as well as jumps. A draft restored after a reload SHALL keep its question in view until the user scrolls or moves focus.
+With sections or tabs, the question in view SHALL be the one whose card holds focus while that card shows between the sticky bars; else the one whose card crosses a reading line a third of the way down that space, or the last card above the line; at the end of the page, the last card shown. It SHALL follow scrolling, focus moves into a card and jumps, never a focus outside every card. A draft restored after a reload SHALL keep its question in view until the user scrolls or focuses a card.
 
 #### Scenario: Scrolling with focus outside the cards
 - **WHEN** with sections and focus on no card the user scrolls until question 7's card crosses the reading line
@@ -4291,7 +4303,11 @@ With sections or tabs, the question in view SHALL be the one whose card holds fo
 
 #### Scenario: After a reload
 - **WHEN** a board reloads with question 5 as its draft's question in view, and the page opens at its top
-- **THEN** question 5 stays the question in view until the user scrolls or moves focus
+- **THEN** question 5 stays the question in view until the user scrolls or focuses a card
+
+#### Scenario: Next to do on a fresh board
+- **WHEN** with sections a board has just opened at its top, question 1 to do, and the user presses "Next to do" with the pointer and releases it a moment later
+- **THEN** focus goes to question 1's heading, not to the question after it
 
 ### Requirement: Status messages for the answering flow
 The board SHALL hold one polite status region outside the cards, present from the first render, which announces each result of the answering flow as text in the ask's language without moving focus. A message SHALL never say more than is true: sent is not delivered, ready is not sent, and "sent" is said only once the board page reports the command sent (NFR-10, AD-10; WCAG 2.2 SC 4.1.3). The agent pill SHALL not be a live region.
@@ -4343,6 +4359,10 @@ The board SHALL hold one polite status region outside the cards, present from th
 #### Scenario: In Italian
 - **WHEN** the ask's language is it-IT and an answer "PostgreSQL" is reported sent
 - **THEN** the region's text begins "Risposta inviata: PostgreSQL."
+
+#### Scenario: The first question removed before any navigation
+- **WHEN** a board in one question per view has just opened on its first question, Q1, titled "Database", and the agent deletes it before the user navigates
+- **THEN** the region reads "Question removed by the agent: Database." and the board shows the next question
 
 ### Requirement: Next and previous open by key
 While the header shows the next-to-do jump, `N`, or the keys the user's file gives that action instead, SHALL do what the jump does, and `Shift+N` SHALL focus the heading of the to-do or first-draft question before the question in view, wrapping to the last, else of the postponed one before it, likewise, scrolled clear of the bars. Each SHALL act only with focus in the view outside a text field, a widget item, a menu and a dialog, and not while an input method composes (NFR-12).
@@ -4672,6 +4692,10 @@ The board's own motion SHALL be the move to the next question, scrolled smoothly
 #### Scenario: No preference
 - **WHEN** without a reduced-motion preference the user sends a question with "Go to the next"
 - **THEN** the arrival mark shows on the next question's card and is gone after 1.2 seconds
+
+#### Scenario: Reduced motion in each engine
+- **WHEN** in Chromium, Firefox and WebKit, under `prefers-reduced-motion: reduce` with "Go to the next", the user sends a question whose next question to do is below the viewport
+- **THEN** the next question's heading has focus and lies wholly between the header and the viewport's bottom edge at once, and its card shows the arrival mark
 
 ### Requirement: Note sent under the prompt
 After a note goes alone, the question SHALL show "Note sent {time}" under its open prompt once the command that sends it is done (Send's, in "All together"), never at "Confirm" nor while the note is queued, refused or dropped, and SHALL keep it while the page stays open. {time} SHALL be when the user sent the note, the time the agent's event carries, not when its command was done (FR-7, AD-20, NFR-10).
