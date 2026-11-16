@@ -1102,11 +1102,11 @@ Every schema, export and fixture this change adds SHALL be registered by entries
 The contract SHALL hold the `configuration` schema set, owned by `ask-core`, starting at `1.0`, for both configuration files (AD-7, AD-14). A file SHALL name its `version` as `major.minor`. It SHALL allow the keys of the next requirement, each optional; `keys` SHALL be bounded in shape by the schema and in meaning by the key-override check.
 
 #### Scenario: A file with every key validates
-- **WHEN** the fixture holding the set's current version and one valid value for each of the nine keys is validated against the configuration schema
+- **WHEN** the fixture holding the set's current version and one valid value for each of the ten keys is validated against the configuration schema
 - **THEN** it passes
 
 #### Scenario: A value outside a key's set is refused, naming the key
-- **WHEN** a file sets `theme` to `"sepia"` or `askingRule` to `"sometimes"`
+- **WHEN** a file sets `theme` to `"sepia"`, `askingRule` to `"sometimes"` or `afterAnswer` to `"back"`
 - **THEN** validation fails with a problem whose path names that key
 
 #### Scenario: A file without its version is refused
@@ -1130,11 +1130,19 @@ The contract SHALL hold the `configuration` schema set, owned by `ask-core`, sta
 - **THEN** the schema passes it, and the key-override check refuses it
 
 ### Requirement: The configuration keys and their values
-The configuration schema set SHALL allow `theme` (`system`, `light`, `dark`), `density` (`compact`, `comfortable`), `contextPlacement` (`beside`, `inline`), `defaultLanguage` (`en-US`, `it-IT`), `askingRule` (`none`, `always`, `with-references`), `snapshotFolder`, `editor`, `defaultMinimumMargin` and `keys`, each optional.
+The configuration schema set SHALL allow `theme` (`system`, `light`, `dark`), `density` (`compact`, `comfortable`), `contextPlacement` (`beside`, `inline`), `afterAnswer` (`next`, `stay`; `next` when neither file sets it), `defaultLanguage` (`en-US`, `it-IT`), `askingRule` (`none`, `always`, `with-references`), `snapshotFolder`, `editor`, `defaultMinimumMargin` and `keys`, each optional.
 
 #### Scenario: A value outside a listed set is refused
 - **WHEN** a file sets `density` to `"tight"`
 - **THEN** validation fails with a problem whose path names `density`
+
+#### Scenario: The after-answer key
+- **WHEN** a file sets `afterAnswer` to `"stay"`
+- **THEN** it passes, and the contract's default for `afterAnswer` is `next`
+
+#### Scenario: A file of the previous minor
+- **WHEN** a file of the previous minor, without `afterAnswer`, is validated
+- **THEN** it passes
 
 ### Requirement: The editor key is an argument vector
 `editor` SHALL be a non-empty list of non-empty strings whose first is the program, at most 32 strings of at most 1,024 characters each; `{file}` and `{line}` are its only placeholders (AD-8). A string, an empty list or a list holding a non-string SHALL fail validation.
@@ -1148,11 +1156,11 @@ The configuration schema set SHALL allow `theme` (`system`, `light`, `dark`), `d
 - **THEN** it passes
 
 ### Requirement: The presentation keys are a closed list
-The contract SHALL name `theme`, `density` and `contextPlacement` as the presentation keys, the only keys a board may write, and SHALL name every other key of the configuration set as not writable from a board (AD-14).
+The contract SHALL name `theme`, `density`, `contextPlacement` and `afterAnswer` as the presentation keys, the only keys a board may write, and SHALL name every other key of the configuration set as not writable from a board (AD-14).
 
 #### Scenario: The writable keys
 - **WHEN** a test reads the contract's presentation keys
-- **THEN** they are exactly `theme`, `density` and `contextPlacement`
+- **THEN** they are exactly `theme`, `density`, `contextPlacement` and `afterAnswer`
 
 ### Requirement: An ask's language and locale
 The input format SHALL accept `language` and `locale`, each optional, each `en-US` or `it-IT` (FR-34, AD-7). Any other value SHALL fail validation, naming the field. This replaces E1's en-US-only rule.
@@ -1184,12 +1192,16 @@ The board document SHALL carry the ask's resolved `language` and `locale` at its
 The board protocol SHALL add the message `settings`, host to page, carrying the presentation and behaviour settings in effect and the user's key overrides, each with its value and the file and key that set it, and with warnings that name, for overrides not applied, the rule, the action and the combination; and `setting`, page to host, carrying one key and one value. The schema of `setting` SHALL admit only the presentation keys, each with a value the configuration schema allows (AD-14).
 
 #### Scenario: A presentation write validates
-- **WHEN** the page sends `setting` with `key` `density` and `value` `comfortable`
+- **WHEN** the page sends `setting` with `key` `density` and `value` `comfortable`, or with `key` `afterAnswer` and `value` `stay`
 - **THEN** the message passes the board-protocol schema
 
 #### Scenario: Any other key fails the schema
-- **WHEN** the page sends `setting` with `key` `editor`, `askingRule`, `snapshotFolder` or `keys`, or with `theme` set to `"sepia"`
+- **WHEN** the page sends `setting` with `key` `editor`, `askingRule`, `snapshotFolder` or `keys`, with `theme` set to `"sepia"`, or with `afterAnswer` set to `"back"`
 - **THEN** the message fails the board-protocol schema
+
+#### Scenario: The after-answer row
+- **WHEN** `settings` carries an `afterAnswer` row with its value and source, and a write outcome naming `afterAnswer`
+- **THEN** the message passes the board-protocol schema, and a settings message of the previous minor, without the row, passes too
 
 #### Scenario: The user's keys in the settings
 - **WHEN** `settings` carries the user's key overrides from the user file, or none with a warning naming a conflict's rule, action, combination and other action
