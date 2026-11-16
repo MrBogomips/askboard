@@ -142,7 +142,7 @@ A question that is ready, sent, delivered or declined, and is not being revised,
 
 #### Scenario: An edit starts a revision
 - **WHEN** the user selects "SQLite" on Q1, sent with "PostgreSQL"
-- **THEN** Q1 reads "Draft" with "PostgreSQL" and its receipt still shown, and its primary reads "Send the change"
+- **THEN** Q1 reads "Draft" with "PostgreSQL" and no receipt (the revision is a draft, as in `answering-flow-guidance`), and its primary reads "Send the change"
 
 #### Scenario: The answer's line
 - **WHEN** Q1 is sent with "PostgreSQL" on an it-IT board

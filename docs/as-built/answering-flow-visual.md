@@ -21,6 +21,8 @@ In code since `answering-flow-visual` (Issues #168 and #213, direction B of the 
 
 **Corrections.** `answering-flow-fixes.md`'s sentence on the bars (the bottom bar was one) is corrected; `answering-flow-guidance.md`, written by change 4, still names the bottom bar where it describes the prefill and the all-ready line: its archive reads "the outbox and the progress row" for them.
 
-**Sizes** (`packages/view/chunk-sizes.json`, bytes). On the base this branch sat on (change 4's head 8bea1061, built clean): shell 256,490, `icons` 6,710, `board-page` 1,045,040. Now: shell 276,229 (+19,739), `icons` 12,163 (+5,453), `board-page` 1,050,756 (+5,716). The shell is 3,739 B over task 9.4's 16,000 B stop: reported to the architect, the record is provisional.
+**Sizes** (`packages/view/chunk-sizes.json`, bytes). On change 4's head b7da3fea: shell 260,749, `icons` 8,837, `board-page` 1,045,253. Now: shell 277,499 (+16,750, within the 17,000 B bound accepted at the re-base), `icons` 13,513 (+4,676), `board-page` 1,051,016 (+5,763).
 
 **Deviations from the design.** The stripe's attribute is `data-askboard-stripe` (the badge keeps `data-askboard-state`, which twenty tests count); the Tab rule above; the Snapshot message's live region; "Next to do" is absent, not disabled, with nothing to do (D1); a Draft revision shows no receipt (change 4's rule; this change's scenario says the receipt stays: reported); the string for "Prefill recommended" is still `bar.selectRecommended` ("Select recommended").
+
+**Decisions at the re-base.** `IconNextOpen` stays `arrow-right` (change 4's); a revision reads Draft with no receipt, as in change 4. Sizes on b7da3fea: shell +16,750, accepted up to 17,000.

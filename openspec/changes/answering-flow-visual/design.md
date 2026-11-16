@@ -221,6 +221,7 @@ None about Claude Code's run time: no mod, hook, agent or permission behaviour i
 - [A record mirrored during the agent's removal names a removed question] → refused like a stale `questions` key; the next mirror heals it; a unit test covers the order.
 - [Three header rows] → 32 px more header, 48 px less bar: the content gains 16 px at the 1280×800 floor.
 - [Shell chunk growth] → the bar's module goes (about −5 KB); the ask row, the rail, the outbox and ledger, the strip, the numbers, the tray, the Theme popover and about 30 strings add about 13 to 19 KB: net +8 to 14 KB over the shell's record at the rebased base (about 250 to 255 KB after changes 4 and 5, a margin of about 25 KB). Task 9.4 records the sizes once and stops the group above +16,000 B. The `icons` chunk grows about 6 KB; the board page under 1 KB (the record's generated validator).
+- [The shell chunk grows about 17,000 B over change 4's 260,749 B record, measured 16,750 B] → the outbox ledger, the progress strip, the completion panel and the tray live in the shell chunk; splitting them out is a later performance change, and the coordinator accepted the measured size (PO: "yolo, mi fido delle tue decisioni").
 - [Snapshot weight] → the `icons` chunk's growth, about 6 KB per Snapshot.
 
 ## Migration Plan
