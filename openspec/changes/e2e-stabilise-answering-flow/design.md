@@ -88,7 +88,9 @@ The browser cases are the failing ones of #241 and #242, run in Firefox and WebK
 
 **WebKit completion** (#241's "send, heading, panel"). The panel request (`useHeadingFocus`'s waiting effect) is dropped when the active element is outside the acted card. After D4, focus stays on the heading through settle. Task 2.2 checks the case, and changes the wait only if it still fails: it keeps the request while the active element is the acted card's heading or `body`.
 
-### D5. The question shown is known from the first render (#243)
+### D5. The question shown is known from the first render (#243): superseded
+
+Superseded by task 2.5's finding. The board already announces the removal; the test expected "Q1" where the region names the question's header, "Database". The test is corrected and no first-render change is made. The original plan is kept below for the record.
 
 `onRemoval` (`shell/document-update.ts`) announces only when `stores.shownQuestion()` names a removed question. In one question per view, `shownQuestionOf(before, board.get().inView)` falls back to the first question when `inView` is unset. The train shows no announcement before any navigation in all three engines, so something on the first render differs from that reading. The candidates are an `inView` set to a question that is not shown, or a `before` document that does not hold the question yet.
 

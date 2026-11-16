@@ -16,12 +16,12 @@ Every act SHALL work from the keyboard with a visible focus ring: options, "Othe
 - **THEN** focus moves to the next question to do's heading
 
 #### Scenario: Tab from a heading to its widget in each engine
-- **WHEN** in Chromium, Firefox and WebKit the user clicks the heading of a question holding a Tree and presses Tab
+- **WHEN** in Chromium, Firefox and WebKit the user focuses the heading of a question holding a Tree (by a jump or Shift+Tab) and presses Tab
 - **THEN** focus enters the Tree before it reaches any control of another question
 
 #### Scenario: Tab reaches the delivery switch in each engine
-- **WHEN** in Chromium, Firefox and WebKit the user presses Tab repeatedly from the board's header
-- **THEN** focus reaches the outbox's delivery switch before it comes back to the header
+- **WHEN** in Chromium, Firefox and WebKit the user presses Tab repeatedly from the header's "Keys" button
+- **THEN** focus reaches the outbox's delivery switch before it comes back to "Keys"
 
 ### Requirement: Focus moves clear the sticky bars
 Each move of focus to a question's heading, or to a field to fix, SHALL first scroll the view so that the element lies wholly between the sticky bars (the context header, the tab strip with tabs, the feedback tray) and the viewport's bottom, or starts just under them when taller than that space. This holds for the next-to-do, outline, strip, unread-reply, agent-change and "Go" jumps, the question navigator, tab activation, After an answer and Focus after Answer and Submit (WCAG 2.2 SC 2.4.11).
@@ -53,6 +53,33 @@ Each move of focus to a question's heading, or to a field to fix, SHALL first sc
 #### Scenario: A jump in each engine
 - **WHEN** in Chromium, Firefox and WebKit, at 1280×800 with sections, the user activates "Next to do" towards a heading below the viewport, and again towards a heading in another tab
 - **THEN** within one second the target heading has focus and lies wholly between the header, or the tab strip, and the viewport's bottom edge
+
+### Requirement: The question in view
+With sections or tabs, the question in view SHALL be the one whose card holds focus while that card shows between the sticky bars; else the one whose card crosses a reading line a third of the way down that space, or the last card above the line; at the end of the page, the last card shown. It SHALL follow scrolling, focus moves into a card and jumps, never a focus outside every card. A draft restored after a reload SHALL keep its question in view until the user scrolls or focuses a card.
+
+#### Scenario: Scrolling with focus outside the cards
+- **WHEN** with sections and focus on no card the user scrolls until question 7's card crosses the reading line
+- **THEN** question 7 is the question in view
+
+#### Scenario: The card holding focus
+- **WHEN** focus is in question 3's card and the card shows between the bars, while question 4's card crosses the reading line
+- **THEN** question 3 is the question in view
+
+#### Scenario: The end of the page
+- **WHEN** the user scrolls to the end of the page and the last question's card shows, above the reading line
+- **THEN** the last question is the question in view
+
+#### Scenario: Another tab
+- **WHEN** with tabs the user activates another tab
+- **THEN** the question in view is a question of that tab, and follows scrolling within it
+
+#### Scenario: After a reload
+- **WHEN** a board reloads with question 5 as its draft's question in view, and the page opens at its top
+- **THEN** question 5 stays the question in view until the user scrolls or focuses a card
+
+#### Scenario: Next to do on a fresh board
+- **WHEN** with sections a board has just opened at its top, question 1 to do, and the user presses "Next to do" with the pointer and releases it a moment later
+- **THEN** focus goes to question 1's heading, not to the question after it
 
 ### Requirement: Status messages for the answering flow
 The board SHALL hold one polite status region outside the cards, present from the first render, which announces each result of the answering flow as text in the ask's language without moving focus. A message SHALL never say more than is true: sent is not delivered, ready is not sent, and "sent" is said only once the board page reports the command sent (NFR-10, AD-10; WCAG 2.2 SC 4.1.3). The agent pill SHALL not be a live region.
@@ -106,8 +133,8 @@ The board SHALL hold one polite status region outside the cards, present from th
 - **THEN** the region's text begins "Risposta inviata: PostgreSQL."
 
 #### Scenario: The first question removed before any navigation
-- **WHEN** a board in one question per view has just opened on its first question, "Q1", and the agent deletes it before the user navigates
-- **THEN** the region reads "Question removed by the agent: Q1." and the board shows the next question
+- **WHEN** a board in one question per view has just opened on its first question, Q1, titled "Database", and the agent deletes it before the user navigates
+- **THEN** the region reads "Question removed by the agent: Database." and the board shows the next question
 
 ### Requirement: Reduced motion
 The board's own motion SHALL be the move to the next question, scrolled smoothly for at most 250 ms, and the arrival mark, an accent edge on the card that fades over 1.2 seconds. Under `prefers-reduced-motion: reduce` the scroll SHALL be instant, the arrival mark static for 1.2 seconds then removed, and no animation or transition of the view or the board page SHALL last longer than 0 ms (WCAG 2.2 SC 2.3.3).

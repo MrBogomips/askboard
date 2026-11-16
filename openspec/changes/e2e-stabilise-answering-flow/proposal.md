@@ -24,8 +24,8 @@ Serves NFR-7 (the three engines), NFR-10 (a status message never missing or untr
   - The Gantt is reached by Tab from its question's heading.
   - The keys panel's Shift is expected in the catalog's form ("Maiusc" in it-IT off macOS).
   - The arrival mark is checked as soon as the move happens.
-- **The focus move holds in every engine (#241, #242 in WebKit).** The board's focus move ends with the target focused and clear of the bars, whether or not the smooth move's frames run. When the target's node was replaced, the move finds it again.
-- **The removal announced before any navigation (#243).** In one question per view, the question shown is known from the first render, so the agent removing it is announced.
+- **The focus move holds in every engine (#241, #242 in WebKit).** The board's focus move ends with the target focused and clear of the bars, whether or not the smooth move's frames run. When the target's node was replaced, the move finds it again. The probe found the cause of the "Next to do" failures: a pointer press on the jump set the question in view from the reading line before the click, so the jump went one question too far. A focus outside every card now leaves the question in view alone.
+- **The removal announced before any navigation (#243).** The board already announces it. The test expected the number "Q1" where the region names the question by its title, so the test is corrected and a scenario pins the title.
 - **Investigated, then fixed (#240, #239).**
   - Firefox's Tab path from a question's heading to its widget, and to the outbox's delivery switch.
   - Firefox's report of the ask row's `bdi` elements as clipped.
@@ -44,12 +44,13 @@ None.
 
 - `view-and-widgets`: scenarios added that the train showed unmet in some engines:
   - "Focus moves clear the sticky bars": a jump in each engine.
+  - "The question in view": a focus outside every card leaves it as it is.
   - "Status messages for the answering flow": the first question removed before any navigation.
   - "Reduced motion": the target in view in each engine.
   - "Keyboard core": Tab from a heading to its widget, and to the delivery switch, in each engine.
 
 ## Impact
 
-- `packages/view/src/shell/`: `reveal.ts`, `index.tsx` or `board.tsx` (the question shown at first render), and `ask-row.tsx` or the rail's scroll boxes if the investigations find the cause there.
+- `packages/view/src/shell/`: `reveal.ts` with its callers in `board.tsx` and `question-card.tsx`, and `use-question-in-view.ts`. The #240 and #239 investigations found causes in the tests, not the board.
 - `packages/view/test/browser/`: the harness (`dom.ts`, `draft-results.ts`, `tree-grid.ts`, `lifecycle-test.ts`) and about 25 browser files.
 - No contract, protocol or key-table change. No new dependency. Chunk sizes move by a few hundred bytes at most.
