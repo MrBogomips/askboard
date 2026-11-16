@@ -18,7 +18,7 @@ import { SnapshotButton } from "./snapshot-button.tsx";
 import type { SnapshotControl, SnapshotOffer } from "./snapshot-control.ts";
 import type { StatusMessages } from "./status-messages.ts";
 import type { Store } from "./store.ts";
-import { BUTTON_SECONDARY } from "./styles.ts";
+import { BUTTON_ICON } from "./styles.ts";
 import { ThemeControl } from "./theme-control.tsx";
 import { Clipped } from "./who-and-where.tsx";
 
@@ -40,8 +40,6 @@ export type AskRowProps = {
     | { readonly control: SnapshotControl; readonly offer: SnapshotOffer }
     | undefined;
 };
-
-const ICON_BUTTON = `${BUTTON_SECONDARY} w-control-height justify-center px-0`;
 
 export const AskRow = ({
   title,
@@ -89,7 +87,7 @@ export const AskRow = ({
           data-askboard-settings=""
           aria-label={text("toggles.settings")}
           title={text("toggles.settings")}
-          className={ICON_BUTTON}
+          className={BUTTON_ICON}
           onClick={controls.openSettings}
         >
           <IconSettings className="size-4" />

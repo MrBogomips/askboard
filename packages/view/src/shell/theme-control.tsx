@@ -12,7 +12,7 @@ import type { StringKey } from "../strings/index.ts";
 import type { ViewPresentation } from "../view-protocol.ts";
 import { fixedBy, type PresentationControls } from "./presentation-controls.ts";
 import { Segmented } from "./segmented.tsx";
-import { BUTTON_SECONDARY, SECTION_LABEL } from "./styles.ts";
+import { BUTTON_ICON, SECTION_LABEL } from "./styles.ts";
 
 // A project file fixes a key for a board; a Snapshot is a file of its own, which no setting reaches.
 const fixedIn = (
@@ -103,7 +103,7 @@ export const ThemeControl = ({ controls }: { readonly controls: PresentationCont
         data-askboard-theme=""
         aria-label={text("toggles.theme")}
         title={text("toggles.theme")}
-        className={`${BUTTON_SECONDARY} w-control-height px-0 justify-center`}
+        className={BUTTON_ICON}
       >
         <IconTheme className="size-4" />
       </Popover.Trigger>

@@ -6,10 +6,19 @@
 export const FOCUS_RING =
   "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring";
 
-/** `button-secondary`, with `button-disabled`. */
-export const BUTTON_SECONDARY =
-  `inline-flex h-control-height shrink-0 items-center gap-1.5 rounded-md border border-border bg-muted px-md text-control text-foreground enabled:hover:bg-card ${FOCUS_RING} ` +
+const BUTTON_SECONDARY_BASE =
+  `inline-flex h-control-height shrink-0 items-center gap-1.5 rounded-md border border-border bg-muted text-control text-foreground enabled:hover:bg-card ${FOCUS_RING} ` +
   "disabled:text-muted-foreground disabled:opacity-50";
+
+/** `button-secondary`, with `button-disabled`. */
+export const BUTTON_SECONDARY = `${BUTTON_SECONDARY_BASE} px-md`;
+
+/**
+ * `button-secondary` holding an icon alone: square, the icon centred, no padding. Built on the base
+ * rather than by appending `px-0` to `BUTTON_SECONDARY`, whose `px-md` comes later in the generated
+ * CSS and would leave the icon 2 px wide (#254).
+ */
+export const BUTTON_ICON = `${BUTTON_SECONDARY_BASE} w-control-height justify-center`;
 
 /** `button-link`: link weight, no fill or border (F-77). */
 export const BUTTON_LINK =
