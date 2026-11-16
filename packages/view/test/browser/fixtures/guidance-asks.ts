@@ -47,3 +47,25 @@ export const guidanceAsk = (
     items: ids.map((id) => plain(id, language, marked.includes(id) ? MARKUP_TITLE : undefined)),
   };
 };
+
+/**
+ * A board of four short questions, s1 to s4, each one text field (a card of about 330 px, where a
+ * choice question's is 420 and more). Question 2's card lies wholly in view at 1280x800 with the
+ * page at its top, and the page still scrolls past it (answer-moves-to-top, task 1.6). Neutral
+ * content only.
+ */
+export const shortAsk = (suffix = "a1") => ({
+  askId: `short-4-${suffix}`,
+  title: "Short steps",
+  language: "en-US",
+  delivery: "immediate",
+  items: ["s1", "s2", "s3", "s4"].map((id) => ({
+    type: "question",
+    id,
+    props: {
+      text: `Step ${id}?`,
+      header: id.toUpperCase(),
+      items: [{ type: "text-field", id: `${id}-name`, props: { label: "Name" } }],
+    },
+  })),
+});

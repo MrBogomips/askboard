@@ -13,7 +13,7 @@ In code since `answer-moves-to-top` (Issue #256): the move After an answer, and 
 
 **Seams added.** `alignDelta`, `Align`, `ScrollRange` and `revealAndFocus`'s `align`; `{components.arrival-mark}`. The other focus moves keep the least scroll by design.
 
-**Where the fixture differs from the spec.** "A question already in view" says the card is wholly in view with the page at its top. `guidanceAsk`'s cards are 420 px tall, so question 2 (549 to 968 px at 1280×800) is only in part in view, for any count; its heading is in view, which is what the least scroll left alone. The browser case asserts that and the move.
+**The fixture for "A question already in view".** `guidanceAsk`'s choice cards are 420 px tall, so question 2 is never wholly in view at 1280×800. `shortAsk` (`fixtures/guidance-asks.ts`) is four questions of one text field each (327 px cards): question 2 lies at 456 to 783 px with the page at its top, and the case asserts that before the answer.
 
 **Sizes.** `shell` 289,173 to 289,924 bytes (+751, 0.3%), within the budget; `chunk-sizes.json` not re-recorded.
 

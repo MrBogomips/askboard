@@ -12,7 +12,7 @@ import { describe, expect, test } from "bun:test";
 import { readFile } from "node:fs/promises";
 import type { Locator } from "playwright";
 import { answeringAsk, type Presentation } from "./fixtures/answering-flow-asks.ts";
-import { guidanceAsk, MARKUP_TITLE } from "./fixtures/guidance-asks.ts";
+import { guidanceAsk, MARKUP_TITLE, shortAsk } from "./fixtures/guidance-asks.ts";
 import {
   eventually,
   expectNoCspProblem,
@@ -422,13 +422,23 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
     test(
       "a question already in view: the page still scrolls and the card starts under the header",
       async () => {
-        // Question 2's heading is in view with the page at its top (its card, 420 px tall, only in part).
-        const { run, board } = await openPlain(start, 4);
+        const run = await start(lifecycleScenario(shortAsk(), dist));
+        const board = await openBoard(run, ["s1", "s2", "s3", "s4"]);
+        // Before the answer, question 2's card lies wholly in view with the page at its top.
+        const before = await boxOf(card(board, "s2"));
+        expect(before.top).toBeGreaterThanOrEqual(
+          (await boxOf(board.view.getByRole("banner"))).bottom,
+        );
+        expect(before.bottom).toBeLessThanOrEqual(await viewportBottom(board));
         expect(await scrollY(board)).toBe(0);
-        await sendFirst(board, run, "p1");
-        await expectCardUnderHeader(board, "p2");
+        await card(board, "s1")
+          .getByRole("textbox", { name: "Name" })
+          .fill("Ada", { timeout: STEP_TIMEOUT_MS });
+        await answerOf(board, "s1").click({ timeout: STEP_TIMEOUT_MS });
+        await actsSent(run, 1);
+        await expectCardUnderHeader(board, "s2");
         expect(await scrollY(board)).toBeGreaterThan(0);
-        await eventually(() => isFocused(headingOf(board, "p2")), "focus on the p2 heading");
+        await eventually(() => isFocused(headingOf(board, "s2")), "focus on the s2 heading");
       },
       TEST_TIMEOUT_MS,
     );
