@@ -9,8 +9,8 @@ import { createDerivedStore } from "./derived-store.ts";
 import { createDraftStore } from "./draft-store.ts";
 import { sentMessageOf } from "./flow-messages.ts";
 import { settle } from "./revision-confirm.ts";
-import { heldWorkOf, submitActsOf } from "./submit.ts";
 import { createStatusMessages } from "./status-messages.ts";
+import { heldWorkOf, submitActsOf } from "./submit.ts";
 
 // "Accept as is" takes "Answer"'s path (accept-as-sent, design decision 5): the field checks, the
 // confirmation of a received verdict, immediate delivery sending at once, submitted delivery
