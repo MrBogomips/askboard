@@ -1,6 +1,6 @@
 # As built: `answering-flow-visual`
 
-In code since `answering-flow-visual` (Issues #168 and #213, direction B of the UX review): the board's frame is three header rows, a 256 px rail with the outline over the outbox, a feedback tray and no bottom bar; the progress strip, the outbox ledger, short question numbers, the card's head, badge, stripe and answered look, key caps in the main buttons, the ask pill's records and a compact density. The board protocol is widened by one minor (the draft record's `numbers` and `nextNumber`); the version is bound at task 10.1: <to be bound at 10.1>.
+In code since `answering-flow-visual` (Issues #168 and #213, direction B of the UX review): the board's frame is three header rows, a 256 px rail with the outline over the outbox, a feedback tray and no bottom bar; the progress strip, the outbox ledger, short question numbers, the card's head, badge, stripe and answered look, key caps in the main buttons, the ask pill's records and a compact density. The board protocol is widened by one minor (the draft record's `numbers` and `nextNumber`); the version was bound at task 10.1: board protocol 1.12.
 
 **Where the code lives.** All in `packages/view/src/shell/` unless said.
 - The frame: `board-header.tsx` (three rows, `shadow-sm`), `ask-row.tsx` (title, ID, the ask pill, the agent pill, the postponed warning, the tools), `theme-control.tsx` (the Theme popover holding `QuickToggles`), `progress-row.tsx` (count, "Next to do", "Prefill recommended", unread, agent change), `progress-strip.tsx`, `rail.tsx`, `outbox.tsx` (from `bottom-bar.tsx`, deleted) with `ledger-cells.tsx`, `feedback-tray.tsx`, `snapshot-button.tsx` (`SnapshotOutcome` for the tray), `button-keys.tsx`, `use-scroll-padding.ts`.
@@ -26,5 +26,7 @@ In code since `answering-flow-visual` (Issues #168 and #213, direction B of the 
 **Deviations from the design.** The stripe's attribute is `data-askboard-stripe` (the badge keeps `data-askboard-state`, which twenty tests count); the Tab rule above; the Snapshot message's live region; "Next to do" is absent, not disabled, with nothing to do (D1); a Draft revision shows no receipt (change 4's rule, which the scenario now follows); "Prefill recommended ({count})" is `bar.selectRecommended`, change 4's string.
 
 **Decisions at the re-base.** `IconNextOpen` stays `arrow-right` (change 4's); a revision reads Draft with no receipt, as in change 4. Sizes on b7da3fea: shell +16,750, accepted up to 17,000.
+
+**Pre-PR fixes.** An option's label and description, each chosen label in the answered look and the Other… text are `<bdi className="inline-block max-w-full">`s (`option-text.tsx`, `question-actions.tsx`); the strip's chip is isolated with U+2068 and U+2069 after its controls are stripped (`isolate`, `shell/bidi.ts`), name and tooltip alike (X-21, X-22, AD-8). At the board's 1280 px width the rail leaves the Tree toolbar too narrow, so "Select all" moves into its "More" menu and the UJ-2 conformance walk expects "More" as the toolbar's Tab stop (a1a3a8b3).
 
 **Version bound.** On 2026-11-16, rebased onto origin/main dd563708: board protocol 1.12 (main 1.11); no other set widened.
