@@ -6,12 +6,12 @@ In code since `answering-flow-reload-and-reveal` (Issues #250 and #259): an answ
 
 **What was built and where.**
 - `shell/board-draft.ts`: `isRestoredAnswer` splits the record's values into the question's own labels and the widget values, and compares those with the logged answer's `values` by `sameJson` (D1).
-- `shell/reveal.ts`: `watchInput` (passive capture listeners on the window for `wheel`, `touchstart`, `pointerdown` and `keydown` of ArrowUp, ArrowDown, PageUp, PageDown, Home, End, Space, Tab, ignoring repeats), `isUsers` (a drift is the user's after such input or when focus left the target) and re-planning in `scrollSmoothly` over the time left of `SCROLL_MS`; `land` uses the same test (D2). The `overflow-anchor` hold stays (D4).
+- `shell/reveal.ts`: `watchInput` (passive capture listeners on the window for `wheel`, `touchstart`, `pointerdown` and `keydown` of ArrowUp, ArrowDown, PageUp, PageDown, Home, End, Space, Tab, ignoring repeats), `isUsers` (a wheel, a touch or a scrolling key also halts the move at its next frame, since a frame's own `scrollTo` right after the event aborted the engine's pending scroll in Firefox and WebKit; a drift is the user's after such input or when focus left the target) and re-planning in `scrollSmoothly` over the time left of `SCROLL_MS`; `land` uses the same test (D2). The `overflow-anchor` hold stays (D4).
 
 **Tests.** Unit: `board-draft.test.ts` (the stale widget answer cases), `reveal-smooth.test.ts` (re-plan, input, focus, listeners; `reveal.ts` at 100% lines). Browser: `widget-answered` (the mirror holding the sent Tree, red before the fix in Firefox only), `answering-flow-advance` ("the move and the browser's own scroll": red before the fix in Firefox and WebKit on the page-started smooth scroll). #250's entry left `known-failures.json`.
 
 **Seams added.** None exported.
 
-**The pointer on a scrollbar (D3).** A probe with Playwright's headless Chromium, Firefox and WebKit on macOS got `pointerdown` for a press at the viewport scrollbar's x in each engine. Headless scrollbars may be overlay ones, so a real scrollbar drag in a headed engine is not shown; where none arrives, a drag starting within a move's 282 ms is corrected until the landing (the accepted residual).
+**The pointer on a scrollbar (D3).** Unknown: the probe had no scrollbar to press. Playwright's headless Chromium hides scrollbars, and headless Firefox and WebKit on macOS draw overlay ones, so whether a press on a classic scrollbar dispatches `pointerdown` is not shown. Where none arrives, a drag starting within a move's 282 ms is corrected until the landing. Follow-up: #270.
 
-**What only CI shows.** The train on the branch (`e2e.yml`, nightly cadence) for the Linux runner, where #259 shows. Open: Firefox loses the board page's `pagehide` flush (design.md, Open Question 1), a separate defect for the coordinator to file.
+**What only CI shows.** The train on the branch (`e2e.yml`, nightly cadence) for the Linux runner, where #259 shows. Open: Firefox loses the board page's `pagehide` flush (design.md, Open Question 1), Issue #269.

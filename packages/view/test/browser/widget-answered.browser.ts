@@ -130,5 +130,27 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
       },
       TEST_TIMEOUT_MS,
     );
+
+    test(
+      "a takeover while the mirror still holds the sent Tree shows the answered card (#250)",
+      async () => {
+        const run = await start(lifecycleScenario(planAsk, dist));
+        const first = await openBoard(run, ["plan"]);
+        await renameUx(first, false);
+        await mirrored(
+          run,
+          (record) => JSON.stringify(record.questions.plan?.values ?? {}).includes(NEW_NAME),
+          "the renamed Tree",
+        );
+        await answerOf(first, "plan").click({ timeout: STEP_TIMEOUT_MS });
+        await first.receipt("sent").waitFor({ timeout: STEP_TIMEOUT_MS });
+        const second = await openBoard(run, ["plan"]);
+        await second.receipt("sent").waitFor({ timeout: STEP_TIMEOUT_MS });
+        const card = second.view.locator('[data-askboard-question="plan"]');
+        expect(await card.getAttribute("data-askboard-stripe")).not.toBe("draft");
+        await expectEdited(second);
+      },
+      TEST_TIMEOUT_MS,
+    );
   });
 }

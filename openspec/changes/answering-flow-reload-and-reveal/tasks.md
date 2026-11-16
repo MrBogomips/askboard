@@ -10,7 +10,7 @@ Terms:
 
 - [x] 0.1 Check the borrowed names listed under design.md, merge points: `git grep -n <name> origin/main -- packages` for each. Tests: none. Verify: a note gives each name's file. A missing name stops the work for `/openspec-update-change`.
 - [x] 0.2 Probe D3. In each engine, press the mouse on the view's viewport scrollbar (x = `innerWidth` − 4, at mid-height) of a tall board, and record whether a `pointerdown` reaches the view's window. Tests: none (probe, not committed). Verify: a note gives the answer per engine. An engine with none goes into the as-built note as the accepted residual.
-  - Note: 0.1: all names found on main (files as design.md lists them). 0.2: Playwright's headless Chromium, Firefox and WebKit on macOS each delivered `pointerdown` (and `mousedown`) to the page for a press at the scrollbar's x; no engine lacks it in this probe, though headless scrollbars may be overlay ones.
+  - Note: 0.1: all names found on main (files as design.md lists them). 0.2: unknown. The probe had no scrollbar to press: Playwright's headless Chromium hides scrollbars (`--hide-scrollbars`) and headless Firefox and WebKit on macOS draw overlay ones, so the `pointerdown` they delivered at the scrollbar's x came from the page, not from a scrollbar. Follow-up: #270.
 
 ## 1. A restored answer is not a revision (`shell/board-draft.ts`, #250)
 
@@ -25,6 +25,7 @@ Terms:
   Scenarios: A reload while the mirror still holds the sent Tree, A revision restored as one. Verify: red on the first case only.
 - [x] 1.2 In `isRestoredAnswer`, split the record's `values` into the question's own labels and the widget values, and compare the widget values with `status.answer.values ?? {}` by `sameJson` (D1). Update `restoreDraft`'s doc comment. Tests: 1.1. Verify: 1.1 green; every `board-draft*.test.ts` and `answer-state.test.ts` case green.
 - [x] 1.3 In `widget-answered.browser.ts`, add a case (D5): rename, wait with `mirrored` for a record holding the renamed Tree, press "Answer", reload as soon as the receipt reads "sent". Expect the receipt "sent", the stripe not `draft`, the renamed name read-only, then "delivered to the agent" after `collect`. Remove #250's entry from `known-failures.json`. Scenarios: A reload while the mirror still holds the sent Tree, A takeover in that state. Verify: File run in Firefox red before 1.2 and green after; File run in Chromium green; `bun test packages/view/test/browser/harness` green.
+  - Note: review S-2: a second case opens a takeover tab after the mirror held the renamed Tree and the receipt read "sent"; the reload case is the deterministic one in Firefox.
 
 ## 2. The user's scroll during the move (`shell/reveal.ts`, #259)
 
@@ -50,6 +51,7 @@ Terms:
   - focus moved to another heading during the move: the move stops and that heading keeps focus.
 
   `standingStill` stays for the other cases. Scenarios: as 2.1. Verify: File run in WebKit red before 2.2 on the first case, green after; File run in Chromium green.
+  - Note: review S-1: the wheel and focus cases now expect q4's card not 8 px under the header, the page unchanged between 500 ms and 1 s after a wheel of -600 px, and q1's heading in the viewport. With the wheel/halt handling and the focus clause of `isUsers` removed, both were red in Chromium, Firefox and WebKit; green with them restored. The first form of the wheel case exposed a defect in 2.2: in Firefox and WebKit a frame's `scrollTo` right after a wheel event aborted the wheel's own scroll before the page position showed it, so the move went on. A wheel, a touch or a scrolling key now halts the move at its next frame with no landing (`Move.halt`); a pointer press alone still waits for a drift. Unit cases added in `reveal-smooth.test.ts`.
 
 ## 3. Documents and record
 
@@ -69,5 +71,5 @@ Terms:
 ## Workflow follow-up
 
 - The change alters the reveal and how an answered card is restored: dispatch a train on the branch before merge (`gh workflow run e2e.yml --ref worktree-fix-reload-receipt-and-reveal -f cadence=nightly`). Triage its new failures as AGENTS.md, CI says. #250's test must pass in all three engines there.
-- The coordinator files design.md's Open Question 1 (Firefox loses the `pagehide` flush) as a defect after the duplicate search (#145, #200).
+- design.md's Open Question 1 (Firefox loses the `pagehide` flush) is Issue #269, "Firefox: the board's last draft save before a reload never reaches the server".
 - Archive after the pull request is merged.

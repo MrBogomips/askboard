@@ -78,7 +78,7 @@ The prototype was removed.
 - `wheel`, `touchstart` and `pointerdown`;
 - `keydown` of a key that scrolls or moves focus: ArrowUp, ArrowDown, PageUp, PageDown, Home, End, Space and Tab.
 
-It removes these listeners when it ends. At each frame, a position more than 2 px off the move's last one is the user's when that input came during the move, or when focus has left the move's target (the document's `activeElement`). The move then stops as today, and the landing is skipped.
+It removes these listeners when it ends. A wheel, a touch or a scrolling key also halts the move at its next frame, with no landing: the engine applies that scroll after the event, and a frame's own `scrollTo` in between aborts it (found in Firefox and WebKit). At each frame, a position more than 2 px off the move's last one is the user's when that input came during the move, or when focus has left the move's target (the document's `activeElement`). The move then stops as today, and the landing is skipped.
 
 Any other drift is the browser's. The move then plans again: new frames from the current position to the target measured now (the same `deltaFor`), over the time left of `SCROLL_MS`, at least one frame. The deadline and `land` are unchanged, and `land` uses the same test. A `keydown` with `repeat` set does not count: a key held since before the move (Space or Enter on the primary) is not new input, and a key pressed during the move gives its first, non-repeated `keydown`.
 
@@ -119,7 +119,7 @@ Only documented APIs: `addEventListener` with `{ capture, passive }`, `WheelEven
 
 ## Risks / Trade-offs
 
-- [A user's scroll with no listed input (a scrollbar drag in an engine without `pointerdown`, find-in-page) is corrected for at most 282 ms, then landed over] → The move is short. Task 0.2 records which engines are affected, and a follow-up Issue opens if one is.
+- [A user's scroll with no listed input (a scrollbar drag in an engine without `pointerdown`, find-in-page) is corrected for at most 282 ms, then landed over] → The move is short. Task 0.2's probe could not reach a scrollbar, so which engines are affected is open: Issue #270.
 - [Re-planning chases a browser scroll that keeps running past the deadline] → The first instant frame aborts it per CSSOM View. The landing at `MOVE_DEADLINE_MS` puts the card in place. The browser cases check the place one second later.
 - [A widget value compared by `sameJson` differs only in a representation (key order, `-0`)] → `sameJson` ignores key order. Any other difference keeps the work, which is the fail-safe side (no work lost).
 - [The #250 browser case is red only in Firefox locally] → The unit cases are red in every runtime. The train on the branch runs the case in all three engines.
@@ -130,4 +130,4 @@ None: no stored format changes. A record mirrored by an older board restores und
 
 ## Open Questions
 
-1. Firefox drops the board page's `pagehide` flush on reload: `board-host` never gets the record the view sent last. So in Firefox, edits made within 300 ms before a reload are lost. It may explain #145 and #200. It is out of scope here. Proposed follow-up: a `type:defect` Issue (`area:board`, `source:review`), filed by the coordinator after the duplicate search.
+1. Firefox drops the board page's `pagehide` flush on reload: `board-host` never gets the record the view sent last. So in Firefox, edits made within 300 ms before a reload are lost. It may explain #145 and #200. It is out of scope here. Filed as Issue #269.
