@@ -52,6 +52,7 @@ Terms:
 
   `standingStill` stays for the other cases. Scenarios: as 2.1. Verify: File run in WebKit red before 2.2 on the first case, green after; File run in Chromium green.
   - Note: review S-1: the wheel and focus cases now expect q4's card not 8 px under the header, the page unchanged between 500 ms and 1 s after a wheel of -600 px, and q1's heading in the viewport. With the wheel/halt handling and the focus clause of `isUsers` removed, both were red in Chromium, Firefox and WebKit; green with them restored. The first form of the wheel case exposed a defect in 2.2: in Firefox and WebKit a frame's `scrollTo` right after a wheel event aborted the wheel's own scroll before the page position showed it, so the move went on. A wheel, a touch or a scrolling key now halts the move at its next frame with no landing (`Move.halt`); a pointer press alone still waits for a drift. Unit cases added in `reveal-smooth.test.ts`.
+  - Note: train 43926789415 (WebKit): `answering-flow-in-view` and `answering-flow-focus` cases scrolled the page by script (`scrollBy`) while an earlier move still ran, which stood for the user's scroll under the old rule and is now the browser's own (D2). Those cases now scroll through `userScrollBy` (`harness/lifecycle-test.ts`: a `wheel` event, then the scroll). Both files were red in WebKit locally before, green after.
 
 ## 3. Documents and record
 

@@ -176,6 +176,19 @@ export const labelText = (control: Locator): Promise<string> =>
 export const viewportBottom = (board: Board): Promise<number> =>
   board.view.locator("body").evaluate((body) => body.ownerDocument.defaultView?.innerHeight ?? 0);
 
+/**
+ * Scrolls the view's page by `delta` as the user does: a wheel event on the view's window, then
+ * the scroll. The move after an answer treats a scroll with no input of the user's as the
+ * browser's own and plans over it (answering-flow-reload-and-reveal, D2), so a test that stands for
+ * the user's scroll while a move may still run says so with the input.
+ */
+export const userScrollBy = (board: Board, delta: number): Promise<void> =>
+  board.view.locator("body").evaluate((body, by) => {
+    const win = body.ownerDocument.defaultView;
+    win?.dispatchEvent(new WheelEvent("wheel", { deltaY: by, bubbles: true, cancelable: true }));
+    win?.scrollBy(0, by);
+  }, delta);
+
 /** A card's follow-up composer, once its thread is open. */
 export const composerOf = (board: Board, id: string): Locator =>
   card(board, id).getByRole("textbox", { name: "Ask the agent a follow-up…" });

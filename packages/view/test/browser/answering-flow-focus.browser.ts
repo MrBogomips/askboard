@@ -41,6 +41,7 @@ import {
   openBoard,
   optionOf,
   receiptOf,
+  userScrollBy,
   viewportBottom,
 } from "./harness/lifecycle-test.ts";
 import { readViewBuild } from "./harness/view-build.ts";
@@ -106,9 +107,7 @@ const hideBehind = async (board: Board, id: string, bar: "bar" | "header"): Prom
       : await boxOf(board.view.getByRole("banner"));
   const box = await boxOf(heading);
   const target = bar === "bar" ? edge.top + 6 : edge.bottom - 6 - (box.bottom - box.top);
-  await heading.evaluate((element, delta) => {
-    element.ownerDocument.defaultView?.scrollBy(0, delta);
-  }, box.top - target);
+  await userScrollBy(board, box.top - target);
   await eventually(async () => {
     const now = await boxOf(heading);
     return bar === "bar" ? now.bottom > edge.top : now.top < edge.bottom;
@@ -173,12 +172,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const heading = headingOf(board, "q2");
         const foot = await viewportBottom(board);
         const box = await boxOf(heading);
-        await heading.evaluate(
-          (element, delta) => {
-            element.ownerDocument.defaultView?.scrollBy(0, delta);
-          },
-          box.bottom - (foot - 16),
-        );
+        await userScrollBy(board, box.bottom - (foot - 16));
         await eventually(async () => {
           const now = await boxOf(heading);
           return Math.abs(now.bottom - (foot - 16)) < 1;
@@ -378,12 +372,7 @@ for (const engine of enginesFrom(process.env.ASKBOARD_E2E_ENGINES)) {
         const bar = { top: await viewportBottom(board) };
         const line = header.bottom + (bar.top - header.bottom) / 3;
         const q5 = await boxOf(card(board, "q5"));
-        await board.view
-          .locator("body")
-          .evaluate(
-            (body, by) => body.ownerDocument.defaultView?.scrollBy(0, by),
-            q5.top - (line - 20),
-          );
+        await userScrollBy(board, q5.top - (line - 20));
         await eventually(
           async () => (await outlineEntry(board, "q5").getAttribute("aria-current")) === "true",
           "q5 marked current",
