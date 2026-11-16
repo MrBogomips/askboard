@@ -68,7 +68,7 @@ In submitted delivery, "Accept as is" SHALL mark the question's answer ready, he
 
 #### Scenario: Keep mine unmarks a held acceptance
 - **WHEN** in "All together" a held undo of a postpone lies beneath a held acceptance, the agent updates the question, and the user chooses "Keep mine"
-- **THEN** the acceptance is no longer held and the card is back in draft, the undo is held again, and Submit sends no acceptance naming the earlier revision
+- **THEN** the acceptance is no longer held and the card reads Draft while work is left (a note, a kept value or entry), else To do, the undo is held again, and Submit sends no acceptance naming the earlier revision
 
 #### Scenario: A reload keeps it ready
 - **WHEN** the user reloads the tab after marking a Timeline question ready with "Accept as is"
