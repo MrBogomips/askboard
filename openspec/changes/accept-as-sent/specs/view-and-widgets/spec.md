@@ -25,8 +25,8 @@
 - **THEN** "Accept as is" is not offered while the node is moved, and is offered again once the Tree equals what was sent
 
 #### Scenario: Not on a kept revision
-- **WHEN** the agent updates a Tree question the user had edited, the user chooses "Keep mine", then moves the node back to where revision 1 had it
-- **THEN** "Accept as is" is not offered; after "Reload, losing my work" the card shows the current revision and offers it
+- **WHEN** the agent updates a Tree question the user had edited and holds a note on, the user chooses "Keep mine", then moves the node back to where revision 1 had it, the note still held
+- **THEN** the card still shows revision 1 and "Accept as is" is not offered; after "Reload, losing my work" the card shows the current revision and offers it
 
 #### Scenario: Not on a question with options
 - **WHEN** a question has options, a recommended one among them, and an untouched Gantt
@@ -49,7 +49,7 @@ One press of "Accept as is" SHALL take the path of "Answer", with its field chec
 
 #### Scenario: A filled field travels with the acceptance
 - **WHEN** the user fills that required TextField and presses "Accept as is"
-- **THEN** one answer act with `asSent: true` and the field's result in `results` is sent, and no `values"
+- **THEN** one answer act with `asSent: true` and the field's result in `results` is sent, and no `values`
 
 #### Scenario: Revising an accepted answer
 - **WHEN** the user presses "Edit" on a question answered with "Accept as is", moves a Tree node and presses "Answer"
@@ -60,11 +60,15 @@ One press of "Accept as is" SHALL take the path of "Answer", with its field chec
 - **THEN** it acts as a click, and `Ctrl+Enter` on the card with no change sends nothing
 
 ### Requirement: Accept as is in All together
-In submitted delivery, "Accept as is" SHALL mark the question's answer ready, held as accepted as sent. Submit SHALL send that held answer as an answer act with `asSent: true`, in the order the user produced it. A reload or takeover SHALL restore the held answer as accepted. "Edit" on that ready answer SHALL unmark it, as it unmarks any ready answer (AD-20, FR-22).
+In submitted delivery, "Accept as is" SHALL mark the question's answer ready, held as accepted as sent. Submit SHALL send that held answer as an answer act with `asSent: true`, in the order the user produced it. A reload or takeover SHALL restore the held answer as accepted. "Edit" on that ready answer, or "Keep mine" on its question, SHALL unmark it (AD-20, FR-22).
 
 #### Scenario: Ready, then sent by Submit
 - **WHEN** in "All together" the user presses "Accept as is" on an untouched Kanban question, then presses Submit
 - **THEN** the card reads "Ready, not sent" until Submit, and Submit's command carries an answer act with `asSent: true` and no `values` for it
+
+#### Scenario: Keep mine unmarks a held acceptance
+- **WHEN** in "All together" a held undo of a postpone lies beneath a held acceptance, the agent updates the question, and the user chooses "Keep mine"
+- **THEN** the acceptance is no longer held and the card is back in draft, the undo is held again, and Submit sends no acceptance naming the earlier revision
 
 #### Scenario: A reload keeps it ready
 - **WHEN** the user reloads the tab after marking a Timeline question ready with "Accept as is"

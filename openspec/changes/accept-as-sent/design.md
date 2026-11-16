@@ -6,8 +6,8 @@ Read on `origin/main` 95e7e31f. See proposal.md, Why. The PO handed this change 
 
 **What refuses an untouched answer today.**
 
-- `core`: `answered` (`core/src/lifecycle/acts.ts`) gets the widget content from `widgetContentOf` (`lifecycle/widget-values.ts:276`). That function drops every value equal to the item as sent (`sameAs`, a `canonicalize` comparison). `widgetChange` is then false, and `contentProblem` (`lifecycle/answers.ts:65`) refuses an answer with no label, no "Other…" text, no change and no result. The refusal is the core spec's scenario "Widget values equal to what was sent".
-- `view`: `answer` (`shell/card-acts.ts:364`) sends only when `answerContentOf` gives a choice, values, results or "Other…" text. Otherwise it sends the note alone as a `note` act, which is what reached the agent in #263. "Answer" is disabled until the question has a choice, a widget change or a note.
+- `core`: `widgetContentOf` (`lifecycle/widget-values.ts:276`) drops every value equal to the item as sent, so `contentProblem` (`lifecycle/answers.ts:65`) refuses an answer with no label, "Other…" text, change or result (core spec, "Widget values equal to what was sent").
+- `view`: `answer` (`shell/card-acts.ts:364`) otherwise sends the note alone as a `note` act, which is what reached the agent in #263.
 - The board state's `unchanged` (AD-20) is no carrier: it compares two of the agent's revisions and never reaches the agent.
 
 **Which widgets cannot be answered unchanged.** The registry's widget types that declare `edits` (`contract/src/widgets/registry.ts:83`) are Tree, Gantt, Table, Kanban, Timeline and LaTeX. The `gantt-plan` and `wbs-pert` molecules expand to a Gantt and a Tree. On a question with no options, an untouched item of these types gives no content, so the question cannot be answered. The other answering widgets (Ranking, Approval, Scale, Chart, Document review, the Form's fields) give a result, which counts as content. The Form's fields start empty (AD-10), so the "Form over agent values" #263 names does not exist today: a Table is the review grid over agent values. A future type that declares `edits` joins this change's rule with no further edit.
@@ -89,7 +89,7 @@ An answer with values equal to what was sent and no `asSent` is still refused, a
 - The status region says `status.acceptedAsIs` when the act is sent, and `status.ready` when it is held. The answered look reads `answer.line` with `answer.asSent` ("Accepted as is") when the answer the card shows carries `asSent`. `answerPartsOf` gains the case.
 - "Edit" on a ready accepted answer unmarks it, as any ready answer. A revision that edits the widget then answers through "Answer" with `replaces`, as today.
 
-The view's own message check (`view-protocol.ts`, `ANSWER`) gains `asSent` as a check (`oneOf(true)`), in `someOf`. `derivedAlone` treats it as answering content. The board page's `answerProblem` (`board-page/model.ts`) admits `asSent` and refuses it beside a choice, "Other…" text or values, on a revision that is not current, or on a question with options. The core still decides, so nothing on the page widens what can be appended.
+The view's own message check (`view-protocol.ts`, `ANSWER`) gains `asSent` as a check (`oneOf(true)`), in `someOf`. `derivedAlone` treats it as answering content. The board page's own `asSentProblem` (`board-page/model.ts`, called from its content check) refuses an `asSent` answer beside a choice, "Other…" text, option notes or values, naming a revision that is not the question's current one (task 9.13), or on a question with options. The edit-widget and input-field checks are the core's, which still decides, so nothing on the page widens what can be appended.
 
 ### 6. Strings
 
@@ -102,7 +102,7 @@ New keys, en-US and it-IT (the Italian marked "to review" in EXPERIENCE.md's Voi
 
 ### 7. Keys: none added
 
-"Accept as is" is a card button in the Tab order, activated by Enter, Space or a click, like "Accept recommended", which has no key either. `Ctrl+Enter` stays the primary's (`answerKeyOf`). On an untouched card the primary is disabled, so the key sends nothing. Binding the key to the acceptance would let a held or stray key accept content the user never looked at, the failure #262 shows from the pointer side.
+"Accept as is" is a card button in the Tab order (Enter, Space or a click), like "Accept recommended". `Ctrl+Enter` stays the primary's, which is disabled on an untouched card. A key bound to the acceptance would let a stray press accept content the user never looked at.
 
 No widget's keys change: no `KEY_VOCABULARY` entry, `KeyHint`, `KeysButton` or keys-panel row, and `keys-coverage.test.ts` is untouched (the button is the card's, not a widget tool).
 
@@ -121,7 +121,7 @@ Bound on 2026-11-16, rebased onto origin/main 95e7e31f (main had not moved since
 
 ### 9. Teaching
 
-`tools/build/skills/templates/answers.md` gains one bullet after `tooLarge`'s: an answer with `asSent: true` is the user's explicit acceptance of the question's content exactly as sent, carries no `changes`, may carry the note, the input fields' `results` (decision 11, D-A) and the derived values, and is never a missing answer. `bun run build:skills` regenerates `skills/askboard/references/answers.md` (2,323 characters, within its 6,000 budget). No widget's teaching text says an untouched editable item gives no answer (checked: none of the six), so none changes.
+`tools/build/skills/templates/answers.md` gains one bullet after `tooLarge`'s: an answer with `asSent: true` is the user's explicit acceptance of the question's content exactly as sent, carries no `changes`, may carry the note, the input fields' `results` (decision 11, D-A) and the derived values, and is never a missing answer. `bun run build:skills` regenerates `skills/askboard/references/answers.md` (2,636 characters at 8ba95e07, within its 6,000 budget). No widget's teaching text says an untouched editable item gives no answer (checked: none of the six), so none changes.
 
 ### 10. Documents in the change
 
@@ -136,9 +136,11 @@ The coordinator took these after the pre-PR reviews, under the PO's unattended h
 
 **D-A: input fields' results travel with an acceptance (closes S-1).** "Accepted as sent" means the question's edit widgets are unchanged. Before this, an untouched Table beside a required TextField could never be accepted: the button sent no results, and the field check refused the answer. Results are now admitted beside `asSent` for items whose type declares a `fieldCheck` in the registry: TextField, NumberField, MoneyField, DateField, Toggle and PickField. The field checks must pass. The button is disabled with the field's reason while a required field is empty, stays offered once it is filled, and sends the results.
 
+The view cannot read the registry's functions, so the six field chunks register a component fact `inputField`. `acceptAsSentOffered` and `answer` read that fact, and a parity test (`packages/widgets/test/component-facts.test.ts`) holds it equal to the registry's `fieldCheck` (S-8). A chunk's `check` is no stand-in, since Document review registers one.
+
 Why `fieldCheck` and not "every type without `edits`": the other result types give the user's own verdict or work on the question. An Approval's "Reject" or a moved Ranking beside an answer labelled "Accepted as is" would contradict it. Those results keep "Answer" as their path, and the core refuses them beside `asSent`. No shipped type declares both `edits` and a result.
 
-**D-B: only on the current revision (closes X-1, X-2).** After "Keep mine", the card shows an older revision, or a revision with items read-only. An acceptance there would claim the agent's current content was accepted, while the user saw other content: `fetch`, Snapshots and the card would then disagree with the claim. So the view offers "Accept as is" only on the current revision, with nothing read-only, and `answer` re-checks this. The core refuses an `asSent` answer whose `rev` is not current, even a kept one (fail closed, NFR-10), with `content` naming the current revision. The path back is "Reload, losing my work", which shows the current revision, where "Accept as is" is offered again.
+**D-B: only on the current revision (closes X-1, X-2).** After "Keep mine", the card shows an older revision, or a revision with items read-only. An acceptance there would claim the agent's current content was accepted, while the user saw other content: `fetch`, Snapshots and the card would then disagree with the claim. So the view offers "Accept as is" only on the current revision, with nothing read-only, and `answer` re-checks this. The core refuses an `asSent` answer whose `rev` is not current, even a kept one (fail closed, NFR-10), with `content` naming the current revision. The path back is "Reload, losing my work", which shows the current revision, where "Accept as is" is offered again. In "All together", "Keep mine" releases a held acceptance (`releaseHeld`, task 9.12): the card is back in draft, and an undo held beneath the acceptance is held again. Submit therefore never sends an acceptance naming an earlier revision (S-10).
 
 ## Merge points and borrowed seams
 
@@ -155,7 +157,7 @@ Seams this change adds: `asSent` on the five schemas; `acceptAsSentOffered`; `ac
 
 ## Risks / Trade-offs
 
-- **View and core compare differently.** The view tests "no element change" and the core tests canonical equality. A value with no element change but a different canonical form would be one the diff cannot describe, which the core refuses anyway. The view sends no values with `asSent`, so the core sees none to compare. The risk left is the view offering the button where the core would refuse (options, edit types, the revision, a result type). Both read the same props, registry and revision, and a refusal leaves the work in the draft (AD-10).
+- **View and core compare differently.** The view tests "no element change" and the core canonical equality; the view sends no values with `asSent`, so the core compares none. The risk left is the view offering the button where the core would refuse (options, edit types, the revision, a result type). Both read the same props, registry and revision, and a refusal leaves the work in the draft (AD-10).
 - **A submit refused whole.** A held `asSent` act the core refuses would refuse Submit's atomic command. The hold is made only where the button is offered, and a ready card is locked; an agent update raises the agent-change notice, which disables Submit until the user chooses.
 - **Rendering change.** The card's action row changes, so the pre-merge e2e train is dispatched on the branch (AGENTS.md, CI; the PO's answer on #227). Its failures are triaged against the last train on `main` before merge.
 
