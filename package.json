@@ -30,12 +30,12 @@
     "@askboard/contract": "workspace:*",
     "@askboard/molecules": "workspace:*",
     "@askboard/view": "workspace:*",
-    "@biomejs/biome": "2.6.7",
+    "@biomejs/biome": "2.6.8",
     "@modelcontextprotocol/client": "2.4.0",
     "@types/bun": "1.4.4",
     "ajv": "8.20.0",
     "lightningcss": "1.33.0",
-    "playwright": "1.65.0",
+    "playwright": "1.65.1",
     "typescript": "7.0.2"
   },
   "volta": {
